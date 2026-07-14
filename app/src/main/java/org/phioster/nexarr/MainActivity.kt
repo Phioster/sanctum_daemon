@@ -39,17 +39,19 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -62,6 +64,7 @@ import org.phioster.nexarr.ui.DashboardViewModel
 private val MatrixGreen = Color(0xFF00FF41)
 private val Black = Color(0xFF000000)
 private val Surface = Color(0xFF0A0A0A)
+private val ErrRed = Color(0xFFFF5555)
 private val Mono = FontFamily.Monospace
 
 private val NexarrColors = darkColorScheme(
@@ -137,7 +140,7 @@ private fun DashboardScreen(vm: DashboardViewModel, onAdd: () -> Unit) {
             if (services.isEmpty()) {
                 Spacer(Modifier.height(48.dp))
                 Text(
-                    "no services yet\n\ntap + to add Jellyfin or Radarr",
+                    "no services yet\n\ntap + to add a service",
                     fontFamily = Mono,
                     color = MatrixGreen.copy(alpha = 0.6f),
                     fontSize = 14.sp,
@@ -164,9 +167,7 @@ private fun ServiceCard(config: ServiceConfig, status: ServiceStatus?, onRemove:
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(10.dp).width(10.dp)) {
-                    Text("●", color = accent, fontSize = 12.sp)
-                }
+                Box(Modifier.size(10.dp)) { Text("●", color = accent, fontSize = 12.sp) }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(config.label, fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen, fontSize = 18.sp)
@@ -177,7 +178,7 @@ private fun ServiceCard(config: ServiceConfig, status: ServiceStatus?, onRemove:
                     status.ok -> "[ok]"
                     else -> "[err]"
                 }
-                Text(tag, fontFamily = Mono, color = if (status?.ok == true) MatrixGreen else Color(0xFFFF5555))
+                Text(tag, fontFamily = Mono, color = if (status?.ok == true) MatrixGreen else ErrRed)
                 Spacer(Modifier.width(4.dp))
                 IconButton(onClick = onRemove) {
                     Icon(Icons.Filled.Delete, contentDescription = "Remove", tint = MatrixGreen.copy(alpha = 0.6f))
@@ -194,7 +195,11 @@ private fun ServiceCard(config: ServiceConfig, status: ServiceStatus?, onRemove:
                         }
                     }
                 }
-                else -> Text(status.error ?: "error", fontFamily = Mono, color = Color(0xFFFF5555), fontSize = 12.sp)
+                else -> Text(status.error ?: "error", fontFamily = Mono, color = ErrRed, fontSize = 12.sp)
+            }
+            status?.note?.let {
+                Spacer(Modifier.height(8.dp))
+                Text(it, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
             }
         }
     }
@@ -208,13 +213,22 @@ private fun AddServiceScreen(
     onTest: suspend (ServiceConfig) -> ServiceStatus,
 ) {
     var type by remember { mutableStateOf(ServiceType.JELLYFIN) }
-    var label by remember { mutableStateOf("") }
+    var label by remember { mutableStateOf(ServiceType.JELLYFIN.label) }
+    var labelEdited by remember { mutableStateOf(false) }
     var url by remember { mutableStateOf("") }
     var apiKey by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var jellyLogin by remember { mutableStateOf(false) }
     var cfId by remember { mutableStateOf("") }
     var cfSecret by remember { mutableStateOf("") }
     var testResult by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+
+    // Keep label in sync with the chosen type until the user edits it manually.
+    LaunchedEffect(type) { if (!labelEdited) label = type.label }
+
+    val usesLogin = (type == ServiceType.JELLYFIN && jellyLogin) || type == ServiceType.NZBGET
 
     fun build(): ServiceConfig {
         val headers = buildMap {
@@ -226,8 +240,17 @@ private fun AddServiceScreen(
             label = label.ifBlank { type.label },
             baseUrl = url.trim(),
             apiKey = apiKey.trim(),
+            username = username.trim(),
+            password = password,
+            useLogin = type == ServiceType.JELLYFIN && jellyLogin,
             customHeaders = headers,
         )
+    }
+
+    val canSave = url.isNotBlank() && when (type) {
+        ServiceType.JELLYFIN -> if (jellyLogin) username.isNotBlank() && password.isNotBlank() else apiKey.isNotBlank()
+        ServiceType.RADARR -> apiKey.isNotBlank()
+        ServiceType.NZBGET -> username.isNotBlank() && password.isNotBlank()
     }
 
     Scaffold(
@@ -262,13 +285,32 @@ private fun AddServiceScreen(
                 }
             }
             Spacer(Modifier.height(12.dp))
-            Field("Label", label) { label = it }
+            Field("Label", label) { label = it; labelEdited = true }
             Field("Base URL (https://…)", url) { url = it }
-            Field("API key", apiKey) { apiKey = it }
+
+            // Jellyfin can auth by API key or by login.
+            if (type == ServiceType.JELLYFIN) {
+                Spacer(Modifier.height(8.dp))
+                Row {
+                    FilterChip(selected = !jellyLogin, onClick = { jellyLogin = false }, label = { Text("API key", fontFamily = Mono) })
+                    Spacer(Modifier.width(8.dp))
+                    FilterChip(selected = jellyLogin, onClick = { jellyLogin = true }, label = { Text("Login", fontFamily = Mono) })
+                }
+            }
+
+            if (type == ServiceType.RADARR || (type == ServiceType.JELLYFIN && !jellyLogin)) {
+                Field("API key", apiKey) { apiKey = it }
+            }
+            if (usesLogin) {
+                Field("Username", username) { username = it }
+                Field("Password", password, isPassword = true) { password = it }
+            }
+
             Spacer(Modifier.height(8.dp))
             Text("Cloudflare Access (optional)", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
             Field("CF-Access-Client-Id", cfId) { cfId = it }
-            Field("CF-Access-Client-Secret", cfSecret) { cfSecret = it }
+            Field("CF-Access-Client-Secret", cfSecret, isPassword = true) { cfSecret = it }
+
             Spacer(Modifier.height(16.dp))
             Row {
                 OutlinedButton(onClick = {
@@ -279,10 +321,9 @@ private fun AddServiceScreen(
                     }
                 }) { Text("Test", fontFamily = Mono) }
                 Spacer(Modifier.width(12.dp))
-                FilledTonalButton(
-                    onClick = { onSave(build()) },
-                    enabled = url.isNotBlank() && apiKey.isNotBlank(),
-                ) { Text("Save", fontFamily = Mono) }
+                FilledTonalButton(onClick = { onSave(build()) }, enabled = canSave) {
+                    Text("Save", fontFamily = Mono)
+                }
             }
             testResult?.let {
                 Spacer(Modifier.height(12.dp))
@@ -293,12 +334,18 @@ private fun AddServiceScreen(
 }
 
 @Composable
-private fun Field(label: String, value: String, onChange: (String) -> Unit) {
+private fun Field(
+    label: String,
+    value: String,
+    isPassword: Boolean = false,
+    onChange: (String) -> Unit,
+) {
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
         label = { Text(label, fontFamily = Mono) },
         singleLine = true,
+        visualTransformation = if (isPassword) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
         textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = Mono),
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
     )
