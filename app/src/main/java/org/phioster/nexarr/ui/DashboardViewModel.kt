@@ -10,11 +10,14 @@ import kotlinx.coroutines.launch
 import org.phioster.nexarr.data.ServiceStore
 import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceStatus
+import org.phioster.nexarr.model.ArrLibraryItem
 import org.phioster.nexarr.model.ArrMissingItem
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
 import org.phioster.nexarr.model.SeerrRequestItem
+import org.phioster.nexarr.net.arrLibrary
+import org.phioster.nexarr.net.arrLibrarySearch
 import org.phioster.nexarr.net.arrMissing
 import org.phioster.nexarr.net.arrQueue
 import org.phioster.nexarr.net.arrQueueRemove
@@ -103,6 +106,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrQueueList(config: ServiceConfig): List<ArrQueueItem> = arrQueue(config)
     suspend fun arrSearch(config: ServiceConfig, id: Int): String = arrSearchItem(config, id)
     suspend fun arrRemove(config: ServiceConfig, id: Int): String = arrQueueRemove(config, id)
+    suspend fun arrLibraryList(config: ServiceConfig): List<ArrLibraryItem> = arrLibrary(config)
+    suspend fun arrLibSearch(config: ServiceConfig, id: Int): String = arrLibrarySearch(config, id)
 
     suspend fun seerrList(config: ServiceConfig, pendingOnly: Boolean): List<SeerrRequestItem> =
         seerrRequests(config, pendingOnly)

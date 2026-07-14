@@ -436,13 +436,27 @@ private fun ArrScreen(
     val status = statuses[config.id]
     val accent = Color(config.type.accent)
     val scope = rememberCoroutineScope()
-    var tab by remember { mutableStateOf(0) }
+    var tab by remember { mutableStateOf(0) } // 0=Library, 1=Missing, 2=Queue
+    var library by remember { mutableStateOf<List<ArrLibraryItem>?>(null) }
     var missing by remember { mutableStateOf<List<ArrMissingItem>?>(null) }
     var queue by remember { mutableStateOf<List<ArrQueueItem>?>(null) }
+    var query by remember { mutableStateOf("") }
+    var sortBy by remember { mutableStateOf(0) } // 0=Title, 1=Year, 2=Size
+    var sortMenu by remember { mutableStateOf(false) }
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var barMenu by remember { mutableStateOf(false) }
 
+    suspend fun loadLibrary() {
+        listError = null
+        try {
+            library = vm.arrLibraryList(config)
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            listError = t.message
+        }
+    }
     suspend fun loadMissing() {
         listError = null
         try {
@@ -463,11 +477,12 @@ private fun ArrScreen(
             listError = t.message
         }
     }
-    LaunchedEffect(tab) { if (tab == 0) loadMissing() else loadQueue() }
+    suspend fun reload() = when (tab) { 0 -> loadLibrary(); 1 -> loadMissing(); else -> loadQueue() }
+    LaunchedEffect(tab) { reload() }
     fun act(action: suspend () -> String) {
         scope.launch {
             actionMsg = action()
-            if (tab == 0) loadMissing() else loadQueue()
+            reload()
             vm.refreshAll()
         }
     }
@@ -519,10 +534,33 @@ private fun ArrScreen(
                     Text(it, fontFamily = Mono, color = if (it.startsWith("error")) ErrRed else MatrixGreen, fontSize = 12.sp)
                 }
             }
-            Row(Modifier.padding(horizontal = 16.dp)) {
-                FilterChip(selected = tab == 0, onClick = { tab = 0 }, label = { Text("Missing", fontFamily = Mono) })
+            Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                FilterChip(selected = tab == 0, onClick = { tab = 0 }, label = { Text("Library", fontFamily = Mono) })
                 Spacer(Modifier.width(8.dp))
-                FilterChip(selected = tab == 1, onClick = { tab = 1 }, label = { Text("Queue", fontFamily = Mono) })
+                FilterChip(selected = tab == 1, onClick = { tab = 1 }, label = { Text("Missing", fontFamily = Mono) })
+                Spacer(Modifier.width(8.dp))
+                FilterChip(selected = tab == 2, onClick = { tab = 2 }, label = { Text("Queue", fontFamily = Mono) })
+                if (tab == 0) {
+                    Spacer(Modifier.weight(1f))
+                    Box {
+                        TextButton(onClick = { sortMenu = true }) { Text("sort", fontFamily = Mono, color = MatrixGreen) }
+                        DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                            DropdownMenuItem(text = { Text("Title", fontFamily = Mono) }, onClick = { sortMenu = false; sortBy = 0 })
+                            DropdownMenuItem(text = { Text("Year", fontFamily = Mono) }, onClick = { sortMenu = false; sortBy = 1 })
+                            DropdownMenuItem(text = { Text("Size", fontFamily = Mono) }, onClick = { sortMenu = false; sortBy = 2 })
+                        }
+                    }
+                }
+            }
+            if (tab == 0) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text("Filter library", fontFamily = Mono) },
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = Mono),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                )
             }
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
@@ -531,24 +569,61 @@ private fun ArrScreen(
                     Text("error: $listError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
                 } else {
                     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                        if (tab == 0) {
-                            val m = missing
-                            when {
-                                m == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                m.isEmpty() -> item { Text("nothing missing", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                else -> items(m) { mi -> ArrMissingRow(mi, accent) { act { vm.arrSearch(config, mi.id) } } }
+                        when (tab) {
+                            0 -> {
+                                val filtered = library?.filter { it.title.contains(query, ignoreCase = true) }?.let { l ->
+                                    when (sortBy) {
+                                        1 -> l.sortedByDescending { it.year }
+                                        2 -> l.sortedByDescending { it.sizeMb }
+                                        else -> l.sortedBy { it.title.lowercase() }
+                                    }
+                                }
+                                when {
+                                    filtered == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    filtered.isEmpty() -> item { Text(if (query.isBlank()) "library is empty" else "no matches", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    else -> items(filtered) { li -> ArrLibraryRow(li, accent) { act { vm.arrLibSearch(config, li.id) } } }
+                                }
                             }
-                        } else {
-                            val q = queue
-                            when {
-                                q == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                q.isEmpty() -> item { Text("queue is empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                else -> items(q) { qi -> ArrQueueRow(qi) { act { vm.arrRemove(config, qi.id) } } }
+                            1 -> {
+                                val m = missing
+                                when {
+                                    m == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    m.isEmpty() -> item { Text("nothing missing", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    else -> items(m) { mi -> ArrMissingRow(mi, accent) { act { vm.arrSearch(config, mi.id) } } }
+                                }
+                            }
+                            else -> {
+                                val q = queue
+                                when {
+                                    q == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    q.isEmpty() -> item { Text("queue is empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    else -> items(q) { qi -> ArrQueueRow(qi) { act { vm.arrRemove(config, qi.id) } } }
+                                }
                             }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ArrLibraryRow(item: ArrLibraryItem, accent: Color, onSearch: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        Column(Modifier.fillMaxWidth().clickable { menu = true }.padding(vertical = 10.dp)) {
+            Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(2.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(item.subtitle, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(if (item.sizeMb > 0) "${item.sizeMb} MB" else "", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+        }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(text = { Text("Search", fontFamily = Mono) }, onClick = { menu = false; onSearch() })
         }
     }
 }

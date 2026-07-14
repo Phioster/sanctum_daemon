@@ -14,3 +14,12 @@ data class ArrQueueItem(
     val status: String,
     val progress: Float,
 )
+
+/** A library entry (movie/series/artist). */
+data class ArrLibraryItem(
+    val id: Int,
+    val title: String,
+    val subtitle: String,
+    val year: Int,
+    val sizeMb: Long,
+)

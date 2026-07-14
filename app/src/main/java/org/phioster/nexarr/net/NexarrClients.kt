@@ -19,6 +19,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import retrofit2.Response
+import org.phioster.nexarr.model.ArrLibraryItem
 import org.phioster.nexarr.model.ArrMissingItem
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
@@ -264,9 +265,23 @@ suspend fun seerrDecline(config: ServiceConfig, id: Int): String = withContext(D
 )
 @Serializable private data class ArrQueuePage(val records: List<ArrQueueRecord> = emptyList())
 
+@Serializable private data class ArrStats(val sizeOnDisk: Long = 0)
+@Serializable private data class ArrLibraryRecord(
+    val id: Int = 0,
+    val title: String = "",
+    val artistName: String = "",
+    val year: Int = 0,
+    val hasFile: Boolean = false,
+    val monitored: Boolean = false,
+    val status: String = "",
+    val sizeOnDisk: Long = 0,
+    val statistics: ArrStats? = null,
+)
+
 private interface ArrApi {
     @GET suspend fun missing(@Url url: String): ArrMissingPage
     @GET suspend fun queue(@Url url: String): ArrQueuePage
+    @GET suspend fun library(@Url url: String): List<ArrLibraryRecord>
     @POST suspend fun command(@Url url: String, @Body body: JsonObject): Response<ResponseBody>
     @DELETE suspend fun deleteQueue(@Url url: String): Response<ResponseBody>
 }
@@ -321,6 +336,45 @@ suspend fun arrQueueRemove(config: ServiceConfig, id: Int): String = withContext
         val r = apiFor<ArrApi>(config, apiKeyHeader(config))
             .deleteQueue("$base/queue/$id?removeFromClient=true&blocklist=false")
         if (r.isSuccessful) "removed" else "error: HTTP ${r.code()}"
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun arrLibrary(config: ServiceConfig): List<ArrLibraryItem> = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    val path = when (config.type) {
+        ServiceType.SONARR -> "series"
+        ServiceType.LIDARR -> "artist"
+        else -> "movie"
+    }
+    apiFor<ArrApi>(config, apiKeyHeader(config)).library("$base/$path").map { r ->
+        val title = if (config.type == ServiceType.LIDARR) r.artistName else r.title
+        val size = (r.statistics?.sizeOnDisk ?: r.sizeOnDisk) / (1024 * 1024)
+        val sub = when (config.type) {
+            ServiceType.LIDARR -> if (r.monitored) "monitored" else "unmonitored"
+            ServiceType.SONARR -> listOfNotNull(r.year.takeIf { it > 0 }?.toString(), r.status.ifBlank { null }).joinToString(" · ")
+            else -> "${r.year} · ${if (r.hasFile) "downloaded" else "missing"}"
+        }
+        ArrLibraryItem(r.id, title, sub, r.year, size)
+    }
+}
+
+/** Search at the library level (whole movie/series/artist). */
+suspend fun arrLibrarySearch(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
+    try {
+        val base = arrBase(config.type)
+        val (name, field) = when (config.type) {
+            ServiceType.SONARR -> "SeriesSearch" to "seriesIds"
+            ServiceType.LIDARR -> "ArtistSearch" to "artistIds"
+            else -> "MoviesSearch" to "movieIds"
+        }
+        val body = buildJsonObject {
+            put("name", name)
+            putJsonArray(field) { add(id) }
+        }
+        val r = apiFor<ArrApi>(config, apiKeyHeader(config)).command("$base/command", body)
+        if (r.isSuccessful) "search started" else "error: HTTP ${r.code()}"
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
     }
