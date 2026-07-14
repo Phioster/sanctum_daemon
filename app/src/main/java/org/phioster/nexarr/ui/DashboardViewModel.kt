@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import org.phioster.nexarr.data.ServiceStore
 import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceStatus
+import org.phioster.nexarr.net.clearJellyfinSession
 import org.phioster.nexarr.net.fetchStatus
 
 class DashboardViewModel(app: Application) : AndroidViewModel(app) {
@@ -40,8 +41,15 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun addService(config: ServiceConfig) {
-        viewModelScope.launch { store.save(_services.value + config) }
+    /** Adds a new service or replaces an existing one with the same id. */
+    fun upsertService(config: ServiceConfig) {
+        clearJellyfinSession(config.id)
+        viewModelScope.launch {
+            val list = _services.value
+            val idx = list.indexOfFirst { it.id == config.id }
+            val updated = if (idx >= 0) list.toMutableList().apply { this[idx] = config } else list + config
+            store.save(updated)
+        }
     }
 
     fun removeService(id: String) {

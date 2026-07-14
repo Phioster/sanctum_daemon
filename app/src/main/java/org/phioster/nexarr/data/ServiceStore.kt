@@ -10,6 +10,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.phioster.nexarr.model.ServiceConfig
+import org.phioster.nexarr.security.Crypto
 
 private val Context.dataStore by preferencesDataStore(name = "nexarr_services")
 private val SERVICES_KEY = stringPreferencesKey("services_json")
@@ -24,11 +25,13 @@ private val json = Json { ignoreUnknownKeys = true }
 class ServiceStore(private val context: Context) {
 
     val services: Flow<List<ServiceConfig>> = context.dataStore.data.map { prefs ->
-        prefs[SERVICES_KEY]?.let { runCatching { json.decodeFromString<List<ServiceConfig>>(it) }.getOrNull() }
-            ?: emptyList()
+        prefs[SERVICES_KEY]?.let { stored ->
+            runCatching { json.decodeFromString<List<ServiceConfig>>(Crypto.decrypt(stored)) }.getOrNull()
+        } ?: emptyList()
     }
 
     suspend fun save(list: List<ServiceConfig>) {
-        context.dataStore.edit { it[SERVICES_KEY] = json.encodeToString(list) }
+        val encrypted = Crypto.encrypt(json.encodeToString(list))
+        context.dataStore.edit { it[SERVICES_KEY] = encrypted }
     }
 }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -95,20 +96,22 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
     var addOpen by remember { mutableStateOf(false) }
-    if (addOpen) {
+    var editing by remember { mutableStateOf<ServiceConfig?>(null) }
+    if (addOpen || editing != null) {
         AddServiceScreen(
-            onCancel = { addOpen = false },
-            onSave = { vm.addService(it); addOpen = false },
+            existing = editing,
+            onCancel = { addOpen = false; editing = null },
+            onSave = { vm.upsertService(it); addOpen = false; editing = null },
             onTest = { vm.test(it) },
         )
     } else {
-        DashboardScreen(vm = vm, onAdd = { addOpen = true })
+        DashboardScreen(vm = vm, onAdd = { addOpen = true }, onEdit = { editing = it })
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DashboardScreen(vm: DashboardViewModel, onAdd: () -> Unit) {
+private fun DashboardScreen(vm: DashboardViewModel, onAdd: () -> Unit, onEdit: (ServiceConfig) -> Unit) {
     val services by vm.services.collectAsState()
     val statuses by vm.statuses.collectAsState()
 
@@ -151,6 +154,7 @@ private fun DashboardScreen(vm: DashboardViewModel, onAdd: () -> Unit) {
                 ServiceCard(
                     config = svc,
                     status = statuses[svc.id],
+                    onEdit = { onEdit(svc) },
                     onRemove = { vm.removeService(svc.id) },
                 )
                 Spacer(Modifier.height(12.dp))
@@ -160,10 +164,10 @@ private fun DashboardScreen(vm: DashboardViewModel, onAdd: () -> Unit) {
 }
 
 @Composable
-private fun ServiceCard(config: ServiceConfig, status: ServiceStatus?, onRemove: () -> Unit) {
+private fun ServiceCard(config: ServiceConfig, status: ServiceStatus?, onEdit: () -> Unit, onRemove: () -> Unit) {
     val accent = Color(config.type.accent)
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable { onEdit() },
         colors = CardDefaults.cardColors(containerColor = Surface),
     ) {
         Column(Modifier.padding(16.dp)) {
@@ -209,20 +213,21 @@ private fun ServiceCard(config: ServiceConfig, status: ServiceStatus?, onRemove:
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddServiceScreen(
+    existing: ServiceConfig? = null,
     onCancel: () -> Unit,
     onSave: (ServiceConfig) -> Unit,
     onTest: suspend (ServiceConfig) -> ServiceStatus,
 ) {
-    var type by remember { mutableStateOf(ServiceType.JELLYFIN) }
-    var label by remember { mutableStateOf(ServiceType.JELLYFIN.label) }
-    var labelEdited by remember { mutableStateOf(false) }
-    var url by remember { mutableStateOf("") }
-    var apiKey by remember { mutableStateOf("") }
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var jellyLogin by remember { mutableStateOf(false) }
-    var cfId by remember { mutableStateOf("") }
-    var cfSecret by remember { mutableStateOf("") }
+    var type by remember { mutableStateOf(existing?.type ?: ServiceType.JELLYFIN) }
+    var label by remember { mutableStateOf(existing?.label ?: ServiceType.JELLYFIN.label) }
+    var labelEdited by remember { mutableStateOf(existing != null) }
+    var url by remember { mutableStateOf(existing?.baseUrl ?: "") }
+    var apiKey by remember { mutableStateOf(existing?.apiKey ?: "") }
+    var username by remember { mutableStateOf(existing?.username ?: "") }
+    var password by remember { mutableStateOf(existing?.password ?: "") }
+    var jellyLogin by remember { mutableStateOf(existing?.useLogin ?: false) }
+    var cfId by remember { mutableStateOf(existing?.customHeaders?.get("CF-Access-Client-Id") ?: "") }
+    var cfSecret by remember { mutableStateOf(existing?.customHeaders?.get("CF-Access-Client-Secret") ?: "") }
     var testResult by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
@@ -236,7 +241,7 @@ private fun AddServiceScreen(
             if (cfId.isNotBlank()) put("CF-Access-Client-Id", cfId.trim())
             if (cfSecret.isNotBlank()) put("CF-Access-Client-Secret", cfSecret.trim())
         }
-        return ServiceConfig(
+        val base = ServiceConfig(
             type = type,
             label = label.ifBlank { type.label },
             baseUrl = url.trim(),
@@ -246,6 +251,7 @@ private fun AddServiceScreen(
             useLogin = type == ServiceType.JELLYFIN && jellyLogin,
             customHeaders = headers,
         )
+        return if (existing != null) base.copy(id = existing.id) else base
     }
 
     val canSave = url.isNotBlank() && when {
@@ -258,7 +264,7 @@ private fun AddServiceScreen(
         containerColor = Black,
         topBar = {
             TopAppBar(
-                title = { Text("add service", fontFamily = Mono, color = MatrixGreen) },
+                title = { Text(if (existing != null) "edit service" else "add service", fontFamily = Mono, color = MatrixGreen) },
                 navigationIcon = {
                     IconButton(onClick = onCancel) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen)

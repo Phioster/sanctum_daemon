@@ -30,6 +30,11 @@ private const val MB_AUTH =
 /** config.id -> (jellyfin access token, user label) once a login has succeeded. */
 private val jellyfinSession = mutableMapOf<String, Pair<String, String>>()
 
+/** Drop a cached Jellyfin login token (e.g. after its config was edited). */
+fun clearJellyfinSession(id: String) {
+    jellyfinSession.remove(id)
+}
+
 private fun okClient(config: ServiceConfig, authHeaders: Map<String, String>): OkHttpClient =
     OkHttpClient.Builder()
         .addInterceptor { chain ->
