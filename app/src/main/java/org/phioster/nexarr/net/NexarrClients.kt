@@ -157,16 +157,19 @@ private interface SeerrApi {
 @Serializable private data class NzbStatus(
     val DownloadRate: Long = 0,
     val RemainingSizeMB: Long = 0,
+    val DownloadPaused: Boolean = false,
 )
 
 @Serializable private data class NzbGroupsResp(val result: List<NzbGroup> = emptyList())
 @Serializable private data class NzbGroup(val NZBID: Int = 0)
 
+@Serializable private data class NzbRpcReq(val method: String, val params: List<String> = emptyList(), val id: Int = 1)
+@Serializable private data class NzbBoolResp(val result: Boolean = false)
+
 private interface NzbgetApi {
     @GET("jsonrpc/status") suspend fun status(): NzbStatusResp
     @GET("jsonrpc/listgroups") suspend fun listgroups(): NzbGroupsResp
-    @GET("jsonrpc/pausedownload") suspend fun pause(): Response<ResponseBody>
-    @GET("jsonrpc/resumedownload") suspend fun resume(): Response<ResponseBody>
+    @POST("jsonrpc") suspend fun rpc(@Body req: NzbRpcReq): NzbBoolResp
 }
 
 /** Runs the appropriate status calls for a service and maps them to a card. */
@@ -253,7 +256,8 @@ suspend fun runProwlarrTestAll(config: ServiceConfig): String = withContext(Disp
 
 suspend fun runNzbgetPause(config: ServiceConfig): String = withContext(Dispatchers.IO) {
     try {
-        okOr(apiFor<NzbgetApi>(config, basicHeader(config)).pause(), "paused")
+        val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpc(NzbRpcReq("pausedownload"))
+        if (r.result) "paused" else "error: NZBGet did not accept pause"
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
     }
@@ -261,7 +265,8 @@ suspend fun runNzbgetPause(config: ServiceConfig): String = withContext(Dispatch
 
 suspend fun runNzbgetResume(config: ServiceConfig): String = withContext(Dispatchers.IO) {
     try {
-        okOr(apiFor<NzbgetApi>(config, basicHeader(config)).resume(), "resumed")
+        val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpc(NzbRpcReq("resumedownload"))
+        if (r.result) "resumed" else "error: NZBGet did not accept resume"
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
     }
@@ -339,6 +344,7 @@ private suspend fun nzbgetStatus(config: ServiceConfig): ServiceStatus {
     val queue = runCatching { api.listgroups().result.size }.getOrDefault(0)
     return ServiceStatus(
         ok = true,
+        note = if (st.DownloadPaused) "⏸ paused" else "▶ active",
         stats = listOf(
             "KB/s" to (st.DownloadRate / 1024).toString(),
             "Queue" to queue.toString(),

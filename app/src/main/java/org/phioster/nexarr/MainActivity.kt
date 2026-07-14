@@ -310,6 +310,10 @@ private fun ServiceDetailScreen(
                 status == null || status.isLoading -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp)
                 else -> Text(status.error ?: "error", fontFamily = Mono, color = ErrRed, fontSize = 13.sp)
             }
+            status?.note?.let {
+                Spacer(Modifier.height(6.dp))
+                Text(it, fontFamily = Mono, color = accent.copy(alpha = 0.85f), fontSize = 12.sp)
+            }
             Spacer(Modifier.height(20.dp))
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
             Spacer(Modifier.height(16.dp))
@@ -321,6 +325,7 @@ private fun ServiceDetailScreen(
                 scope.launch {
                     actionResult = action()
                     busy = false
+                    vm.refreshAll()
                 }
             }
             when (config.type) {
