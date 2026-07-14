@@ -2,6 +2,7 @@ package org.phioster.nexarr
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
@@ -22,14 +23,18 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -97,21 +102,46 @@ class MainActivity : ComponentActivity() {
 private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
     var addOpen by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<ServiceConfig?>(null) }
-    if (addOpen || editing != null) {
-        AddServiceScreen(
+    var detail by remember { mutableStateOf<ServiceConfig?>(null) }
+
+    val editorOpen = addOpen || editing != null
+    BackHandler(enabled = editorOpen || detail != null) {
+        when {
+            editorOpen -> { addOpen = false; editing = null }
+            else -> detail = null
+        }
+    }
+
+    when {
+        editorOpen -> AddServiceScreen(
             existing = editing,
             onCancel = { addOpen = false; editing = null },
             onSave = { vm.upsertService(it); addOpen = false; editing = null },
             onTest = { vm.test(it) },
         )
-    } else {
-        DashboardScreen(vm = vm, onAdd = { addOpen = true }, onEdit = { editing = it })
+        detail != null -> ServiceDetailScreen(
+            vm = vm,
+            config = detail!!,
+            onBack = { detail = null },
+            onEdit = { editing = detail; detail = null },
+        )
+        else -> DashboardScreen(
+            vm = vm,
+            onAdd = { addOpen = true },
+            onOpen = { detail = it },
+            onEdit = { editing = it },
+        )
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DashboardScreen(vm: DashboardViewModel, onAdd: () -> Unit, onEdit: (ServiceConfig) -> Unit) {
+private fun DashboardScreen(
+    vm: DashboardViewModel,
+    onAdd: () -> Unit,
+    onOpen: (ServiceConfig) -> Unit,
+    onEdit: (ServiceConfig) -> Unit,
+) {
     val services by vm.services.collectAsState()
     val statuses by vm.statuses.collectAsState()
 
@@ -154,6 +184,7 @@ private fun DashboardScreen(vm: DashboardViewModel, onAdd: () -> Unit, onEdit: (
                 ServiceCard(
                     config = svc,
                     status = statuses[svc.id],
+                    onOpen = { onOpen(svc) },
                     onEdit = { onEdit(svc) },
                     onRemove = { vm.removeService(svc.id) },
                 )
@@ -164,10 +195,17 @@ private fun DashboardScreen(vm: DashboardViewModel, onAdd: () -> Unit, onEdit: (
 }
 
 @Composable
-private fun ServiceCard(config: ServiceConfig, status: ServiceStatus?, onEdit: () -> Unit, onRemove: () -> Unit) {
+private fun ServiceCard(
+    config: ServiceConfig,
+    status: ServiceStatus?,
+    onOpen: () -> Unit,
+    onEdit: () -> Unit,
+    onRemove: () -> Unit,
+) {
     val accent = Color(config.type.accent)
+    var menuOpen by remember { mutableStateOf(false) }
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onEdit() },
+        modifier = Modifier.fillMaxWidth().clickable { onOpen() },
         colors = CardDefaults.cardColors(containerColor = Surface),
     ) {
         Column(Modifier.padding(16.dp)) {
@@ -185,8 +223,14 @@ private fun ServiceCard(config: ServiceConfig, status: ServiceStatus?, onEdit: (
                 }
                 Text(tag, fontFamily = Mono, color = if (status?.ok == true) MatrixGreen else ErrRed)
                 Spacer(Modifier.width(4.dp))
-                IconButton(onClick = onRemove) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Remove", tint = MatrixGreen.copy(alpha = 0.6f))
+                Box {
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen.copy(alpha = 0.6f))
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { menuOpen = false; onEdit() })
+                        DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { menuOpen = false; onRemove() })
+                    }
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -205,6 +249,94 @@ private fun ServiceCard(config: ServiceConfig, status: ServiceStatus?, onEdit: (
             status?.note?.let {
                 Spacer(Modifier.height(8.dp))
                 Text(it, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ServiceDetailScreen(
+    vm: DashboardViewModel,
+    config: ServiceConfig,
+    onBack: () -> Unit,
+    onEdit: () -> Unit,
+) {
+    val statuses by vm.statuses.collectAsState()
+    val status = statuses[config.id]
+    val accent = Color(config.type.accent)
+    val scope = rememberCoroutineScope()
+    var actionResult by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+
+    Scaffold(
+        containerColor = Black,
+        topBar = {
+            TopAppBar(
+                title = { Text(config.label, fontFamily = Mono, color = MatrixGreen) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen)
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Edit", tint = MatrixGreen)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
+            )
+        },
+    ) { padding ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            Text(config.type.label, fontFamily = Mono, color = accent, fontSize = 14.sp)
+            Text(config.baseUrl, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp)
+            Spacer(Modifier.height(16.dp))
+            when {
+                status?.ok == true -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    status.stats.forEach { (k, v) ->
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(v, fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen, fontSize = 22.sp)
+                            Text(k.uppercase(), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                        }
+                    }
+                }
+                status != null -> Text(status.error ?: "error", fontFamily = Mono, color = ErrRed, fontSize = 13.sp)
+            }
+            Spacer(Modifier.height(20.dp))
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
+            Spacer(Modifier.height(16.dp))
+            Text("> actions", fontFamily = Mono, color = MatrixGreen, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            when (config.type) {
+                ServiceType.JELLYFIN -> Button(
+                    onClick = {
+                        busy = true
+                        actionResult = null
+                        scope.launch {
+                            actionResult = vm.jellyfinScan(config)
+                            busy = false
+                            vm.refreshAll()
+                        }
+                    },
+                    enabled = !busy,
+                ) { Text(if (busy) "scanning…" else "Scan library", fontFamily = Mono) }
+                else -> Text(
+                    "no actions yet for ${config.type.label}",
+                    fontFamily = Mono,
+                    color = MatrixGreen.copy(alpha = 0.5f),
+                    fontSize = 13.sp,
+                )
+            }
+            actionResult?.let {
+                Spacer(Modifier.height(12.dp))
+                Text(it, fontFamily = Mono, color = if (it.startsWith("error")) ErrRed else MatrixGreen, fontSize = 13.sp)
             }
         }
     }

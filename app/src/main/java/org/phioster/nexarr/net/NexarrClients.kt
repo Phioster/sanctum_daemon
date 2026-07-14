@@ -8,6 +8,8 @@ import kotlinx.serialization.json.Json
 import okhttp3.Credentials
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.ResponseBody
+import retrofit2.Response
 import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceStatus
 import org.phioster.nexarr.model.ServiceType
@@ -80,6 +82,7 @@ private interface JellyfinAuthApi {
 private interface JellyfinApi {
     @GET("Items/Counts") suspend fun counts(): JfCounts
     @GET("Sessions") suspend fun sessions(): List<JfSession>
+    @POST("Library/Refresh") suspend fun refreshLibrary(): Response<ResponseBody>
 }
 
 // ---- Radarr ----
@@ -171,24 +174,20 @@ suspend fun fetchStatus(config: ServiceConfig): ServiceStatus = withContext(Disp
     }
 }
 
+/** Returns the token to use for Jellyfin data calls (API key, or a login token). */
+private suspend fun jellyfinAccessToken(config: ServiceConfig): String {
+    if (!config.useLogin) return config.apiKey
+    jellyfinSession[config.id]?.let { return it.first }
+    val resp = apiFor<JellyfinAuthApi>(config, mapOf("Authorization" to MB_AUTH))
+        .authenticate(JfAuthReq(config.username, config.password))
+    val label = (if (resp.User.Policy.IsAdministrator) "admin: " else "user: ") + resp.User.Name
+    jellyfinSession[config.id] = resp.AccessToken to label
+    return resp.AccessToken
+}
+
 private suspend fun jellyfinStatus(config: ServiceConfig): ServiceStatus {
-    var note: String? = null
-    val token: String = if (config.useLogin) {
-        val cached = jellyfinSession[config.id]
-        if (cached != null) {
-            note = cached.second
-            cached.first
-        } else {
-            val resp = apiFor<JellyfinAuthApi>(config, mapOf("Authorization" to MB_AUTH))
-                .authenticate(JfAuthReq(config.username, config.password))
-            val label = (if (resp.User.Policy.IsAdministrator) "admin: " else "user: ") + resp.User.Name
-            jellyfinSession[config.id] = resp.AccessToken to label
-            note = label
-            resp.AccessToken
-        }
-    } else {
-        config.apiKey
-    }
+    val token = jellyfinAccessToken(config)
+    val note = if (config.useLogin) jellyfinSession[config.id]?.second else null
     val jf = apiFor<JellyfinApi>(config, mapOf("X-Emby-Token" to token))
     val counts = jf.counts()
     val playing = jf.sessions().count { it.NowPlayingItem != null }
@@ -201,6 +200,17 @@ private suspend fun jellyfinStatus(config: ServiceConfig): ServiceStatus {
             "Playing" to playing.toString(),
         ),
     )
+}
+
+/** Triggers a full library scan on Jellyfin. Returns a user-facing result line. */
+suspend fun runJellyfinScan(config: ServiceConfig): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        val resp = apiFor<JellyfinApi>(config, mapOf("X-Emby-Token" to token)).refreshLibrary()
+        if (resp.isSuccessful) "library scan started" else "error: HTTP ${resp.code()}"
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
 }
 
 private suspend fun radarrStatus(config: ServiceConfig): ServiceStatus {

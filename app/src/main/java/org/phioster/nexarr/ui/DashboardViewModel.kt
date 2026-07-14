@@ -12,6 +12,7 @@ import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceStatus
 import org.phioster.nexarr.net.clearJellyfinSession
 import org.phioster.nexarr.net.fetchStatus
+import org.phioster.nexarr.net.runJellyfinScan
 
 class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -58,6 +59,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     /** One-off connection test used by the Add-service screen. */
     suspend fun test(config: ServiceConfig): ServiceStatus = fetchStatus(config)
+
+    /** Triggers a Jellyfin library scan; returns a result line for the UI. */
+    suspend fun jellyfinScan(config: ServiceConfig): String = runJellyfinScan(config)
 
     private fun setStatus(id: String, status: ServiceStatus) {
         _statuses.value = _statuses.value.toMutableMap().apply { put(id, status) }
