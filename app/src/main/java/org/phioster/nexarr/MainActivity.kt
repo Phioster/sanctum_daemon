@@ -127,17 +127,22 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
         editorOpen -> AddServiceScreen(
             existing = editing,
             onCancel = { addOpen = false; editing = null },
-            onSave = { vm.upsertService(it); addOpen = false; editing = null },
+            onSave = {
+                vm.upsertService(it)
+                if (detail?.id == it.id) detail = it // stay on the (now updated) service
+                addOpen = false; editing = null
+            },
             onTest = { vm.test(it) },
         )
         detail != null -> {
             val cfg = detail!!
             val back = { detail = null }
-            val edit = { editing = detail; detail = null }
+            val edit = { editing = cfg } // keep detail so back returns to the service
+            val del = { vm.removeService(cfg.id); detail = null }
             if (cfg.type == ServiceType.NZBGET) {
-                NzbgetScreen(vm = vm, config = cfg, onBack = back, onEdit = edit)
+                NzbgetScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
             } else {
-                ServiceDetailScreen(vm = vm, config = cfg, onBack = back, onEdit = edit)
+                ServiceDetailScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
             }
         }
         else -> DashboardScreen(
@@ -276,6 +281,7 @@ private fun NzbgetScreen(
     config: ServiceConfig,
     onBack: () -> Unit,
     onEdit: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     val statuses by vm.statuses.collectAsState()
     val status = statuses[config.id]
@@ -310,8 +316,7 @@ private fun NzbgetScreen(
     }
     LaunchedEffect(tab, showHidden) { if (tab == 0) loadQueue() else loadHistory() }
 
-    var speedMenu by remember { mutableStateOf(false) }
-    var moreMenu by remember { mutableStateOf(false) }
+    var barMenu by remember { mutableStateOf(false) }
     var showAdd by remember { mutableStateOf(false) }
     var addUrl by remember { mutableStateOf("") }
     var addCat by remember { mutableStateOf("") }
@@ -338,8 +343,22 @@ private fun NzbgetScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "Edit", tint = MatrixGreen)
+                    Box {
+                        IconButton(onClick = { barMenu = true }) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen)
+                        }
+                        DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
+                            DropdownMenuItem(text = { Text("Add NZB (URL)", fontFamily = Mono) }, onClick = { barMenu = false; showAdd = true })
+                            DropdownMenuItem(text = { Text("Server details", fontFamily = Mono) }, onClick = { barMenu = false; scope.launch { serverInfo = runCatching { vm.nzbServer(config) }.getOrNull() ?: listOf("error" to "could not load") } })
+                            DropdownMenuItem(text = { Text("View on web", fontFamily = Mono) }, onClick = { barMenu = false; runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(config.baseUrl))) } })
+                            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
+                            DropdownMenuItem(text = { Text("Speed: Unlimited", fontFamily = Mono) }, onClick = { barMenu = false; act { vm.nzbRate(config, 0) } })
+                            DropdownMenuItem(text = { Text("Speed: 5 MB/s", fontFamily = Mono) }, onClick = { barMenu = false; act { vm.nzbRate(config, 5120) } })
+                            DropdownMenuItem(text = { Text("Speed: 10 MB/s", fontFamily = Mono) }, onClick = { barMenu = false; act { vm.nzbRate(config, 10240) } })
+                            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
+                            DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
+                            DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
@@ -356,39 +375,13 @@ private fun NzbgetScreen(
                     )
                 }
                 Spacer(Modifier.height(12.dp))
-                Row(Modifier.horizontalScroll(rememberScrollState())) {
+                Row {
                     ActionBtn("Pause all", true) { act { vm.nzbgetPause(config) } }
                     Spacer(Modifier.width(12.dp))
                     ActionBtn("Resume all", true) { act { vm.nzbgetResume(config) } }
                     Spacer(Modifier.width(12.dp))
-                    Box {
-                        OutlinedButton(onClick = { speedMenu = true }) { Text("Speed", fontFamily = Mono) }
-                        DropdownMenu(expanded = speedMenu, onDismissRequest = { speedMenu = false }) {
-                            DropdownMenuItem(text = { Text("Unlimited", fontFamily = Mono) }, onClick = { speedMenu = false; act { vm.nzbRate(config, 0) } })
-                            DropdownMenuItem(text = { Text("1 MB/s", fontFamily = Mono) }, onClick = { speedMenu = false; act { vm.nzbRate(config, 1024) } })
-                            DropdownMenuItem(text = { Text("5 MB/s", fontFamily = Mono) }, onClick = { speedMenu = false; act { vm.nzbRate(config, 5120) } })
-                            DropdownMenuItem(text = { Text("10 MB/s", fontFamily = Mono) }, onClick = { speedMenu = false; act { vm.nzbRate(config, 10240) } })
-                        }
-                    }
-                    Spacer(Modifier.width(12.dp))
                     IconButton(onClick = { scope.launch { if (tab == 0) loadQueue() else loadHistory() } }) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
-                    }
-                    Box {
-                        IconButton(onClick = { moreMenu = true }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen)
-                        }
-                        DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
-                            DropdownMenuItem(text = { Text("Add NZB (URL)", fontFamily = Mono) }, onClick = { moreMenu = false; showAdd = true })
-                            DropdownMenuItem(text = { Text("Server details", fontFamily = Mono) }, onClick = {
-                                moreMenu = false
-                                scope.launch { serverInfo = runCatching { vm.nzbServer(config) }.getOrNull() ?: listOf("error" to "could not load") }
-                            })
-                            DropdownMenuItem(text = { Text("View on web", fontFamily = Mono) }, onClick = {
-                                moreMenu = false
-                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(config.baseUrl))) }
-                            })
-                        }
                     }
                 }
                 actionMsg?.let {
@@ -569,6 +562,7 @@ private fun ServiceDetailScreen(
     config: ServiceConfig,
     onBack: () -> Unit,
     onEdit: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     val statuses by vm.statuses.collectAsState()
     val status = statuses[config.id]
@@ -576,6 +570,7 @@ private fun ServiceDetailScreen(
     val scope = rememberCoroutineScope()
     var actionResult by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var barMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = Black,
@@ -588,8 +583,14 @@ private fun ServiceDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "Edit", tint = MatrixGreen)
+                    Box {
+                        IconButton(onClick = { barMenu = true }) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen)
+                        }
+                        DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
+                            DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
+                            DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
