@@ -305,6 +305,15 @@ private fun NzbgetScreen(
     }
     LaunchedEffect(tab, showHidden) { if (tab == 0) loadQueue() else loadHistory() }
 
+    var speedMenu by remember { mutableStateOf(false) }
+    fun act(action: suspend () -> String) {
+        scope.launch {
+            actionMsg = action()
+            if (tab == 0) loadQueue() else loadHistory()
+            vm.refreshAll()
+        }
+    }
+
     Scaffold(
         containerColor = Black,
         topBar = {
@@ -334,10 +343,20 @@ private fun NzbgetScreen(
                     )
                 }
                 Spacer(Modifier.height(12.dp))
-                Row {
-                    ActionBtn("Pause all", true) { scope.launch { actionMsg = vm.nzbgetPause(config); loadQueue(); vm.refreshAll() } }
+                Row(Modifier.horizontalScroll(rememberScrollState())) {
+                    ActionBtn("Pause all", true) { act { vm.nzbgetPause(config) } }
                     Spacer(Modifier.width(12.dp))
-                    ActionBtn("Resume all", true) { scope.launch { actionMsg = vm.nzbgetResume(config); loadQueue(); vm.refreshAll() } }
+                    ActionBtn("Resume all", true) { act { vm.nzbgetResume(config) } }
+                    Spacer(Modifier.width(12.dp))
+                    Box {
+                        OutlinedButton(onClick = { speedMenu = true }) { Text("Speed", fontFamily = Mono) }
+                        DropdownMenu(expanded = speedMenu, onDismissRequest = { speedMenu = false }) {
+                            DropdownMenuItem(text = { Text("Unlimited", fontFamily = Mono) }, onClick = { speedMenu = false; act { vm.nzbRate(config, 0) } })
+                            DropdownMenuItem(text = { Text("1 MB/s", fontFamily = Mono) }, onClick = { speedMenu = false; act { vm.nzbRate(config, 1024) } })
+                            DropdownMenuItem(text = { Text("5 MB/s", fontFamily = Mono) }, onClick = { speedMenu = false; act { vm.nzbRate(config, 5120) } })
+                            DropdownMenuItem(text = { Text("10 MB/s", fontFamily = Mono) }, onClick = { speedMenu = false; act { vm.nzbRate(config, 10240) } })
+                        }
+                    }
                     Spacer(Modifier.width(12.dp))
                     IconButton(onClick = { scope.launch { if (tab == 0) loadQueue() else loadHistory() } }) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
@@ -369,14 +388,14 @@ private fun NzbgetScreen(
                             when {
                                 q == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                 q.isEmpty() -> item { Text("queue is empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                else -> items(q) { QueueRow(it) }
+                                else -> items(q) { qi -> QueueRow(qi) { cmd, txt -> act { vm.nzbEdit(config, cmd, qi.id, txt) } } }
                             }
                         } else {
                             val h = history
                             when {
                                 h == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                 h.isEmpty() -> item { Text("no history", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                else -> items(h) { HistoryRow(it) }
+                                else -> items(h) { hi -> HistoryRow(hi) { cmd -> act { vm.nzbEdit(config, cmd, hi.id) } } }
                             }
                         }
                     }
@@ -387,42 +406,61 @@ private fun NzbgetScreen(
 }
 
 @Composable
-private fun QueueRow(item: NzbQueueItem) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(6.dp))
-        LinearProgressIndicator(
-            progress = { item.progress },
-            modifier = Modifier.fillMaxWidth(),
-            color = MatrixGreen,
-            trackColor = Surface,
-        )
-        Spacer(Modifier.height(4.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(item.status, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-            Text("${item.remainingMb} / ${item.sizeMb} MB", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+private fun QueueRow(item: NzbQueueItem, onAction: (String, String) -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        Column(Modifier.fillMaxWidth().clickable { menu = true }.padding(vertical = 8.dp)) {
+            Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(6.dp))
+            LinearProgressIndicator(
+                progress = { item.progress },
+                modifier = Modifier.fillMaxWidth(),
+                color = MatrixGreen,
+                trackColor = Surface,
+            )
+            Spacer(Modifier.height(4.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(item.status, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                Text("${item.remainingMb} / ${item.sizeMb} MB", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
         }
-        Spacer(Modifier.height(8.dp))
-        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(text = { Text("Pause", fontFamily = Mono) }, onClick = { menu = false; onAction("GroupPause", "") })
+            DropdownMenuItem(text = { Text("Resume", fontFamily = Mono) }, onClick = { menu = false; onAction("GroupResume", "") })
+            DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { menu = false; onAction("GroupDelete", "") })
+            DropdownMenuItem(text = { Text("Priority: High", fontFamily = Mono) }, onClick = { menu = false; onAction("GroupSetPriority", "50") })
+            DropdownMenuItem(text = { Text("Priority: Normal", fontFamily = Mono) }, onClick = { menu = false; onAction("GroupSetPriority", "0") })
+            DropdownMenuItem(text = { Text("Priority: Low", fontFamily = Mono) }, onClick = { menu = false; onAction("GroupSetPriority", "-50") })
+        }
     }
 }
 
 @Composable
-private fun HistoryRow(item: NzbHistoryEntry) {
+private fun HistoryRow(item: NzbHistoryEntry, onAction: (String) -> Unit) {
+    var menu by remember { mutableStateOf(false) }
     val statusColor = when {
         item.status.contains("SUCCESS", true) -> MatrixGreen
         item.status.contains("FAILURE", true) || item.status.contains("DELETED", true) -> ErrRed
         else -> MatrixGreen.copy(alpha = 0.7f)
     }
-    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(4.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(item.status, fontFamily = Mono, color = statusColor, fontSize = 11.sp)
-            Text("${item.sizeMb} MB", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+    Box {
+        Column(Modifier.fillMaxWidth().clickable { menu = true }.padding(vertical = 8.dp)) {
+            Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(4.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(item.status, fontFamily = Mono, color = statusColor, fontSize = 11.sp)
+                Text("${item.sizeMb} MB", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
         }
-        Spacer(Modifier.height(8.dp))
-        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(text = { Text("Redownload", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryRedownload") })
+            DropdownMenuItem(text = { Text("Return to queue", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryReturn") })
+            DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryDelete") })
+        }
     }
 }
 

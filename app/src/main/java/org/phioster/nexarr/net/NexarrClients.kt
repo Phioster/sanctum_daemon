@@ -5,6 +5,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.addJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import okhttp3.Credentials
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -189,7 +195,25 @@ private interface NzbgetApi {
     @GET("jsonrpc/listgroups") suspend fun listgroups(): NzbGroupsResp
     @POST("jsonrpc") suspend fun rpc(@Body req: NzbRpcReq): NzbBoolResp
     @POST("jsonrpc") suspend fun history(@Body req: NzbHistoryReq): NzbHistoryResp
+    @POST("jsonrpc") suspend fun rpcJson(@Body body: JsonObject): NzbBoolResp
 }
+
+private fun editqueueBody(command: String, editText: String, id: Int): JsonObject =
+    buildJsonObject {
+        put("method", "editqueue")
+        putJsonArray("params") {
+            add(command)
+            add(0) // offset
+            add(editText)
+            addJsonArray { add(id) }
+        }
+    }
+
+private fun rateBody(kbps: Int): JsonObject =
+    buildJsonObject {
+        put("method", "rate")
+        putJsonArray("params") { add(kbps) }
+    }
 
 /** Runs the appropriate status calls for a service and maps them to a card. */
 suspend fun fetchStatus(config: ServiceConfig): ServiceStatus = withContext(Dispatchers.IO) {
@@ -300,6 +324,27 @@ suspend fun nzbgetQueue(config: ServiceConfig): List<NzbQueueItem> = withContext
 suspend fun nzbgetHistory(config: ServiceConfig, hidden: Boolean): List<NzbHistoryEntry> = withContext(Dispatchers.IO) {
     apiFor<NzbgetApi>(config, basicHeader(config)).history(NzbHistoryReq(params = listOf(hidden))).result.map {
         NzbHistoryEntry(it.NZBID, it.Name, it.Status, it.FileSizeMB)
+    }
+}
+
+/** editqueue command (GroupPause/GroupDelete/HistoryRedownload/…) on a single item. */
+suspend fun runNzbEditQueue(config: ServiceConfig, command: String, id: Int, editText: String = ""): String =
+    withContext(Dispatchers.IO) {
+        try {
+            val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpcJson(editqueueBody(command, editText, id))
+            if (r.result) "ok" else "error: NZBGet rejected $command"
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
+
+/** Sets the global download speed limit in KB/s (0 = unlimited). */
+suspend fun runNzbRate(config: ServiceConfig, kbps: Int): String = withContext(Dispatchers.IO) {
+    try {
+        val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpcJson(rateBody(kbps))
+        if (r.result) (if (kbps == 0) "no speed limit" else "limit ${kbps / 1024} MB/s") else "error"
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
     }
 }
 

@@ -16,6 +16,8 @@ import org.phioster.nexarr.net.clearJellyfinSession
 import org.phioster.nexarr.net.fetchStatus
 import org.phioster.nexarr.net.nzbgetHistory
 import org.phioster.nexarr.net.nzbgetQueue
+import org.phioster.nexarr.net.runNzbEditQueue
+import org.phioster.nexarr.net.runNzbRate
 import org.phioster.nexarr.net.runJellyfinScan
 import org.phioster.nexarr.net.runNzbgetPause
 import org.phioster.nexarr.net.runNzbgetResume
@@ -78,6 +80,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun queue(config: ServiceConfig): List<NzbQueueItem> = nzbgetQueue(config)
     suspend fun history(config: ServiceConfig, hidden: Boolean): List<NzbHistoryEntry> = nzbgetHistory(config, hidden)
+    suspend fun nzbEdit(config: ServiceConfig, command: String, id: Int, editText: String = ""): String =
+        runNzbEditQueue(config, command, id, editText)
+    suspend fun nzbRate(config: ServiceConfig, kbps: Int): String = runNzbRate(config, kbps)
 
     private fun setStatus(id: String, status: ServiceStatus) {
         _statuses.value = _statuses.value.toMutableMap().apply { put(id, status) }
