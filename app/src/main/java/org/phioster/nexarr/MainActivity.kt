@@ -315,20 +315,28 @@ private fun ServiceDetailScreen(
             Spacer(Modifier.height(16.dp))
             Text("> actions", fontFamily = Mono, color = MatrixGreen, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(12.dp))
+            val perform: (suspend () -> String) -> Unit = { action ->
+                busy = true
+                actionResult = null
+                scope.launch {
+                    actionResult = action()
+                    busy = false
+                }
+            }
             when (config.type) {
-                ServiceType.JELLYFIN -> Button(
-                    onClick = {
-                        busy = true
-                        actionResult = null
-                        scope.launch {
-                            actionResult = vm.jellyfinScan(config)
-                            busy = false
-                        }
-                    },
-                    enabled = !busy,
-                ) { Text(if (busy) "scanning…" else "Scan library", fontFamily = Mono) }
-                else -> Text(
-                    "no actions yet for ${config.type.label}",
+                ServiceType.JELLYFIN ->
+                    ActionBtn("Scan library", !busy) { perform { vm.jellyfinScan(config) } }
+                ServiceType.RADARR, ServiceType.SONARR, ServiceType.LIDARR ->
+                    ActionBtn("Search missing", !busy) { perform { vm.searchMissing(config) } }
+                ServiceType.PROWLARR ->
+                    ActionBtn("Test all indexers", !busy) { perform { vm.prowlarrTestAll(config) } }
+                ServiceType.NZBGET -> Row {
+                    ActionBtn("Pause", !busy) { perform { vm.nzbgetPause(config) } }
+                    Spacer(Modifier.width(12.dp))
+                    ActionBtn("Resume", !busy) { perform { vm.nzbgetResume(config) } }
+                }
+                ServiceType.SEERR -> Text(
+                    "request approve/decline comes with the list view",
                     fontFamily = Mono,
                     color = MatrixGreen.copy(alpha = 0.5f),
                     fontSize = 13.sp,
@@ -488,4 +496,9 @@ private fun Field(
         textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = Mono),
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
     )
+}
+
+@Composable
+private fun ActionBtn(label: String, enabled: Boolean, onClick: () -> Unit) {
+    Button(onClick = onClick, enabled = enabled) { Text(label, fontFamily = Mono) }
 }

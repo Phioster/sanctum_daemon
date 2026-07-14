@@ -57,6 +57,12 @@ private inline fun <reified T> apiFor(config: ServiceConfig, authHeaders: Map<St
         .build()
         .create()
 
+private fun apiKeyHeader(config: ServiceConfig) = mapOf("X-Api-Key" to config.apiKey)
+private fun basicHeader(config: ServiceConfig) =
+    mapOf("Authorization" to Credentials.basic(config.username, config.password))
+
+@Serializable private data class CommandReq(val name: String)
+
 // ---- Jellyfin ----
 
 @Serializable
@@ -94,6 +100,7 @@ private interface RadarrApi {
     @GET("api/v3/movie") suspend fun movies(): List<RadarrMovie>
     @GET("api/v3/queue") suspend fun queue(@Query("pageSize") pageSize: Int = 1): RadarrPage
     @GET("api/v3/wanted/missing") suspend fun missing(@Query("pageSize") pageSize: Int = 1): RadarrPage
+    @POST("api/v3/command") suspend fun command(@Body body: CommandReq): Response<ResponseBody>
 }
 
 // ---- Sonarr (api/v3) ----
@@ -104,6 +111,7 @@ private interface SonarrApi {
     @GET("api/v3/series") suspend fun series(): List<SonarrSeries>
     @GET("api/v3/queue") suspend fun queue(@Query("pageSize") pageSize: Int = 1): RadarrPage
     @GET("api/v3/wanted/missing") suspend fun missing(@Query("pageSize") pageSize: Int = 1): RadarrPage
+    @POST("api/v3/command") suspend fun command(@Body body: CommandReq): Response<ResponseBody>
 }
 
 // ---- Lidarr (api/v1) ----
@@ -114,6 +122,7 @@ private interface LidarrApi {
     @GET("api/v1/artist") suspend fun artists(): List<LidarrArtist>
     @GET("api/v1/queue") suspend fun queue(@Query("pageSize") pageSize: Int = 1): RadarrPage
     @GET("api/v1/wanted/missing") suspend fun missing(@Query("pageSize") pageSize: Int = 1): RadarrPage
+    @POST("api/v1/command") suspend fun command(@Body body: CommandReq): Response<ResponseBody>
 }
 
 // ---- Prowlarr (api/v1) ----
@@ -127,6 +136,7 @@ private interface LidarrApi {
 
 private interface ProwlarrApi {
     @GET("api/v1/indexerstats") suspend fun stats(): ProwlarrStats
+    @POST("api/v1/indexer/testall") suspend fun testAll(): Response<ResponseBody>
 }
 
 // ---- Seerr (Overseerr-compatible, api/v1) ----
@@ -155,6 +165,8 @@ private interface SeerrApi {
 private interface NzbgetApi {
     @GET("jsonrpc/status") suspend fun status(): NzbStatusResp
     @GET("jsonrpc/listgroups") suspend fun listgroups(): NzbGroupsResp
+    @GET("jsonrpc/pausedownload") suspend fun pause(): Response<ResponseBody>
+    @GET("jsonrpc/resumedownload") suspend fun resume(): Response<ResponseBody>
 }
 
 /** Runs the appropriate status calls for a service and maps them to a card. */
@@ -208,6 +220,48 @@ suspend fun runJellyfinScan(config: ServiceConfig): String = withContext(Dispatc
         val token = jellyfinAccessToken(config)
         val resp = apiFor<JellyfinApi>(config, mapOf("X-Emby-Token" to token)).refreshLibrary()
         if (resp.isSuccessful) "library scan started" else "error: HTTP ${resp.code()}"
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+private fun okOr(resp: Response<ResponseBody>, success: String): String =
+    if (resp.isSuccessful) success else "error: HTTP ${resp.code()}"
+
+/** Radarr/Sonarr/Lidarr: trigger a search for all missing monitored items. */
+suspend fun runSearchMissing(config: ServiceConfig): String = withContext(Dispatchers.IO) {
+    try {
+        val resp = when (config.type) {
+            ServiceType.RADARR -> apiFor<RadarrApi>(config, apiKeyHeader(config)).command(CommandReq("MissingMoviesSearch"))
+            ServiceType.SONARR -> apiFor<SonarrApi>(config, apiKeyHeader(config)).command(CommandReq("MissingEpisodeSearch"))
+            ServiceType.LIDARR -> apiFor<LidarrApi>(config, apiKeyHeader(config)).command(CommandReq("MissingAlbumSearch"))
+            else -> return@withContext "unsupported"
+        }
+        okOr(resp, "search started")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun runProwlarrTestAll(config: ServiceConfig): String = withContext(Dispatchers.IO) {
+    try {
+        okOr(apiFor<ProwlarrApi>(config, apiKeyHeader(config)).testAll(), "testing indexers")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun runNzbgetPause(config: ServiceConfig): String = withContext(Dispatchers.IO) {
+    try {
+        okOr(apiFor<NzbgetApi>(config, basicHeader(config)).pause(), "paused")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun runNzbgetResume(config: ServiceConfig): String = withContext(Dispatchers.IO) {
+    try {
+        okOr(apiFor<NzbgetApi>(config, basicHeader(config)).resume(), "resumed")
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
     }

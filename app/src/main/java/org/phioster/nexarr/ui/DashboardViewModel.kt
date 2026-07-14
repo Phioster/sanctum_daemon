@@ -13,6 +13,10 @@ import org.phioster.nexarr.model.ServiceStatus
 import org.phioster.nexarr.net.clearJellyfinSession
 import org.phioster.nexarr.net.fetchStatus
 import org.phioster.nexarr.net.runJellyfinScan
+import org.phioster.nexarr.net.runNzbgetPause
+import org.phioster.nexarr.net.runNzbgetResume
+import org.phioster.nexarr.net.runProwlarrTestAll
+import org.phioster.nexarr.net.runSearchMissing
 
 class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -62,6 +66,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Triggers a Jellyfin library scan; returns a result line for the UI. */
     suspend fun jellyfinScan(config: ServiceConfig): String = runJellyfinScan(config)
+
+    suspend fun searchMissing(config: ServiceConfig): String = runSearchMissing(config)
+    suspend fun prowlarrTestAll(config: ServiceConfig): String = runProwlarrTestAll(config)
+    suspend fun nzbgetPause(config: ServiceConfig): String = runNzbgetPause(config)
+    suspend fun nzbgetResume(config: ServiceConfig): String = runNzbgetResume(config)
 
     private fun setStatus(id: String, status: ServiceStatus) {
         _statuses.value = _statuses.value.toMutableMap().apply { put(id, status) }
