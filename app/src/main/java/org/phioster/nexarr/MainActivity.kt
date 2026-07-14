@@ -72,6 +72,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
+import org.phioster.nexarr.model.ArrMissingItem
+import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
 import org.phioster.nexarr.model.ServiceConfig
@@ -139,10 +141,11 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
             val back = { detail = null }
             val edit = { editing = cfg } // keep detail so back returns to the service
             val del = { vm.removeService(cfg.id); detail = null }
-            if (cfg.type == ServiceType.NZBGET) {
-                NzbgetScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
-            } else {
-                ServiceDetailScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
+            when (cfg.type) {
+                ServiceType.NZBGET -> NzbgetScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
+                ServiceType.RADARR, ServiceType.SONARR, ServiceType.LIDARR ->
+                    ArrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
+                else -> ServiceDetailScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
             }
         }
         else -> DashboardScreen(
@@ -270,6 +273,174 @@ private fun ServiceCard(
                 Spacer(Modifier.height(8.dp))
                 Text(it, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ArrScreen(
+    vm: DashboardViewModel,
+    config: ServiceConfig,
+    onBack: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val statuses by vm.statuses.collectAsState()
+    val status = statuses[config.id]
+    val accent = Color(config.type.accent)
+    val scope = rememberCoroutineScope()
+    var tab by remember { mutableStateOf(0) }
+    var missing by remember { mutableStateOf<List<ArrMissingItem>?>(null) }
+    var queue by remember { mutableStateOf<List<ArrQueueItem>?>(null) }
+    var listError by remember { mutableStateOf<String?>(null) }
+    var actionMsg by remember { mutableStateOf<String?>(null) }
+    var barMenu by remember { mutableStateOf(false) }
+
+    suspend fun loadMissing() {
+        listError = null
+        try {
+            missing = vm.arrMissingList(config)
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            listError = t.message
+        }
+    }
+    suspend fun loadQueue() {
+        listError = null
+        try {
+            queue = vm.arrQueueList(config)
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            listError = t.message
+        }
+    }
+    LaunchedEffect(tab) { if (tab == 0) loadMissing() else loadQueue() }
+    fun act(action: suspend () -> String) {
+        scope.launch {
+            actionMsg = action()
+            if (tab == 0) loadMissing() else loadQueue()
+            vm.refreshAll()
+        }
+    }
+
+    Scaffold(
+        containerColor = Black,
+        topBar = {
+            TopAppBar(
+                title = { Text(config.label, fontFamily = Mono, color = MatrixGreen) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
+                },
+                actions = {
+                    Box {
+                        IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
+                        DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
+                            DropdownMenuItem(text = { Text("Search all missing", fontFamily = Mono) }, onClick = { barMenu = false; act { vm.searchMissing(config) } })
+                            DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
+                            DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
+            )
+        },
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            Column(Modifier.padding(16.dp)) {
+                if (status?.ok == true) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        status.stats.forEach { (k, v) ->
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(v, fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen, fontSize = 20.sp)
+                                Text(k.uppercase(), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                }
+                Row {
+                    ActionBtn("Search all missing", true) { act { vm.searchMissing(config) } }
+                    Spacer(Modifier.width(12.dp))
+                    IconButton(onClick = { scope.launch { if (tab == 0) loadMissing() else loadQueue() } }) {
+                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
+                    }
+                }
+                actionMsg?.let {
+                    Spacer(Modifier.height(6.dp))
+                    Text(it, fontFamily = Mono, color = if (it.startsWith("error")) ErrRed else MatrixGreen, fontSize = 12.sp)
+                }
+            }
+            Row(Modifier.padding(horizontal = 16.dp)) {
+                FilterChip(selected = tab == 0, onClick = { tab = 0 }, label = { Text("Missing", fontFamily = Mono) })
+                Spacer(Modifier.width(8.dp))
+                FilterChip(selected = tab == 1, onClick = { tab = 1 }, label = { Text("Queue", fontFamily = Mono) })
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                if (listError != null) {
+                    Text("error: $listError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
+                } else {
+                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                        if (tab == 0) {
+                            val m = missing
+                            when {
+                                m == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                m.isEmpty() -> item { Text("nothing missing", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                else -> items(m) { mi -> ArrMissingRow(mi, accent) { act { vm.arrSearch(config, mi.id) } } }
+                            }
+                        } else {
+                            val q = queue
+                            when {
+                                q == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                q.isEmpty() -> item { Text("queue is empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                else -> items(q) { qi -> ArrQueueRow(qi) { act { vm.arrRemove(config, qi.id) } } }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ArrMissingRow(item: ArrMissingItem, accent: Color, onSearch: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        Column(Modifier.fillMaxWidth().clickable { menu = true }.padding(vertical = 10.dp)) {
+            Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (item.subtitle.isNotBlank()) {
+                Spacer(Modifier.height(2.dp))
+                Text(item.subtitle, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+        }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(text = { Text("Search", fontFamily = Mono) }, onClick = { menu = false; onSearch() })
+        }
+    }
+}
+
+@Composable
+private fun ArrQueueRow(item: ArrQueueItem, onRemove: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        Column(Modifier.fillMaxWidth().clickable { menu = true }.padding(vertical = 8.dp)) {
+            Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(6.dp))
+            LinearProgressIndicator(progress = { item.progress }, modifier = Modifier.fillMaxWidth(), color = MatrixGreen, trackColor = Surface)
+            Spacer(Modifier.height(4.dp))
+            Text(item.status, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+        }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(text = { Text("Remove", fontFamily = Mono) }, onClick = { menu = false; onRemove() })
         }
     }
 }

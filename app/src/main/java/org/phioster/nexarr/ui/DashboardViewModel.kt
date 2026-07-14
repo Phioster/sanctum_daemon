@@ -10,8 +10,14 @@ import kotlinx.coroutines.launch
 import org.phioster.nexarr.data.ServiceStore
 import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceStatus
+import org.phioster.nexarr.model.ArrMissingItem
+import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
+import org.phioster.nexarr.net.arrMissing
+import org.phioster.nexarr.net.arrQueue
+import org.phioster.nexarr.net.arrQueueRemove
+import org.phioster.nexarr.net.arrSearchItem
 import org.phioster.nexarr.net.clearJellyfinSession
 import org.phioster.nexarr.net.fetchStatus
 import org.phioster.nexarr.net.nzbgetHistory
@@ -88,6 +94,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun nzbAddUrl(config: ServiceConfig, url: String, category: String): String =
         runNzbAppendUrl(config, url, category)
     suspend fun nzbServer(config: ServiceConfig): List<Pair<String, String>> = nzbServerDetails(config)
+
+    suspend fun arrMissingList(config: ServiceConfig): List<ArrMissingItem> = arrMissing(config)
+    suspend fun arrQueueList(config: ServiceConfig): List<ArrQueueItem> = arrQueue(config)
+    suspend fun arrSearch(config: ServiceConfig, id: Int): String = arrSearchItem(config, id)
+    suspend fun arrRemove(config: ServiceConfig, id: Int): String = arrQueueRemove(config, id)
 
     private fun setStatus(id: String, status: ServiceStatus) {
         _statuses.value = _statuses.value.toMutableMap().apply { put(id, status) }

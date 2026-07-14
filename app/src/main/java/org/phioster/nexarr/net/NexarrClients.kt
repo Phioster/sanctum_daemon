@@ -16,6 +16,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import retrofit2.Response
+import org.phioster.nexarr.model.ArrMissingItem
+import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
 import org.phioster.nexarr.model.ServiceConfig
@@ -24,9 +26,11 @@ import org.phioster.nexarr.model.ServiceType
 import retrofit2.Retrofit
 import retrofit2.create
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Query
+import retrofit2.http.Url
 import java.util.concurrent.TimeUnit
 
 private val json = Json {
@@ -158,6 +162,92 @@ private interface ProwlarrApi {
 
 private interface SeerrApi {
     @GET("api/v1/request/count") suspend fun counts(): SeerrCounts
+}
+
+// ---- Servarr shared: Radarr/Sonarr/Lidarr missing + queue ----
+
+@Serializable private data class ArrRef(val title: String = "")
+@Serializable private data class ArrArtistRef(val artistName: String = "")
+@Serializable private data class ArrMissingRecord(
+    val id: Int = 0,
+    val title: String = "",
+    val year: Int = 0,
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
+    val series: ArrRef? = null,
+    val artist: ArrArtistRef? = null,
+)
+@Serializable private data class ArrMissingPage(val records: List<ArrMissingRecord> = emptyList())
+
+@Serializable private data class ArrQueueRecord(
+    val id: Int = 0,
+    val title: String = "",
+    val status: String = "",
+    val size: Double = 0.0,
+    val sizeleft: Double = 0.0,
+)
+@Serializable private data class ArrQueuePage(val records: List<ArrQueueRecord> = emptyList())
+
+private interface ArrApi {
+    @GET suspend fun missing(@Url url: String): ArrMissingPage
+    @GET suspend fun queue(@Url url: String): ArrQueuePage
+    @POST suspend fun command(@Url url: String, @Body body: JsonObject): Response<ResponseBody>
+    @DELETE suspend fun deleteQueue(@Url url: String): Response<ResponseBody>
+}
+
+private fun arrBase(type: ServiceType) = if (type == ServiceType.LIDARR) "api/v1" else "api/v3"
+
+suspend fun arrMissing(config: ServiceConfig): List<ArrMissingItem> = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    apiFor<ArrApi>(config, apiKeyHeader(config)).missing("$base/wanted/missing?pageSize=100").records.map { r ->
+        when (config.type) {
+            ServiceType.SONARR -> ArrMissingItem(
+                r.id,
+                r.series?.title ?: r.title,
+                "S%02dE%02d · %s".format(r.seasonNumber ?: 0, r.episodeNumber ?: 0, r.title),
+            )
+            ServiceType.LIDARR -> ArrMissingItem(r.id, r.title, r.artist?.artistName ?: "")
+            else -> ArrMissingItem(r.id, r.title, if (r.year > 0) r.year.toString() else "")
+        }
+    }
+}
+
+suspend fun arrQueue(config: ServiceConfig): List<ArrQueueItem> = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    apiFor<ArrApi>(config, apiKeyHeader(config)).queue("$base/queue?pageSize=100").records.map { r ->
+        val prog = if (r.size > 0) ((r.size - r.sizeleft) / r.size).toFloat().coerceIn(0f, 1f) else 0f
+        ArrQueueItem(r.id, r.title, r.status, prog)
+    }
+}
+
+suspend fun arrSearchItem(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
+    try {
+        val base = arrBase(config.type)
+        val (name, field) = when (config.type) {
+            ServiceType.SONARR -> "EpisodeSearch" to "episodeIds"
+            ServiceType.LIDARR -> "AlbumSearch" to "albumIds"
+            else -> "MoviesSearch" to "movieIds"
+        }
+        val body = buildJsonObject {
+            put("name", name)
+            putJsonArray(field) { add(id) }
+        }
+        val r = apiFor<ArrApi>(config, apiKeyHeader(config)).command("$base/command", body)
+        if (r.isSuccessful) "search started" else "error: HTTP ${r.code()}"
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun arrQueueRemove(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
+    try {
+        val base = arrBase(config.type)
+        val r = apiFor<ArrApi>(config, apiKeyHeader(config))
+            .deleteQueue("$base/queue/$id?removeFromClient=true&blocklist=false")
+        if (r.isSuccessful) "removed" else "error: HTTP ${r.code()}"
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
 }
 
 // ---- NZBGet (JSON-RPC over HTTP + Basic auth) ----
