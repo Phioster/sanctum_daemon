@@ -76,6 +76,7 @@ import org.phioster.nexarr.model.ArrMissingItem
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
+import org.phioster.nexarr.model.SeerrRequestItem
 import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceStatus
 import org.phioster.nexarr.model.ServiceType
@@ -145,6 +146,7 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
                 ServiceType.NZBGET -> NzbgetScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
                 ServiceType.RADARR, ServiceType.SONARR, ServiceType.LIDARR ->
                     ArrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
+                ServiceType.SEERR -> SeerrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
                 else -> ServiceDetailScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
             }
         }
@@ -273,6 +275,150 @@ private fun ServiceCard(
                 Spacer(Modifier.height(8.dp))
                 Text(it, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SeerrScreen(
+    vm: DashboardViewModel,
+    config: ServiceConfig,
+    onBack: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val statuses by vm.statuses.collectAsState()
+    val status = statuses[config.id]
+    val accent = Color(config.type.accent)
+    val scope = rememberCoroutineScope()
+    var pendingOnly by remember { mutableStateOf(true) }
+    var requests by remember { mutableStateOf<List<SeerrRequestItem>?>(null) }
+    var listError by remember { mutableStateOf<String?>(null) }
+    var actionMsg by remember { mutableStateOf<String?>(null) }
+    var barMenu by remember { mutableStateOf(false) }
+
+    suspend fun load() {
+        listError = null
+        try {
+            requests = vm.seerrList(config, pendingOnly)
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            listError = t.message
+        }
+    }
+    LaunchedEffect(pendingOnly) { load() }
+    fun act(action: suspend () -> String) {
+        scope.launch {
+            actionMsg = action()
+            load()
+            vm.refreshAll()
+        }
+    }
+
+    Scaffold(
+        containerColor = Black,
+        topBar = {
+            TopAppBar(
+                title = { Text(config.label, fontFamily = Mono, color = MatrixGreen) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
+                },
+                actions = {
+                    Box {
+                        IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
+                        DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
+                            DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
+                            DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
+            )
+        },
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            Column(Modifier.padding(16.dp)) {
+                if (status?.ok == true) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        status.stats.forEach { (k, v) ->
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(v, fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen, fontSize = 20.sp)
+                                Text(k.uppercase(), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    FilterChip(selected = pendingOnly, onClick = { pendingOnly = true }, label = { Text("Pending", fontFamily = Mono) })
+                    Spacer(Modifier.width(8.dp))
+                    FilterChip(selected = !pendingOnly, onClick = { pendingOnly = false }, label = { Text("All", fontFamily = Mono) })
+                    Spacer(Modifier.width(8.dp))
+                    IconButton(onClick = { scope.launch { load() } }) {
+                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
+                    }
+                }
+                actionMsg?.let {
+                    Spacer(Modifier.height(6.dp))
+                    Text(it, fontFamily = Mono, color = if (it.startsWith("error")) ErrRed else MatrixGreen, fontSize = 12.sp)
+                }
+            }
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                if (listError != null) {
+                    Text("error: $listError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
+                } else {
+                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                        val r = requests
+                        when {
+                            r == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                            r.isEmpty() -> item { Text(if (pendingOnly) "no pending requests" else "no requests", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                            else -> items(r) { req ->
+                                SeerrRequestRow(
+                                    item = req,
+                                    accent = accent,
+                                    onApprove = { act { vm.seerrApproveReq(config, req.id) } },
+                                    onDecline = { act { vm.seerrDeclineReq(config, req.id) } },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SeerrRequestRow(item: SeerrRequestItem, accent: Color, onApprove: () -> Unit, onDecline: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    val statusColor = when (item.status) {
+        "approved" -> MatrixGreen
+        "declined" -> ErrRed
+        "pending" -> Color(0xFFFFAA00)
+        else -> MatrixGreen.copy(alpha = 0.6f)
+    }
+    Box {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clickable(enabled = item.pending) { menu = true }
+                .padding(vertical = 10.dp),
+        ) {
+            Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(2.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(item.subtitle, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(item.status, fontFamily = Mono, color = statusColor, fontSize = 11.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+        }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(text = { Text("Approve", fontFamily = Mono) }, onClick = { menu = false; onApprove() })
+            DropdownMenuItem(text = { Text("Decline", fontFamily = Mono) }, onClick = { menu = false; onDecline() })
         }
     }
 }

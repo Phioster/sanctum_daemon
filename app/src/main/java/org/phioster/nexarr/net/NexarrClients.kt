@@ -2,6 +2,9 @@ package org.phioster.nexarr.net
 
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -20,6 +23,7 @@ import org.phioster.nexarr.model.ArrMissingItem
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
+import org.phioster.nexarr.model.SeerrRequestItem
 import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceStatus
 import org.phioster.nexarr.model.ServiceType
@@ -29,6 +33,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
 import retrofit2.http.Query
 import retrofit2.http.Url
 import java.util.concurrent.TimeUnit
@@ -160,8 +165,79 @@ private interface ProwlarrApi {
     val available: Int = 0,
 )
 
+@Serializable private data class SeerrMedia(val tmdbId: Int = 0, val mediaType: String = "")
+@Serializable private data class SeerrUser(val displayName: String = "")
+@Serializable private data class SeerrRequest(
+    val id: Int = 0,
+    val status: Int = 0,
+    val type: String = "",
+    val media: SeerrMedia = SeerrMedia(),
+    val requestedBy: SeerrUser = SeerrUser(),
+)
+@Serializable private data class SeerrRequestPage(val results: List<SeerrRequest> = emptyList())
+@Serializable private data class SeerrMeta(val title: String? = null, val name: String? = null)
+
 private interface SeerrApi {
     @GET("api/v1/request/count") suspend fun counts(): SeerrCounts
+
+    @GET("api/v1/request") suspend fun requests(
+        @Query("take") take: Int,
+        @Query("filter") filter: String,
+        @Query("sort") sort: String,
+    ): SeerrRequestPage
+
+    @GET("api/v1/movie/{id}") suspend fun movie(@Path("id") id: Int): SeerrMeta
+    @GET("api/v1/tv/{id}") suspend fun tv(@Path("id") id: Int): SeerrMeta
+    @POST("api/v1/request/{id}/approve") suspend fun approve(@Path("id") id: Int): Response<ResponseBody>
+    @POST("api/v1/request/{id}/decline") suspend fun decline(@Path("id") id: Int): Response<ResponseBody>
+}
+
+private fun seerrStatusText(status: Int) = when (status) {
+    1 -> "pending"
+    2 -> "approved"
+    3 -> "declined"
+    else -> "?"
+}
+
+suspend fun seerrRequests(config: ServiceConfig, pendingOnly: Boolean): List<SeerrRequestItem> = withContext(Dispatchers.IO) {
+    val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
+    val reqs = api.requests(take = 30, filter = if (pendingOnly) "pending" else "all", sort = "added").results
+    coroutineScope {
+        reqs.map { r ->
+            async {
+                val isTv = r.type == "tv" || r.media.mediaType == "tv"
+                val title = runCatching {
+                    if (isTv) api.tv(r.media.tmdbId).let { it.name ?: it.title }
+                    else api.movie(r.media.tmdbId).let { it.title ?: it.name }
+                }.getOrNull() ?: "#${r.media.tmdbId}"
+                SeerrRequestItem(
+                    id = r.id,
+                    title = title,
+                    subtitle = "${r.type} · ${r.requestedBy.displayName}",
+                    status = seerrStatusText(r.status),
+                    pending = r.status == 1,
+                )
+            }
+        }.awaitAll()
+    }
+}
+
+suspend fun seerrApprove(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
+    try {
+        val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).approve(id)
+        if (r.isSuccessful) "approved" else "error: HTTP ${r.code()}"
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun seerrDecline(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
+    try {
+        val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).decline(id)
+        if (r.isSuccessful) "declined" else "error: HTTP ${r.code()}"
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
 }
 
 // ---- Servarr shared: Radarr/Sonarr/Lidarr missing + queue ----

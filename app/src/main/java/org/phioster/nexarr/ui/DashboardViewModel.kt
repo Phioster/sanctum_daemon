@@ -14,6 +14,7 @@ import org.phioster.nexarr.model.ArrMissingItem
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
+import org.phioster.nexarr.model.SeerrRequestItem
 import org.phioster.nexarr.net.arrMissing
 import org.phioster.nexarr.net.arrQueue
 import org.phioster.nexarr.net.arrQueueRemove
@@ -26,6 +27,9 @@ import org.phioster.nexarr.net.nzbServerDetails
 import org.phioster.nexarr.net.runNzbAppendUrl
 import org.phioster.nexarr.net.runNzbEditQueue
 import org.phioster.nexarr.net.runNzbRate
+import org.phioster.nexarr.net.seerrApprove
+import org.phioster.nexarr.net.seerrDecline
+import org.phioster.nexarr.net.seerrRequests
 import org.phioster.nexarr.net.runJellyfinScan
 import org.phioster.nexarr.net.runNzbgetPause
 import org.phioster.nexarr.net.runNzbgetResume
@@ -99,6 +103,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrQueueList(config: ServiceConfig): List<ArrQueueItem> = arrQueue(config)
     suspend fun arrSearch(config: ServiceConfig, id: Int): String = arrSearchItem(config, id)
     suspend fun arrRemove(config: ServiceConfig, id: Int): String = arrQueueRemove(config, id)
+
+    suspend fun seerrList(config: ServiceConfig, pendingOnly: Boolean): List<SeerrRequestItem> =
+        seerrRequests(config, pendingOnly)
+    suspend fun seerrApproveReq(config: ServiceConfig, id: Int): String = seerrApprove(config, id)
+    suspend fun seerrDeclineReq(config: ServiceConfig, id: Int): String = seerrDecline(config, id)
 
     private fun setStatus(id: String, status: ServiceStatus) {
         _statuses.value = _statuses.value.toMutableMap().apply { put(id, status) }
