@@ -285,11 +285,23 @@ private fun NzbgetScreen(
 
     suspend fun loadQueue() {
         listError = null
-        runCatching { vm.queue(config) }.onSuccess { queue = it }.onFailure { listError = it.message }
+        try {
+            queue = vm.queue(config)
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            listError = t.message ?: t.javaClass.simpleName
+        }
     }
     suspend fun loadHistory() {
         listError = null
-        runCatching { vm.history(config, showHidden) }.onSuccess { history = it }.onFailure { listError = it.message }
+        try {
+            history = vm.history(config, showHidden)
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            listError = t.message ?: t.javaClass.simpleName
+        }
     }
     LaunchedEffect(tab, showHidden) { if (tab == 0) loadQueue() else loadHistory() }
 
