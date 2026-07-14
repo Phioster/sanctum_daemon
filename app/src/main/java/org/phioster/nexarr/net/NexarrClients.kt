@@ -10,6 +10,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import retrofit2.Response
+import org.phioster.nexarr.model.NzbHistoryEntry
+import org.phioster.nexarr.model.NzbQueueItem
 import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceStatus
 import org.phioster.nexarr.model.ServiceType
@@ -161,15 +163,31 @@ private interface SeerrApi {
 )
 
 @Serializable private data class NzbGroupsResp(val result: List<NzbGroup> = emptyList())
-@Serializable private data class NzbGroup(val NZBID: Int = 0)
+@Serializable private data class NzbGroup(
+    val NZBID: Int = 0,
+    val NZBName: String = "",
+    val Status: String = "",
+    val FileSizeMB: Long = 0,
+    val RemainingSizeMB: Long = 0,
+)
 
 @Serializable private data class NzbRpcReq(val method: String, val params: List<String> = emptyList(), val id: Int = 1)
 @Serializable private data class NzbBoolResp(val result: Boolean = false)
+
+@Serializable private data class NzbHistoryReq(val params: List<Boolean>, val method: String = "history", val id: Int = 1)
+@Serializable private data class NzbHistoryResp(val result: List<NzbHistoryItem> = emptyList())
+@Serializable private data class NzbHistoryItem(
+    val NZBID: Int = 0,
+    val Name: String = "",
+    val Status: String = "",
+    val FileSizeMB: Long = 0,
+)
 
 private interface NzbgetApi {
     @GET("jsonrpc/status") suspend fun status(): NzbStatusResp
     @GET("jsonrpc/listgroups") suspend fun listgroups(): NzbGroupsResp
     @POST("jsonrpc") suspend fun rpc(@Body req: NzbRpcReq): NzbBoolResp
+    @POST("jsonrpc") suspend fun history(@Body req: NzbHistoryReq): NzbHistoryResp
 }
 
 /** Runs the appropriate status calls for a service and maps them to a card. */
@@ -269,6 +287,18 @@ suspend fun runNzbgetResume(config: ServiceConfig): String = withContext(Dispatc
         if (r.result) "resumed" else "error: NZBGet did not accept resume"
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun nzbgetQueue(config: ServiceConfig): List<NzbQueueItem> = withContext(Dispatchers.IO) {
+    apiFor<NzbgetApi>(config, basicHeader(config)).listgroups().result.map {
+        NzbQueueItem(it.NZBID, it.NZBName, it.Status, it.FileSizeMB, it.RemainingSizeMB)
+    }
+}
+
+suspend fun nzbgetHistory(config: ServiceConfig, hidden: Boolean): List<NzbHistoryEntry> = withContext(Dispatchers.IO) {
+    apiFor<NzbgetApi>(config, basicHeader(config)).history(NzbHistoryReq(params = listOf(hidden))).result.map {
+        NzbHistoryEntry(it.NZBID, it.Name, it.Status, it.FileSizeMB)
     }
 }
 

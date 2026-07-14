@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -37,6 +39,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -59,10 +62,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
+import org.phioster.nexarr.model.NzbHistoryEntry
+import org.phioster.nexarr.model.NzbQueueItem
 import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceStatus
 import org.phioster.nexarr.model.ServiceType
@@ -119,12 +125,16 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
             onSave = { vm.upsertService(it); addOpen = false; editing = null },
             onTest = { vm.test(it) },
         )
-        detail != null -> ServiceDetailScreen(
-            vm = vm,
-            config = detail!!,
-            onBack = { detail = null },
-            onEdit = { editing = detail; detail = null },
-        )
+        detail != null -> {
+            val cfg = detail!!
+            val back = { detail = null }
+            val edit = { editing = detail; detail = null }
+            if (cfg.type == ServiceType.NZBGET) {
+                NzbgetScreen(vm = vm, config = cfg, onBack = back, onEdit = edit)
+            } else {
+                ServiceDetailScreen(vm = vm, config = cfg, onBack = back, onEdit = edit)
+            }
+        }
         else -> DashboardScreen(
             vm = vm,
             onAdd = { addOpen = true },
@@ -251,6 +261,156 @@ private fun ServiceCard(
                 Text(it, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NzbgetScreen(
+    vm: DashboardViewModel,
+    config: ServiceConfig,
+    onBack: () -> Unit,
+    onEdit: () -> Unit,
+) {
+    val statuses by vm.statuses.collectAsState()
+    val status = statuses[config.id]
+    val accent = Color(config.type.accent)
+    val scope = rememberCoroutineScope()
+    var tab by remember { mutableStateOf(0) }
+    var showHidden by remember { mutableStateOf(false) }
+    var queue by remember { mutableStateOf<List<NzbQueueItem>?>(null) }
+    var history by remember { mutableStateOf<List<NzbHistoryEntry>?>(null) }
+    var listError by remember { mutableStateOf<String?>(null) }
+    var actionMsg by remember { mutableStateOf<String?>(null) }
+
+    suspend fun loadQueue() {
+        listError = null
+        runCatching { vm.queue(config) }.onSuccess { queue = it }.onFailure { listError = it.message }
+    }
+    suspend fun loadHistory() {
+        listError = null
+        runCatching { vm.history(config, showHidden) }.onSuccess { history = it }.onFailure { listError = it.message }
+    }
+    LaunchedEffect(tab, showHidden) { if (tab == 0) loadQueue() else loadHistory() }
+
+    Scaffold(
+        containerColor = Black,
+        topBar = {
+            TopAppBar(
+                title = { Text(config.label, fontFamily = Mono, color = MatrixGreen) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen)
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Edit", tint = MatrixGreen)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
+            )
+        },
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            Column(Modifier.padding(16.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(status?.note ?: "—", fontFamily = Mono, color = accent, fontSize = 13.sp)
+                    Text(
+                        status?.stats?.firstOrNull()?.let { "${it.second} KB/s" } ?: "",
+                        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp,
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Row {
+                    ActionBtn("Pause all", true) { scope.launch { actionMsg = vm.nzbgetPause(config); loadQueue(); vm.refreshAll() } }
+                    Spacer(Modifier.width(12.dp))
+                    ActionBtn("Resume all", true) { scope.launch { actionMsg = vm.nzbgetResume(config); loadQueue(); vm.refreshAll() } }
+                    Spacer(Modifier.width(12.dp))
+                    IconButton(onClick = { scope.launch { if (tab == 0) loadQueue() else loadHistory() } }) {
+                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
+                    }
+                }
+                actionMsg?.let {
+                    Spacer(Modifier.height(6.dp))
+                    Text(it, fontFamily = Mono, color = if (it.startsWith("error")) ErrRed else MatrixGreen, fontSize = 12.sp)
+                }
+            }
+            Row(Modifier.padding(horizontal = 16.dp)) {
+                FilterChip(selected = tab == 0, onClick = { tab = 0 }, label = { Text("Queue", fontFamily = Mono) })
+                Spacer(Modifier.width(8.dp))
+                FilterChip(selected = tab == 1, onClick = { tab = 1 }, label = { Text("History", fontFamily = Mono) })
+                if (tab == 1) {
+                    Spacer(Modifier.width(8.dp))
+                    FilterChip(selected = showHidden, onClick = { showHidden = !showHidden }, label = { Text("hidden", fontFamily = Mono) })
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                if (listError != null) {
+                    Text("error: $listError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
+                } else {
+                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                        if (tab == 0) {
+                            val q = queue
+                            when {
+                                q == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                q.isEmpty() -> item { Text("queue is empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                else -> items(q) { QueueRow(it) }
+                            }
+                        } else {
+                            val h = history
+                            when {
+                                h == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                h.isEmpty() -> item { Text("no history", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                else -> items(h) { HistoryRow(it) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QueueRow(item: NzbQueueItem) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(6.dp))
+        LinearProgressIndicator(
+            progress = { item.progress },
+            modifier = Modifier.fillMaxWidth(),
+            color = MatrixGreen,
+            trackColor = Surface,
+        )
+        Spacer(Modifier.height(4.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(item.status, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+            Text("${item.remainingMb} / ${item.sizeMb} MB", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+        }
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+    }
+}
+
+@Composable
+private fun HistoryRow(item: NzbHistoryEntry) {
+    val statusColor = when {
+        item.status.contains("SUCCESS", true) -> MatrixGreen
+        item.status.contains("FAILURE", true) || item.status.contains("DELETED", true) -> ErrRed
+        else -> MatrixGreen.copy(alpha = 0.7f)
+    }
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(4.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(item.status, fontFamily = Mono, color = statusColor, fontSize = 11.sp)
+            Text("${item.sizeMb} MB", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+        }
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
     }
 }
 

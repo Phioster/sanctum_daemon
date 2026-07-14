@@ -10,8 +10,12 @@ import kotlinx.coroutines.launch
 import org.phioster.nexarr.data.ServiceStore
 import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceStatus
+import org.phioster.nexarr.model.NzbHistoryEntry
+import org.phioster.nexarr.model.NzbQueueItem
 import org.phioster.nexarr.net.clearJellyfinSession
 import org.phioster.nexarr.net.fetchStatus
+import org.phioster.nexarr.net.nzbgetHistory
+import org.phioster.nexarr.net.nzbgetQueue
 import org.phioster.nexarr.net.runJellyfinScan
 import org.phioster.nexarr.net.runNzbgetPause
 import org.phioster.nexarr.net.runNzbgetResume
@@ -71,6 +75,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun prowlarrTestAll(config: ServiceConfig): String = runProwlarrTestAll(config)
     suspend fun nzbgetPause(config: ServiceConfig): String = runNzbgetPause(config)
     suspend fun nzbgetResume(config: ServiceConfig): String = runNzbgetResume(config)
+
+    suspend fun queue(config: ServiceConfig): List<NzbQueueItem> = nzbgetQueue(config)
+    suspend fun history(config: ServiceConfig, hidden: Boolean): List<NzbHistoryEntry> = nzbgetHistory(config, hidden)
 
     private fun setStatus(id: String, status: ServiceStatus) {
         _statuses.value = _statuses.value.toMutableMap().apply { put(id, status) }
