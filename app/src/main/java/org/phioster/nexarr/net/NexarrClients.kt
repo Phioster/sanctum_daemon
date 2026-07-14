@@ -167,7 +167,15 @@ private interface SeerrApi {
     val DownloadRate: Long = 0,
     val RemainingSizeMB: Long = 0,
     val DownloadPaused: Boolean = false,
+    val DownloadedSizeMB: Long = 0,
+    val FreeDiskSpaceMB: Long = 0,
+    val ArticleCacheMB: Long = 0,
+    val UpTimeSec: Long = 0,
+    val ThreadCount: Int = 0,
 )
+
+@Serializable private data class NzbStringResp(val result: String = "")
+@Serializable private data class NzbIntResp(val result: Int = 0)
 
 @Serializable private data class NzbGroupsResp(val result: List<NzbGroup> = emptyList())
 @Serializable private data class NzbGroup(
@@ -196,7 +204,25 @@ private interface NzbgetApi {
     @POST("jsonrpc") suspend fun rpc(@Body req: NzbRpcReq): NzbBoolResp
     @POST("jsonrpc") suspend fun history(@Body req: NzbHistoryReq): NzbHistoryResp
     @POST("jsonrpc") suspend fun rpcJson(@Body body: JsonObject): NzbBoolResp
+    @POST("jsonrpc") suspend fun rpcInt(@Body body: JsonObject): NzbIntResp
+    @POST("jsonrpc") suspend fun version(@Body req: NzbRpcReq): NzbStringResp
 }
+
+private fun appendUrlBody(url: String, category: String): JsonObject =
+    buildJsonObject {
+        put("method", "append")
+        putJsonArray("params") {
+            add("")        // NZBFilename
+            add(url)       // NZBContent (a URL is fetched by NZBGet)
+            add(category)  // Category
+            add(0)         // Priority
+            add(false)     // AddToTop
+            add(false)     // AddPaused
+            add("")        // DupeKey
+            add(0)         // DupeScore
+            add("SCORE")   // DupeMode
+        }
+    }
 
 private fun editqueueBody(command: String, editText: String, id: Int): JsonObject =
     buildJsonObject {
@@ -346,6 +372,35 @@ suspend fun runNzbRate(config: ServiceConfig, kbps: Int): String = withContext(D
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
     }
+}
+
+/** Adds an NZB by URL (NZBGet fetches it). Optional category. */
+suspend fun runNzbAppendUrl(config: ServiceConfig, url: String, category: String): String =
+    withContext(Dispatchers.IO) {
+        try {
+            val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpcInt(appendUrlBody(url.trim(), category.trim()))
+            if (r.result > 0) "added (id ${r.result})" else "error: NZBGet rejected the URL"
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
+
+/** Server status + version for the details dialog. */
+suspend fun nzbServerDetails(config: ServiceConfig): List<Pair<String, String>> = withContext(Dispatchers.IO) {
+    val api = apiFor<NzbgetApi>(config, basicHeader(config))
+    val st = api.status().result
+    val version = runCatching { api.version(NzbRpcReq("version")).result }.getOrDefault("?")
+    listOf(
+        "Version" to version,
+        "State" to if (st.DownloadPaused) "paused" else "active",
+        "Rate" to "${st.DownloadRate / 1024} KB/s",
+        "Remaining" to "${st.RemainingSizeMB} MB",
+        "Downloaded" to "${st.DownloadedSizeMB} MB",
+        "Free disk" to "${st.FreeDiskSpaceMB} MB",
+        "Cache" to "${st.ArticleCacheMB} MB",
+        "Threads" to st.ThreadCount.toString(),
+        "Uptime" to "${st.UpTimeSec / 3600}h ${(st.UpTimeSec % 3600) / 60}m",
+    )
 }
 
 private suspend fun radarrStatus(config: ServiceConfig): ServiceStatus {

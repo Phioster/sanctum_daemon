@@ -1,5 +1,7 @@
 package org.phioster.nexarr
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -45,6 +48,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.darkColorScheme
@@ -59,6 +63,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -306,6 +311,14 @@ private fun NzbgetScreen(
     LaunchedEffect(tab, showHidden) { if (tab == 0) loadQueue() else loadHistory() }
 
     var speedMenu by remember { mutableStateOf(false) }
+    var moreMenu by remember { mutableStateOf(false) }
+    var showAdd by remember { mutableStateOf(false) }
+    var addUrl by remember { mutableStateOf("") }
+    var addCat by remember { mutableStateOf("") }
+    var serverInfo by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
+    var categoryFor by remember { mutableStateOf<Int?>(null) }
+    var categoryText by remember { mutableStateOf("") }
+    val context = LocalContext.current
     fun act(action: suspend () -> String) {
         scope.launch {
             actionMsg = action()
@@ -361,6 +374,22 @@ private fun NzbgetScreen(
                     IconButton(onClick = { scope.launch { if (tab == 0) loadQueue() else loadHistory() } }) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                     }
+                    Box {
+                        IconButton(onClick = { moreMenu = true }) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen)
+                        }
+                        DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
+                            DropdownMenuItem(text = { Text("Add NZB (URL)", fontFamily = Mono) }, onClick = { moreMenu = false; showAdd = true })
+                            DropdownMenuItem(text = { Text("Server details", fontFamily = Mono) }, onClick = {
+                                moreMenu = false
+                                scope.launch { serverInfo = runCatching { vm.nzbServer(config) }.getOrNull() ?: listOf("error" to "could not load") }
+                            })
+                            DropdownMenuItem(text = { Text("View on web", fontFamily = Mono) }, onClick = {
+                                moreMenu = false
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(config.baseUrl))) }
+                            })
+                        }
+                    }
                 }
                 actionMsg?.let {
                     Spacer(Modifier.height(6.dp))
@@ -388,7 +417,13 @@ private fun NzbgetScreen(
                             when {
                                 q == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                 q.isEmpty() -> item { Text("queue is empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                else -> items(q) { qi -> QueueRow(qi) { cmd, txt -> act { vm.nzbEdit(config, cmd, qi.id, txt) } } }
+                                else -> items(q) { qi ->
+                                    QueueRow(
+                                        item = qi,
+                                        onAction = { cmd, txt -> act { vm.nzbEdit(config, cmd, qi.id, txt) } },
+                                        onCategory = { categoryText = ""; categoryFor = qi.id },
+                                    )
+                                }
                             }
                         } else {
                             val h = history
@@ -403,10 +438,70 @@ private fun NzbgetScreen(
             }
         }
     }
+
+    if (showAdd) {
+        AlertDialog(
+            onDismissRequest = { showAdd = false },
+            containerColor = Surface,
+            title = { Text("Add NZB by URL", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    Field("URL", addUrl) { addUrl = it }
+                    Field("Category (optional)", addCat) { addCat = it }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = addUrl.isNotBlank(),
+                    onClick = {
+                        val u = addUrl; val c = addCat
+                        showAdd = false; addUrl = ""; addCat = ""
+                        act { vm.nzbAddUrl(config, u, c) }
+                    },
+                ) { Text("Add", fontFamily = Mono, color = MatrixGreen) }
+            },
+            dismissButton = { TextButton(onClick = { showAdd = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+    serverInfo?.let { info ->
+        AlertDialog(
+            onDismissRequest = { serverInfo = null },
+            containerColor = Surface,
+            title = { Text("Server details", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    info.forEach { (k, v) ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(k, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp)
+                            Text(v, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { serverInfo = null }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+    categoryFor?.let { id ->
+        AlertDialog(
+            onDismissRequest = { categoryFor = null },
+            containerColor = Surface,
+            title = { Text("Set category", fontFamily = Mono, color = MatrixGreen) },
+            text = { Field("Category", categoryText) { categoryText = it } },
+            confirmButton = {
+                TextButton(onClick = {
+                    val c = categoryText
+                    categoryFor = null; categoryText = ""
+                    act { vm.nzbEdit(config, "GroupSetCategory", id, c) }
+                }) { Text("Set", fontFamily = Mono, color = MatrixGreen) }
+            },
+            dismissButton = { TextButton(onClick = { categoryFor = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
 }
 
 @Composable
-private fun QueueRow(item: NzbQueueItem, onAction: (String, String) -> Unit) {
+private fun QueueRow(item: NzbQueueItem, onAction: (String, String) -> Unit, onCategory: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Box {
         Column(Modifier.fillMaxWidth().clickable { menu = true }.padding(vertical = 8.dp)) {
@@ -433,6 +528,9 @@ private fun QueueRow(item: NzbQueueItem, onAction: (String, String) -> Unit) {
             DropdownMenuItem(text = { Text("Priority: High", fontFamily = Mono) }, onClick = { menu = false; onAction("GroupSetPriority", "50") })
             DropdownMenuItem(text = { Text("Priority: Normal", fontFamily = Mono) }, onClick = { menu = false; onAction("GroupSetPriority", "0") })
             DropdownMenuItem(text = { Text("Priority: Low", fontFamily = Mono) }, onClick = { menu = false; onAction("GroupSetPriority", "-50") })
+            DropdownMenuItem(text = { Text("Move to top", fontFamily = Mono) }, onClick = { menu = false; onAction("GroupMoveTop", "") })
+            DropdownMenuItem(text = { Text("Move to bottom", fontFamily = Mono) }, onClick = { menu = false; onAction("GroupMoveBottom", "") })
+            DropdownMenuItem(text = { Text("Set category…", fontFamily = Mono) }, onClick = { menu = false; onCategory() })
         }
     }
 }
