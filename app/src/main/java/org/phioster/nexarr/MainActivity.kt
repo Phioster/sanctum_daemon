@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
+import org.phioster.nexarr.model.ArrLibraryItem
 import org.phioster.nexarr.model.ArrMissingItem
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
