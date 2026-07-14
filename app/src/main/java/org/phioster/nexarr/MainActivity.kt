@@ -459,6 +459,8 @@ private fun ArrScreen(
     var folders by remember { mutableStateOf<List<String>>(emptyList()) }
     var chosenProfile by remember { mutableStateOf<ArrProfile?>(null) }
     var chosenFolder by remember { mutableStateOf<String?>(null) }
+    var metaProfiles by remember { mutableStateOf<List<ArrProfile>>(emptyList()) }
+    var chosenMeta by remember { mutableStateOf<ArrProfile?>(null) }
     var monitored by remember { mutableStateOf(true) }
 
     suspend fun loadLibrary() {
@@ -513,9 +515,7 @@ private fun ArrScreen(
                     Box {
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
-                            if (config.type != ServiceType.LIDARR) {
-                                DropdownMenuItem(text = { Text("Add new", fontFamily = Mono) }, onClick = { barMenu = false; addTerm = ""; addResults = null; showAdd = true })
-                            }
+                            DropdownMenuItem(text = { Text("Add new", fontFamily = Mono) }, onClick = { barMenu = false; addTerm = ""; addResults = null; showAdd = true })
                             DropdownMenuItem(text = { Text("Search all missing", fontFamily = Mono) }, onClick = { barMenu = false; act { vm.searchMissing(config) } })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
@@ -658,6 +658,10 @@ private fun ArrScreen(
                                                 folders = runCatching { vm.arrRootFoldersList(config) }.getOrDefault(emptyList())
                                                 chosenProfile = profiles.firstOrNull()
                                                 chosenFolder = folders.firstOrNull()
+                                                if (config.type == ServiceType.LIDARR) {
+                                                    metaProfiles = runCatching { vm.arrMetaProfilesList(config) }.getOrDefault(emptyList())
+                                                    chosenMeta = metaProfiles.firstOrNull()
+                                                }
                                             }
                                         }
                                         .padding(vertical = 8.dp),
@@ -680,6 +684,10 @@ private fun ArrScreen(
                     DropdownField("Quality", chosenProfile?.name ?: "…", profiles.map { it.name }) { i -> chosenProfile = profiles[i] }
                     Spacer(Modifier.height(8.dp))
                     DropdownField("Folder", chosenFolder ?: "…", folders) { i -> chosenFolder = folders[i] }
+                    if (config.type == ServiceType.LIDARR) {
+                        Spacer(Modifier.height(8.dp))
+                        DropdownField("Metadata", chosenMeta?.name ?: "…", metaProfiles.map { it.name }) { i -> chosenMeta = metaProfiles[i] }
+                    }
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Monitored", fontFamily = Mono, color = MatrixGreen, modifier = Modifier.weight(1f))
@@ -689,12 +697,12 @@ private fun ArrScreen(
             },
             confirmButton = {
                 TextButton(
-                    enabled = chosenProfile != null && chosenFolder != null,
+                    enabled = chosenProfile != null && chosenFolder != null && (config.type != ServiceType.LIDARR || chosenMeta != null),
                     onClick = {
-                        val raw = item.raw; val p = chosenProfile!!; val f = chosenFolder!!; val m = monitored
+                        val raw = item.raw; val p = chosenProfile!!; val f = chosenFolder!!; val m = monitored; val meta = chosenMeta?.id ?: 0
                         selected = null
                         scope.launch {
-                            actionMsg = vm.arrAddItem(config, raw, p.id, f, m)
+                            actionMsg = vm.arrAddItem(config, raw, p.id, f, m, meta)
                             reload()
                             vm.refreshAll()
                         }

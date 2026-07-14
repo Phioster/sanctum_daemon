@@ -22,6 +22,7 @@ import org.phioster.nexarr.net.arrAdd
 import org.phioster.nexarr.net.arrLibrary
 import org.phioster.nexarr.net.arrLibrarySearch
 import org.phioster.nexarr.net.arrLookup
+import org.phioster.nexarr.net.arrMetadataProfiles
 import org.phioster.nexarr.net.arrProfiles
 import org.phioster.nexarr.net.arrRootFolders
 import org.phioster.nexarr.net.arrMissing
@@ -117,8 +118,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrLookupList(config: ServiceConfig, term: String): List<ArrLookupItem> = arrLookup(config, term)
     suspend fun arrProfilesList(config: ServiceConfig): List<ArrProfile> = arrProfiles(config)
     suspend fun arrRootFoldersList(config: ServiceConfig): List<String> = arrRootFolders(config)
-    suspend fun arrAddItem(config: ServiceConfig, raw: String, qualityProfileId: Int, rootFolderPath: String, monitored: Boolean): String =
-        arrAdd(config, raw, qualityProfileId, rootFolderPath, monitored)
+    suspend fun arrMetaProfilesList(config: ServiceConfig): List<ArrProfile> = arrMetadataProfiles(config)
+    suspend fun arrAddItem(config: ServiceConfig, raw: String, qualityProfileId: Int, rootFolderPath: String, monitored: Boolean, metadataProfileId: Int = 0): String =
+        arrAdd(config, raw, qualityProfileId, rootFolderPath, monitored, metadataProfileId)
 
     suspend fun seerrList(config: ServiceConfig, pendingOnly: Boolean): List<SeerrRequestItem> =
         seerrRequests(config, pendingOnly)

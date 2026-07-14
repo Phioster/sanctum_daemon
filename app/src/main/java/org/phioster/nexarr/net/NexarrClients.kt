@@ -328,12 +328,19 @@ suspend fun arrRootFolders(config: ServiceConfig): List<String> = withContext(Di
         .map { it.path }.filter { it.isNotBlank() }
 }
 
+/** Lidarr only: metadata profiles (required to add an artist). */
+suspend fun arrMetadataProfiles(config: ServiceConfig): List<ArrProfile> = withContext(Dispatchers.IO) {
+    apiFor<ArrApi>(config, apiKeyHeader(config)).profiles("${arrBase(config.type)}/metadataprofile")
+        .map { ArrProfile(it.id, it.name) }
+}
+
 suspend fun arrAdd(
     config: ServiceConfig,
     raw: String,
     qualityProfileId: Int,
     rootFolderPath: String,
     monitored: Boolean,
+    metadataProfileId: Int = 0,
 ): String = withContext(Dispatchers.IO) {
     try {
         val base = arrBase(config.type)
@@ -344,15 +351,25 @@ suspend fun arrAdd(
             put("qualityProfileId", qualityProfileId)
             put("rootFolderPath", rootFolderPath)
             put("monitored", monitored)
-            if (config.type == ServiceType.SONARR) {
-                put("seasonFolder", true)
-                putJsonObject("addOptions") {
-                    put("searchForMissingEpisodes", monitored)
-                    put("monitor", if (monitored) "all" else "none")
+            when (config.type) {
+                ServiceType.SONARR -> {
+                    put("seasonFolder", true)
+                    putJsonObject("addOptions") {
+                        put("searchForMissingEpisodes", monitored)
+                        put("monitor", if (monitored) "all" else "none")
+                    }
                 }
-            } else {
-                put("minimumAvailability", "released")
-                putJsonObject("addOptions") { put("searchForMovie", monitored) }
+                ServiceType.LIDARR -> {
+                    put("metadataProfileId", metadataProfileId)
+                    putJsonObject("addOptions") {
+                        put("monitor", if (monitored) "all" else "none")
+                        put("searchForMissingAlbums", monitored)
+                    }
+                }
+                else -> {
+                    put("minimumAvailability", "released")
+                    putJsonObject("addOptions") { put("searchForMovie", monitored) }
+                }
             }
         }
         val r = apiFor<ArrApi>(config, apiKeyHeader(config)).add("$base/$path", body)
