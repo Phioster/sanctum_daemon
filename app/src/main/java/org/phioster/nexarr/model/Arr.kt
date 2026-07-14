@@ -23,3 +23,13 @@ data class ArrLibraryItem(
     val year: Int,
     val sizeMb: Long,
 )
+
+/** A lookup result for adding; [raw] is the original JSON reused as the add body. */
+data class ArrLookupItem(
+    val title: String,
+    val year: Int,
+    val raw: String,
+)
+
+/** A Servarr quality profile. */
+data class ArrProfile(val id: Int, val name: String)

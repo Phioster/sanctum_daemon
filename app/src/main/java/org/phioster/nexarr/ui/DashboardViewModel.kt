@@ -11,13 +11,19 @@ import org.phioster.nexarr.data.ServiceStore
 import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceStatus
 import org.phioster.nexarr.model.ArrLibraryItem
+import org.phioster.nexarr.model.ArrLookupItem
 import org.phioster.nexarr.model.ArrMissingItem
+import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
 import org.phioster.nexarr.model.SeerrRequestItem
+import org.phioster.nexarr.net.arrAdd
 import org.phioster.nexarr.net.arrLibrary
 import org.phioster.nexarr.net.arrLibrarySearch
+import org.phioster.nexarr.net.arrLookup
+import org.phioster.nexarr.net.arrProfiles
+import org.phioster.nexarr.net.arrRootFolders
 import org.phioster.nexarr.net.arrMissing
 import org.phioster.nexarr.net.arrQueue
 import org.phioster.nexarr.net.arrQueueRemove
@@ -108,6 +114,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrRemove(config: ServiceConfig, id: Int): String = arrQueueRemove(config, id)
     suspend fun arrLibraryList(config: ServiceConfig): List<ArrLibraryItem> = arrLibrary(config)
     suspend fun arrLibSearch(config: ServiceConfig, id: Int): String = arrLibrarySearch(config, id)
+    suspend fun arrLookupList(config: ServiceConfig, term: String): List<ArrLookupItem> = arrLookup(config, term)
+    suspend fun arrProfilesList(config: ServiceConfig): List<ArrProfile> = arrProfiles(config)
+    suspend fun arrRootFoldersList(config: ServiceConfig): List<String> = arrRootFolders(config)
+    suspend fun arrAddItem(config: ServiceConfig, raw: String, qualityProfileId: Int, rootFolderPath: String, monitored: Boolean): String =
+        arrAdd(config, raw, qualityProfileId, rootFolderPath, monitored)
 
     suspend fun seerrList(config: ServiceConfig, pendingOnly: Boolean): List<SeerrRequestItem> =
         seerrRequests(config, pendingOnly)

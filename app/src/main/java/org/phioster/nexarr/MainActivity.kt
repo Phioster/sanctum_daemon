@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,6 +48,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -73,7 +75,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import org.phioster.nexarr.model.ArrLibraryItem
+import org.phioster.nexarr.model.ArrLookupItem
 import org.phioster.nexarr.model.ArrMissingItem
+import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
@@ -447,6 +451,15 @@ private fun ArrScreen(
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var barMenu by remember { mutableStateOf(false) }
+    var showAdd by remember { mutableStateOf(false) }
+    var addTerm by remember { mutableStateOf("") }
+    var addResults by remember { mutableStateOf<List<ArrLookupItem>?>(null) }
+    var selected by remember { mutableStateOf<ArrLookupItem?>(null) }
+    var profiles by remember { mutableStateOf<List<ArrProfile>>(emptyList()) }
+    var folders by remember { mutableStateOf<List<String>>(emptyList()) }
+    var chosenProfile by remember { mutableStateOf<ArrProfile?>(null) }
+    var chosenFolder by remember { mutableStateOf<String?>(null) }
+    var monitored by remember { mutableStateOf(true) }
 
     suspend fun loadLibrary() {
         listError = null
@@ -500,6 +513,9 @@ private fun ArrScreen(
                     Box {
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
+                            if (config.type != ServiceType.LIDARR) {
+                                DropdownMenuItem(text = { Text("Add new", fontFamily = Mono) }, onClick = { barMenu = false; addTerm = ""; addResults = null; showAdd = true })
+                            }
                             DropdownMenuItem(text = { Text("Search all missing", fontFamily = Mono) }, onClick = { barMenu = false; act { vm.searchMissing(config) } })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
@@ -604,6 +620,102 @@ private fun ArrScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+
+    if (showAdd) {
+        AlertDialog(
+            onDismissRequest = { showAdd = false },
+            containerColor = Surface,
+            title = { Text("Add ${config.type.label}", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    Field("Search title", addTerm) { addTerm = it }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { scope.launch { addResults = runCatching { vm.arrLookupList(config, addTerm) }.getOrElse { emptyList() } } },
+                        enabled = addTerm.isNotBlank(),
+                    ) { Text("Search", fontFamily = Mono) }
+                    Spacer(Modifier.height(8.dp))
+                    Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
+                        val res = addResults
+                        when {
+                            res == null -> {}
+                            res.isEmpty() -> Text("no results", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                            else -> res.forEach { r ->
+                                Text(
+                                    "${r.title}${if (r.year > 0) " (${r.year})" else ""}",
+                                    fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            selected = r
+                                            showAdd = false
+                                            monitored = true
+                                            scope.launch {
+                                                profiles = runCatching { vm.arrProfilesList(config) }.getOrDefault(emptyList())
+                                                folders = runCatching { vm.arrRootFoldersList(config) }.getOrDefault(emptyList())
+                                                chosenProfile = profiles.firstOrNull()
+                                                chosenFolder = folders.firstOrNull()
+                                            }
+                                        }
+                                        .padding(vertical = 8.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showAdd = false }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+    selected?.let { item ->
+        AlertDialog(
+            onDismissRequest = { selected = null },
+            containerColor = Surface,
+            title = { Text("Add: ${item.title}", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    DropdownField("Quality", chosenProfile?.name ?: "…", profiles.map { it.name }) { i -> chosenProfile = profiles[i] }
+                    Spacer(Modifier.height(8.dp))
+                    DropdownField("Folder", chosenFolder ?: "…", folders) { i -> chosenFolder = folders[i] }
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Monitored", fontFamily = Mono, color = MatrixGreen, modifier = Modifier.weight(1f))
+                        Switch(checked = monitored, onCheckedChange = { monitored = it })
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = chosenProfile != null && chosenFolder != null,
+                    onClick = {
+                        val raw = item.raw; val p = chosenProfile!!; val f = chosenFolder!!; val m = monitored
+                        selected = null
+                        scope.launch {
+                            actionMsg = vm.arrAddItem(config, raw, p.id, f, m)
+                            reload()
+                            vm.refreshAll()
+                        }
+                    },
+                ) { Text("Add", fontFamily = Mono, color = MatrixGreen) }
+            },
+            dismissButton = { TextButton(onClick = { selected = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+}
+
+@Composable
+private fun DropdownField(label: String, value: String, options: List<String>, onSelect: (Int) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth()) {
+            Text("$label: $value", fontFamily = Mono, color = MatrixGreen)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            options.forEachIndexed { i, o ->
+                DropdownMenuItem(text = { Text(o, fontFamily = Mono) }, onClick = { open = false; onSelect(i) })
             }
         }
     }

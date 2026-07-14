@@ -9,18 +9,24 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 import okhttp3.Credentials
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import retrofit2.Response
 import org.phioster.nexarr.model.ArrLibraryItem
+import org.phioster.nexarr.model.ArrLookupItem
 import org.phioster.nexarr.model.ArrMissingItem
+import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
@@ -278,15 +284,83 @@ suspend fun seerrDecline(config: ServiceConfig, id: Int): String = withContext(D
     val statistics: ArrStats? = null,
 )
 
+@Serializable private data class ArrProfileRecord(val id: Int = 0, val name: String = "")
+@Serializable private data class ArrRootFolderRecord(val path: String = "")
+
 private interface ArrApi {
     @GET suspend fun missing(@Url url: String): ArrMissingPage
     @GET suspend fun queue(@Url url: String): ArrQueuePage
     @GET suspend fun library(@Url url: String): List<ArrLibraryRecord>
+    @GET suspend fun lookup(@Url url: String, @Query("term") term: String): List<JsonObject>
+    @GET suspend fun profiles(@Url url: String): List<ArrProfileRecord>
+    @GET suspend fun rootFolders(@Url url: String): List<ArrRootFolderRecord>
     @POST suspend fun command(@Url url: String, @Body body: JsonObject): Response<ResponseBody>
+    @POST suspend fun add(@Url url: String, @Body body: JsonObject): Response<ResponseBody>
     @DELETE suspend fun deleteQueue(@Url url: String): Response<ResponseBody>
 }
 
 private fun arrBase(type: ServiceType) = if (type == ServiceType.LIDARR) "api/v1" else "api/v3"
+
+private fun arrItemPath(type: ServiceType) = when (type) {
+    ServiceType.SONARR -> "series"
+    ServiceType.LIDARR -> "artist"
+    else -> "movie"
+}
+
+suspend fun arrLookup(config: ServiceConfig, term: String): List<ArrLookupItem> = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    val path = arrItemPath(config.type)
+    apiFor<ArrApi>(config, apiKeyHeader(config)).lookup("$base/$path/lookup", term).map { obj ->
+        val title = (obj["title"] as? JsonPrimitive)?.content
+            ?: (obj["artistName"] as? JsonPrimitive)?.content ?: "?"
+        val year = (obj["year"] as? JsonPrimitive)?.intOrNull ?: 0
+        ArrLookupItem(title, year, json.encodeToString(JsonObject.serializer(), obj))
+    }
+}
+
+suspend fun arrProfiles(config: ServiceConfig): List<ArrProfile> = withContext(Dispatchers.IO) {
+    apiFor<ArrApi>(config, apiKeyHeader(config)).profiles("${arrBase(config.type)}/qualityprofile")
+        .map { ArrProfile(it.id, it.name) }
+}
+
+suspend fun arrRootFolders(config: ServiceConfig): List<String> = withContext(Dispatchers.IO) {
+    apiFor<ArrApi>(config, apiKeyHeader(config)).rootFolders("${arrBase(config.type)}/rootfolder")
+        .map { it.path }.filter { it.isNotBlank() }
+}
+
+suspend fun arrAdd(
+    config: ServiceConfig,
+    raw: String,
+    qualityProfileId: Int,
+    rootFolderPath: String,
+    monitored: Boolean,
+): String = withContext(Dispatchers.IO) {
+    try {
+        val base = arrBase(config.type)
+        val path = arrItemPath(config.type)
+        val original = json.parseToJsonElement(raw).jsonObject
+        val body = buildJsonObject {
+            original.forEach { (k, v) -> put(k, v) }
+            put("qualityProfileId", qualityProfileId)
+            put("rootFolderPath", rootFolderPath)
+            put("monitored", monitored)
+            if (config.type == ServiceType.SONARR) {
+                put("seasonFolder", true)
+                putJsonObject("addOptions") {
+                    put("searchForMissingEpisodes", monitored)
+                    put("monitor", if (monitored) "all" else "none")
+                }
+            } else {
+                put("minimumAvailability", "released")
+                putJsonObject("addOptions") { put("searchForMovie", monitored) }
+            }
+        }
+        val r = apiFor<ArrApi>(config, apiKeyHeader(config)).add("$base/$path", body)
+        if (r.isSuccessful) "added" else "error: HTTP ${r.code()}"
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
 
 suspend fun arrMissing(config: ServiceConfig): List<ArrMissingItem> = withContext(Dispatchers.IO) {
     val base = arrBase(config.type)
