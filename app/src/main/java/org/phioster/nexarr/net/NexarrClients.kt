@@ -88,6 +88,51 @@ private interface RadarrApi {
     @GET("api/v3/wanted/missing") suspend fun missing(@Query("pageSize") pageSize: Int = 1): RadarrPage
 }
 
+// ---- Sonarr (api/v3) ----
+
+@Serializable private data class SonarrSeries(val monitored: Boolean = false)
+
+private interface SonarrApi {
+    @GET("api/v3/series") suspend fun series(): List<SonarrSeries>
+    @GET("api/v3/queue") suspend fun queue(@Query("pageSize") pageSize: Int = 1): RadarrPage
+    @GET("api/v3/wanted/missing") suspend fun missing(@Query("pageSize") pageSize: Int = 1): RadarrPage
+}
+
+// ---- Lidarr (api/v1) ----
+
+@Serializable private data class LidarrArtist(val monitored: Boolean = false)
+
+private interface LidarrApi {
+    @GET("api/v1/artist") suspend fun artists(): List<LidarrArtist>
+    @GET("api/v1/queue") suspend fun queue(@Query("pageSize") pageSize: Int = 1): RadarrPage
+    @GET("api/v1/wanted/missing") suspend fun missing(@Query("pageSize") pageSize: Int = 1): RadarrPage
+}
+
+// ---- Prowlarr (api/v1) ----
+
+@Serializable private data class ProwlarrIndexerStat(
+    val numberOfQueries: Int = 0,
+    val numberOfGrabs: Int = 0,
+)
+
+@Serializable private data class ProwlarrStats(val indexers: List<ProwlarrIndexerStat> = emptyList())
+
+private interface ProwlarrApi {
+    @GET("api/v1/indexerstats") suspend fun stats(): ProwlarrStats
+}
+
+// ---- Seerr (Overseerr-compatible, api/v1) ----
+
+@Serializable private data class SeerrCounts(
+    val pending: Int = 0,
+    val approved: Int = 0,
+    val available: Int = 0,
+)
+
+private interface SeerrApi {
+    @GET("api/v1/request/count") suspend fun counts(): SeerrCounts
+}
+
 // ---- NZBGet (JSON-RPC over HTTP + Basic auth) ----
 
 @Serializable private data class NzbStatusResp(val result: NzbStatus = NzbStatus())
@@ -110,6 +155,10 @@ suspend fun fetchStatus(config: ServiceConfig): ServiceStatus = withContext(Disp
         when (config.type) {
             ServiceType.JELLYFIN -> jellyfinStatus(config)
             ServiceType.RADARR -> radarrStatus(config)
+            ServiceType.SONARR -> sonarrStatus(config)
+            ServiceType.LIDARR -> lidarrStatus(config)
+            ServiceType.PROWLARR -> prowlarrStatus(config)
+            ServiceType.SEERR -> seerrStatus(config)
             ServiceType.NZBGET -> nzbgetStatus(config)
         }
     } catch (t: Throwable) {
@@ -160,6 +209,56 @@ private suspend fun radarrStatus(config: ServiceConfig): ServiceStatus {
             "Movies" to movies.toString(),
             "Missing" to missing.toString(),
             "Queue" to queue.toString(),
+        ),
+    )
+}
+
+private suspend fun sonarrStatus(config: ServiceConfig): ServiceStatus {
+    val api = apiFor<SonarrApi>(config, mapOf("X-Api-Key" to config.apiKey))
+    return ServiceStatus(
+        ok = true,
+        stats = listOf(
+            "Series" to api.series().size.toString(),
+            "Missing" to api.missing().totalRecords.toString(),
+            "Queue" to api.queue().totalRecords.toString(),
+        ),
+    )
+}
+
+private suspend fun lidarrStatus(config: ServiceConfig): ServiceStatus {
+    val api = apiFor<LidarrApi>(config, mapOf("X-Api-Key" to config.apiKey))
+    return ServiceStatus(
+        ok = true,
+        stats = listOf(
+            "Artists" to api.artists().size.toString(),
+            "Missing" to api.missing().totalRecords.toString(),
+            "Queue" to api.queue().totalRecords.toString(),
+        ),
+    )
+}
+
+private suspend fun prowlarrStatus(config: ServiceConfig): ServiceStatus {
+    val api = apiFor<ProwlarrApi>(config, mapOf("X-Api-Key" to config.apiKey))
+    val stats = api.stats()
+    return ServiceStatus(
+        ok = true,
+        stats = listOf(
+            "Indexers" to stats.indexers.size.toString(),
+            "Grabs" to stats.indexers.sumOf { it.numberOfGrabs }.toString(),
+            "Queries" to stats.indexers.sumOf { it.numberOfQueries }.toString(),
+        ),
+    )
+}
+
+private suspend fun seerrStatus(config: ServiceConfig): ServiceStatus {
+    val api = apiFor<SeerrApi>(config, mapOf("X-Api-Key" to config.apiKey))
+    val c = api.counts()
+    return ServiceStatus(
+        ok = true,
+        stats = listOf(
+            "Pending" to c.pending.toString(),
+            "Approved" to c.approved.toString(),
+            "Available" to c.available.toString(),
         ),
     )
 }

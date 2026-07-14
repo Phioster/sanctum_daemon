@@ -8,14 +8,22 @@ import java.util.UUID
 enum class ServiceType(val label: String, val accent: Long) {
     JELLYFIN("Jellyfin", 0xFF00A4DCL),
     RADARR("Radarr", 0xFFFFC230L),
+    SONARR("Sonarr", 0xFF35C5F4L),
+    LIDARR("Lidarr", 0xFF159552L),
+    PROWLARR("Prowlarr", 0xFFE66000L),
     NZBGET("NZBGet", 0xFF43B02AL),
+    SEERR("Seerr", 0xFF818CF8L);
+
+    /** Services that authenticate with a Servarr/Overseerr-style X-Api-Key header. */
+    val usesApiKeyHeader: Boolean
+        get() = this == RADARR || this == SONARR || this == LIDARR || this == PROWLARR || this == SEERR
 }
 
 /**
  * A single configured service.
  *
  * Auth depends on [type]:
- *  - Radarr: [apiKey]
+ *  - Radarr/Sonarr/Lidarr/Prowlarr/Seerr: [apiKey] (X-Api-Key)
  *  - Jellyfin: [apiKey], or [username]/[password] when [useLogin] is true
  *  - NZBGet: [username]/[password] (HTTP Basic)
  *

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -247,10 +248,10 @@ private fun AddServiceScreen(
         )
     }
 
-    val canSave = url.isNotBlank() && when (type) {
-        ServiceType.JELLYFIN -> if (jellyLogin) username.isNotBlank() && password.isNotBlank() else apiKey.isNotBlank()
-        ServiceType.RADARR -> apiKey.isNotBlank()
-        ServiceType.NZBGET -> username.isNotBlank() && password.isNotBlank()
+    val canSave = url.isNotBlank() && when {
+        type == ServiceType.NZBGET -> username.isNotBlank() && password.isNotBlank()
+        type == ServiceType.JELLYFIN && jellyLogin -> username.isNotBlank() && password.isNotBlank()
+        else -> apiKey.isNotBlank()
     }
 
     Scaffold(
@@ -274,7 +275,7 @@ private fun AddServiceScreen(
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
         ) {
-            Row {
+            Row(Modifier.horizontalScroll(rememberScrollState())) {
                 ServiceType.entries.forEach { t ->
                     FilterChip(
                         selected = type == t,
@@ -298,7 +299,7 @@ private fun AddServiceScreen(
                 }
             }
 
-            if (type == ServiceType.RADARR || (type == ServiceType.JELLYFIN && !jellyLogin)) {
+            if (type.usesApiKeyHeader || (type == ServiceType.JELLYFIN && !jellyLogin)) {
                 Field("API key", apiKey) { apiKey = it }
             }
             if (usesLogin) {
