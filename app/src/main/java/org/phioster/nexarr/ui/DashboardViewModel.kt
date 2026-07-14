@@ -17,6 +17,7 @@ import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
+import org.phioster.nexarr.model.SeerrIssueItem
 import org.phioster.nexarr.model.SeerrRequestItem
 import org.phioster.nexarr.net.arrAdd
 import org.phioster.nexarr.net.arrLibrary
@@ -39,6 +40,7 @@ import org.phioster.nexarr.net.runNzbEditQueue
 import org.phioster.nexarr.net.runNzbRate
 import org.phioster.nexarr.net.seerrApprove
 import org.phioster.nexarr.net.seerrDecline
+import org.phioster.nexarr.net.seerrIssues
 import org.phioster.nexarr.net.seerrRequests
 import org.phioster.nexarr.net.runJellyfinScan
 import org.phioster.nexarr.net.runNzbgetPause
@@ -122,8 +124,10 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrAddItem(config: ServiceConfig, raw: String, qualityProfileId: Int, rootFolderPath: String, monitored: Boolean, metadataProfileId: Int = 0): String =
         arrAdd(config, raw, qualityProfileId, rootFolderPath, monitored, metadataProfileId)
 
-    suspend fun seerrList(config: ServiceConfig, pendingOnly: Boolean): List<SeerrRequestItem> =
-        seerrRequests(config, pendingOnly)
+    suspend fun seerrList(config: ServiceConfig, filter: String): List<SeerrRequestItem> =
+        seerrRequests(config, filter)
+    suspend fun seerrIssuesList(config: ServiceConfig, filter: String): List<SeerrIssueItem> =
+        seerrIssues(config, filter)
     suspend fun seerrApproveReq(config: ServiceConfig, id: Int): String = seerrApprove(config, id)
     suspend fun seerrDeclineReq(config: ServiceConfig, id: Int): String = seerrDecline(config, id)
 

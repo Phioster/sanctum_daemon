@@ -81,6 +81,7 @@ import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
+import org.phioster.nexarr.model.SeerrIssueItem
 import org.phioster.nexarr.model.SeerrRequestItem
 import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceStatus
@@ -297,27 +298,44 @@ private fun SeerrScreen(
     val status = statuses[config.id]
     val accent = Color(config.type.accent)
     val scope = rememberCoroutineScope()
-    var pendingOnly by remember { mutableStateOf(true) }
+    var mode by remember { mutableStateOf(0) } // 0=Requests, 1=Issues
+    var reqFilter by remember { mutableStateOf("all") }
+    var issueFilter by remember { mutableStateOf("open") }
+    var filterMenu by remember { mutableStateOf(false) }
     var requests by remember { mutableStateOf<List<SeerrRequestItem>?>(null) }
+    var issues by remember { mutableStateOf<List<SeerrIssueItem>?>(null) }
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var barMenu by remember { mutableStateOf(false) }
 
-    suspend fun load() {
+    val reqFilters = listOf("all", "pending", "approved", "processing", "failed", "available", "unavailable")
+    val issueFilters = listOf("open", "resolved", "all")
+
+    suspend fun loadRequests() {
         listError = null
         try {
-            requests = vm.seerrList(config, pendingOnly)
+            requests = vm.seerrList(config, reqFilter)
         } catch (c: kotlinx.coroutines.CancellationException) {
             throw c
         } catch (t: Throwable) {
             listError = t.message
         }
     }
-    LaunchedEffect(pendingOnly) { load() }
+    suspend fun loadIssues() {
+        listError = null
+        try {
+            issues = vm.seerrIssuesList(config, issueFilter)
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            listError = t.message
+        }
+    }
+    LaunchedEffect(mode, reqFilter, issueFilter) { if (mode == 0) loadRequests() else loadIssues() }
     fun act(action: suspend () -> String) {
         scope.launch {
             actionMsg = action()
-            load()
+            loadRequests()
             vm.refreshAll()
         }
     }
@@ -357,11 +375,24 @@ private fun SeerrScreen(
                     Spacer(Modifier.height(10.dp))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    FilterChip(selected = pendingOnly, onClick = { pendingOnly = true }, label = { Text("Pending", fontFamily = Mono) })
+                    FilterChip(selected = mode == 0, onClick = { mode = 0 }, label = { Text("Requests", fontFamily = Mono) })
                     Spacer(Modifier.width(8.dp))
-                    FilterChip(selected = !pendingOnly, onClick = { pendingOnly = false }, label = { Text("All", fontFamily = Mono) })
-                    Spacer(Modifier.width(8.dp))
-                    IconButton(onClick = { scope.launch { load() } }) {
+                    FilterChip(selected = mode == 1, onClick = { mode = 1 }, label = { Text("Issues", fontFamily = Mono) })
+                    Spacer(Modifier.weight(1f))
+                    Box {
+                        TextButton(onClick = { filterMenu = true }) {
+                            Text(if (mode == 0) reqFilter else issueFilter, fontFamily = Mono, color = MatrixGreen)
+                        }
+                        DropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }) {
+                            (if (mode == 0) reqFilters else issueFilters).forEach { f ->
+                                DropdownMenuItem(text = { Text(f, fontFamily = Mono) }, onClick = {
+                                    filterMenu = false
+                                    if (mode == 0) reqFilter = f else issueFilter = f
+                                })
+                            }
+                        }
+                    }
+                    IconButton(onClick = { scope.launch { if (mode == 0) loadRequests() else loadIssues() } }) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                     }
                 }
@@ -376,17 +407,26 @@ private fun SeerrScreen(
                     Text("error: $listError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
                 } else {
                     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                        val r = requests
-                        when {
-                            r == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                            r.isEmpty() -> item { Text(if (pendingOnly) "no pending requests" else "no requests", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                            else -> items(r) { req ->
-                                SeerrRequestRow(
-                                    item = req,
-                                    accent = accent,
-                                    onApprove = { act { vm.seerrApproveReq(config, req.id) } },
-                                    onDecline = { act { vm.seerrDeclineReq(config, req.id) } },
-                                )
+                        if (mode == 0) {
+                            val r = requests
+                            when {
+                                r == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                r.isEmpty() -> item { Text("no requests", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                else -> items(r) { req ->
+                                    SeerrRequestRow(
+                                        item = req,
+                                        accent = accent,
+                                        onApprove = { act { vm.seerrApproveReq(config, req.id) } },
+                                        onDecline = { act { vm.seerrDeclineReq(config, req.id) } },
+                                    )
+                                }
+                            }
+                        } else {
+                            val i = issues
+                            when {
+                                i == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                i.isEmpty() -> item { Text("no issues", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                else -> items(i) { iss -> SeerrIssueRow(iss, accent) }
                             }
                         }
                     }
@@ -425,6 +465,21 @@ private fun SeerrRequestRow(item: SeerrRequestItem, accent: Color, onApprove: ()
             DropdownMenuItem(text = { Text("Approve", fontFamily = Mono) }, onClick = { menu = false; onApprove() })
             DropdownMenuItem(text = { Text("Decline", fontFamily = Mono) }, onClick = { menu = false; onDecline() })
         }
+    }
+}
+
+@Composable
+private fun SeerrIssueRow(item: SeerrIssueItem, accent: Color) {
+    val statusColor = if (item.status == "open") Color(0xFFFFAA00) else MatrixGreen
+    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+        Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(2.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(item.subtitle, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.status, fontFamily = Mono, color = statusColor, fontSize = 11.sp)
+        }
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
     }
 }
 

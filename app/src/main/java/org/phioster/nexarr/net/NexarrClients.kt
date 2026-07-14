@@ -30,6 +30,7 @@ import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
+import org.phioster.nexarr.model.SeerrIssueItem
 import org.phioster.nexarr.model.SeerrRequestItem
 import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceStatus
@@ -184,6 +185,15 @@ private interface ProwlarrApi {
 @Serializable private data class SeerrRequestPage(val results: List<SeerrRequest> = emptyList())
 @Serializable private data class SeerrMeta(val title: String? = null, val name: String? = null)
 
+@Serializable private data class SeerrIssue(
+    val id: Int = 0,
+    val issueType: Int = 0,
+    val status: Int = 0,
+    val media: SeerrMedia = SeerrMedia(),
+    val createdBy: SeerrUser = SeerrUser(),
+)
+@Serializable private data class SeerrIssuePage(val results: List<SeerrIssue> = emptyList())
+
 private interface SeerrApi {
     @GET("api/v1/request/count") suspend fun counts(): SeerrCounts
 
@@ -192,6 +202,12 @@ private interface SeerrApi {
         @Query("filter") filter: String,
         @Query("sort") sort: String,
     ): SeerrRequestPage
+
+    @GET("api/v1/issue") suspend fun issues(
+        @Query("take") take: Int,
+        @Query("filter") filter: String,
+        @Query("sort") sort: String,
+    ): SeerrIssuePage
 
     @GET("api/v1/movie/{id}") suspend fun movie(@Path("id") id: Int): SeerrMeta
     @GET("api/v1/tv/{id}") suspend fun tv(@Path("id") id: Int): SeerrMeta
@@ -203,12 +219,28 @@ private fun seerrStatusText(status: Int) = when (status) {
     1 -> "pending"
     2 -> "approved"
     3 -> "declined"
+    4 -> "failed"
     else -> "?"
 }
 
-suspend fun seerrRequests(config: ServiceConfig, pendingOnly: Boolean): List<SeerrRequestItem> = withContext(Dispatchers.IO) {
+private fun seerrIssueType(type: Int) = when (type) {
+    1 -> "video"
+    2 -> "audio"
+    3 -> "subtitle"
+    else -> "other"
+}
+
+private suspend fun SeerrApi.resolveTitle(media: SeerrMedia, type: String): String {
+    val isTv = type == "tv" || media.mediaType == "tv"
+    return runCatching {
+        if (isTv) tv(media.tmdbId).let { it.name ?: it.title }
+        else movie(media.tmdbId).let { it.title ?: it.name }
+    }.getOrNull() ?: "#${media.tmdbId}"
+}
+
+suspend fun seerrRequests(config: ServiceConfig, filter: String): List<SeerrRequestItem> = withContext(Dispatchers.IO) {
     val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
-    val reqs = api.requests(take = 30, filter = if (pendingOnly) "pending" else "all", sort = "added").results
+    val reqs = api.requests(take = 30, filter = filter, sort = "added").results
     coroutineScope {
         reqs.map { r ->
             async {
@@ -244,6 +276,23 @@ suspend fun seerrDecline(config: ServiceConfig, id: Int): String = withContext(D
         if (r.isSuccessful) "declined" else "error: HTTP ${r.code()}"
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun seerrIssues(config: ServiceConfig, filter: String): List<SeerrIssueItem> = withContext(Dispatchers.IO) {
+    val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
+    val issues = api.issues(take = 30, filter = filter, sort = "added").results
+    coroutineScope {
+        issues.map { iss ->
+            async {
+                SeerrIssueItem(
+                    id = iss.id,
+                    title = api.resolveTitle(iss.media, iss.media.mediaType),
+                    subtitle = "${seerrIssueType(iss.issueType)} · ${iss.createdBy.displayName}",
+                    status = if (iss.status == 1) "open" else "resolved",
+                )
+            }
+        }.awaitAll()
     }
 }
 
