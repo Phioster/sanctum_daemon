@@ -54,6 +54,9 @@ data class ServiceStatus(
     val note: String? = null,
     val error: String? = null,
 ) {
+    /** Fetch in progress: not ok yet, but no error either. */
+    val isLoading: Boolean get() = !ok && error == null
+
     companion object {
         val Loading = ServiceStatus(ok = false, error = null)
     }

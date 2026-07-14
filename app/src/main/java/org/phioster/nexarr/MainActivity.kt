@@ -217,11 +217,11 @@ private fun ServiceCard(
                     Text(config.type.label, fontFamily = Mono, color = accent, fontSize = 12.sp)
                 }
                 val tag = when {
-                    status == null -> "[...]"
+                    status == null || status.isLoading -> "[...]"
                     status.ok -> "[ok]"
                     else -> "[err]"
                 }
-                Text(tag, fontFamily = Mono, color = if (status?.ok == true) MatrixGreen else ErrRed)
+                Text(tag, fontFamily = Mono, color = if (status == null || status.isLoading || status.ok) MatrixGreen else ErrRed)
                 Spacer(Modifier.width(4.dp))
                 Box {
                     IconButton(onClick = { menuOpen = true }) {
@@ -235,7 +235,7 @@ private fun ServiceCard(
             }
             Spacer(Modifier.height(10.dp))
             when {
-                status == null -> Text("connecting…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp)
+                status == null || status.isLoading -> Text("connecting…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp)
                 status.ok -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     status.stats.forEach { (k, v) ->
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -307,7 +307,8 @@ private fun ServiceDetailScreen(
                         }
                     }
                 }
-                status != null -> Text(status.error ?: "error", fontFamily = Mono, color = ErrRed, fontSize = 13.sp)
+                status == null || status.isLoading -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp)
+                else -> Text(status.error ?: "error", fontFamily = Mono, color = ErrRed, fontSize = 13.sp)
             }
             Spacer(Modifier.height(20.dp))
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
@@ -322,7 +323,6 @@ private fun ServiceDetailScreen(
                         scope.launch {
                             actionResult = vm.jellyfinScan(config)
                             busy = false
-                            vm.refreshAll()
                         }
                     },
                     enabled = !busy,
