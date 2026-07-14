@@ -17,6 +17,17 @@ android {
         versionName = "0.2.0"
     }
 
+    signingConfigs {
+        // Committed debug keystore so every build (local + CI) signs with the
+        // same key — lets the app update in place instead of forcing a reinstall.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
