@@ -47,6 +47,15 @@ private fun okClient(config: ServiceConfig, authHeaders: Map<String, String>): O
             config.customHeaders.forEach { (k, v) -> if (k.isNotBlank() && v.isNotBlank()) b.header(k, v) }
             chain.proceed(b.build())
         }
+        .addInterceptor { chain ->
+            // TEMP debug logging (no secrets: only method/url/bodies)
+            val request = chain.request()
+            val reqBody = request.body?.let { okio.Buffer().also { buf -> it.writeTo(buf) }.readUtf8() } ?: ""
+            val response = chain.proceed(request)
+            val respStr = runCatching { response.peekBody(1_000_000).string() }.getOrDefault("<unreadable>")
+            android.util.Log.d("NEXARR_HTTP", "${request.method} ${request.url}\nREQ: $reqBody\nRESP: ${respStr.take(2000)}")
+            response
+        }
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .build()
