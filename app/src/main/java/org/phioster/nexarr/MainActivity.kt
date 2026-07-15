@@ -1060,6 +1060,7 @@ private fun ArrScreen(
     }
 
     if (detailId != null && supportsDetail) {
+        BackHandler { detailId = null; scope.launch { reload() } }
         ArrDetailScreen(vm = vm, config = config, itemId = detailId!!, onBack = { detailId = null; scope.launch { reload() } })
         return
     }
