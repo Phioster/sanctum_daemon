@@ -83,6 +83,7 @@ import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
 import org.phioster.nexarr.model.SeerrIssueItem
 import org.phioster.nexarr.model.SeerrRequestItem
+import org.phioster.nexarr.model.SeerrSearchItem
 import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceStatus
 import org.phioster.nexarr.model.ServiceType
@@ -307,6 +308,10 @@ private fun SeerrScreen(
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var barMenu by remember { mutableStateOf(false) }
+    var showAdd by remember { mutableStateOf(false) }
+    var searchTerm by remember { mutableStateOf("") }
+    var searchResults by remember { mutableStateOf<List<SeerrSearchItem>?>(null) }
+    var confirmItem by remember { mutableStateOf<SeerrSearchItem?>(null) }
 
     val reqFilters = listOf("all", "pending", "approved", "processing", "failed", "available", "unavailable")
     val issueFilters = listOf("open", "resolved", "all")
@@ -352,6 +357,7 @@ private fun SeerrScreen(
                     Box {
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
+                            DropdownMenuItem(text = { Text("New request", fontFamily = Mono) }, onClick = { barMenu = false; searchTerm = ""; searchResults = null; showAdd = true })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
                         }
@@ -433,6 +439,74 @@ private fun SeerrScreen(
                 }
             }
         }
+    }
+
+    if (showAdd) {
+        AlertDialog(
+            onDismissRequest = { showAdd = false },
+            containerColor = Surface,
+            title = { Text("New request", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    Field("Search title", searchTerm) { searchTerm = it }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { scope.launch { searchResults = runCatching { vm.seerrSearchList(config, searchTerm) }.getOrElse { emptyList() } } },
+                        enabled = searchTerm.isNotBlank(),
+                    ) { Text("Search", fontFamily = Mono) }
+                    Spacer(Modifier.height(8.dp))
+                    Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
+                        val res = searchResults
+                        when {
+                            res == null -> {}
+                            res.isEmpty() -> Text("no results", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                            else -> res.forEach { r ->
+                                Column(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable { confirmItem = r; showAdd = false }
+                                        .padding(vertical = 8.dp),
+                                ) {
+                                    Text(
+                                        "${r.title}${if (r.year.isNotBlank()) " (${r.year})" else ""}",
+                                        fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp,
+                                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(r.mediaType, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showAdd = false }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+    confirmItem?.let { item ->
+        AlertDialog(
+            onDismissRequest = { confirmItem = null },
+            containerColor = Surface,
+            title = { Text("Request: ${item.title}", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Text(
+                    "${if (item.mediaType == "tv") "Series" else "Movie"}${if (item.year.isNotBlank()) " (${item.year})" else ""}" +
+                        if (item.mediaType == "tv") " · all seasons" else "",
+                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 13.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val it2 = item
+                    confirmItem = null
+                    scope.launch {
+                        actionMsg = vm.seerrRequestItem(config, it2)
+                        loadRequests()
+                        vm.refreshAll()
+                    }
+                }) { Text("Request", fontFamily = Mono, color = MatrixGreen) }
+            },
+            dismissButton = { TextButton(onClick = { confirmItem = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
     }
 }
 

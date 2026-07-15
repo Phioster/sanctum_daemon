@@ -32,6 +32,7 @@ import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
 import org.phioster.nexarr.model.SeerrIssueItem
 import org.phioster.nexarr.model.SeerrRequestItem
+import org.phioster.nexarr.model.SeerrSearchItem
 import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceStatus
 import org.phioster.nexarr.model.ServiceType
@@ -194,6 +195,16 @@ private interface ProwlarrApi {
 )
 @Serializable private data class SeerrIssuePage(val results: List<SeerrIssue> = emptyList())
 
+@Serializable private data class SeerrSearchResult(
+    val id: Int = 0,
+    val mediaType: String = "",
+    val title: String? = null,        // movie
+    val name: String? = null,         // tv
+    val releaseDate: String? = null,  // movie
+    val firstAirDate: String? = null, // tv
+)
+@Serializable private data class SeerrSearchPage(val results: List<SeerrSearchResult> = emptyList())
+
 private interface SeerrApi {
     @GET("api/v1/request/count") suspend fun counts(): SeerrCounts
 
@@ -213,6 +224,9 @@ private interface SeerrApi {
     @GET("api/v1/tv/{id}") suspend fun tv(@Path("id") id: Int): SeerrMeta
     @POST("api/v1/request/{id}/approve") suspend fun approve(@Path("id") id: Int): Response<ResponseBody>
     @POST("api/v1/request/{id}/decline") suspend fun decline(@Path("id") id: Int): Response<ResponseBody>
+
+    @GET("api/v1/search") suspend fun search(@Query("query") query: String): SeerrSearchPage
+    @POST("api/v1/request") suspend fun createRequest(@Body body: JsonObject): Response<ResponseBody>
 }
 
 private fun seerrStatusText(status: Int) = when (status) {
@@ -293,6 +307,35 @@ suspend fun seerrIssues(config: ServiceConfig, filter: String): List<SeerrIssueI
                 )
             }
         }.awaitAll()
+    }
+}
+
+suspend fun seerrSearch(config: ServiceConfig, query: String): List<SeerrSearchItem> = withContext(Dispatchers.IO) {
+    val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
+    api.search(query).results
+        .filter { it.mediaType == "movie" || it.mediaType == "tv" }
+        .map { r ->
+            val date = r.releaseDate ?: r.firstAirDate ?: ""
+            SeerrSearchItem(
+                tmdbId = r.id,
+                title = (r.title ?: r.name ?: "#${r.id}"),
+                year = date.take(4),
+                mediaType = r.mediaType,
+            )
+        }
+}
+
+suspend fun seerrCreateRequest(config: ServiceConfig, item: SeerrSearchItem): String = withContext(Dispatchers.IO) {
+    try {
+        val body = buildJsonObject {
+            put("mediaType", item.mediaType)
+            put("mediaId", item.tmdbId)
+            if (item.mediaType == "tv") put("seasons", "all")
+        }
+        val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).createRequest(body)
+        if (r.isSuccessful) "requested" else "error: HTTP ${r.code()}"
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
     }
 }
 

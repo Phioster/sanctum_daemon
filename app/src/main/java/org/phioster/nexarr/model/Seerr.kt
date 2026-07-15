@@ -16,3 +16,11 @@ data class SeerrIssueItem(
     val subtitle: String,
     val status: String,
 )
+
+/** A search result for creating a new request. */
+data class SeerrSearchItem(
+    val tmdbId: Int,
+    val title: String,
+    val year: String,
+    val mediaType: String, // "movie" or "tv"
+)

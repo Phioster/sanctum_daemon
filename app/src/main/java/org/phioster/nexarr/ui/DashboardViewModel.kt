@@ -19,6 +19,7 @@ import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
 import org.phioster.nexarr.model.SeerrIssueItem
 import org.phioster.nexarr.model.SeerrRequestItem
+import org.phioster.nexarr.model.SeerrSearchItem
 import org.phioster.nexarr.net.arrAdd
 import org.phioster.nexarr.net.arrLibrary
 import org.phioster.nexarr.net.arrLibrarySearch
@@ -40,8 +41,10 @@ import org.phioster.nexarr.net.runNzbEditQueue
 import org.phioster.nexarr.net.runNzbRate
 import org.phioster.nexarr.net.seerrApprove
 import org.phioster.nexarr.net.seerrDecline
+import org.phioster.nexarr.net.seerrCreateRequest
 import org.phioster.nexarr.net.seerrIssues
 import org.phioster.nexarr.net.seerrRequests
+import org.phioster.nexarr.net.seerrSearch
 import org.phioster.nexarr.net.runJellyfinScan
 import org.phioster.nexarr.net.runNzbgetPause
 import org.phioster.nexarr.net.runNzbgetResume
@@ -130,6 +133,10 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         seerrIssues(config, filter)
     suspend fun seerrApproveReq(config: ServiceConfig, id: Int): String = seerrApprove(config, id)
     suspend fun seerrDeclineReq(config: ServiceConfig, id: Int): String = seerrDecline(config, id)
+    suspend fun seerrSearchList(config: ServiceConfig, query: String): List<SeerrSearchItem> =
+        seerrSearch(config, query)
+    suspend fun seerrRequestItem(config: ServiceConfig, item: SeerrSearchItem): String =
+        seerrCreateRequest(config, item)
 
     private fun setStatus(id: String, status: ServiceStatus) {
         _statuses.value = _statuses.value.toMutableMap().apply { put(id, status) }
