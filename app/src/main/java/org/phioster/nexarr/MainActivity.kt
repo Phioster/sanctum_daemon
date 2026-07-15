@@ -91,6 +91,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -176,6 +177,7 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
     var editing by remember { mutableStateOf<ServiceConfig?>(null) }
     var detail by remember { mutableStateOf<ServiceConfig?>(null) }
     var searchOpen by remember { mutableStateOf(false) }
+    var searchTerm by remember { mutableStateOf("") }
 
     val editorOpen = addOpen || editing != null
     BackHandler(enabled = editorOpen || detail != null || searchOpen) {
@@ -216,13 +218,14 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
             vm = vm,
             onBack = { searchOpen = false },
             onOpenService = { cfg -> searchOpen = false; detail = cfg },
+            initialTerm = searchTerm,
         )
         else -> HomeShell(
             vm = vm,
             onAdd = { addOpen = true },
             onOpen = { detail = it },
             onEdit = { editing = it },
-            onSearch = { searchOpen = true },
+            onSearch = { term -> searchTerm = term; searchOpen = true },
         )
     }
 }
@@ -263,6 +266,25 @@ private fun AccentPickerRow(selected: Long, defaultColor: Color, onPick: (Long) 
 }
 
 @Composable
+private fun InlineSearchBar(onSearch: (String) -> Unit) {
+    var term by remember { mutableStateOf("") }
+    OutlinedTextField(
+        value = term,
+        onValueChange = { term = it },
+        placeholder = { Text("search all services…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.4f)) },
+        singleLine = true,
+        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = MatrixGreen.copy(alpha = 0.6f)) },
+        textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = Mono, color = MatrixGreen),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { if (term.isNotBlank()) onSearch(term.trim()) }),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MatrixGreen, unfocusedBorderColor = MatrixGreen.copy(alpha = 0.3f), cursorColor = MatrixGreen,
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
 private fun IconPickerGrid(selected: String, onPick: (String) -> Unit) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
         tabIcons.forEach { (key, icon) ->
@@ -290,7 +312,7 @@ private fun HomeShell(
     onAdd: () -> Unit,
     onOpen: (ServiceConfig) -> Unit,
     onEdit: (ServiceConfig) -> Unit,
-    onSearch: () -> Unit,
+    onSearch: (String) -> Unit,
 ) {
     val tabs by vm.tabs.collectAsState()
     val services by vm.services.collectAsState()
@@ -329,7 +351,7 @@ private fun HomeShell(
                 title = { Text(if (onServices) "> nexarr_" else (currentTab?.name ?: "home"), fontFamily = Mono, fontWeight = FontWeight.Bold, color = if (onServices) MatrixGreen else currentAccent) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
                 actions = {
-                    IconButton(onClick = onSearch) { Icon(Icons.Filled.Search, contentDescription = "Search", tint = MatrixGreen) }
+                    IconButton(onClick = { onSearch("") }) { Icon(Icons.Filled.Search, contentDescription = "Search", tint = MatrixGreen) }
                     if (onServices) {
                         IconButton(onClick = { vm.refreshAll() }) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen) }
                     } else {
@@ -384,6 +406,7 @@ private fun HomeShell(
                     onEditTab = { editTabName = currentTab.name; editTabIcon = currentTab.icon.ifBlank { "home" }; editTabAccent = currentTab.accent; showEditTab = true },
                     onDeleteTab = { vm.removeTab(currentTab.id); selected = 0; editMode = false },
                     onMoveTab = { dir -> selected = vm.moveTab(currentTab.id, dir) },
+                    onSearch = onSearch,
                 )
             }
         }
@@ -490,12 +513,19 @@ private fun WidgetTabContent(
     onEditTab: () -> Unit,
     onDeleteTab: () -> Unit,
     onMoveTab: (Int) -> Unit,
+    onSearch: (String) -> Unit,
 ) {
     val services by vm.services.collectAsState()
     val listState = rememberLazyListState()
     // Entering edit mode prepends the tab-edit bar at the top; scroll up so it's visible.
     LaunchedEffect(editMode) { if (editMode) listState.animateScrollToItem(0) }
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), state = listState) {
+        if (!editMode) {
+            item {
+                Spacer(Modifier.height(10.dp))
+                InlineSearchBar(onSearch)
+            }
+        }
         if (editMode) {
             item {
                 Spacer(Modifier.height(8.dp))
@@ -534,7 +564,7 @@ private fun WidgetTabContent(
                     onRemove = { vm.removeCard(tab.id, card.id) },
                     onMoveUp = { vm.moveCard(tab.id, card.id, -1) },
                     onMoveDown = { vm.moveCard(tab.id, card.id, +1) },
-                    onSaveConfig = { title, count, accent, icon, posterSize, background, theme -> vm.updateCard(tab.id, card.id, title, count, accent, icon, posterSize, background, theme) },
+                    onSaveConfig = { title, count, accent, icon, posterSize, background, theme, density -> vm.updateCard(tab.id, card.id, title, count, accent, icon, posterSize, background, theme, density) },
                     allServices = services,
                 )
             }
@@ -555,7 +585,7 @@ private fun DashCardView(
     onRemove: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
-    onSaveConfig: (String, Int, Long, String, String, Boolean, String) -> Unit,
+    onSaveConfig: (String, Int, Long, String, String, Boolean, String, String) -> Unit,
     allServices: List<ServiceConfig> = emptyList(),
 ) {
     val serviceless = card.type.service == null
@@ -574,6 +604,8 @@ private fun DashCardView(
     var nzbQueue by remember { mutableStateOf<List<org.phioster.nexarr.model.NzbQueueItem>?>(null) }
     var nzbHistory by remember { mutableStateOf<List<org.phioster.nexarr.model.NzbHistoryEntry>?>(null) }
     var discover by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrDiscoverItem>?>(null) }
+    var sysHealth by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
+    var detail by remember { mutableStateOf<MediaDetail?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -601,6 +633,7 @@ private fun DashCardView(
                     CardType.SEERR_TRENDING -> discover = vm.seerrDiscoverList(config, "trending")
                     CardType.SEERR_POPULAR_MOVIES -> discover = vm.seerrDiscoverList(config, "movies")
                     CardType.SEERR_POPULAR_TV -> discover = vm.seerrDiscoverList(config, "tv")
+                    CardType.RADARR_HEALTH, CardType.SONARR_HEALTH, CardType.LIDARR_HEALTH -> sysHealth = vm.arrSystemInfo(config).health
                 }
                 break
             } catch (c: kotlinx.coroutines.CancellationException) {
@@ -690,6 +723,22 @@ private fun DashCardView(
                     }
                 }
             }
+            card.type == CardType.RADARR_HEALTH || card.type == CardType.SONARR_HEALTH || card.type == CardType.LIDARR_HEALTH -> {
+                val h = sysHealth
+                when {
+                    h == null -> loading()
+                    h.isEmpty() -> Text("✓ all healthy", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
+                    else -> Column {
+                        h.take(card.count).forEach { (type, msg) ->
+                            val col = when (type.lowercase()) { "error" -> ErrRed; "warning" -> Color(0xFFE0A030); else -> MatrixGreen.copy(alpha = 0.8f) }
+                            Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+                                Text(msg, fontFamily = Mono, color = col, fontSize = 12.sp)
+                                Text(type.uppercase(), fontFamily = Mono, color = col.copy(alpha = 0.6f), fontSize = 9.sp)
+                            }
+                        }
+                    }
+                }
+            }
             card.type == CardType.JELLYFIN_SESSIONS -> {
                 val s = sessions
                 when {
@@ -703,7 +752,7 @@ private fun DashCardView(
                 when {
                     r == null -> loading()
                     r.isEmpty() -> empty("no requests")
-                    else -> Column { r.take(card.count).forEach { DashLineRow(it.title, it.subtitle.ifBlank { it.status }, accent) } }
+                    else -> Column { r.take(card.count).forEach { DashLineRow(it.title, it.subtitle.ifBlank { it.status }, accent, card.density) { onOpenService() } } }
                 }
             }
             card.type == CardType.RADARR_QUEUE || card.type == CardType.SONARR_QUEUE || card.type == CardType.LIDARR_QUEUE -> {
@@ -719,7 +768,7 @@ private fun DashCardView(
                 when {
                     m == null -> loading()
                     m.isEmpty() -> empty("nothing missing")
-                    else -> Column { m.take(card.count).forEach { DashLineRow(it.title, it.subtitle, accent) } }
+                    else -> Column { m.take(card.count).forEach { DashLineRow(it.title, it.subtitle, accent, card.density) { onOpenService() } } }
                 }
             }
             card.type == CardType.RADARR_CALENDAR || card.type == CardType.SONARR_CALENDAR || card.type == CardType.LIDARR_CALENDAR -> {
@@ -727,7 +776,7 @@ private fun DashCardView(
                 when {
                     c == null -> loading()
                     c.isEmpty() -> empty("nothing upcoming")
-                    else -> Column { c.take(card.count).forEach { DashLineRow("${if (it.hasFile) "✓ " else ""}${it.title}", "${it.date}${if (it.subtitle.isNotBlank()) " · ${it.subtitle}" else ""}", accent) } }
+                    else -> Column { c.take(card.count).forEach { DashLineRow("${if (it.hasFile) "✓ " else ""}${it.title}", "${it.date}${if (it.subtitle.isNotBlank()) " · ${it.subtitle}" else ""}", accent, card.density) { onOpenService() } } }
                 }
             }
             card.type == CardType.RADARR_HISTORY || card.type == CardType.SONARR_HISTORY || card.type == CardType.LIDARR_HISTORY -> {
@@ -735,7 +784,7 @@ private fun DashCardView(
                 when {
                     h == null -> loading()
                     h.isEmpty() -> empty("no history")
-                    else -> Column { h.take(card.count).forEach { DashLineRow(it.title, "${it.eventType} · ${it.date}", accent) } }
+                    else -> Column { h.take(card.count).forEach { DashLineRow(it.title, "${it.eventType} · ${it.date}", accent, card.density) { onOpenService() } } }
                 }
             }
             card.type == CardType.NZBGET_QUEUE -> {
@@ -751,7 +800,7 @@ private fun DashCardView(
                 when {
                     h == null -> loading()
                     h.isEmpty() -> empty("no history")
-                    else -> Column { h.take(card.count).forEach { DashLineRow(it.name, it.status, accent) } }
+                    else -> Column { h.take(card.count).forEach { DashLineRow(it.name, it.status, accent, card.density) { onOpenService() } } }
                 }
             }
             card.type == CardType.SEERR_TRENDING || card.type == CardType.SEERR_POPULAR_MOVIES || card.type == CardType.SEERR_POPULAR_TV -> {
@@ -759,7 +808,13 @@ private fun DashCardView(
                 when {
                     d == null -> loading()
                     d.isEmpty() -> empty("nothing here")
-                    else -> Row(Modifier.horizontalScroll(rememberScrollState())) { d.take(card.count).forEach { DashDiscoverPoster(it, posterWidth) { onOpenService() } } }
+                    else -> Row(Modifier.horizontalScroll(rememberScrollState())) {
+                        d.take(card.count).forEach { di ->
+                            DashDiscoverPoster(di, posterWidth) {
+                                config?.let { c -> scope.launch { detail = runCatching { vm.seerrMediaDetailById(c, di.tmdbId, di.mediaType).toMediaDetail() }.getOrNull() } }
+                            }
+                        }
+                    }
                 }
             }
             else -> {
@@ -768,7 +823,11 @@ private fun DashCardView(
                     it2 == null -> loading()
                     it2.isEmpty() -> empty("nothing here")
                     else -> Row(Modifier.horizontalScroll(rememberScrollState())) {
-                        it2.take(card.count).forEach { m -> if (config != null) JellyPosterCard(m, config, accent, posterWidth) { onOpenService() } }
+                        it2.take(card.count).forEach { m ->
+                            if (config != null) JellyPosterCard(m, config, accent, posterWidth) {
+                                scope.launch { detail = runCatching { vm.jellyfinMediaDetail(config, m.id).toMediaDetail() }.getOrNull() }
+                            }
+                        }
                     }
                 }
             }
@@ -780,6 +839,8 @@ private fun DashCardView(
     }
     }
 
+    detail?.let { d -> if (config != null) MediaDetailDialog(d, config) { detail = null } }
+
     if (showConfig) {
         var cfgTitle by remember { mutableStateOf(card.title) }
         var cfgCount by remember { mutableStateOf(card.count) }
@@ -788,6 +849,7 @@ private fun DashCardView(
         var cfgPoster by remember { mutableStateOf(card.posterSize) }
         var cfgBg by remember { mutableStateOf(card.background) }
         var cfgTheme by remember { mutableStateOf(card.theme) }
+        var cfgDensity by remember { mutableStateOf(card.density) }
         val isPoster = card.type in setOf(CardType.JELLYFIN_RECENT, CardType.JELLYFIN_RESUME, CardType.SEERR_TRENDING, CardType.SEERR_POPULAR_MOVIES, CardType.SEERR_POPULAR_TV)
         val serviceColor = if (config != null) Color(config.type.accent) else MatrixGreen
         val label = @Composable { t: String -> Text(t, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp) }
@@ -805,6 +867,21 @@ private fun DashCardView(
                         TextButton(onClick = { if (cfgCount > 3) cfgCount-- }, contentPadding = PaddingValues(8.dp)) { Text("−", fontFamily = Mono, color = MatrixGreen, fontSize = 22.sp) }
                         Text("$cfgCount", fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, modifier = Modifier.widthIn(min = 40.dp), textAlign = TextAlign.Center)
                         TextButton(onClick = { if (cfgCount < 20) cfgCount++ }, contentPadding = PaddingValues(8.dp)) { Text("+", fontFamily = Mono, color = MatrixGreen, fontSize = 22.sp) }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    label("DENSITY")
+                    Spacer(Modifier.height(6.dp))
+                    Row {
+                        listOf("compact" to "Compact", "" to "Normal", "detail" to "Detail").forEach { (value, lbl) ->
+                            val sel = cfgDensity == value
+                            Box(
+                                Modifier.padding(end = 8.dp).size(width = 92.dp, height = 38.dp).clip(RoundedCornerShape(8.dp))
+                                    .background(if (sel) MatrixGreen else Surface)
+                                    .border(1.dp, if (sel) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .clickable { cfgDensity = value },
+                                contentAlignment = Alignment.Center,
+                            ) { Text(lbl, fontFamily = Mono, color = if (sel) Black else MatrixGreen, fontSize = 12.sp) }
+                        }
                     }
                     Spacer(Modifier.height(16.dp))
                     label("CARD STYLE")
@@ -882,7 +959,7 @@ private fun DashCardView(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { onSaveConfig(cfgTitle, cfgCount, cfgAccent, cfgIcon, cfgPoster, cfgBg, cfgTheme); showConfig = false }) {
+                TextButton(onClick = { onSaveConfig(cfgTitle, cfgCount, cfgAccent, cfgIcon, cfgPoster, cfgBg, cfgTheme, cfgDensity); showConfig = false }) {
                     Text("Save", fontFamily = Mono, color = MatrixGreen)
                 }
             },
@@ -905,10 +982,12 @@ private fun DashSessionRow(item: org.phioster.nexarr.model.JellySession, accent:
 }
 
 @Composable
-private fun DashLineRow(title: String, subtitle: String, accent: Color) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-        Text(title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (subtitle.isNotBlank()) Text(subtitle, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+private fun DashLineRow(title: String, subtitle: String, accent: Color, density: String = "", onClick: (() -> Unit)? = null) {
+    val vpad = when (density) { "compact" -> 2.dp; "detail" -> 9.dp; else -> 5.dp }
+    val showSub = density != "compact" && subtitle.isNotBlank()
+    Column(Modifier.fillMaxWidth().let { if (onClick != null) it.clickable { onClick() } else it }.padding(vertical = vpad)) {
+        Text(title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = if (density == "detail") 2 else 1, overflow = TextOverflow.Ellipsis)
+        if (showSub) Text(subtitle, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -949,6 +1028,63 @@ private fun DashDiscoverPoster(item: org.phioster.nexarr.model.SeerrDiscoverItem
         Spacer(Modifier.height(4.dp))
         Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
+}
+
+/** Unified detail shown when a dashboard poster is tapped (from Jellyfin or Seerr). */
+private class MediaDetail(
+    val title: String, val subtitle: String, val posterUrl: String,
+    val genres: String, val facts: List<Pair<String, String>>, val overview: String,
+    val cast: List<org.phioster.nexarr.model.ArrCastMember>,
+)
+
+private fun org.phioster.nexarr.model.JellyMediaDetail.toMediaDetail() =
+    MediaDetail(name, "", posterUrl, genres, facts, overview, cast)
+
+private fun org.phioster.nexarr.model.SeerrMediaDetail.toMediaDetail() =
+    MediaDetail(title, listOfNotNull(year.ifBlank { null }, if (mediaType == "tv") "series" else "movie").joinToString(" · "), posterUrl, genres, facts, overview, cast)
+
+@Composable
+private fun MediaDetailDialog(d: MediaDetail, config: ServiceConfig, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surface,
+        title = { Text(d.title, fontFamily = Mono, color = MatrixGreen) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                if (d.posterUrl.isNotBlank()) {
+                    JellyPoster(d.posterUrl, config, Modifier.fillMaxWidth().heightIn(max = 260.dp), RoundedCornerShape(8.dp), ContentScale.Fit)
+                    Spacer(Modifier.height(8.dp))
+                }
+                if (d.subtitle.isNotBlank()) Text(d.subtitle, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp)
+                if (d.genres.isNotBlank()) Text(d.genres, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp)
+                if (d.facts.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    d.facts.forEach { (k, v) -> Text("$k: $v", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 11.sp) }
+                }
+                if (d.overview.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.85f), fontSize = 12.sp)
+                }
+                if (d.cast.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    Row(Modifier.horizontalScroll(rememberScrollState())) {
+                        d.cast.take(12).forEach { member ->
+                            Column(Modifier.width(64.dp).padding(end = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                if (member.profileUrl.isNotBlank()) {
+                                    JellyPoster(member.profileUrl, config, Modifier.size(56.dp).clip(RoundedCornerShape(28.dp)), RoundedCornerShape(28.dp), ContentScale.Crop)
+                                } else {
+                                    Box(Modifier.size(56.dp).clip(RoundedCornerShape(28.dp)).background(Black))
+                                }
+                                Spacer(Modifier.height(3.dp))
+                                Text(member.name, fontFamily = Mono, color = MatrixGreen, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+    )
 }
 
 /** A one-tap action a Quick Buttons card can run against a service. */
@@ -1062,11 +1198,12 @@ private fun GlobalSearchScreen(
     vm: DashboardViewModel,
     onBack: () -> Unit,
     onOpenService: (ServiceConfig) -> Unit,
+    initialTerm: String = "",
 ) {
     val services by vm.services.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    var term by remember { mutableStateOf("") }
+    var term by remember { mutableStateOf(initialTerm) }
     var results by remember { mutableStateOf<List<org.phioster.nexarr.model.SearchResult>?>(null) }
     var searching by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
@@ -1080,7 +1217,7 @@ private fun GlobalSearchScreen(
             searching = false
         }
     }
-    LaunchedEffect(Unit) { runCatching { focusRequester.requestFocus() } }
+    LaunchedEffect(Unit) { if (initialTerm.isBlank()) runCatching { focusRequester.requestFocus() } else run() }
 
     Scaffold(
         containerColor = Black,

@@ -31,6 +31,9 @@ enum class CardType(val label: String, val service: ServiceType?) {
     SEERR_TRENDING("Trending", ServiceType.SEERR),
     SEERR_POPULAR_MOVIES("Popular Movies", ServiceType.SEERR),
     SEERR_POPULAR_TV("Popular Shows", ServiceType.SEERR),
+    RADARR_HEALTH("Health", ServiceType.RADARR),
+    SONARR_HEALTH("Health", ServiceType.SONARR),
+    LIDARR_HEALTH("Health", ServiceType.LIDARR),
 }
 
 /** A single widget on a dashboard tab: a card type bound to one configured service. */
@@ -46,6 +49,7 @@ data class DashCard(
     val posterSize: String = "", // "small" | "large" | "" (medium) for poster-row cards
     val background: Boolean = false, // show a random shown item's art as a Ken-Burns card background
     val theme: String = "", // "" (flat) | "solid" | "glass" — card container look
+    val density: String = "", // "compact" | "" (normal) | "detail" — row spacing / detail level
 )
 
 /** A dashboard tab (a bottom-nav category) holding an ordered list of cards. */
