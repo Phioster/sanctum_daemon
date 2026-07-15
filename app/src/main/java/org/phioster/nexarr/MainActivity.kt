@@ -342,37 +342,54 @@ private fun HomeShell(
     var newTabAccent by remember { mutableStateOf(0L) }
     var editTabAccent by remember { mutableStateOf(0L) }
 
-    val servicesIndex = tabs.size
-    val current = selected.coerceIn(0, servicesIndex)
-    val onServices = current == servicesIndex
+    val current = selected.coerceIn(0, (tabs.size - 1).coerceAtLeast(0))
     val currentTab = tabs.getOrNull(current)
     val currentAccent = currentTab?.takeIf { it.accent != 0L }?.let { Color(it.accent) } ?: MatrixGreen
+    val drawerState = androidx.compose.material3.rememberDrawerState(androidx.compose.material3.DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
-    LaunchedEffect(onServices) {
-        if (onServices) while (true) { kotlinx.coroutines.delay(30_000); vm.refreshAll() }
+    // Refresh service statuses while the Services drawer is open.
+    LaunchedEffect(drawerState.currentValue) {
+        if (drawerState.currentValue == androidx.compose.material3.DrawerValue.Open) {
+            vm.refreshAll()
+            while (true) { kotlinx.coroutines.delay(30_000); vm.refreshAll() }
+        }
     }
     BackHandler(enabled = editMode) { editMode = false }
 
-    val navColors = NavigationBarItemDefaults.colors(
-        selectedIconColor = Black, selectedTextColor = MatrixGreen, indicatorColor = MatrixGreen,
-        unselectedIconColor = MatrixGreen.copy(alpha = 0.5f), unselectedTextColor = MatrixGreen.copy(alpha = 0.5f),
-    )
-
+    androidx.compose.material3.ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            androidx.compose.material3.ModalDrawerSheet(
+                modifier = Modifier.fillMaxWidth(),
+                drawerShape = androidx.compose.ui.graphics.RectangleShape,
+                drawerContainerColor = Black,
+            ) {
+                ServicesDrawer(
+                    vm = vm,
+                    onOpen = { cfg -> scope.launch { drawerState.close() }; onOpen(cfg) },
+                    onEdit = onEdit,
+                    onAdd = onAdd,
+                    onNotifications = onNotifications,
+                    onSearch = onSearch,
+                    onClose = { scope.launch { drawerState.close() } },
+                )
+            }
+        },
+    ) {
     Scaffold(
         containerColor = Black,
         topBar = {
             TopAppBar(
-                title = { Text(if (onServices) "> nexarr_" else (currentTab?.name ?: "home"), fontFamily = Mono, fontWeight = FontWeight.Bold, color = if (onServices) MatrixGreen else currentAccent) },
+                title = { Text(currentTab?.name ?: "home", fontFamily = Mono, fontWeight = FontWeight.Bold, color = currentAccent) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
+                navigationIcon = {
+                    IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Filled.Menu, contentDescription = "Services", tint = MatrixGreen) }
+                },
                 actions = {
                     IconButton(onClick = { onSearch("") }) { Icon(Icons.Filled.Search, contentDescription = "Search", tint = MatrixGreen) }
-                    if (onServices) {
-                        IconButton(onClick = onNotifications) { Icon(Icons.Filled.Notifications, contentDescription = "Notifications", tint = MatrixGreen) }
-                        IconButton(onClick = { vm.refreshAll() }) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen) }
-                    } else {
-                        IconButton(onClick = { editMode = !editMode }) {
-                            Icon(if (editMode) Icons.Filled.Check else Icons.Filled.Edit, contentDescription = "Edit", tint = if (editMode) MatrixGreen else MatrixGreen.copy(alpha = 0.8f))
-                        }
+                    IconButton(onClick = { editMode = !editMode }) {
+                        Icon(if (editMode) Icons.Filled.Check else Icons.Filled.Edit, contentDescription = "Edit", tint = if (editMode) MatrixGreen else MatrixGreen.copy(alpha = 0.8f))
                     }
                 },
             )
@@ -392,26 +409,14 @@ private fun HomeShell(
                         ),
                     )
                 }
-                NavigationBarItem(
-                    selected = onServices,
-                    onClick = { selected = servicesIndex; editMode = false },
-                    icon = { Icon(Icons.Filled.Menu, contentDescription = null) },
-                    label = { Text("Services", fontFamily = Mono, fontSize = 10.sp) },
-                    colors = navColors,
-                )
             }
         },
         floatingActionButton = {
-            when {
-                onServices -> FloatingActionButton(onClick = onAdd, containerColor = MatrixGreen, contentColor = Black) { Icon(Icons.Filled.Add, contentDescription = "Add service") }
-                editMode -> FloatingActionButton(onClick = { showAddCard = true }, containerColor = MatrixGreen, contentColor = Black) { Icon(Icons.Filled.Add, contentDescription = "Add card") }
-            }
+            if (editMode) FloatingActionButton(onClick = { showAddCard = true }, containerColor = MatrixGreen, contentColor = Black) { Icon(Icons.Filled.Add, contentDescription = "Add card") }
         },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
-            if (onServices) {
-                ServicesContent(vm, onOpen, onEdit)
-            } else if (currentTab != null) {
+            if (currentTab != null) {
                 WidgetTabContent(
                     vm = vm,
                     tab = currentTab,
@@ -425,6 +430,7 @@ private fun HomeShell(
                 )
             }
         }
+    }
     }
 
     if (showAddCard && currentTab != null) {
@@ -485,6 +491,41 @@ private fun HomeShell(
             },
             dismissButton = { TextButton(onClick = { showEditTab = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ServicesDrawer(
+    vm: DashboardViewModel,
+    onOpen: (ServiceConfig) -> Unit,
+    onEdit: (ServiceConfig) -> Unit,
+    onAdd: () -> Unit,
+    onNotifications: () -> Unit,
+    onSearch: (String) -> Unit,
+    onClose: () -> Unit,
+) {
+    Scaffold(
+        containerColor = Black,
+        topBar = {
+            TopAppBar(
+                title = { Text("> nexarr_", fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
+                navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close", tint = MatrixGreen) } },
+                actions = {
+                    IconButton(onClick = { onSearch("") }) { Icon(Icons.Filled.Search, contentDescription = "Search", tint = MatrixGreen) }
+                    IconButton(onClick = onNotifications) { Icon(Icons.Filled.Notifications, contentDescription = "Notifications", tint = MatrixGreen) }
+                    IconButton(onClick = { vm.refreshAll() }) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen) }
+                },
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = onAdd, containerColor = MatrixGreen, contentColor = Black) { Icon(Icons.Filled.Add, contentDescription = "Add service") }
+        },
+    ) { padding ->
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            ServicesContent(vm, onOpen, onEdit)
+        }
     }
 }
 
