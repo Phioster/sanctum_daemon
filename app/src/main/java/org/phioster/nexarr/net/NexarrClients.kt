@@ -1321,7 +1321,7 @@ suspend fun jellyfinSessions(config: ServiceConfig): List<JellySession> = withCo
             val pos = s.PlayState?.PositionTicks ?: 0L
             val pct = if (run > 0) (pos.toFloat() / run).coerceIn(0f, 1f) else 0f
             val subtitle = when {
-                np == null -> "${s.client ?: ""}".ifBlank { "idle" }
+                np == null -> (s.Client ?: "").ifBlank { "idle" }
                 np.Type == "Episode" -> np.SeriesName ?: "Episode"
                 else -> listOfNotNull(np.Type, np.ProductionYear?.toString()).joinToString(" · ")
             }
