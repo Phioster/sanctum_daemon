@@ -32,6 +32,7 @@ import org.phioster.nexarr.model.SeerrIssueItem
 import org.phioster.nexarr.model.SeerrRequestItem
 import org.phioster.nexarr.model.SeerrSearchItem
 import org.phioster.nexarr.net.arrAdd
+import org.phioster.nexarr.net.arrAlbums
 import org.phioster.nexarr.net.arrCutoff
 import org.phioster.nexarr.net.arrDelete
 import org.phioster.nexarr.net.arrDetail
@@ -186,8 +187,10 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrCutoffList(config: ServiceConfig): List<ArrMissingItem> = arrCutoff(config)
     suspend fun arrDetailOf(config: ServiceConfig, id: Int): ArrDetail = arrDetail(config, id)
     suspend fun arrEpisodesOf(config: ServiceConfig, seriesId: Int): List<ArrEpisode> = arrEpisodes(config, seriesId)
-    suspend fun arrReleasesFor(config: ServiceConfig, movieId: Int?, episodeId: Int?): List<ArrRelease> =
-        arrReleases(config, movieId, episodeId)
+    suspend fun arrAlbumsOf(config: ServiceConfig, artistId: Int): List<org.phioster.nexarr.model.ArrAlbum> =
+        arrAlbums(config, artistId)
+    suspend fun arrReleasesFor(config: ServiceConfig, movieId: Int?, episodeId: Int?, albumId: Int? = null): List<ArrRelease> =
+        arrReleases(config, movieId, episodeId, albumId)
     suspend fun arrGrabRelease(config: ServiceConfig, guid: String, indexerId: Int): String =
         arrGrab(config, guid, indexerId)
     suspend fun arrDeleteItem(config: ServiceConfig, id: Int, deleteFiles: Boolean): String =

@@ -1154,7 +1154,8 @@ private fun ArrScreen(
     var queue by remember { mutableStateOf<List<ArrQueueItem>?>(null) }
     var history by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrHistoryItem>?>(null) }
     var detailId by remember { mutableStateOf<Int?>(null) }
-    val supportsDetail = config.type == ServiceType.RADARR || config.type == ServiceType.SONARR
+    val supportsDetail = config.type == ServiceType.RADARR || config.type == ServiceType.SONARR || config.type == ServiceType.LIDARR
+    val supportsImport = config.type == ServiceType.RADARR || config.type == ServiceType.SONARR
     var showSystem by remember { mutableStateOf(false) }
     var arrSys by remember { mutableStateOf<org.phioster.nexarr.model.ArrSystemInfo?>(null) }
     var showImport by remember { mutableStateOf(false) }
@@ -1261,10 +1262,12 @@ private fun ArrScreen(
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
                             DropdownMenuItem(text = { Text("Add new", fontFamily = Mono) }, onClick = { barMenu = false; addTerm = ""; addResults = null; showAdd = true })
-                            if (supportsDetail) {
+                            if (supportsImport) {
                                 DropdownMenuItem(text = { Text("Manual import", fontFamily = Mono) }, onClick = {
                                     barMenu = false; showImport = true; importItems = null; importSelected = emptySet()
                                 })
+                            }
+                            if (supportsDetail) {
                                 DropdownMenuItem(text = { Text("System & health", fontFamily = Mono) }, onClick = {
                                     barMenu = false; showSystem = true; arrSys = null
                                     scope.launch { arrSys = runCatching { vm.arrSystemInfo(config) }.getOrNull() }
@@ -1689,8 +1692,10 @@ private fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, itemI
     val accent = Color(config.type.accent)
     val scope = rememberCoroutineScope()
     val isSonarr = config.type == ServiceType.SONARR
+    val isLidarr = config.type == ServiceType.LIDARR
     var detail by remember { mutableStateOf<ArrDetail?>(null) }
     var episodes by remember { mutableStateOf<List<ArrEpisode>?>(null) }
+    var albums by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrAlbum>?>(null) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var barMenu by remember { mutableStateOf(false) }
@@ -1709,6 +1714,7 @@ private fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, itemI
             val d = vm.arrDetailOf(config, itemId)
             detail = d
             if (isSonarr) episodes = vm.arrEpisodesOf(config, itemId)
+            if (isLidarr) albums = vm.arrAlbumsOf(config, itemId)
             if (vm.hasSeerr() && d.tmdbId > 0) {
                 cast = runCatching { vm.arrCast(d.tmdbId, isSonarr) }.getOrDefault(emptyList())
             }
@@ -1718,10 +1724,10 @@ private fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, itemI
             loadError = t.message
         }
     }
-    fun openReleases(movieId: Int?, episodeId: Int?, title: String) {
+    fun openReleases(movieId: Int?, episodeId: Int?, title: String, albumId: Int? = null) {
         pickerTitle = title; releases = null; pickerOpen = true
         scope.launch {
-            releases = runCatching { vm.arrReleasesFor(config, movieId, episodeId) }.getOrElse {
+            releases = runCatching { vm.arrReleasesFor(config, movieId, episodeId, albumId) }.getOrElse {
                 actionMsg = "error: ${it.message}"; pickerOpen = false; emptyList()
             }
         }
@@ -1742,7 +1748,7 @@ private fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, itemI
                             DropdownMenuItem(text = { Text("Automatic search", fontFamily = Mono) }, onClick = {
                                 barMenu = false; scope.launch { actionMsg = vm.arrLibSearch(config, itemId) }
                             })
-                            if (!isSonarr) {
+                            if (config.type == ServiceType.RADARR) {
                                 DropdownMenuItem(text = { Text("Interactive search", fontFamily = Mono) }, onClick = {
                                     barMenu = false; openReleases(movieId = itemId, episodeId = null, title = detail?.title ?: "")
                                 })
@@ -1838,9 +1844,9 @@ private fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, itemI
                 }
                 Spacer(Modifier.height(12.dp))
                 HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
-                if (isSonarr) {
+                if (isSonarr || isLidarr) {
                     Spacer(Modifier.height(8.dp))
-                    Text("EPISODES", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    Text(if (isLidarr) "ALBUMS" else "EPISODES", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
                 }
             }
             if (isSonarr) {
@@ -1851,6 +1857,18 @@ private fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, itemI
                     else -> items(eps) { ep ->
                         ArrEpisodeRow(ep, accent) {
                             openReleases(movieId = null, episodeId = ep.id, title = "S%02dE%02d %s".format(ep.seasonNumber, ep.episodeNumber, ep.title))
+                        }
+                    }
+                }
+            }
+            if (isLidarr) {
+                val als = albums
+                when {
+                    als == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
+                    als.isEmpty() -> item { Text("no albums", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
+                    else -> items(als) { al ->
+                        ArrAlbumRow(al, accent) {
+                            openReleases(movieId = null, episodeId = null, albumId = al.id, title = al.title)
                         }
                     }
                 }
@@ -1931,6 +1949,20 @@ private fun ArrEpisodeRow(item: ArrEpisode, accent: Color, onSearch: () -> Unit)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("S%02dE%02d  %s".format(item.seasonNumber, item.episodeNumber, item.title), fontFamily = Mono, color = c, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             Text(if (item.hasFile) "✓" else item.airDate, fontFamily = Mono, color = c, fontSize = 10.sp)
+        }
+        Spacer(Modifier.height(6.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
+    }
+}
+
+@Composable
+private fun ArrAlbumRow(item: org.phioster.nexarr.model.ArrAlbum, accent: Color, onSearch: () -> Unit) {
+    val complete = item.trackCount > 0 && item.trackFileCount >= item.trackCount
+    val c = if (complete) MatrixGreen else if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.4f)
+    Column(Modifier.fillMaxWidth().clickable { onSearch() }.padding(vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("${item.title}${if (item.year.isNotBlank()) " (${item.year})" else ""}", fontFamily = Mono, color = c, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text("${item.trackFileCount}/${item.trackCount}", fontFamily = Mono, color = c, fontSize = 10.sp)
         }
         Spacer(Modifier.height(6.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))

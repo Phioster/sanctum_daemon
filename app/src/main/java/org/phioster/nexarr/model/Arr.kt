@@ -66,6 +66,16 @@ data class ArrImportItem(
     val rawJson: String,
 )
 
+/** A Lidarr album (shown in the artist detail screen). */
+data class ArrAlbum(
+    val id: Int,
+    val title: String,
+    val year: String,
+    val trackCount: Int,
+    val trackFileCount: Int,
+    val monitored: Boolean,
+)
+
 /** A Sonarr episode (grouped by season in the UI). */
 data class ArrEpisode(
     val id: Int,

@@ -26,6 +26,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import retrofit2.Response
+import org.phioster.nexarr.model.ArrAlbum
 import org.phioster.nexarr.model.ArrCastMember
 import org.phioster.nexarr.model.ArrDetail
 import org.phioster.nexarr.model.ArrEpisode
@@ -677,6 +678,7 @@ private interface ArrApi {
     @DELETE suspend fun deleteQueue(@Url url: String): Response<ResponseBody>
     @GET suspend fun itemDetail(@Url url: String): JsonObject
     @GET suspend fun episodes(@Url url: String, @Query("seriesId") seriesId: Int): List<ArrEpisodeRecord>
+    @GET suspend fun albums(@Url url: String, @Query("artistId") artistId: Int): List<JsonObject>
     @GET suspend fun releases(@Url url: String): List<ArrReleaseRecord>
     @POST suspend fun downloadRelease(@Url url: String, @Body body: ArrGrabReq): Response<ResponseBody>
     @DELETE suspend fun deleteItem(@Url url: String): Response<ResponseBody>
@@ -861,6 +863,7 @@ suspend fun arrLibrarySearch(config: ServiceConfig, id: Int): String = withConte
 
 private fun jsStr(o: JsonObject, key: String) = (o[key] as? JsonPrimitive)?.content
 private fun jsInt(o: JsonObject, key: String) = (o[key] as? JsonPrimitive)?.intOrNull
+private fun jsLong(o: JsonObject, key: String) = (o[key] as? JsonPrimitive)?.content?.toLongOrNull()
 private fun jsBool(o: JsonObject, key: String) = (o[key] as? JsonPrimitive)?.content?.toBoolean()
 
 /** Cutoff-unmet wanted list (quality below cutoff). Same shape as [arrMissing]. */
@@ -885,7 +888,7 @@ suspend fun arrDetail(config: ServiceConfig, id: Int): ArrDetail = withContext(D
     val path = arrItemPath(config.type)
     val o = apiFor<ArrApi>(config, apiKeyHeader(config)).itemDetail("$base/$path/$id")
     val statsObj = o["statistics"] as? JsonObject
-    val sizeMb = ((statsObj?.let { jsInt(it, "sizeOnDisk") } ?: jsInt(o, "sizeOnDisk") ?: 0).toLong()) / (1024 * 1024)
+    val sizeMb = (statsObj?.let { jsLong(it, "sizeOnDisk") } ?: jsLong(o, "sizeOnDisk") ?: 0L) / (1024 * 1024)
     val poster = (o["images"] as? JsonArray)?.mapNotNull { it as? JsonObject }
         ?.firstOrNull { jsStr(it, "coverType") == "poster" }
         ?.let { jsStr(it, "remoteUrl") ?: jsStr(it, "url") } ?: ""
@@ -899,22 +902,34 @@ suspend fun arrDetail(config: ServiceConfig, id: Int): ArrDetail = withContext(D
         rating?.let { add("rating" to "%.1f".format(it)) }
         jsStr(o, "certification")?.takeIf { it.isNotBlank() }?.let { add("rated" to it) }
         jsInt(o, "runtime")?.takeIf { it > 0 }?.let { add("runtime" to "${it}m") }
-        if (config.type == ServiceType.SONARR) {
-            statsObj?.let {
-                val total = jsInt(it, "episodeCount") ?: 0
-                val have = jsInt(it, "episodeFileCount") ?: 0
-                add("episodes" to "$have/$total")
-                jsInt(it, "seasonCount")?.let { s -> add("seasons" to s.toString()) }
+        when (config.type) {
+            ServiceType.SONARR -> {
+                statsObj?.let {
+                    val total = jsInt(it, "episodeCount") ?: 0
+                    val have = jsInt(it, "episodeFileCount") ?: 0
+                    add("episodes" to "$have/$total")
+                    jsInt(it, "seasonCount")?.let { s -> add("seasons" to s.toString()) }
+                }
+                jsStr(o, "network")?.takeIf { it.isNotBlank() }?.let { add("network" to it) }
             }
-            jsStr(o, "network")?.takeIf { it.isNotBlank() }?.let { add("network" to it) }
-        } else {
-            add("file" to if (jsBool(o, "hasFile") == true) "downloaded" else "missing")
-            jsStr(o, "studio")?.takeIf { it.isNotBlank() }?.let { add("studio" to it) }
+            ServiceType.LIDARR -> {
+                statsObj?.let {
+                    jsInt(it, "albumCount")?.let { c -> add("albums" to c.toString()) }
+                    val total = jsInt(it, "trackCount") ?: 0
+                    val have = jsInt(it, "trackFileCount") ?: 0
+                    add("tracks" to "$have/$total")
+                }
+                add("monitored" to if (jsBool(o, "monitored") == true) "yes" else "no")
+            }
+            else -> {
+                add("file" to if (jsBool(o, "hasFile") == true) "downloaded" else "missing")
+                jsStr(o, "studio")?.takeIf { it.isNotBlank() }?.let { add("studio" to it) }
+            }
         }
     }
     ArrDetail(
         id = id,
-        title = jsStr(o, "title") ?: "",
+        title = jsStr(o, "title") ?: jsStr(o, "artistName") ?: "",
         year = jsInt(o, "year") ?: 0,
         overview = jsStr(o, "overview") ?: "",
         monitored = jsBool(o, "monitored") ?: false,
@@ -935,11 +950,28 @@ suspend fun arrEpisodes(config: ServiceConfig, seriesId: Int): List<ArrEpisode> 
     }.sortedWith(compareByDescending<ArrEpisode> { it.seasonNumber }.thenByDescending { it.episodeNumber })
 }
 
-/** Interactive search. [movieId] for Radarr, [episodeId] for Sonarr. */
-suspend fun arrReleases(config: ServiceConfig, movieId: Int?, episodeId: Int?): List<ArrRelease> = withContext(Dispatchers.IO) {
+/** Lidarr: albums for an artist, newest first. */
+suspend fun arrAlbums(config: ServiceConfig, artistId: Int): List<ArrAlbum> = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    apiFor<ArrApi>(config, apiKeyHeader(config)).albums("$base/album", artistId).map { o ->
+        val stats = o["statistics"] as? JsonObject
+        ArrAlbum(
+            id = jsInt(o, "id") ?: 0,
+            title = jsStr(o, "title") ?: "?",
+            year = (jsStr(o, "releaseDate") ?: "").take(4),
+            trackCount = stats?.let { jsInt(it, "trackCount") } ?: 0,
+            trackFileCount = stats?.let { jsInt(it, "trackFileCount") } ?: 0,
+            monitored = jsBool(o, "monitored") ?: false,
+        )
+    }.sortedByDescending { it.year }
+}
+
+/** Interactive search. [movieId] for Radarr, [episodeId] for Sonarr, [albumId] for Lidarr. */
+suspend fun arrReleases(config: ServiceConfig, movieId: Int?, episodeId: Int?, albumId: Int? = null): List<ArrRelease> = withContext(Dispatchers.IO) {
     val base = arrBase(config.type)
     val q = when {
         episodeId != null -> "episodeId=$episodeId"
+        albumId != null -> "albumId=$albumId"
         movieId != null -> "movieId=$movieId"
         else -> ""
     }
