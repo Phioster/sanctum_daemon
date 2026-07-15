@@ -312,12 +312,14 @@ private fun SeerrScreen(
     val status = statuses[config.id]
     val accent = Color(config.type.accent)
     val scope = rememberCoroutineScope()
-    var mode by remember { mutableStateOf(0) } // 0=Requests, 1=Issues
+    var mode by remember { mutableStateOf(0) } // 0=Requests, 1=Issues, 2=Discover
     var reqFilter by remember { mutableStateOf("all") }
     var issueFilter by remember { mutableStateOf("open") }
+    var discoverKind by remember { mutableStateOf("trending") }
     var filterMenu by remember { mutableStateOf(false) }
     var requests by remember { mutableStateOf<List<SeerrRequestItem>?>(null) }
     var issues by remember { mutableStateOf<List<SeerrIssueItem>?>(null) }
+    var discover by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrDiscoverItem>?>(null) }
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var barMenu by remember { mutableStateOf(false) }
@@ -325,9 +327,15 @@ private fun SeerrScreen(
     var searchTerm by remember { mutableStateOf("") }
     var searchResults by remember { mutableStateOf<List<SeerrSearchItem>?>(null) }
     var confirmItem by remember { mutableStateOf<SeerrSearchItem?>(null) }
+    var seasons by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrSeason>?>(null) }
+    var selectedSeasons by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var issueDetailId by remember { mutableStateOf<Int?>(null) }
+    var issueDetail by remember { mutableStateOf<org.phioster.nexarr.model.SeerrIssueDetail?>(null) }
+    var commentText by remember { mutableStateOf("") }
 
     val reqFilters = listOf("all", "pending", "approved", "processing", "failed", "available", "unavailable")
     val issueFilters = listOf("open", "resolved", "all")
+    val discoverKinds = listOf("trending", "movies", "tv")
 
     suspend fun loadRequests() {
         listError = null
@@ -349,7 +357,19 @@ private fun SeerrScreen(
             listError = t.message
         }
     }
-    LaunchedEffect(mode, reqFilter, issueFilter) { if (mode == 0) loadRequests() else loadIssues() }
+    suspend fun loadDiscover() {
+        listError = null
+        try {
+            discover = vm.seerrDiscoverList(config, discoverKind)
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            listError = t.message
+        }
+    }
+    LaunchedEffect(mode, reqFilter, issueFilter, discoverKind) {
+        when (mode) { 0 -> loadRequests(); 1 -> loadIssues(); else -> loadDiscover() }
+    }
     fun act(action: suspend () -> String) {
         scope.launch {
             actionMsg = action()
@@ -395,23 +415,25 @@ private fun SeerrScreen(
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     FilterChip(selected = mode == 0, onClick = { mode = 0 }, label = { Text("Requests", fontFamily = Mono) })
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(6.dp))
                     FilterChip(selected = mode == 1, onClick = { mode = 1 }, label = { Text("Issues", fontFamily = Mono) })
+                    Spacer(Modifier.width(6.dp))
+                    FilterChip(selected = mode == 2, onClick = { mode = 2 }, label = { Text("Discover", fontFamily = Mono) })
                     Spacer(Modifier.weight(1f))
                     Box {
                         TextButton(onClick = { filterMenu = true }) {
-                            Text(if (mode == 0) reqFilter else issueFilter, fontFamily = Mono, color = MatrixGreen)
+                            Text(when (mode) { 0 -> reqFilter; 1 -> issueFilter; else -> discoverKind }, fontFamily = Mono, color = MatrixGreen)
                         }
                         DropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }) {
-                            (if (mode == 0) reqFilters else issueFilters).forEach { f ->
+                            (when (mode) { 0 -> reqFilters; 1 -> issueFilters; else -> discoverKinds }).forEach { f ->
                                 DropdownMenuItem(text = { Text(f, fontFamily = Mono) }, onClick = {
                                     filterMenu = false
-                                    if (mode == 0) reqFilter = f else issueFilter = f
+                                    when (mode) { 0 -> reqFilter = f; 1 -> issueFilter = f; else -> discoverKind = f }
                                 })
                             }
                         }
                     }
-                    IconButton(onClick = { scope.launch { if (mode == 0) loadRequests() else loadIssues() } }) {
+                    IconButton(onClick = { scope.launch { when (mode) { 0 -> loadRequests(); 1 -> loadIssues(); else -> loadDiscover() } } }) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                     }
                 }
@@ -426,26 +448,43 @@ private fun SeerrScreen(
                     Text("error: $listError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
                 } else {
                     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                        if (mode == 0) {
-                            val r = requests
-                            when {
-                                r == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                r.isEmpty() -> item { Text("no requests", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                else -> items(r) { req ->
-                                    SeerrRequestRow(
-                                        item = req,
-                                        accent = accent,
-                                        onApprove = { act { vm.seerrApproveReq(config, req.id) } },
-                                        onDecline = { act { vm.seerrDeclineReq(config, req.id) } },
-                                    )
+                        when (mode) {
+                            0 -> {
+                                val r = requests
+                                when {
+                                    r == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    r.isEmpty() -> item { Text("no requests", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    else -> items(r) { req ->
+                                        SeerrRequestRow(
+                                            item = req,
+                                            accent = accent,
+                                            onApprove = { act { vm.seerrApproveReq(config, req.id) } },
+                                            onDecline = { act { vm.seerrDeclineReq(config, req.id) } },
+                                        )
+                                    }
                                 }
                             }
-                        } else {
-                            val i = issues
-                            when {
-                                i == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                i.isEmpty() -> item { Text("no issues", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                else -> items(i) { iss -> SeerrIssueRow(iss, accent) }
+                            1 -> {
+                                val i = issues
+                                when {
+                                    i == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    i.isEmpty() -> item { Text("no issues", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    else -> items(i) { iss ->
+                                        SeerrIssueRow(iss, accent) { issueDetailId = iss.id; issueDetail = null; commentText = ""; scope.launch { issueDetail = runCatching { vm.seerrIssueDetailOf(config, iss.id) }.getOrNull() } }
+                                    }
+                                }
+                            }
+                            else -> {
+                                val d = discover
+                                when {
+                                    d == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    d.isEmpty() -> item { Text("nothing to show", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    else -> items(d) { di ->
+                                        SeerrDiscoverRow(di, accent) {
+                                            confirmItem = SeerrSearchItem(di.tmdbId, di.title, di.year, di.mediaType)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -495,30 +534,140 @@ private fun SeerrScreen(
             confirmButton = { TextButton(onClick = { showAdd = false }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
+    LaunchedEffect(confirmItem) {
+        val ci = confirmItem
+        seasons = null; selectedSeasons = emptySet()
+        if (ci != null && ci.mediaType == "tv") {
+            val s = runCatching { vm.seerrSeasonsList(config, ci.tmdbId) }.getOrDefault(emptyList())
+            seasons = s
+            selectedSeasons = s.map { it.seasonNumber }.toSet() // default: all
+        }
+    }
     confirmItem?.let { item ->
+        val isTv = item.mediaType == "tv"
         AlertDialog(
             onDismissRequest = { confirmItem = null },
             containerColor = Surface,
             title = { Text("Request: ${item.title}", fontFamily = Mono, color = MatrixGreen) },
             text = {
-                Text(
-                    "${if (item.mediaType == "tv") "Series" else "Movie"}${if (item.year.isNotBlank()) " (${item.year})" else ""}" +
-                        if (item.mediaType == "tv") " · all seasons" else "",
-                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 13.sp,
-                )
+                Column {
+                    Text(
+                        "${if (isTv) "Series" else "Movie"}${if (item.year.isNotBlank()) " (${item.year})" else ""}",
+                        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 13.sp,
+                    )
+                    if (isTv) {
+                        Spacer(Modifier.height(8.dp))
+                        val ss = seasons
+                        if (ss == null) {
+                            Text("loading seasons…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        } else {
+                            val allSel = selectedSeasons.size == ss.size && ss.isNotEmpty()
+                            Row(
+                                Modifier.fillMaxWidth().clickable {
+                                    selectedSeasons = if (allSel) emptySet() else ss.map { it.seasonNumber }.toSet()
+                                }.padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(if (allSel) "[x] " else "[ ] ", fontFamily = Mono, color = if (allSel) MatrixGreen else MatrixGreen.copy(alpha = 0.4f), fontSize = 13.sp)
+                                Text("All seasons", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
+                            }
+                            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+                            Column(Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState())) {
+                                ss.forEach { s ->
+                                    val checked = s.seasonNumber in selectedSeasons
+                                    Row(
+                                        Modifier.fillMaxWidth().clickable {
+                                            selectedSeasons = if (checked) selectedSeasons - s.seasonNumber else selectedSeasons + s.seasonNumber
+                                        }.padding(vertical = 5.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(if (checked) "[x] " else "[ ] ", fontFamily = Mono, color = if (checked) MatrixGreen else MatrixGreen.copy(alpha = 0.4f), fontSize = 12.sp)
+                                        Text("${s.name} · ${s.episodeCount} ep", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.85f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    val it2 = item
-                    confirmItem = null
-                    scope.launch {
-                        actionMsg = vm.seerrRequestItem(config, it2)
-                        loadRequests()
-                        vm.refreshAll()
-                    }
-                }) { Text("Request", fontFamily = Mono, color = MatrixGreen) }
+                TextButton(
+                    enabled = !isTv || selectedSeasons.isNotEmpty(),
+                    onClick = {
+                        val tmdb = item.tmdbId; val type = item.mediaType
+                        val chosen = if (!isTv) null else selectedSeasons.toList().sorted()
+                        confirmItem = null
+                        scope.launch {
+                            actionMsg = vm.seerrRequestMedia(config, tmdb, type, chosen)
+                            loadRequests()
+                            vm.refreshAll()
+                        }
+                    },
+                ) { Text("Request", fontFamily = Mono, color = MatrixGreen) }
             },
             dismissButton = { TextButton(onClick = { confirmItem = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    issueDetailId?.let { iid ->
+        AlertDialog(
+            onDismissRequest = { issueDetailId = null },
+            containerColor = Surface,
+            title = { Text(issueDetail?.title ?: "Issue #$iid", fontFamily = Mono, color = MatrixGreen, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+            text = {
+                val d = issueDetail
+                Column(Modifier.heightIn(max = 460.dp)) {
+                    if (d == null) {
+                        Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                    } else {
+                        Text("${d.type} · ${d.status}", fontFamily = Mono, color = if (d.status == "open") Color(0xFFFFAA00) else MatrixGreen, fontSize = 11.sp)
+                        Spacer(Modifier.height(8.dp))
+                        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                            if (d.description.isNotBlank()) {
+                                Text(d.description, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.85f), fontSize = 12.sp)
+                                Spacer(Modifier.height(8.dp))
+                            }
+                            d.comments.forEach { c ->
+                                Column(Modifier.padding(vertical = 4.dp)) {
+                                    Text("${c.author} · ${c.date}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp)
+                                    Text(c.message, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.85f), fontSize = 12.sp)
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Field("Add comment", commentText) { commentText = it }
+                        Spacer(Modifier.height(4.dp))
+                        Row {
+                            OutlinedButton(
+                                enabled = commentText.isNotBlank(),
+                                onClick = {
+                                    val msg = commentText; commentText = ""
+                                    scope.launch {
+                                        actionMsg = vm.seerrComment(config, iid, msg)
+                                        issueDetail = runCatching { vm.seerrIssueDetailOf(config, iid) }.getOrNull()
+                                    }
+                                },
+                            ) { Text("Comment", fontFamily = Mono) }
+                            Spacer(Modifier.width(8.dp))
+                            val resolved = d.status == "resolved"
+                            OutlinedButton(onClick = {
+                                scope.launch {
+                                    actionMsg = vm.seerrIssueStatus(config, iid, !resolved)
+                                    issueDetail = runCatching { vm.seerrIssueDetailOf(config, iid) }.getOrNull()
+                                    loadIssues()
+                                }
+                            }) { Text(if (resolved) "Reopen" else "Resolve", fontFamily = Mono) }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { issueDetailId = null; loadIssues() }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+            dismissButton = {
+                TextButton(onClick = {
+                    val id = iid; issueDetailId = null
+                    scope.launch { actionMsg = vm.seerrDeleteIssue(config, id); loadIssues() }
+                }) { Text("Delete", fontFamily = Mono, color = ErrRed) }
+            },
         )
     }
 }
@@ -556,9 +705,9 @@ private fun SeerrRequestRow(item: SeerrRequestItem, accent: Color, onApprove: ()
 }
 
 @Composable
-private fun SeerrIssueRow(item: SeerrIssueItem, accent: Color) {
+private fun SeerrIssueRow(item: SeerrIssueItem, accent: Color, onClick: () -> Unit) {
     val statusColor = if (item.status == "open") Color(0xFFFFAA00) else MatrixGreen
-    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+    Column(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 10.dp)) {
         Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(2.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -567,6 +716,40 @@ private fun SeerrIssueRow(item: SeerrIssueItem, accent: Color) {
         }
         Spacer(Modifier.height(8.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+    }
+}
+
+@Composable
+private fun SeerrDiscoverRow(item: org.phioster.nexarr.model.SeerrDiscoverItem, accent: Color, onRequest: () -> Unit) {
+    val statusColor = when (item.status) {
+        "available" -> MatrixGreen
+        "processing", "pending", "partial" -> Color(0xFFFFAA00)
+        else -> MatrixGreen.copy(alpha = 0.5f)
+    }
+    Row(
+        Modifier.fillMaxWidth().clickable(enabled = item.status.isEmpty()) { onRequest() }.padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (item.posterUrl.isNotBlank()) {
+            AsyncImage(
+                model = item.posterUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.width(46.dp).height(69.dp).clip(RoundedCornerShape(4.dp)).background(Surface),
+            )
+        } else {
+            Box(Modifier.width(46.dp).height(69.dp).clip(RoundedCornerShape(4.dp)).background(Surface))
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(2.dp))
+            Text(
+                "${if (item.mediaType == "tv") "series" else "movie"}${if (item.year.isNotBlank()) " · ${item.year}" else ""}",
+                fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp,
+            )
+        }
+        Text(item.status.ifBlank { "request" }, fontFamily = Mono, color = statusColor, fontSize = 11.sp)
     }
 }
 

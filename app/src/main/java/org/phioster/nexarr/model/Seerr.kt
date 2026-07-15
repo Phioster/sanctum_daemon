@@ -24,3 +24,37 @@ data class SeerrSearchItem(
     val year: String,
     val mediaType: String, // "movie" or "tv"
 )
+
+/** A discover/trending browse item. */
+data class SeerrDiscoverItem(
+    val tmdbId: Int,
+    val title: String,
+    val year: String,
+    val mediaType: String, // "movie" or "tv"
+    val posterUrl: String,
+    val status: String, // "available" / "processing" / "pending" / "" (not requested)
+)
+
+/** A season of a TV show, for per-season requests. */
+data class SeerrSeason(
+    val seasonNumber: Int,
+    val name: String,
+    val episodeCount: Int,
+)
+
+/** A comment on an issue. */
+data class SeerrComment(
+    val author: String,
+    val message: String,
+    val date: String,
+)
+
+/** Full detail of an issue including comments. */
+data class SeerrIssueDetail(
+    val id: Int,
+    val title: String,
+    val type: String,
+    val status: String, // "open" / "resolved"
+    val description: String,
+    val comments: List<SeerrComment>,
+)

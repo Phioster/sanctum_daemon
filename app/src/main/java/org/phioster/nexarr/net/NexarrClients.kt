@@ -46,9 +46,13 @@ import org.phioster.nexarr.model.ProwlarrIndexerItem
 import org.phioster.nexarr.model.ProwlarrRelease
 import org.phioster.nexarr.model.ProwlarrSystemInfo
 import org.phioster.nexarr.model.ProwlarrTaskItem
+import org.phioster.nexarr.model.SeerrComment
+import org.phioster.nexarr.model.SeerrDiscoverItem
+import org.phioster.nexarr.model.SeerrIssueDetail
 import org.phioster.nexarr.model.SeerrIssueItem
 import org.phioster.nexarr.model.SeerrRequestItem
 import org.phioster.nexarr.model.SeerrSearchItem
+import org.phioster.nexarr.model.SeerrSeason
 import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceStatus
 import org.phioster.nexarr.model.ServiceType
@@ -334,6 +338,13 @@ private interface SeerrApi {
 
     @GET("api/v1/search") suspend fun search(@Query("query") query: String): SeerrSearchPage
     @POST("api/v1/request") suspend fun createRequest(@Body body: JsonObject): Response<ResponseBody>
+    @GET("api/v1/discover/trending") suspend fun trending(@Query("page") page: Int = 1): JsonObject
+    @GET("api/v1/discover/movies") suspend fun discoverMovies(@Query("page") page: Int = 1): JsonObject
+    @GET("api/v1/discover/tv") suspend fun discoverTv(@Query("page") page: Int = 1): JsonObject
+    @GET("api/v1/issue/{id}") suspend fun issueDetail(@Path("id") id: Int): JsonObject
+    @POST("api/v1/issue/{id}/comment") suspend fun addComment(@Path("id") id: Int, @Body body: JsonObject): Response<ResponseBody>
+    @POST("api/v1/issue/{id}/{status}") suspend fun setIssueStatus(@Path("id") id: Int, @Path("status") status: String): Response<ResponseBody>
+    @DELETE("api/v1/issue/{id}") suspend fun deleteIssue(@Path("id") id: Int): Response<ResponseBody>
 }
 
 private fun seerrStatusText(status: Int) = when (status) {
@@ -441,6 +452,126 @@ suspend fun seerrCreateRequest(config: ServiceConfig, item: SeerrSearchItem): St
         }
         val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).createRequest(body)
         if (r.isSuccessful) "requested" else "error: HTTP ${r.code()}"
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+private fun seerrMediaStatusText(status: Int?) = when (status) {
+    2 -> "pending"
+    3 -> "processing"
+    4 -> "partial"
+    5 -> "available"
+    else -> ""
+}
+
+private fun parseDiscoverItems(page: JsonObject, defaultType: String?): List<SeerrDiscoverItem> {
+    val results = page["results"] as? JsonArray ?: return emptyList()
+    return results.mapNotNull { it as? JsonObject }
+        .map { o -> o to (jsStr(o, "mediaType") ?: defaultType) }
+        .filter { (_, type) -> type == "movie" || type == "tv" }
+        .map { (o, typeNullable) ->
+            val type = typeNullable ?: "movie"
+            val date = jsStr(o, "releaseDate") ?: jsStr(o, "firstAirDate") ?: ""
+            val poster = jsStr(o, "posterPath")
+            val status = ((o["mediaInfo"] as? JsonObject)?.let { jsInt(it, "status") })
+            SeerrDiscoverItem(
+                tmdbId = jsInt(o, "id") ?: 0,
+                title = jsStr(o, "title") ?: jsStr(o, "name") ?: "?",
+                year = date.take(4),
+                mediaType = type,
+                posterUrl = if (!poster.isNullOrBlank()) "https://image.tmdb.org/t/p/w300$poster" else "",
+                status = seerrMediaStatusText(status),
+            )
+        }
+}
+
+/** Browse discover/trending. [kind] = "trending" | "movies" | "tv". */
+suspend fun seerrDiscover(config: ServiceConfig, kind: String): List<SeerrDiscoverItem> = withContext(Dispatchers.IO) {
+    val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
+    val (page, def) = when (kind) {
+        "movies" -> api.discoverMovies() to "movie"
+        "tv" -> api.discoverTv() to "tv"
+        else -> api.trending() to null
+    }
+    parseDiscoverItems(page, def)
+}
+
+/** Seasons of a TV show (seasonNumber >= 1). */
+suspend fun seerrSeasons(config: ServiceConfig, tmdbId: Int): List<SeerrSeason> = withContext(Dispatchers.IO) {
+    val o = apiFor<SeerrApi>(config, apiKeyHeader(config)).tvRaw(tmdbId)
+    (o["seasons"] as? JsonArray)?.mapNotNull { it as? JsonObject }
+        ?.mapNotNull { s ->
+            val n = jsInt(s, "seasonNumber") ?: return@mapNotNull null
+            if (n < 1) null else SeerrSeason(n, jsStr(s, "name") ?: "Season $n", jsInt(s, "episodeCount") ?: 0)
+        } ?: emptyList()
+}
+
+/** Create a request; [seasons] null = movie or all seasons, else the chosen season numbers. */
+suspend fun seerrRequest(config: ServiceConfig, tmdbId: Int, mediaType: String, seasons: List<Int>?): String = withContext(Dispatchers.IO) {
+    try {
+        val body = buildJsonObject {
+            put("mediaType", mediaType)
+            put("mediaId", tmdbId)
+            if (mediaType == "tv") {
+                if (seasons.isNullOrEmpty()) put("seasons", "all")
+                else putJsonArray("seasons") { seasons.forEach { add(it) } }
+            }
+        }
+        val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).createRequest(body)
+        if (r.isSuccessful) "requested" else "error: HTTP ${r.code()}"
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun seerrIssueDetail(config: ServiceConfig, id: Int): SeerrIssueDetail = withContext(Dispatchers.IO) {
+    val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
+    val o = api.issueDetail(id)
+    val comments = (o["comments"] as? JsonArray)?.mapNotNull { it as? JsonObject }?.map { c ->
+        val author = (c["user"] as? JsonObject)?.let { jsStr(it, "displayName") } ?: "?"
+        SeerrComment(
+            author = author,
+            message = jsStr(c, "message") ?: "",
+            date = (jsStr(c, "createdAt") ?: "").take(16).replace('T', ' '),
+        )
+    } ?: emptyList()
+    val media = o["media"] as? JsonObject
+    val title = runCatching {
+        val t = media?.let { jsInt(it, "tmdbId") } ?: 0
+        val isTv = jsStr(media ?: JsonObject(emptyMap()), "mediaType") == "tv"
+        if (t > 0) (if (isTv) api.tv(t).let { it.name ?: it.title } else api.movie(t).let { it.title ?: it.name }) else null
+    }.getOrNull() ?: "Issue #$id"
+    SeerrIssueDetail(
+        id = id,
+        title = title ?: "Issue #$id",
+        type = seerrIssueType(jsInt(o, "issueType") ?: 0),
+        status = if ((jsInt(o, "status") ?: 1) == 1) "open" else "resolved",
+        description = comments.firstOrNull()?.message ?: "",
+        comments = comments.drop(1),
+    )
+}
+
+suspend fun seerrAddComment(config: ServiceConfig, id: Int, message: String): String = withContext(Dispatchers.IO) {
+    try {
+        val body = buildJsonObject { put("message", message) }
+        okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).addComment(id, body), "commented")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun seerrSetIssueStatus(config: ServiceConfig, id: Int, resolved: Boolean): String = withContext(Dispatchers.IO) {
+    try {
+        okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).setIssueStatus(id, if (resolved) "resolved" else "open"), if (resolved) "resolved" else "reopened")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun seerrDeleteIssueById(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
+    try {
+        okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).deleteIssue(id), "deleted")
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
     }

@@ -64,10 +64,17 @@ import org.phioster.nexarr.net.runNzbEditQueue
 import org.phioster.nexarr.net.runNzbRate
 import org.phioster.nexarr.net.seerrApprove
 import org.phioster.nexarr.net.seerrDecline
+import org.phioster.nexarr.net.seerrAddComment
 import org.phioster.nexarr.net.seerrCreateRequest
+import org.phioster.nexarr.net.seerrDeleteIssueById
+import org.phioster.nexarr.net.seerrDiscover
+import org.phioster.nexarr.net.seerrIssueDetail
 import org.phioster.nexarr.net.seerrIssues
+import org.phioster.nexarr.net.seerrRequest
 import org.phioster.nexarr.net.seerrRequests
 import org.phioster.nexarr.net.seerrSearch
+import org.phioster.nexarr.net.seerrSeasons
+import org.phioster.nexarr.net.seerrSetIssueStatus
 import org.phioster.nexarr.net.runJellyfinScan
 import org.phioster.nexarr.net.runNzbgetPause
 import org.phioster.nexarr.net.runNzbgetResume
@@ -208,6 +215,20 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         seerrSearch(config, query)
     suspend fun seerrRequestItem(config: ServiceConfig, item: SeerrSearchItem): String =
         seerrCreateRequest(config, item)
+    suspend fun seerrDiscoverList(config: ServiceConfig, kind: String): List<org.phioster.nexarr.model.SeerrDiscoverItem> =
+        seerrDiscover(config, kind)
+    suspend fun seerrSeasonsList(config: ServiceConfig, tmdbId: Int): List<org.phioster.nexarr.model.SeerrSeason> =
+        seerrSeasons(config, tmdbId)
+    suspend fun seerrRequestMedia(config: ServiceConfig, tmdbId: Int, mediaType: String, seasons: List<Int>?): String =
+        seerrRequest(config, tmdbId, mediaType, seasons)
+    suspend fun seerrIssueDetailOf(config: ServiceConfig, id: Int): org.phioster.nexarr.model.SeerrIssueDetail =
+        seerrIssueDetail(config, id)
+    suspend fun seerrComment(config: ServiceConfig, id: Int, message: String): String =
+        seerrAddComment(config, id, message)
+    suspend fun seerrIssueStatus(config: ServiceConfig, id: Int, resolved: Boolean): String =
+        seerrSetIssueStatus(config, id, resolved)
+    suspend fun seerrDeleteIssue(config: ServiceConfig, id: Int): String =
+        seerrDeleteIssueById(config, id)
 
     private fun setStatus(id: String, status: ServiceStatus) {
         _statuses.value = _statuses.value.toMutableMap().apply { put(id, status) }
