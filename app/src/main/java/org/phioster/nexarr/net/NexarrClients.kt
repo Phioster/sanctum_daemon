@@ -61,6 +61,7 @@ import org.phioster.nexarr.model.SeerrDiscoverItem
 import org.phioster.nexarr.model.SeerrIssueDetail
 import org.phioster.nexarr.model.SeerrIssueItem
 import org.phioster.nexarr.model.SeerrRequestItem
+import org.phioster.nexarr.model.SeerrMediaDetail
 import org.phioster.nexarr.model.SeerrSearchItem
 import org.phioster.nexarr.model.SeerrSeason
 import org.phioster.nexarr.model.ServiceConfig
@@ -1304,6 +1305,45 @@ suspend fun seerrCast(seerrConfig: ServiceConfig, tmdbId: Int, isTv: Boolean): L
             profileUrl = if (!profile.isNullOrBlank()) "https://image.tmdb.org/t/p/w185$profile" else "",
         )
     }
+}
+
+/** Full media detail (poster, facts, genres, cast, availability) for a Seerr movie/show. */
+suspend fun seerrMediaDetail(config: ServiceConfig, tmdbId: Int, mediaType: String): SeerrMediaDetail = withContext(Dispatchers.IO) {
+    val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
+    val isTv = mediaType == "tv"
+    val o = if (isTv) api.tvRaw(tmdbId) else api.movieRaw(tmdbId)
+    val title = jsStr(o, "title") ?: jsStr(o, "name") ?: "?"
+    val date = jsStr(o, "releaseDate") ?: jsStr(o, "firstAirDate") ?: ""
+    val poster = jsStr(o, "posterPath")
+    val vote = (o["voteAverage"] as? JsonPrimitive)?.content?.toDoubleOrNull()
+    val runtime = jsInt(o, "runtime")
+    val genres = (o["genres"] as? JsonArray)?.mapNotNull { (it as? JsonObject)?.let { g -> jsStr(g, "name") } }?.joinToString(" · ") ?: ""
+    val statusInt = (o["mediaInfo"] as? JsonObject)?.let { jsInt(it, "status") }
+    val cast = ((o["credits"] as? JsonObject)?.get("cast") as? JsonArray)?.mapNotNull { it as? JsonObject }?.take(20)?.map { c ->
+        val profile = jsStr(c, "profilePath")
+        ArrCastMember(
+            name = jsStr(c, "name") ?: "?",
+            character = jsStr(c, "character") ?: "",
+            profileUrl = if (!profile.isNullOrBlank()) "https://image.tmdb.org/t/p/w185$profile" else "",
+        )
+    } ?: emptyList()
+    val facts = buildList {
+        date.take(4).takeIf { it.isNotBlank() }?.let { add("year" to it) }
+        runtime?.takeIf { it > 0 }?.let { add("runtime" to "$it min") }
+        vote?.takeIf { it > 0 }?.let { add("score" to "%.1f".format(it)) }
+    }
+    SeerrMediaDetail(
+        tmdbId = tmdbId,
+        title = title,
+        year = date.take(4),
+        mediaType = mediaType,
+        overview = jsStr(o, "overview") ?: "",
+        posterUrl = if (!poster.isNullOrBlank()) "https://image.tmdb.org/t/p/w300$poster" else "",
+        facts = facts,
+        genres = genres,
+        status = seerrMediaStatusText(statusInt),
+        cast = cast,
+    )
 }
 
 suspend fun arrGrab(config: ServiceConfig, guid: String, indexerId: Int): String = withContext(Dispatchers.IO) {

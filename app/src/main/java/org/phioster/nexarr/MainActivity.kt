@@ -479,6 +479,8 @@ private fun SeerrScreen(
     var searchTerm by remember { mutableStateOf("") }
     var searchResults by remember { mutableStateOf<List<SeerrSearchItem>?>(null) }
     var confirmItem by remember { mutableStateOf<SeerrSearchItem?>(null) }
+    var mediaDetail by remember { mutableStateOf<org.phioster.nexarr.model.SeerrMediaDetail?>(null) }
+    var mediaDetailLoading by remember { mutableStateOf(false) }
     var seasons by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrSeason>?>(null) }
     var selectedSeasons by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var issueDetailId by remember { mutableStateOf<Int?>(null) }
@@ -634,7 +636,12 @@ private fun SeerrScreen(
                                     d.isEmpty() -> item { Text("nothing to show", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     else -> items(d) { di ->
                                         SeerrDiscoverRow(di, accent) {
-                                            confirmItem = SeerrSearchItem(di.tmdbId, di.title, di.year, di.mediaType)
+                                            mediaDetailLoading = true
+                                            scope.launch {
+                                                mediaDetail = runCatching { vm.seerrMediaDetailById(config, di.tmdbId, di.mediaType) }.getOrNull()
+                                                    ?: org.phioster.nexarr.model.SeerrMediaDetail(di.tmdbId, di.title, di.year, di.mediaType, "", di.posterUrl, emptyList(), "", di.status, emptyList())
+                                                mediaDetailLoading = false
+                                            }
                                         }
                                     }
                                 }
@@ -759,6 +766,100 @@ private fun SeerrScreen(
                 ) { Text("Request", fontFamily = Mono, color = MatrixGreen) }
             },
             dismissButton = { TextButton(onClick = { confirmItem = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    if (mediaDetailLoading && mediaDetail == null) {
+        AlertDialog(
+            onDismissRequest = { mediaDetailLoading = false },
+            containerColor = Surface,
+            title = { Text("loading…", fontFamily = Mono, color = MatrixGreen) },
+            text = { Text("", fontFamily = Mono) },
+            confirmButton = { TextButton(onClick = { mediaDetailLoading = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    mediaDetail?.let { d ->
+        AlertDialog(
+            onDismissRequest = { mediaDetail = null },
+            containerColor = Surface,
+            title = { Text(d.title, fontFamily = Mono, color = MatrixGreen, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    if (d.posterUrl.isNotBlank()) {
+                        AsyncImage(
+                            model = d.posterUrl,
+                            contentDescription = null,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 260.dp).clip(RoundedCornerShape(8.dp)).background(Surface),
+                        )
+                        Spacer(Modifier.height(10.dp))
+                    }
+                    val chips = buildList {
+                        addAll(d.facts)
+                        if (d.status.isNotBlank()) add("status" to d.status)
+                    }
+                    chips.chunked(2).forEach { pair ->
+                        Row(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
+                            pair.forEach { (k, v) ->
+                                Column(Modifier.weight(1f)) {
+                                    Text(v, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(k.uppercase(), fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 9.sp)
+                                }
+                            }
+                            if (pair.size == 1) Spacer(Modifier.weight(1f))
+                        }
+                    }
+                    if (d.genres.isNotBlank()) {
+                        Text(d.genres, fontFamily = Mono, color = accent.copy(alpha = 0.85f), fontSize = 11.sp)
+                    }
+                    if (d.overview.isNotBlank()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp)
+                    }
+                    if (d.cast.isNotEmpty()) {
+                        Spacer(Modifier.height(12.dp))
+                        Text("CAST", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                        Spacer(Modifier.height(6.dp))
+                        Row(Modifier.horizontalScroll(rememberScrollState())) {
+                            d.cast.forEach { member ->
+                                Column(Modifier.width(84.dp).padding(end = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    if (member.profileUrl.isNotBlank()) {
+                                        AsyncImage(
+                                            model = member.profileUrl,
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.size(72.dp).clip(RoundedCornerShape(36.dp)).background(Surface),
+                                        )
+                                    } else {
+                                        Box(Modifier.size(72.dp).clip(RoundedCornerShape(36.dp)).background(Surface))
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(member.name, fontFamily = Mono, color = MatrixGreen, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                                    if (member.character.isNotBlank()) {
+                                        Text(member.character, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val item = SeerrSearchItem(d.tmdbId, d.title, d.year, d.mediaType)
+                    mediaDetail = null
+                    confirmItem = item
+                }) { Text("Request", fontFamily = Mono, color = MatrixGreen) }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { openExternal(context, seerrAppPackages, "${config.normalizedBaseUrl}${d.mediaType}/${d.tmdbId}") }) {
+                        Text("Open in Seerr", fontFamily = Mono, color = accent)
+                    }
+                    TextButton(onClick = { mediaDetail = null }) { Text("Close", fontFamily = Mono, color = MatrixGreen) }
+                }
+            },
         )
     }
 

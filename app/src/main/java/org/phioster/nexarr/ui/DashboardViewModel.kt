@@ -73,6 +73,7 @@ import org.phioster.nexarr.net.seerrCreateRequest
 import org.phioster.nexarr.net.seerrDeleteIssueById
 import org.phioster.nexarr.net.seerrDiscover
 import org.phioster.nexarr.net.seerrIssueDetail
+import org.phioster.nexarr.net.seerrMediaDetail
 import org.phioster.nexarr.net.seerrIssues
 import org.phioster.nexarr.net.seerrRequest
 import org.phioster.nexarr.net.seerrRequests
@@ -304,6 +305,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         seerrCreateRequest(config, item)
     suspend fun seerrDiscoverList(config: ServiceConfig, kind: String): List<org.phioster.nexarr.model.SeerrDiscoverItem> =
         seerrDiscover(config, kind)
+    suspend fun seerrMediaDetailById(config: ServiceConfig, tmdbId: Int, mediaType: String): org.phioster.nexarr.model.SeerrMediaDetail =
+        seerrMediaDetail(config, tmdbId, mediaType)
     suspend fun seerrSeasonsList(config: ServiceConfig, tmdbId: Int): List<org.phioster.nexarr.model.SeerrSeason> =
         seerrSeasons(config, tmdbId)
     suspend fun seerrRequestMedia(config: ServiceConfig, tmdbId: Int, mediaType: String, seasons: List<Int>?): String =
