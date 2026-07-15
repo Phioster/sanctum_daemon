@@ -813,16 +813,20 @@ suspend fun arrReleases(config: ServiceConfig, movieId: Int?, episodeId: Int?): 
 suspend fun arrSystem(config: ServiceConfig): ArrSystemInfo = withContext(Dispatchers.IO) {
     val base = arrBase(config.type)
     val api = apiFor<ArrApi>(config, apiKeyHeader(config))
-    val version = runCatching { api.systemStatus("$base/system/status").version }.getOrDefault("?")
-    val health = runCatching { api.healthChecks("$base/health").map { it.type to it.message } }.getOrDefault(emptyList())
-    val disks = runCatching {
-        api.diskspace("$base/diskspace").map { d ->
-            val freeGb = d.freeSpace / (1024.0 * 1024 * 1024)
-            val totalGb = d.totalSpace / (1024.0 * 1024 * 1024)
-            d.path to "%.0f / %.0f GB free".format(freeGb, totalGb)
+    coroutineScope {
+        val versionD = async { runCatching { api.systemStatus("$base/system/status").version }.getOrDefault("?") }
+        val healthD = async { runCatching { api.healthChecks("$base/health").map { it.type to it.message } }.getOrDefault(emptyList()) }
+        val disksD = async {
+            runCatching {
+                api.diskspace("$base/diskspace").map { d ->
+                    val freeGb = d.freeSpace / (1024.0 * 1024 * 1024)
+                    val totalGb = d.totalSpace / (1024.0 * 1024 * 1024)
+                    d.path to "%.0f / %.0f GB free".format(freeGb, totalGb)
+                }
+            }.getOrDefault(emptyList())
         }
-    }.getOrDefault(emptyList())
-    ArrSystemInfo(version = version, health = health, disks = disks)
+        ArrSystemInfo(version = versionD.await(), health = healthD.await(), disks = disksD.await())
+    }
 }
 
 suspend fun arrGrab(config: ServiceConfig, guid: String, indexerId: Int): String = withContext(Dispatchers.IO) {
