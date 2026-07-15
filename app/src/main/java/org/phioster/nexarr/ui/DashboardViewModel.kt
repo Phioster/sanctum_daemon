@@ -35,6 +35,7 @@ import org.phioster.nexarr.model.SeerrRequestItem
 import org.phioster.nexarr.model.SeerrSearchItem
 import org.phioster.nexarr.net.arrAdd
 import org.phioster.nexarr.net.arrAlbums
+import org.phioster.nexarr.net.arrTracks
 import org.phioster.nexarr.net.arrCutoff
 import org.phioster.nexarr.net.arrDelete
 import org.phioster.nexarr.net.arrDetail
@@ -115,6 +116,7 @@ import org.phioster.nexarr.net.prowlarrSearch
 import org.phioster.nexarr.net.prowlarrSystem
 import org.phioster.nexarr.net.prowlarrTasks
 import org.phioster.nexarr.net.prowlarrTestIndexer
+import org.phioster.nexarr.net.prowlarrDeleteIndexer
 import org.phioster.nexarr.net.prowlarrToggleIndexer
 import org.phioster.nexarr.net.runProwlarrTestAll
 import org.phioster.nexarr.net.runSearchMissing
@@ -236,6 +238,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun prowlarrIndexerList(config: ServiceConfig): List<ProwlarrIndexerItem> = prowlarrIndexers(config)
     suspend fun prowlarrToggle(config: ServiceConfig, id: Int, enable: Boolean): String =
         prowlarrToggleIndexer(config, id, enable)
+    suspend fun prowlarrDelete(config: ServiceConfig, id: Int): String =
+        prowlarrDeleteIndexer(config, id)
     suspend fun prowlarrTest(config: ServiceConfig, id: Int): String = prowlarrTestIndexer(config, id)
     suspend fun prowlarrSearchList(config: ServiceConfig, query: String, categoryId: Int): List<ProwlarrRelease> =
         prowlarrSearch(config, query, categoryId)
@@ -279,6 +283,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrEpisodesOf(config: ServiceConfig, seriesId: Int): List<ArrEpisode> = arrEpisodes(config, seriesId)
     suspend fun arrAlbumsOf(config: ServiceConfig, artistId: Int): List<org.phioster.nexarr.model.ArrAlbum> =
         arrAlbums(config, artistId)
+    suspend fun arrTracksOf(config: ServiceConfig, albumId: Int): List<org.phioster.nexarr.model.ArrTrack> =
+        arrTracks(config, albumId)
     suspend fun arrReleasesFor(config: ServiceConfig, movieId: Int?, episodeId: Int?, albumId: Int? = null): List<ArrRelease> =
         arrReleases(config, movieId, episodeId, albumId)
     suspend fun arrGrabRelease(config: ServiceConfig, guid: String, indexerId: Int): String =

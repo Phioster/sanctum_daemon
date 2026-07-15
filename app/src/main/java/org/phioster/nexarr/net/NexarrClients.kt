@@ -27,6 +27,7 @@ import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import retrofit2.Response
 import org.phioster.nexarr.model.ArrAlbum
+import org.phioster.nexarr.model.ArrTrack
 import org.phioster.nexarr.model.ArrCastMember
 import org.phioster.nexarr.model.ArrDetail
 import org.phioster.nexarr.model.ArrEpisode
@@ -417,6 +418,7 @@ private interface ProwlarrApi {
     @GET("api/v1/indexerstatus") suspend fun indexerStatus(): List<ProwlarrIndexerStatusRecord>
     @GET("api/v1/indexer/{id}") suspend fun indexerRaw(@Path("id") id: Int): JsonObject
     @PUT("api/v1/indexer/{id}") suspend fun updateIndexer(@Path("id") id: Int, @Body body: JsonObject): Response<ResponseBody>
+    @DELETE("api/v1/indexer/{id}") suspend fun deleteIndexer(@Path("id") id: Int): Response<ResponseBody>
     @POST("api/v1/indexer/{id}/test") suspend fun testIndexer(@Path("id") id: Int): Response<ResponseBody>
     @GET("api/v1/search") suspend fun search(
         @Query("query") query: String,
@@ -880,6 +882,7 @@ private interface ArrApi {
     @GET suspend fun itemDetail(@Url url: String): JsonObject
     @GET suspend fun episodes(@Url url: String, @Query("seriesId") seriesId: Int): List<ArrEpisodeRecord>
     @GET suspend fun albums(@Url url: String, @Query("artistId") artistId: Int): List<JsonObject>
+    @GET suspend fun tracks(@Url url: String, @Query("albumId") albumId: Int): List<JsonObject>
     @GET suspend fun releases(@Url url: String): List<ArrReleaseRecord>
     @POST suspend fun downloadRelease(@Url url: String, @Body body: ArrGrabReq): Response<ResponseBody>
     @DELETE suspend fun deleteItem(@Url url: String): Response<ResponseBody>
@@ -1229,6 +1232,21 @@ suspend fun arrAlbums(config: ServiceConfig, artistId: Int): List<ArrAlbum> = wi
             monitored = jsBool(o, "monitored") ?: false,
         )
     }.sortedByDescending { it.year }
+}
+
+/** Lidarr: the track list of an album. */
+suspend fun arrTracks(config: ServiceConfig, albumId: Int): List<ArrTrack> = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    apiFor<ArrApi>(config, apiKeyHeader(config)).tracks("$base/track", albumId).map { o ->
+        val ms = jsLong(o, "duration") ?: 0L
+        val secs = ms / 1000
+        ArrTrack(
+            trackNumber = jsStr(o, "trackNumber") ?: (jsInt(o, "absoluteTrackNumber")?.toString() ?: ""),
+            title = jsStr(o, "title") ?: "?",
+            duration = if (secs > 0) "%d:%02d".format(secs / 60, secs % 60) else "",
+            hasFile = jsBool(o, "hasFile") ?: false,
+        )
+    }
 }
 
 /** Interactive search. [movieId] for Radarr, [episodeId] for Sonarr, [albumId] for Lidarr. */
@@ -1997,6 +2015,14 @@ suspend fun prowlarrToggleIndexer(config: ServiceConfig, id: Int, enable: Boolea
         val raw = api.indexerRaw(id)
         val body = JsonObject(raw.toMutableMap().apply { put("enable", JsonPrimitive(enable)) })
         okOr(api.updateIndexer(id, body), if (enable) "enabled" else "disabled")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun prowlarrDeleteIndexer(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
+    try {
+        okOr(apiFor<ProwlarrApi>(config, apiKeyHeader(config)).deleteIndexer(id), "deleted")
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
     }

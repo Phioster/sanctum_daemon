@@ -76,6 +76,14 @@ data class ArrAlbum(
     val monitored: Boolean,
 )
 
+/** A single track on a Lidarr album. */
+data class ArrTrack(
+    val trackNumber: String,
+    val title: String,
+    val duration: String, // "3:45"
+    val hasFile: Boolean,
+)
+
 /** A Sonarr episode (grouped by season in the UI). */
 data class ArrEpisode(
     val id: Int,

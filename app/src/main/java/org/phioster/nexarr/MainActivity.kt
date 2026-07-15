@@ -1796,6 +1796,7 @@ private fun ProwlarrScreen(
     var systemInfo by remember { mutableStateOf<org.phioster.nexarr.model.ProwlarrSystemInfo?>(null) }
     var tasks by remember { mutableStateOf<List<org.phioster.nexarr.model.ProwlarrTaskItem>?>(null) }
     var showSystem by remember { mutableStateOf(false) }
+    var confirmDelIndexer by remember { mutableStateOf<ProwlarrIndexerItem?>(null) }
     val arrTargets = remember { vm.arrTargets() }
 
     suspend fun loadIndexers() {
@@ -1947,6 +1948,7 @@ private fun ProwlarrScreen(
                                             accent = accent,
                                             onTest = { act({ vm.prowlarrTest(config, row.id) }, false) },
                                             onToggle = { act({ vm.prowlarrToggle(config, row.id, !row.enable) }, true) },
+                                            onDelete = { confirmDelIndexer = row },
                                         )
                                     }
                                 }
@@ -2005,6 +2007,21 @@ private fun ProwlarrScreen(
                 }) { Text("Grab", fontFamily = Mono, color = MatrixGreen) }
             },
             dismissButton = { TextButton(onClick = { confirmGrab = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    confirmDelIndexer?.let { ix ->
+        AlertDialog(
+            onDismissRequest = { confirmDelIndexer = null },
+            containerColor = Surface,
+            title = { Text("Delete indexer?", fontFamily = Mono, color = MatrixGreen) },
+            text = { Text("Remove \"${ix.name}\" from Prowlarr. This does not touch the connected apps.", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 13.sp) },
+            confirmButton = {
+                TextButton(onClick = { confirmDelIndexer = null; act({ vm.prowlarrDelete(config, ix.id) }, true) }) {
+                    Text("Delete", fontFamily = Mono, color = ErrRed)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelIndexer = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
 
@@ -2067,7 +2084,7 @@ private fun ProwlarrHistoryRow(item: org.phioster.nexarr.model.ProwlarrHistoryIt
 }
 
 @Composable
-private fun ProwlarrIndexerRow(item: ProwlarrIndexerItem, accent: Color, onTest: () -> Unit, onToggle: () -> Unit) {
+private fun ProwlarrIndexerRow(item: ProwlarrIndexerItem, accent: Color, onTest: () -> Unit, onToggle: () -> Unit, onDelete: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     val stateColor = when {
         item.failing -> ErrRed
@@ -2103,6 +2120,7 @@ private fun ProwlarrIndexerRow(item: ProwlarrIndexerItem, accent: Color, onTest:
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(text = { Text("Test", fontFamily = Mono) }, onClick = { menu = false; onTest() })
             DropdownMenuItem(text = { Text(if (item.enable) "Disable" else "Enable", fontFamily = Mono) }, onClick = { menu = false; onToggle() })
+            DropdownMenuItem(text = { Text("Delete", fontFamily = Mono, color = ErrRed) }, onClick = { menu = false; onDelete() })
         }
     }
 }
@@ -2710,6 +2728,8 @@ private fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, itemI
     var detail by remember { mutableStateOf<ArrDetail?>(null) }
     var episodes by remember { mutableStateOf<List<ArrEpisode>?>(null) }
     var albums by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrAlbum>?>(null) }
+    var trackAlbum by remember { mutableStateOf<org.phioster.nexarr.model.ArrAlbum?>(null) }
+    var tracks by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrTrack>?>(null) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var barMenu by remember { mutableStateOf(false) }
@@ -2882,12 +2902,47 @@ private fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, itemI
                     als.isEmpty() -> item { Text("no albums", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
                     else -> items(als) { al ->
                         ArrAlbumRow(al, accent) {
-                            openReleases(movieId = null, episodeId = null, albumId = al.id, title = al.title)
+                            trackAlbum = al; tracks = null
+                            scope.launch { tracks = runCatching { vm.arrTracksOf(config, al.id) }.getOrDefault(emptyList()) }
                         }
                     }
                 }
             }
         }
+    }
+
+    trackAlbum?.let { al ->
+        AlertDialog(
+            onDismissRequest = { trackAlbum = null },
+            containerColor = Surface,
+            title = { Text("${al.title}${if (al.year.isNotBlank()) " (${al.year})" else ""}", fontFamily = Mono, color = MatrixGreen, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+            text = {
+                Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+                    Text("${al.trackFileCount}/${al.trackCount} tracks", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
+                    Spacer(Modifier.height(8.dp))
+                    val tr = tracks
+                    when {
+                        tr == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        tr.isEmpty() -> Text("no tracks", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        else -> tr.forEach { t ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(t.trackNumber.padStart(2, ' '), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp)
+                                Spacer(Modifier.width(8.dp))
+                                Text(t.title, fontFamily = Mono, color = if (t.hasFile) MatrixGreen else MatrixGreen.copy(alpha = 0.45f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                if (t.duration.isNotBlank()) Text(t.duration, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 10.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val a = al; trackAlbum = null
+                    openReleases(movieId = null, episodeId = null, albumId = a.id, title = a.title)
+                }) { Text("Search releases", fontFamily = Mono, color = MatrixGreen) }
+            },
+            dismissButton = { TextButton(onClick = { trackAlbum = null }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+        )
     }
 
     if (confirmDelete) {
