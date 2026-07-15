@@ -661,7 +661,7 @@ private fun SeerrScreen(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { issueDetailId = null; loadIssues() }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+            confirmButton = { TextButton(onClick = { issueDetailId = null; scope.launch { loadIssues() } }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
             dismissButton = {
                 TextButton(onClick = {
                     val id = iid; issueDetailId = null
