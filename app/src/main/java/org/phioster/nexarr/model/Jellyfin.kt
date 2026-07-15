@@ -20,3 +20,27 @@ data class JellyUser(
     val lastActivity: String,
     val admin: Boolean,
 )
+
+/** Jellyfin server info for the admin dashboard. */
+data class JellySystemInfo(
+    val version: String,
+    val serverName: String,
+    val os: String,
+)
+
+/** A scheduled task on the server. */
+data class JellyTask(
+    val id: String,
+    val name: String,
+    val state: String, // "Idle" / "Running" / …
+    val progress: Int, // 0..100 (when running)
+    val lastResult: String, // "Completed" / "Failed" / ""
+)
+
+/** An entry in the server activity log. */
+data class JellyActivity(
+    val name: String,
+    val date: String,
+    val severity: String,
+    val overview: String,
+)

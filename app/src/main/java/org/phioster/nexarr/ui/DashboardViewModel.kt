@@ -76,9 +76,14 @@ import org.phioster.nexarr.net.seerrRequests
 import org.phioster.nexarr.net.seerrSearch
 import org.phioster.nexarr.net.seerrSeasons
 import org.phioster.nexarr.net.seerrSetIssueStatus
+import org.phioster.nexarr.net.jellyfinActivity
 import org.phioster.nexarr.net.jellyfinPlayCommand
+import org.phioster.nexarr.net.jellyfinRestart
+import org.phioster.nexarr.net.jellyfinRunTask
 import org.phioster.nexarr.net.jellyfinSendMessage
 import org.phioster.nexarr.net.jellyfinSessions
+import org.phioster.nexarr.net.jellyfinSystemInfo
+import org.phioster.nexarr.net.jellyfinTasks
 import org.phioster.nexarr.net.jellyfinUsers
 import org.phioster.nexarr.net.runJellyfinScan
 import org.phioster.nexarr.net.runNzbgetPause
@@ -150,6 +155,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         jellyfinPlayCommand(config, sessionId, cmd)
     suspend fun jellyfinMessage(config: ServiceConfig, sessionId: String, text: String): String =
         jellyfinSendMessage(config, sessionId, text)
+    suspend fun jellyfinInfo(config: ServiceConfig): org.phioster.nexarr.model.JellySystemInfo = jellyfinSystemInfo(config)
+    suspend fun jellyfinTaskList(config: ServiceConfig): List<org.phioster.nexarr.model.JellyTask> = jellyfinTasks(config)
+    suspend fun jellyfinRunTaskById(config: ServiceConfig, taskId: String): String = jellyfinRunTask(config, taskId)
+    suspend fun jellyfinActivityLog(config: ServiceConfig): List<org.phioster.nexarr.model.JellyActivity> = jellyfinActivity(config)
+    suspend fun jellyfinRestartServer(config: ServiceConfig): String = jellyfinRestart(config)
 
     suspend fun searchMissing(config: ServiceConfig): String = runSearchMissing(config)
     suspend fun prowlarrTestAll(config: ServiceConfig): String = runProwlarrTestAll(config)

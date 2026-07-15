@@ -37,7 +37,10 @@ import org.phioster.nexarr.model.ArrLookupItem
 import org.phioster.nexarr.model.ArrMissingItem
 import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
+import org.phioster.nexarr.model.JellyActivity
 import org.phioster.nexarr.model.JellySession
+import org.phioster.nexarr.model.JellySystemInfo
+import org.phioster.nexarr.model.JellyTask
 import org.phioster.nexarr.model.JellyUser
 import org.phioster.nexarr.model.ArrRelease
 import org.phioster.nexarr.model.ArrSystemInfo
@@ -152,6 +155,28 @@ private data class JfCounts(
 )
 @Serializable private data class JfMessageReq(val Text: String, val Header: String = "Nexarr", val TimeoutMs: Long = 5000)
 
+@Serializable private data class JfSystemInfo(
+    val Version: String = "",
+    val ServerName: String = "",
+    val OperatingSystem: String = "",
+)
+@Serializable private data class JfTaskResult(val Status: String = "")
+@Serializable private data class JfTask(
+    val Id: String = "",
+    val Name: String = "",
+    val State: String = "",
+    val CurrentProgressPercentage: Double? = null,
+    val LastExecutionResult: JfTaskResult? = null,
+)
+@Serializable private data class JfActivityEntry(
+    val Name: String = "",
+    val Type: String = "",
+    val Date: String = "",
+    val Severity: String = "",
+    val ShortOverview: String? = null,
+)
+@Serializable private data class JfActivityPage(val Items: List<JfActivityEntry> = emptyList())
+
 @Serializable private data class JfAuthReq(val Username: String, val Pw: String)
 @Serializable private data class JfAuthResp(val AccessToken: String = "", val User: JfUser = JfUser())
 @Serializable private data class JfUser(val Name: String = "", val Policy: JfPolicy = JfPolicy())
@@ -168,6 +193,12 @@ private interface JellyfinApi {
     @POST("Sessions/{id}/Playing/{cmd}") suspend fun playCommand(@Path("id") id: String, @Path("cmd") cmd: String): Response<ResponseBody>
     @POST("Sessions/{id}/Message") suspend fun message(@Path("id") id: String, @Body body: JfMessageReq): Response<ResponseBody>
     @POST("Library/Refresh") suspend fun refreshLibrary(): Response<ResponseBody>
+    @GET("System/Info") suspend fun systemInfo(): JfSystemInfo
+    @GET("ScheduledTasks") suspend fun scheduledTasks(): List<JfTask>
+    @POST("ScheduledTasks/Running/{id}") suspend fun runTask(@Path("id") id: String): Response<ResponseBody>
+    @GET("System/ActivityLog/Entries") suspend fun activityLog(@Query("limit") limit: Int = 30): JfActivityPage
+    @POST("System/Restart") suspend fun restartServer(): Response<ResponseBody>
+    @POST("System/Shutdown") suspend fun shutdownServer(): Response<ResponseBody>
 }
 
 // ---- Radarr ----
@@ -1366,6 +1397,55 @@ suspend fun jellyfinSendMessage(config: ServiceConfig, sessionId: String, text: 
     try {
         val token = jellyfinAccessToken(config)
         okOr(jfApi(config, token).message(sessionId, JfMessageReq(text)), "message sent")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun jellyfinSystemInfo(config: ServiceConfig): JellySystemInfo = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val i = jfApi(config, token).systemInfo()
+    JellySystemInfo(version = i.Version, serverName = i.ServerName, os = i.OperatingSystem)
+}
+
+suspend fun jellyfinTasks(config: ServiceConfig): List<JellyTask> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    jfApi(config, token).scheduledTasks().map { t ->
+        JellyTask(
+            id = t.Id,
+            name = t.Name,
+            state = t.State,
+            progress = (t.CurrentProgressPercentage ?: 0.0).toInt(),
+            lastResult = t.LastExecutionResult?.Status ?: "",
+        )
+    }.sortedBy { it.name }
+}
+
+suspend fun jellyfinRunTask(config: ServiceConfig, taskId: String): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        okOr(jfApi(config, token).runTask(taskId), "started")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun jellyfinActivity(config: ServiceConfig): List<JellyActivity> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    jfApi(config, token).activityLog().Items.map { e ->
+        JellyActivity(
+            name = e.Name,
+            date = e.Date.take(16).replace('T', ' '),
+            severity = e.Severity,
+            overview = e.ShortOverview ?: "",
+        )
+    }
+}
+
+suspend fun jellyfinRestart(config: ServiceConfig): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        okOr(jfApi(config, token).restartServer(), "restarting")
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
     }

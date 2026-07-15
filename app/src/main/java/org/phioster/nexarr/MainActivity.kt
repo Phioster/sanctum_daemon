@@ -767,14 +767,18 @@ private fun JellyfinScreen(
     val status = statuses[config.id]
     val accent = Color(config.type.accent)
     val scope = rememberCoroutineScope()
-    var mode by remember { mutableStateOf(0) } // 0=Now Playing, 1=Users
+    var mode by remember { mutableStateOf(0) } // 0=Now Playing, 1=Users, 2=Dashboard
     var sessions by remember { mutableStateOf<List<org.phioster.nexarr.model.JellySession>?>(null) }
     var users by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyUser>?>(null) }
+    var dashInfo by remember { mutableStateOf<org.phioster.nexarr.model.JellySystemInfo?>(null) }
+    var tasks by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyTask>?>(null) }
+    var activity by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyActivity>?>(null) }
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var barMenu by remember { mutableStateOf(false) }
     var messageFor by remember { mutableStateOf<String?>(null) }
     var messageText by remember { mutableStateOf("") }
+    var confirmRestart by remember { mutableStateOf(false) }
 
     suspend fun loadSessions() {
         listError = null
@@ -784,7 +788,15 @@ private fun JellyfinScreen(
         listError = null
         try { users = vm.jellyfinUserList(config) } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
     }
-    LaunchedEffect(mode) { if (mode == 0) loadSessions() else loadUsers() }
+    suspend fun loadDashboard() {
+        listError = null
+        try {
+            dashInfo = vm.jellyfinInfo(config)
+            tasks = vm.jellyfinTaskList(config)
+            activity = vm.jellyfinActivityLog(config)
+        } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
+    }
+    LaunchedEffect(mode) { when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); else -> loadDashboard() } }
     fun act(action: suspend () -> String) {
         scope.launch { actionMsg = action(); loadSessions() }
     }
@@ -802,6 +814,7 @@ private fun JellyfinScreen(
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
                             DropdownMenuItem(text = { Text("Scan library", fontFamily = Mono) }, onClick = { barMenu = false; scope.launch { actionMsg = vm.jellyfinScan(config) } })
+                            DropdownMenuItem(text = { Text("Restart server", fontFamily = Mono) }, onClick = { barMenu = false; confirmRestart = true })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
                         }
@@ -826,10 +839,12 @@ private fun JellyfinScreen(
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     FilterChip(selected = mode == 0, onClick = { mode = 0 }, label = { Text("Now Playing", fontFamily = Mono) })
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(6.dp))
                     FilterChip(selected = mode == 1, onClick = { mode = 1 }, label = { Text("Users", fontFamily = Mono) })
+                    Spacer(Modifier.width(6.dp))
+                    FilterChip(selected = mode == 2, onClick = { mode = 2 }, label = { Text("Dashboard", fontFamily = Mono) })
                     Spacer(Modifier.weight(1f))
-                    IconButton(onClick = { scope.launch { if (mode == 0) loadSessions() else loadUsers() } }) {
+                    IconButton(onClick = { scope.launch { when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); else -> loadDashboard() } } }) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                     }
                 }
@@ -844,27 +859,55 @@ private fun JellyfinScreen(
                     Text("error: $listError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
                 } else {
                     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                        if (mode == 0) {
-                            val s = sessions
-                            when {
-                                s == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                s.isEmpty() -> item { Text("no active sessions", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                else -> items(s) { sess ->
-                                    JellySessionRow(
-                                        item = sess,
-                                        accent = accent,
-                                        onPlayPause = { act { vm.jellyfinControl(config, sess.id, if (sess.paused) "Unpause" else "Pause") } },
-                                        onStop = { act { vm.jellyfinControl(config, sess.id, "Stop") } },
-                                        onMessage = { messageFor = sess.id; messageText = "" },
-                                    )
+                        when (mode) {
+                            0 -> {
+                                val s = sessions
+                                when {
+                                    s == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    s.isEmpty() -> item { Text("no active sessions", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    else -> items(s) { sess ->
+                                        JellySessionRow(
+                                            item = sess,
+                                            accent = accent,
+                                            onPlayPause = { act { vm.jellyfinControl(config, sess.id, if (sess.paused) "Unpause" else "Pause") } },
+                                            onStop = { act { vm.jellyfinControl(config, sess.id, "Stop") } },
+                                            onMessage = { messageFor = sess.id; messageText = "" },
+                                        )
+                                    }
                                 }
                             }
-                        } else {
-                            val u = users
-                            when {
-                                u == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                u.isEmpty() -> item { Text("no users", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                else -> items(u) { usr -> JellyUserRow(usr, accent) }
+                            1 -> {
+                                val u = users
+                                when {
+                                    u == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    u.isEmpty() -> item { Text("no users", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    else -> items(u) { usr -> JellyUserRow(usr, accent) }
+                                }
+                            }
+                            else -> {
+                                item {
+                                    val si = dashInfo
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(si?.serverName ?: "…", fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    Text("v${si?.version ?: "…"}${if (!si?.os.isNullOrBlank()) " · ${si!!.os}" else ""}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
+                                    Spacer(Modifier.height(12.dp))
+                                    Text("SCHEDULED TASKS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                }
+                                val tk = tasks
+                                when {
+                                    tk == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                    else -> items(tk) { t -> JellyTaskRow(t, accent) { scope.launch { actionMsg = vm.jellyfinRunTaskById(config, t.id); loadDashboard() } } }
+                                }
+                                item {
+                                    Spacer(Modifier.height(12.dp))
+                                    Text("ACTIVITY LOG", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                }
+                                val ac = activity
+                                when {
+                                    ac == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                    ac.isEmpty() -> item { Text("no activity", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                    else -> items(ac) { e -> JellyActivityRow(e, accent) }
+                                }
                             }
                         }
                     }
@@ -887,6 +930,59 @@ private fun JellyfinScreen(
             },
             dismissButton = { TextButton(onClick = { messageFor = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
+    }
+
+    if (confirmRestart) {
+        AlertDialog(
+            onDismissRequest = { confirmRestart = false },
+            containerColor = Surface,
+            title = { Text("Restart server?", fontFamily = Mono, color = MatrixGreen) },
+            text = { Text("This restarts the Jellyfin server for everyone.", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 13.sp) },
+            confirmButton = {
+                TextButton(onClick = { confirmRestart = false; scope.launch { actionMsg = vm.jellyfinRestartServer(config) } }) {
+                    Text("Restart", fontFamily = Mono, color = ErrRed)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmRestart = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+}
+
+@Composable
+private fun JellyTaskRow(item: org.phioster.nexarr.model.JellyTask, accent: Color, onRun: () -> Unit) {
+    val running = item.state.equals("Running", true)
+    Column(Modifier.fillMaxWidth().clickable(enabled = !running) { onRun() }.padding(vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text(
+                if (running) "${item.progress}%" else if (item.state.isNotBlank()) "▶ run" else "",
+                fontFamily = Mono,
+                color = if (running) Color(0xFFFFAA00) else MatrixGreen,
+                fontSize = 11.sp,
+            )
+        }
+        if (item.lastResult.isNotBlank() && !running) {
+            Spacer(Modifier.height(2.dp))
+            Text("last: ${item.lastResult}", fontFamily = Mono, color = if (item.lastResult.equals("Completed", true)) MatrixGreen.copy(alpha = 0.6f) else ErrRed, fontSize = 10.sp)
+        }
+        Spacer(Modifier.height(6.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
+    }
+}
+
+@Composable
+private fun JellyActivityRow(item: org.phioster.nexarr.model.JellyActivity, accent: Color) {
+    val sevColor = when (item.severity.lowercase()) {
+        "error", "fatal" -> ErrRed
+        "warn", "warning" -> Color(0xFFFFAA00)
+        else -> MatrixGreen.copy(alpha = 0.6f)
+    }
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(2.dp))
+        Text("${item.date}${if (item.overview.isNotBlank()) " · ${item.overview}" else ""}", fontFamily = Mono, color = sevColor, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(6.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
     }
 }
 
