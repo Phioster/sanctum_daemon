@@ -13,8 +13,8 @@ android {
         applicationId = "org.phioster.nexarr"
         minSdk = 26
         targetSdk = 35
-        versionCode = 63
-        versionName = "0.46.1"
+        versionCode = 64
+        versionName = "0.47.0"
     }
 
     signingConfigs {
@@ -68,6 +68,9 @@ dependencies {
 
     // Persistence
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // Background notification polling
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 
     // Image loading (posters, cast photos)
     implementation("io.coil-kt:coil-compose:2.7.0")

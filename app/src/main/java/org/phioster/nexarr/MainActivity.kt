@@ -3,6 +3,7 @@ package org.phioster.nexarr
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import androidx.lifecycle.lifecycleScope
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -50,6 +51,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material.icons.filled.MusicNote
@@ -92,6 +94,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -163,6 +167,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        org.phioster.nexarr.notify.Notifications.ensureChannels(this)
+        lifecycleScope.launch {
+            val s = org.phioster.nexarr.data.NotifyStore(this@MainActivity).currentSettings()
+            if (s.enabled) org.phioster.nexarr.notify.Notifications.schedule(this@MainActivity, s.intervalMin)
+        }
         setContent {
             MaterialTheme(colorScheme = NexarrColors) {
                 NexarrApp()
@@ -178,12 +187,14 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
     var detail by remember { mutableStateOf<ServiceConfig?>(null) }
     var searchOpen by remember { mutableStateOf(false) }
     var searchTerm by remember { mutableStateOf("") }
+    var notifOpen by remember { mutableStateOf(false) }
 
     val editorOpen = addOpen || editing != null
-    BackHandler(enabled = editorOpen || detail != null || searchOpen) {
+    BackHandler(enabled = editorOpen || detail != null || searchOpen || notifOpen) {
         when {
             editorOpen -> { addOpen = false; editing = null }
             detail != null -> detail = null
+            notifOpen -> notifOpen = false
             else -> searchOpen = false
         }
     }
@@ -220,12 +231,14 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
             onOpenService = { cfg -> searchOpen = false; detail = cfg },
             initialTerm = searchTerm,
         )
+        notifOpen -> NotificationSettingsScreen(vm = vm, onBack = { notifOpen = false })
         else -> HomeShell(
             vm = vm,
             onAdd = { addOpen = true },
             onOpen = { detail = it },
             onEdit = { editing = it },
             onSearch = { term -> searchTerm = term; searchOpen = true },
+            onNotifications = { notifOpen = true },
         )
     }
 }
@@ -313,6 +326,7 @@ private fun HomeShell(
     onOpen: (ServiceConfig) -> Unit,
     onEdit: (ServiceConfig) -> Unit,
     onSearch: (String) -> Unit,
+    onNotifications: () -> Unit,
 ) {
     val tabs by vm.tabs.collectAsState()
     val services by vm.services.collectAsState()
@@ -353,6 +367,7 @@ private fun HomeShell(
                 actions = {
                     IconButton(onClick = { onSearch("") }) { Icon(Icons.Filled.Search, contentDescription = "Search", tint = MatrixGreen) }
                     if (onServices) {
+                        IconButton(onClick = onNotifications) { Icon(Icons.Filled.Notifications, contentDescription = "Notifications", tint = MatrixGreen) }
                         IconButton(onClick = { vm.refreshAll() }) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen) }
                     } else {
                         IconButton(onClick = { editMode = !editMode }) {
@@ -1188,6 +1203,84 @@ private fun AddCardDialog(
         confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
     )
+}
+
+@Composable
+private fun NotifyToggleRow(label: String, sub: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(enabled = enabled) { onChange(!checked) }.padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(label, fontFamily = Mono, color = if (enabled) MatrixGreen else MatrixGreen.copy(alpha = 0.4f), fontSize = 14.sp)
+            if (sub.isNotBlank()) Text(sub, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp)
+        }
+        Switch(
+            checked = checked, onCheckedChange = onChange, enabled = enabled,
+            colors = SwitchDefaults.colors(checkedThumbColor = Black, checkedTrackColor = MatrixGreen, uncheckedThumbColor = MatrixGreen.copy(alpha = 0.6f), uncheckedTrackColor = Surface, uncheckedBorderColor = MatrixGreen.copy(alpha = 0.4f)),
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NotificationSettingsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
+    val s by vm.notifySettings.collectAsState()
+    val context = LocalContext.current
+    val permLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    ) { }
+
+    fun requestPermIfNeeded() {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            permLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    Scaffold(
+        containerColor = Black,
+        topBar = {
+            TopAppBar(
+                title = { Text("notifications", fontFamily = Mono, color = MatrixGreen) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
+            )
+        },
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+            NotifyToggleRow("Enable notifications", "Background check every ${s.intervalMin} min", s.enabled) { on ->
+                if (on) requestPermIfNeeded()
+                vm.saveNotifySettings(s.copy(enabled = on))
+            }
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
+            Text("NOTIFY ME ABOUT", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
+            NotifyToggleRow("New media", "Newly added movies/episodes in Jellyfin", s.newMedia, s.enabled) { vm.saveNotifySettings(s.copy(newMedia = it)) }
+            NotifyToggleRow("Downloads imported", "Radarr / Sonarr / Lidarr finished importing", s.imports, s.enabled) { vm.saveNotifySettings(s.copy(imports = it)) }
+            NotifyToggleRow("New requests", "New pending requests in Seerr", s.requests, s.enabled) { vm.saveNotifySettings(s.copy(requests = it)) }
+            NotifyToggleRow("Health issues", "New Radarr / Sonarr / Lidarr warnings & errors", s.health, s.enabled) { vm.saveNotifySettings(s.copy(health = it)) }
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
+            Text("CHECK INTERVAL", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
+            Row {
+                listOf(15, 30, 60).forEach { m ->
+                    val sel = s.intervalMin == m
+                    Box(
+                        Modifier.padding(end = 8.dp).size(width = 72.dp, height = 40.dp).clip(RoundedCornerShape(8.dp))
+                            .background(if (sel) MatrixGreen else Surface)
+                            .border(1.dp, if (sel) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .clickable(enabled = s.enabled) { vm.saveNotifySettings(s.copy(intervalMin = m)) },
+                        contentAlignment = Alignment.Center,
+                    ) { Text("${m}m", fontFamily = Mono, color = if (sel) Black else MatrixGreen, fontSize = 14.sp) }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "Android runs background checks at most every 15 minutes and may delay them to save battery. The first check just records the current state, so you only get notified about things that happen afterwards.",
+                fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp,
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

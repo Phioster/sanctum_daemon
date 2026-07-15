@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -126,6 +127,20 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     private val store = ServiceStore(app)
     private val dashStore = org.phioster.nexarr.data.DashboardStore(app)
+    private val notifyStore = org.phioster.nexarr.data.NotifyStore(app)
+
+    val notifySettings: StateFlow<org.phioster.nexarr.model.NotifySettings> =
+        notifyStore.settings.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, org.phioster.nexarr.model.NotifySettings())
+
+    /** Persists notification prefs and (re)schedules or cancels the background poller. */
+    fun saveNotifySettings(s: org.phioster.nexarr.model.NotifySettings) {
+        viewModelScope.launch {
+            notifyStore.save(s)
+            val ctx = getApplication<Application>()
+            if (s.enabled) org.phioster.nexarr.notify.Notifications.schedule(ctx, s.intervalMin)
+            else org.phioster.nexarr.notify.Notifications.cancel(ctx)
+        }
+    }
 
     private val _services = MutableStateFlow<List<ServiceConfig>>(emptyList())
     val services: StateFlow<List<ServiceConfig>> = _services.asStateFlow()
