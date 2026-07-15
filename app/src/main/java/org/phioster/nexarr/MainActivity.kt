@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -481,6 +482,7 @@ private fun WidgetTabContent(
                     onRemove = { vm.removeCard(tab.id, card.id) },
                     onMoveUp = { vm.moveCard(tab.id, card.id, -1) },
                     onMoveDown = { vm.moveCard(tab.id, card.id, +1) },
+                    onSaveConfig = { title, count -> vm.updateCard(tab.id, card.id, title, count) },
                 )
             }
         }
@@ -500,8 +502,10 @@ private fun DashCardView(
     onRemove: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
+    onSaveConfig: (String, Int) -> Unit,
 ) {
     val accent = Color((config?.type ?: ServiceType.JELLYFIN).accent)
+    var showConfig by remember { mutableStateOf(false) }
     var items by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyMediaItem>?>(null) }
     var sessions by remember { mutableStateOf<List<org.phioster.nexarr.model.JellySession>?>(null) }
     var requests by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrRequestItem>?>(null) }
@@ -554,6 +558,7 @@ private fun DashCardView(
                 Text(config?.label ?: "?", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp)
             }
             if (editMode) {
+                TextButton(onClick = { showConfig = true }, contentPadding = PaddingValues(4.dp)) { Text("⚙", fontFamily = Mono, color = MatrixGreen) }
                 if (!isFirst) TextButton(onClick = onMoveUp, contentPadding = PaddingValues(4.dp)) { Text("↑", fontFamily = Mono, color = MatrixGreen) }
                 if (!isLast) TextButton(onClick = onMoveDown, contentPadding = PaddingValues(4.dp)) { Text("↓", fontFamily = Mono, color = MatrixGreen) }
                 TextButton(onClick = onRemove, contentPadding = PaddingValues(4.dp)) { Text("✕", fontFamily = Mono, color = ErrRed) }
@@ -577,7 +582,7 @@ private fun DashCardView(
                 when {
                     r == null -> loading()
                     r.isEmpty() -> empty("no requests")
-                    else -> Column { r.take(8).forEach { DashLineRow(it.title, it.subtitle.ifBlank { it.status }, accent) } }
+                    else -> Column { r.take(card.count).forEach { DashLineRow(it.title, it.subtitle.ifBlank { it.status }, accent) } }
                 }
             }
             card.type == CardType.RADARR_QUEUE || card.type == CardType.SONARR_QUEUE || card.type == CardType.LIDARR_QUEUE -> {
@@ -585,7 +590,7 @@ private fun DashCardView(
                 when {
                     q == null -> loading()
                     q.isEmpty() -> empty("queue empty")
-                    else -> Column { q.take(8).forEach { DashQueueRow(it, accent) } }
+                    else -> Column { q.take(card.count).forEach { DashQueueRow(it, accent) } }
                 }
             }
             card.type == CardType.RADARR_MISSING || card.type == CardType.SONARR_MISSING || card.type == CardType.LIDARR_MISSING -> {
@@ -593,7 +598,7 @@ private fun DashCardView(
                 when {
                     m == null -> loading()
                     m.isEmpty() -> empty("nothing missing")
-                    else -> Column { m.take(8).forEach { DashLineRow(it.title, it.subtitle, accent) } }
+                    else -> Column { m.take(card.count).forEach { DashLineRow(it.title, it.subtitle, accent) } }
                 }
             }
             card.type == CardType.RADARR_CALENDAR || card.type == CardType.SONARR_CALENDAR || card.type == CardType.LIDARR_CALENDAR -> {
@@ -601,7 +606,7 @@ private fun DashCardView(
                 when {
                     c == null -> loading()
                     c.isEmpty() -> empty("nothing upcoming")
-                    else -> Column { c.take(8).forEach { DashLineRow("${if (it.hasFile) "✓ " else ""}${it.title}", "${it.date}${if (it.subtitle.isNotBlank()) " · ${it.subtitle}" else ""}", accent) } }
+                    else -> Column { c.take(card.count).forEach { DashLineRow("${if (it.hasFile) "✓ " else ""}${it.title}", "${it.date}${if (it.subtitle.isNotBlank()) " · ${it.subtitle}" else ""}", accent) } }
                 }
             }
             card.type == CardType.RADARR_HISTORY || card.type == CardType.SONARR_HISTORY || card.type == CardType.LIDARR_HISTORY -> {
@@ -609,7 +614,7 @@ private fun DashCardView(
                 when {
                     h == null -> loading()
                     h.isEmpty() -> empty("no history")
-                    else -> Column { h.take(8).forEach { DashLineRow(it.title, "${it.eventType} · ${it.date}", accent) } }
+                    else -> Column { h.take(card.count).forEach { DashLineRow(it.title, "${it.eventType} · ${it.date}", accent) } }
                 }
             }
             card.type == CardType.NZBGET_QUEUE -> {
@@ -617,7 +622,7 @@ private fun DashCardView(
                 when {
                     q == null -> loading()
                     q.isEmpty() -> empty("queue empty")
-                    else -> Column { q.take(8).forEach { DashNzbRow(it.name, it.status, it.progress, accent) } }
+                    else -> Column { q.take(card.count).forEach { DashNzbRow(it.name, it.status, it.progress, accent) } }
                 }
             }
             card.type == CardType.NZBGET_HISTORY -> {
@@ -625,7 +630,7 @@ private fun DashCardView(
                 when {
                     h == null -> loading()
                     h.isEmpty() -> empty("no history")
-                    else -> Column { h.take(8).forEach { DashLineRow(it.name, it.status, accent) } }
+                    else -> Column { h.take(card.count).forEach { DashLineRow(it.name, it.status, accent) } }
                 }
             }
             card.type == CardType.SEERR_TRENDING || card.type == CardType.SEERR_POPULAR_MOVIES || card.type == CardType.SEERR_POPULAR_TV -> {
@@ -633,7 +638,7 @@ private fun DashCardView(
                 when {
                     d == null -> loading()
                     d.isEmpty() -> empty("nothing here")
-                    else -> Row(Modifier.horizontalScroll(rememberScrollState())) { d.forEach { DashDiscoverPoster(it) { onOpenService() } } }
+                    else -> Row(Modifier.horizontalScroll(rememberScrollState())) { d.take(card.count).forEach { DashDiscoverPoster(it) { onOpenService() } } }
                 }
             }
             else -> {
@@ -642,13 +647,42 @@ private fun DashCardView(
                     it2 == null -> loading()
                     it2.isEmpty() -> empty("nothing here")
                     else -> Row(Modifier.horizontalScroll(rememberScrollState())) {
-                        it2.forEach { m -> if (config != null) JellyPosterCard(m, config, accent) { onOpenService() } }
+                        it2.take(card.count).forEach { m -> if (config != null) JellyPosterCard(m, config, accent) { onOpenService() } }
                     }
                 }
             }
         }
         Spacer(Modifier.height(10.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+    }
+
+    if (showConfig) {
+        var cfgTitle by remember { mutableStateOf(card.title) }
+        var cfgCount by remember { mutableStateOf(card.count) }
+        AlertDialog(
+            onDismissRequest = { showConfig = false },
+            containerColor = Surface,
+            title = { Text("Card settings", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    Field("Title (blank = ${card.type.label})", cfgTitle) { cfgTitle = it }
+                    Spacer(Modifier.height(16.dp))
+                    Text("ENTRIES SHOWN", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { if (cfgCount > 3) cfgCount-- }, contentPadding = PaddingValues(8.dp)) { Text("−", fontFamily = Mono, color = MatrixGreen, fontSize = 22.sp) }
+                        Text("$cfgCount", fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, modifier = Modifier.widthIn(min = 40.dp), textAlign = TextAlign.Center)
+                        TextButton(onClick = { if (cfgCount < 20) cfgCount++ }, contentPadding = PaddingValues(8.dp)) { Text("+", fontFamily = Mono, color = MatrixGreen, fontSize = 22.sp) }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { onSaveConfig(cfgTitle, cfgCount); showConfig = false }) {
+                    Text("Save", fontFamily = Mono, color = MatrixGreen)
+                }
+            },
+            dismissButton = { TextButton(onClick = { showConfig = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
     }
 }
 

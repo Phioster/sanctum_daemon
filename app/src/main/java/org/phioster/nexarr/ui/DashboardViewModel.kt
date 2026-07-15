@@ -187,6 +187,13 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         persistTabs(_tabs.value.map { if (it.id == tabId) it.copy(cards = it.cards.filterNot { c -> c.id == cardId }) else it })
     }
 
+    fun updateCard(tabId: String, cardId: String, title: String, count: Int) {
+        persistTabs(_tabs.value.map { tab ->
+            if (tab.id != tabId) tab
+            else tab.copy(cards = tab.cards.map { if (it.id == cardId) it.copy(title = title.trim(), count = count.coerceIn(3, 20)) else it })
+        })
+    }
+
     fun moveCard(tabId: String, cardId: String, direction: Int) {
         persistTabs(_tabs.value.map { tab ->
             if (tab.id != tabId) return@map tab

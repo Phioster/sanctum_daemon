@@ -38,6 +38,7 @@ data class DashCard(
     val type: CardType,
     val serviceId: String,
     val title: String = "", // optional override; blank = use the type's label
+    val count: Int = 8, // how many entries the card shows
 )
 
 /** A dashboard tab (a bottom-nav category) holding an ordered list of cards. */
