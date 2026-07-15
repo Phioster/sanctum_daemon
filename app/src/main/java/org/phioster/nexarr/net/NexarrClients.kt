@@ -204,6 +204,7 @@ private data class JfCounts(
     val ParentIndexNumber: Int? = null,
     val IndexNumber: Int? = null,
     val AlbumArtist: String? = null,
+    val LocationType: String? = null, // "FileSystem"/"Remote" = present; "Virtual" = metadata only, no file
     val ImageTags: Map<String, String>? = null,
     val UserData: JfUserData? = null,
 )
@@ -1614,15 +1615,19 @@ suspend fun jellyfinLatest(config: ServiceConfig, parentId: String? = null): Lis
 }
 
 /**
- * Contents of a library or folder. When [seasonNumber] is given (i.e. the parent is a season),
- * episodes are filtered to that exact season — Jellyfin otherwise merges Specials (season 0)
- * into the season they aired within.
+ * Contents of a library or folder.
+ *
+ * Virtual items (metadata placeholders with no actual media file) are dropped, matching what
+ * Jellyfin itself shows — this hides "missing" episodes and specials that aren't really present.
+ * When [seasonNumber] is given (parent is a season), episodes are also filtered to that exact
+ * season, since Jellyfin otherwise merges Specials (season 0) into the season they aired within.
  */
 suspend fun jellyfinItems(config: ServiceConfig, parentId: String, seasonNumber: Int? = null): List<JellyMediaItem> = withContext(Dispatchers.IO) {
     val token = jellyfinAccessToken(config)
     val api = jfApi(config, token)
     val uid = jellyfinResolveUserId(config, api)
     api.items(uid, parentId).Items
+        .filter { it.LocationType != "Virtual" }
         .filter { seasonNumber == null || it.Type != "Episode" || it.ParentIndexNumber == seasonNumber }
         .map { it.toMediaItem(config, token) }
 }
