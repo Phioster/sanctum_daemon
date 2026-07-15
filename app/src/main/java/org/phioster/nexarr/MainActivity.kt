@@ -207,6 +207,14 @@ private fun DashboardScreen(
     val services by vm.services.collectAsState()
     val statuses by vm.statuses.collectAsState()
 
+    // Auto-refresh every 30s while the dashboard is on screen.
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(30_000)
+            vm.refreshAll()
+        }
+    }
+
     Scaffold(
         containerColor = Black,
         topBar = {
@@ -245,13 +253,17 @@ private fun DashboardScreen(
                     fontSize = 14.sp,
                 )
             }
-            services.forEach { svc ->
+            services.forEachIndexed { index, svc ->
                 ServiceCard(
                     config = svc,
                     status = statuses[svc.id],
+                    isFirst = index == 0,
+                    isLast = index == services.lastIndex,
                     onOpen = { onOpen(svc) },
                     onEdit = { onEdit(svc) },
                     onRemove = { vm.removeService(svc.id) },
+                    onMoveUp = { vm.moveService(svc.id, -1) },
+                    onMoveDown = { vm.moveService(svc.id, +1) },
                 )
                 Spacer(Modifier.height(12.dp))
             }
@@ -376,9 +388,13 @@ private fun SearchResultRow(hit: org.phioster.nexarr.model.SearchResult, onClick
 private fun ServiceCard(
     config: ServiceConfig,
     status: ServiceStatus?,
+    isFirst: Boolean,
+    isLast: Boolean,
     onOpen: () -> Unit,
     onEdit: () -> Unit,
     onRemove: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
 ) {
     val accent = Color(config.type.accent)
     var menuOpen by remember { mutableStateOf(false) }
@@ -406,6 +422,8 @@ private fun ServiceCard(
                         Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen.copy(alpha = 0.6f))
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        if (!isFirst) DropdownMenuItem(text = { Text("Move up", fontFamily = Mono) }, onClick = { menuOpen = false; onMoveUp() })
+                        if (!isLast) DropdownMenuItem(text = { Text("Move down", fontFamily = Mono) }, onClick = { menuOpen = false; onMoveDown() })
                         DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { menuOpen = false; onEdit() })
                         DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { menuOpen = false; onRemove() })
                     }

@@ -158,6 +158,18 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { store.save(_services.value.filterNot { it.id == id }) }
     }
 
+    /** Reorder a service card. [direction] = -1 to move up, +1 to move down. */
+    fun moveService(id: String, direction: Int) {
+        viewModelScope.launch {
+            val list = _services.value.toMutableList()
+            val idx = list.indexOfFirst { it.id == id }
+            val target = idx + direction
+            if (idx < 0 || target < 0 || target >= list.size) return@launch
+            list[idx] = list[target].also { list[target] = list[idx] }
+            store.save(list)
+        }
+    }
+
     /** One-off connection test used by the Add-service screen. */
     suspend fun test(config: ServiceConfig): ServiceStatus = fetchStatus(config)
 
