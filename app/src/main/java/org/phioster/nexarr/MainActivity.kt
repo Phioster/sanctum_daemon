@@ -271,6 +271,9 @@ private fun HomeShell(
     var showAddTab by remember { mutableStateOf(false) }
     var newTabName by remember { mutableStateOf("") }
     var newTabIcon by remember { mutableStateOf("home") }
+    var showEditTab by remember { mutableStateOf(false) }
+    var editTabName by remember { mutableStateOf("") }
+    var editTabIcon by remember { mutableStateOf("home") }
 
     val servicesIndex = tabs.size
     val current = selected.coerceIn(0, servicesIndex)
@@ -342,6 +345,7 @@ private fun HomeShell(
                     editMode = editMode,
                     onOpenService = onOpen,
                     onAddTab = { newTabName = ""; newTabIcon = "home"; showAddTab = true },
+                    onEditTab = { editTabName = currentTab.name; editTabIcon = currentTab.icon.ifBlank { "home" }; showEditTab = true },
                     onDeleteTab = { vm.removeTab(currentTab.id); selected = 0; editMode = false },
                 )
             }
@@ -375,6 +379,28 @@ private fun HomeShell(
                 }
             },
             dismissButton = { TextButton(onClick = { showAddTab = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+    if (showEditTab && currentTab != null) {
+        AlertDialog(
+            onDismissRequest = { showEditTab = false },
+            containerColor = Surface,
+            title = { Text("Edit tab", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    Field("Tab name", editTabName) { editTabName = it }
+                    Spacer(Modifier.height(12.dp))
+                    Text("ICON", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    Spacer(Modifier.height(6.dp))
+                    IconPickerGrid(editTabIcon) { editTabIcon = it }
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = editTabName.isNotBlank(), onClick = { val id = currentTab.id; val n = editTabName; val ic = editTabIcon; showEditTab = false; vm.renameTab(id, n); vm.setTabIcon(id, ic) }) {
+                    Text("Save", fontFamily = Mono, color = MatrixGreen)
+                }
+            },
+            dismissButton = { TextButton(onClick = { showEditTab = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
 }
@@ -416,6 +442,7 @@ private fun WidgetTabContent(
     editMode: Boolean,
     onOpenService: (ServiceConfig) -> Unit,
     onAddTab: () -> Unit,
+    onEditTab: () -> Unit,
     onDeleteTab: () -> Unit,
 ) {
     val services by vm.services.collectAsState()
@@ -425,6 +452,7 @@ private fun WidgetTabContent(
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("+ new tab", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, modifier = Modifier.clickable { onAddTab() })
+                    Text("edit tab", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, modifier = Modifier.clickable { onEditTab() })
                     Text("delete this tab", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.clickable { onDeleteTab() })
                 }
                 Spacer(Modifier.height(4.dp))
