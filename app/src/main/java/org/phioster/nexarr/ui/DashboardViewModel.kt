@@ -77,6 +77,11 @@ import org.phioster.nexarr.net.seerrSearch
 import org.phioster.nexarr.net.seerrSeasons
 import org.phioster.nexarr.net.seerrSetIssueStatus
 import org.phioster.nexarr.net.jellyfinActivity
+import org.phioster.nexarr.net.jellyfinCreateUser
+import org.phioster.nexarr.net.jellyfinDeleteUser
+import org.phioster.nexarr.net.jellyfinLibraries
+import org.phioster.nexarr.net.jellyfinSetPassword
+import org.phioster.nexarr.net.jellyfinSetPolicy
 import org.phioster.nexarr.net.jellyfinPlayCommand
 import org.phioster.nexarr.net.jellyfinRestart
 import org.phioster.nexarr.net.jellyfinRunTask
@@ -160,6 +165,23 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun jellyfinRunTaskById(config: ServiceConfig, taskId: String): String = jellyfinRunTask(config, taskId)
     suspend fun jellyfinActivityLog(config: ServiceConfig): List<org.phioster.nexarr.model.JellyActivity> = jellyfinActivity(config)
     suspend fun jellyfinRestartServer(config: ServiceConfig): String = jellyfinRestart(config)
+    suspend fun jellyfinLibraryList(config: ServiceConfig): List<org.phioster.nexarr.model.JellyLibrary> =
+        jellyfinLibraries(config)
+    suspend fun jellyfinAddUser(config: ServiceConfig, name: String, password: String): String =
+        jellyfinCreateUser(config, name, password)
+    suspend fun jellyfinRemoveUser(config: ServiceConfig, userId: String): String =
+        jellyfinDeleteUser(config, userId)
+    suspend fun jellyfinUpdatePolicy(
+        config: ServiceConfig,
+        userId: String,
+        admin: Boolean,
+        disabled: Boolean,
+        allowDownloads: Boolean,
+        enableAllFolders: Boolean,
+        enabledFolders: List<String>,
+    ): String = jellyfinSetPolicy(config, userId, admin, disabled, allowDownloads, enableAllFolders, enabledFolders)
+    suspend fun jellyfinResetPassword(config: ServiceConfig, userId: String, newPassword: String): String =
+        jellyfinSetPassword(config, userId, newPassword)
 
     suspend fun searchMissing(config: ServiceConfig): String = runSearchMissing(config)
     suspend fun prowlarrTestAll(config: ServiceConfig): String = runProwlarrTestAll(config)

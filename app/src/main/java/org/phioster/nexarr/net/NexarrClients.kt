@@ -38,6 +38,7 @@ import org.phioster.nexarr.model.ArrMissingItem
 import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.JellyActivity
+import org.phioster.nexarr.model.JellyLibrary
 import org.phioster.nexarr.model.JellySession
 import org.phioster.nexarr.model.JellySystemInfo
 import org.phioster.nexarr.model.JellyTask
@@ -149,9 +150,14 @@ private data class JfCounts(
     val IsPaused: Boolean = false,
 )
 @Serializable private data class JfUserFull(
+    val Id: String = "",
     val Name: String = "",
     val LastActivityDate: String? = null,
     val Policy: JfPolicy = JfPolicy(),
+)
+@Serializable private data class JfVirtualFolder(
+    val Name: String = "",
+    val ItemId: String = "",
 )
 @Serializable private data class JfMessageReq(val Text: String, val Header: String = "Nexarr", val TimeoutMs: Long = 5000)
 
@@ -160,7 +166,7 @@ private data class JfCounts(
     val ServerName: String = "",
     val OperatingSystem: String = "",
 )
-@Serializable private data class JfTaskResult(val Status: String = "")
+@Serializable private data class JfTaskResult(val Status: String = "", val EndTimeUtc: String? = null)
 @Serializable private data class JfTask(
     val Id: String = "",
     val Name: String = "",
@@ -180,7 +186,13 @@ private data class JfCounts(
 @Serializable private data class JfAuthReq(val Username: String, val Pw: String)
 @Serializable private data class JfAuthResp(val AccessToken: String = "", val User: JfUser = JfUser())
 @Serializable private data class JfUser(val Name: String = "", val Policy: JfPolicy = JfPolicy())
-@Serializable private data class JfPolicy(val IsAdministrator: Boolean = false)
+@Serializable private data class JfPolicy(
+    val IsAdministrator: Boolean = false,
+    val IsDisabled: Boolean = false,
+    val EnableContentDownloading: Boolean = false,
+    val EnableAllFolders: Boolean = true,
+    val EnabledFolders: List<String> = emptyList(),
+)
 
 private interface JellyfinAuthApi {
     @POST("Users/AuthenticateByName") suspend fun authenticate(@Body body: JfAuthReq): JfAuthResp
@@ -190,6 +202,12 @@ private interface JellyfinApi {
     @GET("Items/Counts") suspend fun counts(): JfCounts
     @GET("Sessions") suspend fun sessions(): List<JfSession>
     @GET("Users") suspend fun users(): List<JfUserFull>
+    @GET("Users/{id}") suspend fun user(@Path("id") id: String): JsonObject
+    @POST("Users/New") suspend fun createUser(@Body body: JsonObject): Response<ResponseBody>
+    @POST("Users/{id}/Policy") suspend fun setPolicy(@Path("id") id: String, @Body body: JsonObject): Response<ResponseBody>
+    @POST("Users/{id}/Password") suspend fun setPassword(@Path("id") id: String, @Body body: JsonObject): Response<ResponseBody>
+    @DELETE("Users/{id}") suspend fun deleteUser(@Path("id") id: String): Response<ResponseBody>
+    @GET("Library/VirtualFolders") suspend fun virtualFolders(): List<JfVirtualFolder>
     @POST("Sessions/{id}/Playing/{cmd}") suspend fun playCommand(@Path("id") id: String, @Path("cmd") cmd: String): Response<ResponseBody>
     @POST("Sessions/{id}/Message") suspend fun message(@Path("id") id: String, @Body body: JfMessageReq): Response<ResponseBody>
     @POST("Library/Refresh") suspend fun refreshLibrary(): Response<ResponseBody>
@@ -1376,11 +1394,94 @@ suspend fun jellyfinUsers(config: ServiceConfig): List<JellyUser> = withContext(
     val token = jellyfinAccessToken(config)
     jfApi(config, token).users().map { u ->
         JellyUser(
+            id = u.Id,
             name = u.Name,
             lastActivity = (u.LastActivityDate ?: "").take(16).replace('T', ' '),
             admin = u.Policy.IsAdministrator,
+            disabled = u.Policy.IsDisabled,
+            allowDownloads = u.Policy.EnableContentDownloading,
+            enableAllFolders = u.Policy.EnableAllFolders,
+            enabledFolders = u.Policy.EnabledFolders,
         )
     }.sortedByDescending { it.lastActivity }
+}
+
+suspend fun jellyfinLibraries(config: ServiceConfig): List<JellyLibrary> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    runCatching {
+        jfApi(config, token).virtualFolders().map { JellyLibrary(id = it.ItemId, name = it.Name) }
+    }.getOrDefault(emptyList())
+}
+
+/** Create a user (optionally with an initial password). */
+suspend fun jellyfinCreateUser(config: ServiceConfig, name: String, password: String): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        val body = buildJsonObject {
+            put("Name", name)
+            if (password.isNotBlank()) put("Password", password)
+        }
+        okOr(jfApi(config, token).createUser(body), "user created")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun jellyfinDeleteUser(config: ServiceConfig, userId: String): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        okOr(jfApi(config, token).deleteUser(userId), "user deleted")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+/**
+ * Update a user's policy. Fetches the current full policy first and overlays only the
+ * fields we manage, so nothing else on the policy gets reset.
+ */
+suspend fun jellyfinSetPolicy(
+    config: ServiceConfig,
+    userId: String,
+    admin: Boolean,
+    disabled: Boolean,
+    allowDownloads: Boolean,
+    enableAllFolders: Boolean,
+    enabledFolders: List<String>,
+): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        val api = jfApi(config, token)
+        val current = runCatching { api.user(userId)["Policy"]?.jsonObject }.getOrNull()
+        val body = buildJsonObject {
+            current?.forEach { (k, v) -> put(k, v) }
+            put("IsAdministrator", admin)
+            put("IsDisabled", disabled)
+            put("EnableContentDownloading", allowDownloads)
+            put("EnableAllFolders", enableAllFolders)
+            putJsonArray("EnabledFolders") { enabledFolders.forEach { add(it) } }
+        }
+        okOr(api.setPolicy(userId, body), "policy saved")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+/** Reset a user's password to a new value (admin reset; no current password needed). */
+suspend fun jellyfinSetPassword(config: ServiceConfig, userId: String, newPassword: String): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        val api = jfApi(config, token)
+        // First clear the existing password, then set the new one (Jellyfin admin-reset flow).
+        api.setPassword(userId, buildJsonObject { put("ResetPassword", true) })
+        val body = buildJsonObject {
+            put("NewPw", newPassword)
+            put("ResetPassword", false)
+        }
+        okOr(api.setPassword(userId, body), "password reset")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
 }
 
 /** Playback control: cmd = "Pause" | "Unpause" | "Stop" | "PlayPause". */
@@ -1408,6 +1509,13 @@ suspend fun jellyfinSystemInfo(config: ServiceConfig): JellySystemInfo = withCon
     JellySystemInfo(version = i.Version, serverName = i.ServerName, os = i.OperatingSystem)
 }
 
+/** ISO UTC timestamp -> compact "MM-dd HH:mm", or "" when absent. */
+private fun formatJellyDate(iso: String?): String {
+    if (iso.isNullOrBlank()) return ""
+    val s = iso.take(16) // "2026-07-15T14:03"
+    return if (s.length >= 16) s.substring(5).replace('T', ' ') else s.replace('T', ' ')
+}
+
 suspend fun jellyfinTasks(config: ServiceConfig): List<JellyTask> = withContext(Dispatchers.IO) {
     val token = jellyfinAccessToken(config)
     jfApi(config, token).scheduledTasks().map { t ->
@@ -1417,6 +1525,7 @@ suspend fun jellyfinTasks(config: ServiceConfig): List<JellyTask> = withContext(
             state = t.State,
             progress = (t.CurrentProgressPercentage ?: 0.0).toInt(),
             lastResult = t.LastExecutionResult?.Status ?: "",
+            lastRun = formatJellyDate(t.LastExecutionResult?.EndTimeUtc),
         )
     }.sortedBy { it.name }
 }

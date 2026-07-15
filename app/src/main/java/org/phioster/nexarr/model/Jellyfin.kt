@@ -16,9 +16,20 @@ data class JellySession(
 
 /** A Jellyfin user. */
 data class JellyUser(
+    val id: String,
     val name: String,
     val lastActivity: String,
     val admin: Boolean,
+    val disabled: Boolean = false,
+    val allowDownloads: Boolean = false,
+    val enableAllFolders: Boolean = true,
+    val enabledFolders: List<String> = emptyList(),
+)
+
+/** A Jellyfin library (virtual folder), for per-user access control. */
+data class JellyLibrary(
+    val id: String,
+    val name: String,
 )
 
 /** Jellyfin server info for the admin dashboard. */
@@ -35,6 +46,7 @@ data class JellyTask(
     val state: String, // "Idle" / "Running" / …
     val progress: Int, // 0..100 (when running)
     val lastResult: String, // "Completed" / "Failed" / ""
+    val lastRun: String = "", // when it last finished, e.g. "07-15 14:03" or "" if never
 )
 
 /** An entry in the server activity log. */

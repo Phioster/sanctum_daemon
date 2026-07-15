@@ -779,6 +779,11 @@ private fun JellyfinScreen(
     var messageFor by remember { mutableStateOf<String?>(null) }
     var messageText by remember { mutableStateOf("") }
     var confirmRestart by remember { mutableStateOf(false) }
+    var libraries by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyLibrary>?>(null) }
+    var editUser by remember { mutableStateOf<org.phioster.nexarr.model.JellyUser?>(null) }
+    var showCreateUser by remember { mutableStateOf(false) }
+    var newUserName by remember { mutableStateOf("") }
+    var newUserPass by remember { mutableStateOf("") }
 
     suspend fun loadSessions() {
         listError = null
@@ -786,7 +791,10 @@ private fun JellyfinScreen(
     }
     suspend fun loadUsers() {
         listError = null
-        try { users = vm.jellyfinUserList(config) } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
+        try {
+            users = vm.jellyfinUserList(config)
+            if (libraries == null) libraries = vm.jellyfinLibraryList(config)
+        } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
     }
     suspend fun loadDashboard() {
         listError = null
@@ -878,10 +886,19 @@ private fun JellyfinScreen(
                             }
                             1 -> {
                                 val u = users
+                                item {
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        "+ new user",
+                                        fontFamily = Mono, color = accent, fontSize = 13.sp,
+                                        modifier = Modifier.fillMaxWidth().clickable { newUserName = ""; newUserPass = ""; showCreateUser = true }.padding(vertical = 6.dp),
+                                    )
+                                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+                                }
                                 when {
                                     u == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     u.isEmpty() -> item { Text("no users", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(u) { usr -> JellyUserRow(usr, accent) }
+                                    else -> items(u) { usr -> JellyUserRow(usr, accent) { editUser = usr } }
                                 }
                             }
                             else -> {
@@ -946,6 +963,135 @@ private fun JellyfinScreen(
             dismissButton = { TextButton(onClick = { confirmRestart = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
+
+    if (showCreateUser) {
+        AlertDialog(
+            onDismissRequest = { showCreateUser = false },
+            containerColor = Surface,
+            title = { Text("New user", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    Field("Username", newUserName) { newUserName = it }
+                    Field("Password (optional)", newUserPass, isPassword = true) { newUserPass = it }
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = newUserName.isNotBlank(), onClick = {
+                    val n = newUserName; val p = newUserPass; showCreateUser = false
+                    scope.launch { actionMsg = vm.jellyfinAddUser(config, n, p); loadUsers() }
+                }) { Text("Create", fontFamily = Mono, color = MatrixGreen) }
+            },
+            dismissButton = { TextButton(onClick = { showCreateUser = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    editUser?.let { usr ->
+        JellyUserDialog(
+            user = usr,
+            libraries = libraries,
+            onDismiss = { editUser = null },
+            onSave = { admin, disabled, allowDownloads, enableAll, folders ->
+                editUser = null
+                scope.launch {
+                    actionMsg = vm.jellyfinUpdatePolicy(config, usr.id, admin, disabled, allowDownloads, enableAll, folders)
+                    loadUsers()
+                }
+            },
+            onResetPassword = { newPw ->
+                scope.launch { actionMsg = vm.jellyfinResetPassword(config, usr.id, newPw) }
+            },
+            onDelete = {
+                editUser = null
+                scope.launch { actionMsg = vm.jellyfinRemoveUser(config, usr.id); loadUsers() }
+            },
+        )
+    }
+}
+
+@Composable
+private fun JellyUserDialog(
+    user: org.phioster.nexarr.model.JellyUser,
+    libraries: List<org.phioster.nexarr.model.JellyLibrary>?,
+    onDismiss: () -> Unit,
+    onSave: (admin: Boolean, disabled: Boolean, allowDownloads: Boolean, enableAll: Boolean, folders: List<String>) -> Unit,
+    onResetPassword: (String) -> Unit,
+    onDelete: () -> Unit,
+) {
+    var admin by remember { mutableStateOf(user.admin) }
+    var disabled by remember { mutableStateOf(user.disabled) }
+    var allowDownloads by remember { mutableStateOf(user.allowDownloads) }
+    var enableAll by remember { mutableStateOf(user.enableAllFolders) }
+    var folders by remember { mutableStateOf(user.enabledFolders.toSet()) }
+    var newPw by remember { mutableStateOf("") }
+    var confirmDelete by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surface,
+        title = { Text(user.name, fontFamily = Mono, color = MatrixGreen) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                JellyToggle("Administrator", admin) { admin = it }
+                JellyToggle("Enabled", !disabled) { disabled = !it }
+                JellyToggle("Allow downloads", allowDownloads) { allowDownloads = it }
+                JellyToggle("Access all libraries", enableAll) { enableAll = it }
+                if (!enableAll) {
+                    Spacer(Modifier.height(4.dp))
+                    when {
+                        libraries == null -> Text("loading libraries…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                        libraries.isEmpty() -> Text("no libraries found", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                        else -> libraries.forEach { lib ->
+                            val checked = folders.contains(lib.id)
+                            Row(
+                                Modifier.fillMaxWidth().clickable {
+                                    folders = if (checked) folders - lib.id else folders + lib.id
+                                }.padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(if (checked) "[x]" else "[ ]", fontFamily = Mono, color = if (checked) MatrixGreen else MatrixGreen.copy(alpha = 0.5f), fontSize = 13.sp)
+                                Spacer(Modifier.width(8.dp))
+                                Text(lib.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
+                Spacer(Modifier.height(6.dp))
+                Text("RESET PASSWORD", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp)
+                Field("New password", newPw, isPassword = true) { newPw = it }
+                TextButton(enabled = newPw.isNotBlank(), onClick = { val p = newPw; newPw = ""; onResetPassword(p) }) {
+                    Text("Set password", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
+                }
+                Spacer(Modifier.height(6.dp))
+                HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
+                if (!confirmDelete) {
+                    TextButton(onClick = { confirmDelete = true }) { Text("Delete user", fontFamily = Mono, color = ErrRed, fontSize = 12.sp) }
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Delete for real?", fontFamily = Mono, color = ErrRed, fontSize = 12.sp)
+                        Spacer(Modifier.weight(1f))
+                        TextButton(onClick = onDelete) { Text("Yes", fontFamily = Mono, color = ErrRed, fontSize = 12.sp) }
+                        TextButton(onClick = { confirmDelete = false }) { Text("No", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp) }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(admin, disabled, allowDownloads, enableAll, folders.toList()) }) {
+                Text("Save", fontFamily = Mono, color = MatrixGreen)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+    )
+}
+
+@Composable
+private fun JellyToggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
 }
 
 @Composable
@@ -963,7 +1109,15 @@ private fun JellyTaskRow(item: org.phioster.nexarr.model.JellyTask, accent: Colo
         }
         if (item.lastResult.isNotBlank() && !running) {
             Spacer(Modifier.height(2.dp))
-            Text("last: ${item.lastResult}", fontFamily = Mono, color = if (item.lastResult.equals("Completed", true)) MatrixGreen.copy(alpha = 0.6f) else ErrRed, fontSize = 10.sp)
+            Text(
+                "last: ${item.lastResult}${if (item.lastRun.isNotBlank()) " · ${item.lastRun}" else ""}",
+                fontFamily = Mono,
+                color = if (item.lastResult.equals("Completed", true)) MatrixGreen.copy(alpha = 0.6f) else ErrRed,
+                fontSize = 10.sp,
+            )
+        } else if (item.lastRun.isNotBlank() && !running) {
+            Spacer(Modifier.height(2.dp))
+            Text("last run ${item.lastRun}", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp)
         }
         Spacer(Modifier.height(6.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
@@ -1035,11 +1189,12 @@ private fun JellySessionRow(
 }
 
 @Composable
-private fun JellyUserRow(item: org.phioster.nexarr.model.JellyUser, accent: Color) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (item.admin) Text("admin", fontFamily = Mono, color = accent, fontSize = 10.sp)
+private fun JellyUserRow(item: org.phioster.nexarr.model.JellyUser, accent: Color, onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 10.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(item.name, fontFamily = Mono, color = if (item.disabled) MatrixGreen.copy(alpha = 0.4f) else MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            if (item.disabled) Text("disabled", fontFamily = Mono, color = ErrRed, fontSize = 10.sp)
+            else if (item.admin) Text("admin", fontFamily = Mono, color = accent, fontSize = 10.sp)
         }
         if (item.lastActivity.isNotBlank()) {
             Spacer(Modifier.height(2.dp))
