@@ -919,7 +919,6 @@ suspend fun arrDetail(config: ServiceConfig, id: Int): ArrDetail = withContext(D
                     val have = jsInt(it, "trackFileCount") ?: 0
                     add("tracks" to "$have/$total")
                 }
-                add("monitored" to if (jsBool(o, "monitored") == true) "yes" else "no")
             }
             else -> {
                 add("file" to if (jsBool(o, "hasFile") == true) "downloaded" else "missing")
