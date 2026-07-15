@@ -11,11 +11,15 @@ import org.phioster.nexarr.data.ServiceStore
 import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceType
 import org.phioster.nexarr.model.ServiceStatus
+import org.phioster.nexarr.model.ArrDetail
+import org.phioster.nexarr.model.ArrEpisode
+import org.phioster.nexarr.model.ArrHistoryItem
 import org.phioster.nexarr.model.ArrLibraryItem
 import org.phioster.nexarr.model.ArrLookupItem
 import org.phioster.nexarr.model.ArrMissingItem
 import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
+import org.phioster.nexarr.model.ArrRelease
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
 import org.phioster.nexarr.model.ProwlarrCategory
@@ -28,7 +32,15 @@ import org.phioster.nexarr.model.SeerrIssueItem
 import org.phioster.nexarr.model.SeerrRequestItem
 import org.phioster.nexarr.model.SeerrSearchItem
 import org.phioster.nexarr.net.arrAdd
+import org.phioster.nexarr.net.arrCutoff
+import org.phioster.nexarr.net.arrDelete
+import org.phioster.nexarr.net.arrDetail
+import org.phioster.nexarr.net.arrEpisodes
+import org.phioster.nexarr.net.arrGrab
+import org.phioster.nexarr.net.arrHistory
 import org.phioster.nexarr.net.arrLibrary
+import org.phioster.nexarr.net.arrReleases
+import org.phioster.nexarr.net.arrSearchAll
 import org.phioster.nexarr.net.arrLibrarySearch
 import org.phioster.nexarr.net.arrLookup
 import org.phioster.nexarr.net.arrMetadataProfiles
@@ -160,6 +172,17 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrMetaProfilesList(config: ServiceConfig): List<ArrProfile> = arrMetadataProfiles(config)
     suspend fun arrAddItem(config: ServiceConfig, raw: String, qualityProfileId: Int, rootFolderPath: String, monitored: Boolean, metadataProfileId: Int = 0): String =
         arrAdd(config, raw, qualityProfileId, rootFolderPath, monitored, metadataProfileId)
+    suspend fun arrCutoffList(config: ServiceConfig): List<ArrMissingItem> = arrCutoff(config)
+    suspend fun arrDetailOf(config: ServiceConfig, id: Int): ArrDetail = arrDetail(config, id)
+    suspend fun arrEpisodesOf(config: ServiceConfig, seriesId: Int): List<ArrEpisode> = arrEpisodes(config, seriesId)
+    suspend fun arrReleasesFor(config: ServiceConfig, movieId: Int?, episodeId: Int?): List<ArrRelease> =
+        arrReleases(config, movieId, episodeId)
+    suspend fun arrGrabRelease(config: ServiceConfig, guid: String, indexerId: Int): String =
+        arrGrab(config, guid, indexerId)
+    suspend fun arrDeleteItem(config: ServiceConfig, id: Int, deleteFiles: Boolean): String =
+        arrDelete(config, id, deleteFiles)
+    suspend fun arrHistoryList(config: ServiceConfig): List<ArrHistoryItem> = arrHistory(config)
+    suspend fun arrSearchAllItems(config: ServiceConfig, cutoff: Boolean): String = arrSearchAll(config, cutoff)
 
     suspend fun seerrList(config: ServiceConfig, filter: String): List<SeerrRequestItem> =
         seerrRequests(config, filter)

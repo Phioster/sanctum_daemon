@@ -33,3 +33,50 @@ data class ArrLookupItem(
 
 /** A Servarr quality profile. */
 data class ArrProfile(val id: Int, val name: String)
+
+/** Full detail of a movie/series for the detail screen. */
+data class ArrDetail(
+    val id: Int,
+    val title: String,
+    val year: Int,
+    val overview: String,
+    val monitored: Boolean,
+    val status: String,
+    val sizeMb: Long,
+    val facts: List<Pair<String, String>>, // label -> value chips
+)
+
+/** A Sonarr episode (grouped by season in the UI). */
+data class ArrEpisode(
+    val id: Int,
+    val seasonNumber: Int,
+    val episodeNumber: Int,
+    val title: String,
+    val hasFile: Boolean,
+    val monitored: Boolean,
+    val airDate: String,
+)
+
+/** An interactive-search release from a Servarr app. */
+data class ArrRelease(
+    val guid: String,
+    val indexerId: Int,
+    val title: String,
+    val indexer: String,
+    val sizeMb: Long,
+    val protocol: String,
+    val seeders: Int?,
+    val ageDays: Int,
+    val quality: String,
+    val score: Int,
+    val approved: Boolean,
+    val rejection: String,
+)
+
+/** A history event in a Servarr app. */
+data class ArrHistoryItem(
+    val title: String,
+    val eventType: String,
+    val date: String,
+    val quality: String,
+)

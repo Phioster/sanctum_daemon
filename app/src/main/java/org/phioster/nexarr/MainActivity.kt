@@ -81,6 +81,10 @@ import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
+import org.phioster.nexarr.model.ArrDetail
+import org.phioster.nexarr.model.ArrEpisode
+import org.phioster.nexarr.model.ArrHistoryItem
+import org.phioster.nexarr.model.ArrRelease
 import org.phioster.nexarr.model.ProwlarrIndexerItem
 import org.phioster.nexarr.model.ProwlarrRelease
 import org.phioster.nexarr.model.SeerrIssueItem
@@ -954,10 +958,14 @@ private fun ArrScreen(
     val status = statuses[config.id]
     val accent = Color(config.type.accent)
     val scope = rememberCoroutineScope()
-    var tab by remember { mutableStateOf(0) } // 0=Library, 1=Missing, 2=Queue
+    var tab by remember { mutableStateOf(0) } // 0=Library,1=Missing,2=Cutoff,3=Queue,4=History
     var library by remember { mutableStateOf<List<ArrLibraryItem>?>(null) }
     var missing by remember { mutableStateOf<List<ArrMissingItem>?>(null) }
+    var cutoff by remember { mutableStateOf<List<ArrMissingItem>?>(null) }
     var queue by remember { mutableStateOf<List<ArrQueueItem>?>(null) }
+    var history by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrHistoryItem>?>(null) }
+    var detailId by remember { mutableStateOf<Int?>(null) }
+    val supportsDetail = config.type == ServiceType.RADARR || config.type == ServiceType.SONARR
     var query by remember { mutableStateOf("") }
     var sortBy by remember { mutableStateOf(0) } // 0=Title, 1=Year, 2=Size
     var sortMenu by remember { mutableStateOf(false) }
@@ -996,6 +1004,16 @@ private fun ArrScreen(
             listError = t.message
         }
     }
+    suspend fun loadCutoff() {
+        listError = null
+        try {
+            cutoff = vm.arrCutoffList(config)
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            listError = t.message
+        }
+    }
     suspend fun loadQueue() {
         listError = null
         try {
@@ -1006,7 +1024,19 @@ private fun ArrScreen(
             listError = t.message
         }
     }
-    suspend fun reload() = when (tab) { 0 -> loadLibrary(); 1 -> loadMissing(); else -> loadQueue() }
+    suspend fun loadHistory() {
+        listError = null
+        try {
+            history = vm.arrHistoryList(config)
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            listError = t.message
+        }
+    }
+    suspend fun reload() = when (tab) {
+        0 -> loadLibrary(); 1 -> loadMissing(); 2 -> loadCutoff(); 3 -> loadQueue(); else -> loadHistory()
+    }
     LaunchedEffect(tab) { reload() }
     fun act(action: suspend () -> String) {
         scope.launch {
@@ -1014,6 +1044,11 @@ private fun ArrScreen(
             reload()
             vm.refreshAll()
         }
+    }
+
+    if (detailId != null && supportsDetail) {
+        ArrDetailScreen(vm = vm, config = config, itemId = detailId!!, onBack = { detailId = null; scope.launch { reload() } })
+        return
     }
 
     Scaffold(
@@ -1029,7 +1064,6 @@ private fun ArrScreen(
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
                             DropdownMenuItem(text = { Text("Add new", fontFamily = Mono) }, onClick = { barMenu = false; addTerm = ""; addResults = null; showAdd = true })
-                            DropdownMenuItem(text = { Text("Search all missing", fontFamily = Mono) }, onClick = { barMenu = false; act { vm.searchMissing(config) } })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
                         }
@@ -1052,10 +1086,14 @@ private fun ArrScreen(
                     }
                     Spacer(Modifier.height(10.dp))
                 }
-                Row {
-                    ActionBtn("Search all missing", true) { act { vm.searchMissing(config) } }
-                    Spacer(Modifier.width(12.dp))
-                    IconButton(onClick = { scope.launch { if (tab == 0) loadMissing() else loadQueue() } }) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    when (tab) {
+                        1 -> ActionBtn("Search all missing", true) { act { vm.arrSearchAllItems(config, false) } }
+                        2 -> ActionBtn("Search all cutoff", true) { act { vm.arrSearchAllItems(config, true) } }
+                        else -> {}
+                    }
+                    Spacer(Modifier.weight(1f))
+                    IconButton(onClick = { scope.launch { reload() } }) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                     }
                 }
@@ -1064,14 +1102,26 @@ private fun ArrScreen(
                     Text(it, fontFamily = Mono, color = if (it.startsWith("error")) ErrRed else MatrixGreen, fontSize = 12.sp)
                 }
             }
-            Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                FilterChip(selected = tab == 0, onClick = { tab = 0 }, label = { Text("Library", fontFamily = Mono) })
-                Spacer(Modifier.width(8.dp))
-                FilterChip(selected = tab == 1, onClick = { tab = 1 }, label = { Text("Missing", fontFamily = Mono) })
-                Spacer(Modifier.width(8.dp))
-                FilterChip(selected = tab == 2, onClick = { tab = 2 }, label = { Text("Queue", fontFamily = Mono) })
-                if (tab == 0) {
-                    Spacer(Modifier.weight(1f))
+            Row(
+                Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val tabs = listOf("Library", "Missing", "Cutoff", "Queue", "History")
+                tabs.forEachIndexed { i, name ->
+                    FilterChip(selected = tab == i, onClick = { tab = i }, label = { Text(name, fontFamily = Mono) })
+                    if (i < tabs.lastIndex) Spacer(Modifier.width(8.dp))
+                }
+            }
+            if (tab == 0) {
+                Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        label = { Text("Filter library", fontFamily = Mono) },
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = Mono),
+                        modifier = Modifier.weight(1f).padding(vertical = 4.dp),
+                    )
                     Box {
                         TextButton(onClick = { sortMenu = true }) { Text("sort", fontFamily = Mono, color = MatrixGreen) }
                         DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
@@ -1081,16 +1131,6 @@ private fun ArrScreen(
                         }
                     }
                 }
-            }
-            if (tab == 0) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    label = { Text("Filter library", fontFamily = Mono) },
-                    singleLine = true,
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = Mono),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                )
             }
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
@@ -1111,23 +1151,38 @@ private fun ArrScreen(
                                 when {
                                     filtered == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     filtered.isEmpty() -> item { Text(if (query.isBlank()) "library is empty" else "no matches", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(filtered) { li -> ArrLibraryRow(li, accent) { act { vm.arrLibSearch(config, li.id) } } }
+                                    else -> items(filtered) { li ->
+                                        ArrLibraryRow(
+                                            item = li,
+                                            accent = accent,
+                                            onOpen = if (supportsDetail) ({ detailId = li.id }) else null,
+                                            onSearch = { act { vm.arrLibSearch(config, li.id) } },
+                                        )
+                                    }
                                 }
                             }
-                            1 -> {
-                                val m = missing
+                            1, 2 -> {
+                                val m = if (tab == 1) missing else cutoff
                                 when {
                                     m == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    m.isEmpty() -> item { Text("nothing missing", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    m.isEmpty() -> item { Text(if (tab == 1) "nothing missing" else "nothing below cutoff", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     else -> items(m) { mi -> ArrMissingRow(mi, accent) { act { vm.arrSearch(config, mi.id) } } }
                                 }
                             }
-                            else -> {
+                            3 -> {
                                 val q = queue
                                 when {
                                     q == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     q.isEmpty() -> item { Text("queue is empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     else -> items(q) { qi -> ArrQueueRow(qi) { act { vm.arrRemove(config, qi.id) } } }
+                                }
+                            }
+                            else -> {
+                                val h = history
+                                when {
+                                    h == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    h.isEmpty() -> item { Text("no history", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    else -> items(h) { ev -> ArrHistoryRow(ev, accent) }
                                 }
                             }
                         }
@@ -1243,10 +1298,10 @@ private fun DropdownField(label: String, value: String, options: List<String>, o
 }
 
 @Composable
-private fun ArrLibraryRow(item: ArrLibraryItem, accent: Color, onSearch: () -> Unit) {
+private fun ArrLibraryRow(item: ArrLibraryItem, accent: Color, onOpen: (() -> Unit)?, onSearch: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Box {
-        Column(Modifier.fillMaxWidth().clickable { menu = true }.padding(vertical = 10.dp)) {
+        Column(Modifier.fillMaxWidth().clickable { if (onOpen != null) onOpen() else menu = true }.padding(vertical = 10.dp)) {
             Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(2.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -1297,6 +1352,245 @@ private fun ArrQueueRow(item: ArrQueueItem, onRemove: () -> Unit) {
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(text = { Text("Remove", fontFamily = Mono) }, onClick = { menu = false; onRemove() })
         }
+    }
+}
+
+@Composable
+private fun ArrHistoryRow(item: ArrHistoryItem, accent: Color) {
+    val evColor = when (item.eventType) {
+        "grabbed" -> MatrixGreen
+        "downloadFolderImported" -> accent.copy(alpha = 0.9f)
+        "downloadFailed", "episodeFileDeleted", "movieFileDeleted" -> ErrRed
+        else -> MatrixGreen.copy(alpha = 0.6f)
+    }
+    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+        Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(2.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("${item.eventType} · ${item.date}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            if (item.quality.isNotBlank()) Text(item.quality, fontFamily = Mono, color = evColor, fontSize = 10.sp)
+        }
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, itemId: Int, onBack: () -> Unit) {
+    val accent = Color(config.type.accent)
+    val scope = rememberCoroutineScope()
+    val isSonarr = config.type == ServiceType.SONARR
+    var detail by remember { mutableStateOf<ArrDetail?>(null) }
+    var episodes by remember { mutableStateOf<List<ArrEpisode>?>(null) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    var actionMsg by remember { mutableStateOf<String?>(null) }
+    var barMenu by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    var deleteFiles by remember { mutableStateOf(false) }
+    // release picker: null=closed; loading when releases==null
+    var pickerOpen by remember { mutableStateOf(false) }
+    var releases by remember { mutableStateOf<List<ArrRelease>?>(null) }
+    var pickerTitle by remember { mutableStateOf("") }
+    var confirmGrab by remember { mutableStateOf<ArrRelease?>(null) }
+
+    LaunchedEffect(itemId) {
+        loadError = null
+        try {
+            detail = vm.arrDetailOf(config, itemId)
+            if (isSonarr) episodes = vm.arrEpisodesOf(config, itemId)
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            loadError = t.message
+        }
+    }
+    fun openReleases(movieId: Int?, episodeId: Int?, title: String) {
+        pickerTitle = title; releases = null; pickerOpen = true
+        scope.launch {
+            releases = runCatching { vm.arrReleasesFor(config, movieId, episodeId) }.getOrElse {
+                actionMsg = "error: ${it.message}"; pickerOpen = false; emptyList()
+            }
+        }
+    }
+
+    Scaffold(
+        containerColor = Black,
+        topBar = {
+            TopAppBar(
+                title = { Text(detail?.title ?: "…", fontFamily = Mono, color = MatrixGreen, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
+                },
+                actions = {
+                    Box {
+                        IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
+                        DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
+                            DropdownMenuItem(text = { Text("Automatic search", fontFamily = Mono) }, onClick = {
+                                barMenu = false; scope.launch { actionMsg = vm.arrLibSearch(config, itemId) }
+                            })
+                            if (!isSonarr) {
+                                DropdownMenuItem(text = { Text("Interactive search", fontFamily = Mono) }, onClick = {
+                                    barMenu = false; openReleases(movieId = itemId, episodeId = null, title = detail?.title ?: "")
+                                })
+                            }
+                            DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; deleteFiles = false; confirmDelete = true })
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
+            )
+        },
+    ) { padding ->
+        if (loadError != null) {
+            Text("error: $loadError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(padding).padding(16.dp))
+            return@Scaffold
+        }
+        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
+            item {
+                val d = detail
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.horizontalScroll(rememberScrollState())) {
+                    val chips = buildList {
+                        d?.year?.takeIf { it > 0 }?.let { add("year" to it.toString()) }
+                        add("monitored" to if (d?.monitored == true) "yes" else "no")
+                        d?.sizeMb?.takeIf { it > 0 }?.let { add("size" to if (it >= 1024) "%.1f GB".format(it / 1024.0) else "$it MB") }
+                        d?.facts?.let { addAll(it) }
+                    }
+                    chips.forEach { (k, v) ->
+                        Column(Modifier.padding(end = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(v, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(k.uppercase(), fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 10.sp)
+                        }
+                    }
+                }
+                actionMsg?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, fontFamily = Mono, color = if (it.startsWith("error")) ErrRed else MatrixGreen, fontSize = 12.sp)
+                }
+                if (!d?.overview.isNullOrBlank()) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(d!!.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp)
+                }
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
+                if (isSonarr) {
+                    Spacer(Modifier.height(8.dp))
+                    Text("EPISODES", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                }
+            }
+            if (isSonarr) {
+                val eps = episodes
+                when {
+                    eps == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
+                    eps.isEmpty() -> item { Text("no episodes", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
+                    else -> items(eps) { ep ->
+                        ArrEpisodeRow(ep, accent) {
+                            openReleases(movieId = null, episodeId = ep.id, title = "S%02dE%02d %s".format(ep.seasonNumber, ep.episodeNumber, ep.title))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            containerColor = Surface,
+            title = { Text("Delete ${detail?.title ?: ""}?", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Also delete files", fontFamily = Mono, color = MatrixGreen, modifier = Modifier.weight(1f))
+                    Switch(checked = deleteFiles, onCheckedChange = { deleteFiles = it })
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val df = deleteFiles
+                    confirmDelete = false
+                    scope.launch {
+                        val r = vm.arrDeleteItem(config, itemId, df)
+                        if (!r.startsWith("error")) onBack() else actionMsg = r
+                    }
+                }) { Text("Delete", fontFamily = Mono, color = ErrRed) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    if (pickerOpen) {
+        AlertDialog(
+            onDismissRequest = { pickerOpen = false },
+            containerColor = Surface,
+            title = { Text("Releases", fontFamily = Mono, color = MatrixGreen, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            text = {
+                val rs = releases
+                Column(Modifier.heightIn(max = 460.dp)) {
+                    Text(pickerTitle, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.height(8.dp))
+                    when {
+                        rs == null -> Text("searching…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        rs.isEmpty() -> Text("no releases", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        else -> Column(Modifier.verticalScroll(rememberScrollState())) {
+                            rs.forEach { rel -> ArrReleaseRow(rel, accent) { confirmGrab = rel } }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { pickerOpen = false }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    confirmGrab?.let { rel ->
+        AlertDialog(
+            onDismissRequest = { confirmGrab = null },
+            containerColor = Surface,
+            title = { Text("Grab release", fontFamily = Mono, color = MatrixGreen) },
+            text = { Text(rel.title, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp) },
+            confirmButton = {
+                TextButton(onClick = {
+                    val r = rel
+                    confirmGrab = null; pickerOpen = false
+                    scope.launch { actionMsg = vm.arrGrabRelease(config, r.guid, r.indexerId) }
+                }) { Text("Grab", fontFamily = Mono, color = MatrixGreen) }
+            },
+            dismissButton = { TextButton(onClick = { confirmGrab = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+}
+
+@Composable
+private fun ArrEpisodeRow(item: ArrEpisode, accent: Color, onSearch: () -> Unit) {
+    val c = if (item.hasFile) MatrixGreen else if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.4f)
+    Column(Modifier.fillMaxWidth().clickable { onSearch() }.padding(vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("S%02dE%02d  %s".format(item.seasonNumber, item.episodeNumber, item.title), fontFamily = Mono, color = c, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text(if (item.hasFile) "✓" else item.airDate, fontFamily = Mono, color = c, fontSize = 10.sp)
+        }
+        Spacer(Modifier.height(6.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
+    }
+}
+
+@Composable
+private fun ArrReleaseRow(item: ArrRelease, accent: Color, onGrab: () -> Unit) {
+    val meta = buildString {
+        append(item.indexer)
+        append(" · ")
+        append(if (item.sizeMb >= 1024) "%.1f GB".format(item.sizeMb / 1024.0) else "${item.sizeMb} MB")
+        if (item.protocol == "torrent") append(" · ${item.seeders ?: 0}S") else append(" · ${item.ageDays}d")
+        if (item.quality.isNotBlank()) append(" · ${item.quality}")
+    }
+    Column(Modifier.fillMaxWidth().clickable { onGrab() }.padding(vertical = 8.dp)) {
+        Text(item.title, fontFamily = Mono, color = if (item.approved) MatrixGreen else MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(2.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(meta, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text(if (item.approved) "score ${item.score}" else item.rejection.take(24), fontFamily = Mono, color = if (item.approved) MatrixGreen.copy(alpha = 0.6f) else ErrRed, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Spacer(Modifier.height(6.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
     }
 }
 

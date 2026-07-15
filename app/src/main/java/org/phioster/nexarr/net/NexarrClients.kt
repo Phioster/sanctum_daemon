@@ -23,11 +23,15 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import retrofit2.Response
+import org.phioster.nexarr.model.ArrDetail
+import org.phioster.nexarr.model.ArrEpisode
+import org.phioster.nexarr.model.ArrHistoryItem
 import org.phioster.nexarr.model.ArrLibraryItem
 import org.phioster.nexarr.model.ArrLookupItem
 import org.phioster.nexarr.model.ArrMissingItem
 import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
+import org.phioster.nexarr.model.ArrRelease
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
 import org.phioster.nexarr.model.ProwlarrCategory
@@ -474,6 +478,43 @@ suspend fun seerrCreateRequest(config: ServiceConfig, item: SeerrSearchItem): St
 @Serializable private data class ArrProfileRecord(val id: Int = 0, val name: String = "")
 @Serializable private data class ArrRootFolderRecord(val path: String = "")
 
+@Serializable private data class ArrEpisodeRecord(
+    val id: Int = 0,
+    val seasonNumber: Int = 0,
+    val episodeNumber: Int = 0,
+    val title: String = "",
+    val hasFile: Boolean = false,
+    val monitored: Boolean = false,
+    val airDate: String? = null,
+)
+
+@Serializable private data class ArrQualityRef(val quality: ArrQualityName = ArrQualityName())
+@Serializable private data class ArrQualityName(val name: String = "")
+@Serializable private data class ArrReleaseRecord(
+    val guid: String = "",
+    val indexerId: Int = 0,
+    val title: String = "",
+    val indexer: String = "",
+    val size: Long = 0,
+    val protocol: String = "",
+    val seeders: Int? = null,
+    val ageMinutes: Double = 0.0,
+    val quality: ArrQualityRef = ArrQualityRef(),
+    val customFormatScore: Int = 0,
+    val approved: Boolean = false,
+    val rejections: List<String> = emptyList(),
+)
+
+@Serializable private data class ArrGrabReq(val guid: String, val indexerId: Int)
+
+@Serializable private data class ArrHistoryRec(
+    val eventType: String = "",
+    val date: String = "",
+    val sourceTitle: String = "",
+    val quality: ArrQualityRef = ArrQualityRef(),
+)
+@Serializable private data class ArrHistoryPage(val records: List<ArrHistoryRec> = emptyList())
+
 private interface ArrApi {
     @GET suspend fun missing(@Url url: String): ArrMissingPage
     @GET suspend fun queue(@Url url: String): ArrQueuePage
@@ -485,6 +526,12 @@ private interface ArrApi {
     @POST suspend fun add(@Url url: String, @Body body: JsonObject): Response<ResponseBody>
     @POST suspend fun releasePush(@Url url: String, @Body body: JsonObject): Response<ResponseBody>
     @DELETE suspend fun deleteQueue(@Url url: String): Response<ResponseBody>
+    @GET suspend fun itemDetail(@Url url: String): JsonObject
+    @GET suspend fun episodes(@Url url: String, @Query("seriesId") seriesId: Int): List<ArrEpisodeRecord>
+    @GET suspend fun releases(@Url url: String): List<ArrReleaseRecord>
+    @POST suspend fun downloadRelease(@Url url: String, @Body body: ArrGrabReq): Response<ResponseBody>
+    @DELETE suspend fun deleteItem(@Url url: String): Response<ResponseBody>
+    @GET suspend fun history(@Url url: String): ArrHistoryPage
 }
 
 private fun arrBase(type: ServiceType) = if (type == ServiceType.LIDARR) "api/v1" else "api/v3"
@@ -654,6 +701,145 @@ suspend fun arrLibrarySearch(config: ServiceConfig, id: Int): String = withConte
         }
         val r = apiFor<ArrApi>(config, apiKeyHeader(config)).command("$base/command", body)
         if (r.isSuccessful) "search started" else "error: HTTP ${r.code()}"
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+private fun jsStr(o: JsonObject, key: String) = (o[key] as? JsonPrimitive)?.content
+private fun jsInt(o: JsonObject, key: String) = (o[key] as? JsonPrimitive)?.intOrNull
+private fun jsBool(o: JsonObject, key: String) = (o[key] as? JsonPrimitive)?.content?.toBoolean()
+
+/** Cutoff-unmet wanted list (quality below cutoff). Same shape as [arrMissing]. */
+suspend fun arrCutoff(config: ServiceConfig): List<ArrMissingItem> = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    apiFor<ArrApi>(config, apiKeyHeader(config)).missing("$base/wanted/cutoff?pageSize=100").records.map { r ->
+        when (config.type) {
+            ServiceType.SONARR -> ArrMissingItem(
+                r.id,
+                r.series?.title ?: r.title,
+                "S%02dE%02d · %s".format(r.seasonNumber ?: 0, r.episodeNumber ?: 0, r.title),
+            )
+            ServiceType.LIDARR -> ArrMissingItem(r.id, r.title, r.artist?.artistName ?: "")
+            else -> ArrMissingItem(r.id, r.title, if (r.year > 0) r.year.toString() else "")
+        }
+    }
+}
+
+/** Detail for a movie (Radarr) or series (Sonarr). */
+suspend fun arrDetail(config: ServiceConfig, id: Int): ArrDetail = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    val path = arrItemPath(config.type)
+    val o = apiFor<ArrApi>(config, apiKeyHeader(config)).itemDetail("$base/$path/$id")
+    val statsObj = o["statistics"] as? JsonObject
+    val sizeMb = ((statsObj?.let { jsInt(it, "sizeOnDisk") } ?: jsInt(o, "sizeOnDisk") ?: 0).toLong()) / (1024 * 1024)
+    val facts = buildList {
+        jsStr(o, "status")?.takeIf { it.isNotBlank() }?.let { add("status" to it) }
+        if (config.type == ServiceType.SONARR) {
+            statsObj?.let {
+                val total = jsInt(it, "episodeCount") ?: 0
+                val have = jsInt(it, "episodeFileCount") ?: 0
+                add("episodes" to "$have/$total")
+                jsInt(it, "seasonCount")?.let { s -> add("seasons" to s.toString()) }
+            }
+            jsStr(o, "network")?.takeIf { it.isNotBlank() }?.let { add("network" to it) }
+        } else {
+            add("file" to if (jsBool(o, "hasFile") == true) "downloaded" else "missing")
+            jsStr(o, "studio")?.takeIf { it.isNotBlank() }?.let { add("studio" to it) }
+            jsInt(o, "runtime")?.takeIf { it > 0 }?.let { add("runtime" to "${it}m") }
+        }
+    }
+    ArrDetail(
+        id = id,
+        title = jsStr(o, "title") ?: "",
+        year = jsInt(o, "year") ?: 0,
+        overview = jsStr(o, "overview") ?: "",
+        monitored = jsBool(o, "monitored") ?: false,
+        status = jsStr(o, "status") ?: "",
+        sizeMb = sizeMb,
+        facts = facts,
+    )
+}
+
+/** Sonarr: episodes for a series, newest season first. */
+suspend fun arrEpisodes(config: ServiceConfig, seriesId: Int): List<ArrEpisode> = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    apiFor<ArrApi>(config, apiKeyHeader(config)).episodes("$base/episode", seriesId).map { e ->
+        ArrEpisode(e.id, e.seasonNumber, e.episodeNumber, e.title, e.hasFile, e.monitored, e.airDate?.take(10) ?: "")
+    }.sortedWith(compareByDescending<ArrEpisode> { it.seasonNumber }.thenByDescending { it.episodeNumber })
+}
+
+/** Interactive search. [movieId] for Radarr, [episodeId] for Sonarr. */
+suspend fun arrReleases(config: ServiceConfig, movieId: Int?, episodeId: Int?): List<ArrRelease> = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    val q = when {
+        episodeId != null -> "episodeId=$episodeId"
+        movieId != null -> "movieId=$movieId"
+        else -> ""
+    }
+    apiFor<ArrApi>(config, apiKeyHeader(config)).releases("$base/release?$q").map { r ->
+        ArrRelease(
+            guid = r.guid,
+            indexerId = r.indexerId,
+            title = r.title,
+            indexer = r.indexer,
+            sizeMb = r.size / (1024 * 1024),
+            protocol = r.protocol,
+            seeders = if (r.protocol == "torrent") r.seeders else null,
+            ageDays = (r.ageMinutes / (60 * 24)).toInt(),
+            quality = r.quality.quality.name,
+            score = r.customFormatScore,
+            approved = r.approved,
+            rejection = r.rejections.firstOrNull() ?: "",
+        )
+    }.sortedByDescending { it.approved }
+}
+
+suspend fun arrGrab(config: ServiceConfig, guid: String, indexerId: Int): String = withContext(Dispatchers.IO) {
+    try {
+        val base = arrBase(config.type)
+        okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).downloadRelease("$base/release", ArrGrabReq(guid, indexerId)), "grabbed")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun arrDelete(config: ServiceConfig, id: Int, deleteFiles: Boolean): String = withContext(Dispatchers.IO) {
+    try {
+        val base = arrBase(config.type)
+        val path = arrItemPath(config.type)
+        val r = apiFor<ArrApi>(config, apiKeyHeader(config))
+            .deleteItem("$base/$path/$id?deleteFiles=$deleteFiles&addImportExclusion=false")
+        if (r.isSuccessful) "deleted" else "error: HTTP ${r.code()}"
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun arrHistory(config: ServiceConfig): List<ArrHistoryItem> = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    val url = "$base/history?page=1&pageSize=50&sortKey=date&sortDirection=descending"
+    apiFor<ArrApi>(config, apiKeyHeader(config)).history(url).records.map { h ->
+        ArrHistoryItem(
+            title = h.sourceTitle,
+            eventType = h.eventType,
+            date = h.date.take(16).replace('T', ' '),
+            quality = h.quality.quality.name,
+        )
+    }
+}
+
+/** Search all missing or cutoff-unmet items. */
+suspend fun arrSearchAll(config: ServiceConfig, cutoff: Boolean): String = withContext(Dispatchers.IO) {
+    try {
+        val base = arrBase(config.type)
+        val name = when (config.type) {
+            ServiceType.SONARR -> if (cutoff) "CutoffUnmetEpisodeSearch" else "MissingEpisodeSearch"
+            ServiceType.LIDARR -> if (cutoff) "CutoffUnmetAlbumSearch" else "MissingAlbumSearch"
+            else -> if (cutoff) "CutoffUnmetMoviesSearch" else "MissingMoviesSearch"
+        }
+        val body = buildJsonObject { put("name", name) }
+        okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).command("$base/command", body), "search started")
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
     }
