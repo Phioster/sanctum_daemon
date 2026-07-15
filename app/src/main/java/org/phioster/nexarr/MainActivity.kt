@@ -36,7 +36,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -137,12 +143,14 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
     var addOpen by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<ServiceConfig?>(null) }
     var detail by remember { mutableStateOf<ServiceConfig?>(null) }
+    var searchOpen by remember { mutableStateOf(false) }
 
     val editorOpen = addOpen || editing != null
-    BackHandler(enabled = editorOpen || detail != null) {
+    BackHandler(enabled = editorOpen || detail != null || searchOpen) {
         when {
             editorOpen -> { addOpen = false; editing = null }
-            else -> detail = null
+            detail != null -> detail = null
+            else -> searchOpen = false
         }
     }
 
@@ -172,11 +180,17 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
                 else -> ServiceDetailScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
             }
         }
+        searchOpen -> GlobalSearchScreen(
+            vm = vm,
+            onBack = { searchOpen = false },
+            onOpenService = { cfg -> searchOpen = false; detail = cfg },
+        )
         else -> DashboardScreen(
             vm = vm,
             onAdd = { addOpen = true },
             onOpen = { detail = it },
             onEdit = { editing = it },
+            onSearch = { searchOpen = true },
         )
     }
 }
@@ -188,6 +202,7 @@ private fun DashboardScreen(
     onAdd: () -> Unit,
     onOpen: (ServiceConfig) -> Unit,
     onEdit: (ServiceConfig) -> Unit,
+    onSearch: () -> Unit,
 ) {
     val services by vm.services.collectAsState()
     val statuses by vm.statuses.collectAsState()
@@ -199,6 +214,9 @@ private fun DashboardScreen(
                 title = { Text("> nexarr_", fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
                 actions = {
+                    IconButton(onClick = onSearch) {
+                        Icon(Icons.Filled.Search, contentDescription = "Search", tint = MatrixGreen)
+                    }
                     IconButton(onClick = { vm.refreshAll() }) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                     }
@@ -238,6 +256,119 @@ private fun DashboardScreen(
                 Spacer(Modifier.height(12.dp))
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GlobalSearchScreen(
+    vm: DashboardViewModel,
+    onBack: () -> Unit,
+    onOpenService: (ServiceConfig) -> Unit,
+) {
+    val services by vm.services.collectAsState()
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var term by remember { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<org.phioster.nexarr.model.SearchResult>?>(null) }
+    var searching by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
+
+    fun run() {
+        val q = term.trim()
+        if (q.isBlank()) return
+        scope.launch {
+            searching = true
+            results = runCatching { vm.globalSearch(q) }.getOrDefault(emptyList())
+            searching = false
+        }
+    }
+    LaunchedEffect(Unit) { runCatching { focusRequester.requestFocus() } }
+
+    Scaffold(
+        containerColor = Black,
+        topBar = {
+            TopAppBar(
+                title = { Text("search", fontFamily = Mono, color = MatrixGreen) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
+            )
+        },
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = term,
+                    onValueChange = { term = it },
+                    label = { Text("title across all services", fontFamily = Mono) },
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = Mono),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { run() }),
+                    modifier = Modifier.weight(1f).focusRequester(focusRequester),
+                )
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = { run() }) { Icon(Icons.Filled.Search, contentDescription = "Search", tint = MatrixGreen) }
+            }
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                val r = results
+                when {
+                    searching -> Text("searching…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(16.dp))
+                    r == null -> Text("type a title, then search", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 13.sp, modifier = Modifier.padding(16.dp))
+                    r.isEmpty() -> Text("no matches", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(16.dp))
+                    else -> {
+                        val grouped = r.groupBy { it.serviceId }
+                        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                            grouped.forEach { (sid, hits) ->
+                                val head = hits.first()
+                                item(key = "h_$sid") {
+                                    Spacer(Modifier.height(10.dp))
+                                    Text(
+                                        "${head.serviceLabel} · ${head.serviceType.label}".uppercase(),
+                                        fontFamily = Mono, color = Color(head.serviceType.accent), fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.12f))
+                                }
+                                items(hits, key = { "${sid}_${it.title}_${it.subtitle}" }) { hit ->
+                                    val cfg = services.firstOrNull { it.id == hit.serviceId }
+                                    SearchResultRow(hit) { cfg?.let(onOpenService) }
+                                }
+                            }
+                            item { Spacer(Modifier.height(24.dp)) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchResultRow(hit: org.phioster.nexarr.model.SearchResult, onClick: () -> Unit) {
+    val accent = Color(hit.serviceType.accent)
+    Row(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (hit.posterUrl.isNotBlank()) {
+            AsyncImage(
+                model = hit.posterUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.width(40.dp).height(60.dp).clip(RoundedCornerShape(4.dp)).background(Surface),
+            )
+        } else {
+            Box(Modifier.width(40.dp).height(60.dp).clip(RoundedCornerShape(4.dp)).background(Surface))
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(hit.title, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (hit.subtitle.isNotBlank()) {
+                Text(hit.subtitle, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        Text("›", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 18.sp)
     }
 }
 

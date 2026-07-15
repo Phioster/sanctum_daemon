@@ -3,6 +3,8 @@ package org.phioster.nexarr.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -45,6 +47,7 @@ import org.phioster.nexarr.net.arrManualImportScan
 import org.phioster.nexarr.net.arrReleases
 import org.phioster.nexarr.net.arrSearchAll
 import org.phioster.nexarr.net.arrSystem
+import org.phioster.nexarr.net.serviceSearch
 import org.phioster.nexarr.net.seerrCast
 import org.phioster.nexarr.net.arrLibrarySearch
 import org.phioster.nexarr.net.arrLookup
@@ -200,6 +203,15 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         jellyfinItemDetail(config, itemId)
     suspend fun jellyfinScanLibrary(config: ServiceConfig, itemId: String): String =
         jellyfinScanItem(config, itemId)
+
+    /** Cross-service search: query every configured service in parallel, flatten the hits. */
+    suspend fun globalSearch(term: String): List<org.phioster.nexarr.model.SearchResult> =
+        kotlinx.coroutines.coroutineScope {
+            _services.value
+                .map { cfg -> async { serviceSearch(cfg, term) } }
+                .awaitAll()
+                .flatten()
+        }
 
     suspend fun searchMissing(config: ServiceConfig): String = runSearchMissing(config)
     suspend fun prowlarrTestAll(config: ServiceConfig): String = runProwlarrTestAll(config)

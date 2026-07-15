@@ -56,6 +56,7 @@ import org.phioster.nexarr.model.ProwlarrRelease
 import org.phioster.nexarr.model.ProwlarrSystemInfo
 import org.phioster.nexarr.model.ProwlarrTaskItem
 import org.phioster.nexarr.model.SeerrComment
+import org.phioster.nexarr.model.SearchResult
 import org.phioster.nexarr.model.SeerrDiscoverItem
 import org.phioster.nexarr.model.SeerrIssueDetail
 import org.phioster.nexarr.model.SeerrIssueItem
@@ -268,6 +269,13 @@ private interface JellyfinApi {
         @Query("Fields") fields: String = "PrimaryImageAspectRatio",
     ): JfItemsResp
     @GET("Users/{uid}/Items/{id}") suspend fun itemDetail(@Path("uid") uid: String, @Path("id") id: String): JfItemDetail
+    @GET("Users/{uid}/Items") suspend fun searchItems(
+        @Path("uid") uid: String,
+        @Query("searchTerm") term: String,
+        @Query("Recursive") recursive: Boolean = true,
+        @Query("IncludeItemTypes") types: String = "Movie,Series,MusicAlbum",
+        @Query("Limit") limit: Int = 12,
+    ): JfItemsResp
     @POST("Items/{id}/Refresh") suspend fun refreshItem(@Path("id") id: String): Response<ResponseBody>
     @POST("Sessions/{id}/Playing/{cmd}") suspend fun playCommand(@Path("id") id: String, @Path("cmd") cmd: String): Response<ResponseBody>
     @POST("Sessions/{id}/Message") suspend fun message(@Path("id") id: String, @Body body: JfMessageReq): Response<ResponseBody>
@@ -478,6 +486,7 @@ private interface SeerrApi {
     @POST("api/v1/request/{id}/decline") suspend fun decline(@Path("id") id: Int): Response<ResponseBody>
 
     @GET("api/v1/search") suspend fun search(@Query("query") query: String): SeerrSearchPage
+    @GET("api/v1/search") suspend fun searchRaw(@Query("query") query: String): JsonObject
     @POST("api/v1/request") suspend fun createRequest(@Body body: JsonObject): Response<ResponseBody>
     @GET("api/v1/discover/trending") suspend fun trending(@Query("page") page: Int = 1): JsonObject
     @GET("api/v1/discover/movies") suspend fun discoverMovies(@Query("page") page: Int = 1): JsonObject
@@ -845,6 +854,71 @@ suspend fun arrLookup(config: ServiceConfig, term: String): List<ArrLookupItem> 
             ?: (obj["artistName"] as? JsonPrimitive)?.content ?: "?"
         val year = (obj["year"] as? JsonPrimitive)?.intOrNull ?: 0
         ArrLookupItem(title, year, json.encodeToString(JsonObject.serializer(), obj))
+    }
+}
+
+// ---- Global (cross-service) search ----
+
+/** Search one service by title. Returns [] for unsupported types or on any error. */
+suspend fun serviceSearch(config: ServiceConfig, term: String): List<SearchResult> = withContext(Dispatchers.IO) {
+    runCatching {
+        when (config.type) {
+            ServiceType.RADARR, ServiceType.SONARR, ServiceType.LIDARR -> arrSearchResults(config, term)
+            ServiceType.SEERR -> seerrSearchResults(config, term)
+            ServiceType.JELLYFIN -> jellyfinSearchResults(config, term)
+            else -> emptyList()
+        }
+    }.getOrDefault(emptyList())
+}
+
+private suspend fun arrSearchResults(config: ServiceConfig, term: String): List<SearchResult> {
+    val base = arrBase(config.type)
+    val path = arrItemPath(config.type)
+    return apiFor<ArrApi>(config, apiKeyHeader(config)).lookup("$base/$path/lookup", term).take(8).map { obj ->
+        val title = jsStr(obj, "title") ?: jsStr(obj, "artistName") ?: "?"
+        val year = jsInt(obj, "year") ?: 0
+        val inLib = (jsLong(obj, "id") ?: 0L) > 0
+        val poster = (obj["images"] as? JsonArray)?.mapNotNull { it as? JsonObject }
+            ?.firstOrNull { jsStr(it, "coverType") == "poster" }
+            ?.let { jsStr(it, "remoteUrl") ?: jsStr(it, "url") } ?: ""
+        SearchResult(
+            serviceId = config.id,
+            serviceLabel = config.label,
+            serviceType = config.type,
+            title = title,
+            subtitle = listOfNotNull(year.takeIf { it > 0 }?.toString(), if (inLib) "in library" else "not added").joinToString(" · "),
+            posterUrl = poster,
+        )
+    }
+}
+
+private suspend fun seerrSearchResults(config: ServiceConfig, term: String): List<SearchResult> {
+    val page = apiFor<SeerrApi>(config, apiKeyHeader(config)).searchRaw(term)
+    return parseDiscoverItems(page, null).take(8).map { d ->
+        SearchResult(
+            serviceId = config.id,
+            serviceLabel = config.label,
+            serviceType = config.type,
+            title = d.title,
+            subtitle = listOfNotNull(d.year.takeIf { it.isNotBlank() }, d.status.ifBlank { "requestable" }).joinToString(" · "),
+            posterUrl = d.posterUrl,
+        )
+    }
+}
+
+private suspend fun jellyfinSearchResults(config: ServiceConfig, term: String): List<SearchResult> {
+    val token = jellyfinAccessToken(config)
+    val api = jfApi(config, token)
+    val uid = jellyfinResolveUserId(config, api)
+    return api.searchItems(uid, term).Items.take(10).map { it ->
+        SearchResult(
+            serviceId = config.id,
+            serviceLabel = config.label,
+            serviceType = config.type,
+            title = it.Name,
+            subtitle = listOfNotNull(it.Type.takeIf { t -> t.isNotBlank() }, it.ProductionYear?.toString(), "on Jellyfin").joinToString(" · "),
+            posterUrl = jellyImageUrl(config, it.Id, it.ImageTags?.get("Primary"), token),
+        )
     }
 }
 
