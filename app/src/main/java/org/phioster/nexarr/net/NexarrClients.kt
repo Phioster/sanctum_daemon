@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -1564,14 +1565,20 @@ suspend fun fetchStatus(config: ServiceConfig): ServiceStatus = withContext(Disp
 }
 
 /** Returns the token to use for Jellyfin data calls (API key, or a login token). */
+private val jellyfinAuthLock = kotlinx.coroutines.sync.Mutex()
+
 private suspend fun jellyfinAccessToken(config: ServiceConfig): String {
     if (!config.useLogin) return config.apiKey
     jellyfinSession[config.id]?.let { return it.first }
-    val resp = apiFor<JellyfinAuthApi>(config, mapOf("Authorization" to MB_AUTH))
-        .authenticate(JfAuthReq(config.username, config.password))
-    val label = (if (resp.User.Policy.IsAdministrator) "admin: " else "user: ") + resp.User.Name
-    jellyfinSession[config.id] = resp.AccessToken to label
-    return resp.AccessToken
+    // Serialize login so concurrent cards on cold start don't each authenticate (and race a 401).
+    return jellyfinAuthLock.withLock {
+        jellyfinSession[config.id]?.let { return@withLock it.first }
+        val resp = apiFor<JellyfinAuthApi>(config, mapOf("Authorization" to MB_AUTH))
+            .authenticate(JfAuthReq(config.username, config.password))
+        val label = (if (resp.User.Policy.IsAdministrator) "admin: " else "user: ") + resp.User.Name
+        jellyfinSession[config.id] = resp.AccessToken to label
+        resp.AccessToken
+    }
 }
 
 private suspend fun jellyfinStatus(config: ServiceConfig): ServiceStatus {

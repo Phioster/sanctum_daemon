@@ -421,14 +421,25 @@ private fun DashCardView(
 
     LaunchedEffect(card.id, config?.id) {
         if (config == null) { error = "service not found"; return@LaunchedEffect }
-        error = null
-        try {
-            when (card.type) {
-                org.phioster.nexarr.model.CardType.JELLYFIN_SESSIONS -> sessions = vm.jellyfinSessionList(config)
-                org.phioster.nexarr.model.CardType.JELLYFIN_RECENT -> items = vm.jellyfinRecent(config, null)
-                org.phioster.nexarr.model.CardType.JELLYFIN_RESUME -> items = vm.jellyfinContinue(config)
+        // Retry a couple of times: on a cold start the Jellyfin token may not be ready yet.
+        var attempt = 0
+        while (attempt < 3) {
+            error = null
+            try {
+                when (card.type) {
+                    org.phioster.nexarr.model.CardType.JELLYFIN_SESSIONS -> sessions = vm.jellyfinSessionList(config)
+                    org.phioster.nexarr.model.CardType.JELLYFIN_RECENT -> items = vm.jellyfinRecent(config, null)
+                    org.phioster.nexarr.model.CardType.JELLYFIN_RESUME -> items = vm.jellyfinContinue(config)
+                }
+                break
+            } catch (c: kotlinx.coroutines.CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                error = t.message
+                attempt++
+                if (attempt < 3) kotlinx.coroutines.delay(1200)
             }
-        } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { error = t.message }
+        }
     }
 
     Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
