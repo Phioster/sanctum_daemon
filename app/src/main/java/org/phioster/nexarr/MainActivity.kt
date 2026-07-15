@@ -563,10 +563,10 @@ private fun AddCardDialog(
             Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
                 Text("CARD TYPE", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
                 Spacer(Modifier.height(4.dp))
-                org.phioster.nexarr.model.CardType.entries.forEach { t ->
+                CardType.entries.forEach { t ->
                     val sel = chosenType == t
                     Text(
-                        "${if (sel) "◉" else "○"} ${t.label}",
+                        "${if (sel) "◉" else "○"} ${t.label} · ${t.service.label}",
                         fontFamily = Mono, color = if (sel) MatrixGreen else MatrixGreen.copy(alpha = 0.8f), fontSize = 13.sp,
                         modifier = Modifier.fillMaxWidth().clickable { chosenType = t }.padding(vertical = 6.dp),
                     )
