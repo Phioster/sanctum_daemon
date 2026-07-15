@@ -981,7 +981,7 @@ private fun SeerrDiscoverRow(item: org.phioster.nexarr.model.SeerrDiscoverItem, 
         else -> MatrixGreen.copy(alpha = 0.5f)
     }
     Row(
-        Modifier.fillMaxWidth().clickable(enabled = item.status.isEmpty()) { onRequest() }.padding(vertical = 8.dp),
+        Modifier.fillMaxWidth().clickable { onRequest() }.padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (item.posterUrl.isNotBlank()) {
