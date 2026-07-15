@@ -11,6 +11,13 @@ enum class CardType(val label: String, val service: ServiceType) {
     JELLYFIN_SESSIONS("Active Sessions", ServiceType.JELLYFIN),
     JELLYFIN_RECENT("Recently Added", ServiceType.JELLYFIN),
     JELLYFIN_RESUME("Continue Watching", ServiceType.JELLYFIN),
+    SEERR_REQUESTS("Recent Requests", ServiceType.SEERR),
+    RADARR_QUEUE("Download Queue", ServiceType.RADARR),
+    SONARR_QUEUE("Download Queue", ServiceType.SONARR),
+    LIDARR_QUEUE("Download Queue", ServiceType.LIDARR),
+    RADARR_MISSING("Missing / Wanted", ServiceType.RADARR),
+    SONARR_MISSING("Missing / Wanted", ServiceType.SONARR),
+    LIDARR_MISSING("Missing / Wanted", ServiceType.LIDARR),
 }
 
 /** A single widget on a dashboard tab: a card type bound to one configured service. */

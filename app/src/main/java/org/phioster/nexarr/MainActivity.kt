@@ -115,6 +115,7 @@ import org.phioster.nexarr.model.SeerrSearchItem
 import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceStatus
 import org.phioster.nexarr.model.ServiceType
+import org.phioster.nexarr.model.CardType
 import org.phioster.nexarr.ui.DashboardViewModel
 
 private val MatrixGreen = Color(0xFF00FF41)
@@ -417,6 +418,9 @@ private fun DashCardView(
     val accent = Color((config?.type ?: ServiceType.JELLYFIN).accent)
     var items by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyMediaItem>?>(null) }
     var sessions by remember { mutableStateOf<List<org.phioster.nexarr.model.JellySession>?>(null) }
+    var requests by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrRequestItem>?>(null) }
+    var queue by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrQueueItem>?>(null) }
+    var missing by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrMissingItem>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(card.id, config?.id) {
@@ -427,9 +431,12 @@ private fun DashCardView(
             error = null
             try {
                 when (card.type) {
-                    org.phioster.nexarr.model.CardType.JELLYFIN_SESSIONS -> sessions = vm.jellyfinSessionList(config)
-                    org.phioster.nexarr.model.CardType.JELLYFIN_RECENT -> items = vm.jellyfinRecent(config, null)
-                    org.phioster.nexarr.model.CardType.JELLYFIN_RESUME -> items = vm.jellyfinContinue(config)
+                    CardType.JELLYFIN_SESSIONS -> sessions = vm.jellyfinSessionList(config)
+                    CardType.JELLYFIN_RECENT -> items = vm.jellyfinRecent(config, null)
+                    CardType.JELLYFIN_RESUME -> items = vm.jellyfinContinue(config)
+                    CardType.SEERR_REQUESTS -> requests = vm.seerrList(config, "all")
+                    CardType.RADARR_QUEUE, CardType.SONARR_QUEUE, CardType.LIDARR_QUEUE -> queue = vm.arrQueueList(config)
+                    CardType.RADARR_MISSING, CardType.SONARR_MISSING, CardType.LIDARR_MISSING -> missing = vm.arrMissingList(config)
                 }
                 break
             } catch (c: kotlinx.coroutines.CancellationException) {
@@ -455,21 +462,47 @@ private fun DashCardView(
             }
         }
         Spacer(Modifier.height(8.dp))
+        val loading = @Composable { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp) }
+        val empty = @Composable { msg: String -> Text(msg, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp) }
         when {
             error != null -> Text("error: $error", fontFamily = Mono, color = ErrRed, fontSize = 11.sp)
-            card.type == org.phioster.nexarr.model.CardType.JELLYFIN_SESSIONS -> {
+            card.type == CardType.JELLYFIN_SESSIONS -> {
                 val s = sessions
                 when {
-                    s == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp)
-                    s.isEmpty() -> Text("no active sessions", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp)
+                    s == null -> loading()
+                    s.isEmpty() -> empty("no active sessions")
                     else -> Column { s.forEach { DashSessionRow(it, accent) } }
+                }
+            }
+            card.type == CardType.SEERR_REQUESTS -> {
+                val r = requests
+                when {
+                    r == null -> loading()
+                    r.isEmpty() -> empty("no requests")
+                    else -> Column { r.take(8).forEach { DashLineRow(it.title, it.subtitle.ifBlank { it.status }, accent) } }
+                }
+            }
+            card.type == CardType.RADARR_QUEUE || card.type == CardType.SONARR_QUEUE || card.type == CardType.LIDARR_QUEUE -> {
+                val q = queue
+                when {
+                    q == null -> loading()
+                    q.isEmpty() -> empty("queue empty")
+                    else -> Column { q.take(8).forEach { DashQueueRow(it, accent) } }
+                }
+            }
+            card.type == CardType.RADARR_MISSING || card.type == CardType.SONARR_MISSING || card.type == CardType.LIDARR_MISSING -> {
+                val m = missing
+                when {
+                    m == null -> loading()
+                    m.isEmpty() -> empty("nothing missing")
+                    else -> Column { m.take(8).forEach { DashLineRow(it.title, it.subtitle, accent) } }
                 }
             }
             else -> {
                 val it2 = items
                 when {
-                    it2 == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp)
-                    it2.isEmpty() -> Text("nothing here", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp)
+                    it2 == null -> loading()
+                    it2.isEmpty() -> empty("nothing here")
                     else -> Row(Modifier.horizontalScroll(rememberScrollState())) {
                         it2.forEach { m -> if (config != null) JellyPosterCard(m, config, accent) { onOpenService() } }
                     }
@@ -491,6 +524,24 @@ private fun DashSessionRow(item: org.phioster.nexarr.model.JellySession, accent:
             Spacer(Modifier.height(4.dp))
             LinearProgressIndicator(progress = { item.progressPct }, modifier = Modifier.fillMaxWidth(), color = MatrixGreen, trackColor = Surface)
         }
+    }
+}
+
+@Composable
+private fun DashLineRow(title: String, subtitle: String, accent: Color) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+        Text(title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (subtitle.isNotBlank()) Text(subtitle, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun DashQueueRow(item: org.phioster.nexarr.model.ArrQueueItem, accent: Color) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text("${item.status} · ${(item.progress * 100).toInt()}%", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(4.dp))
+        LinearProgressIndicator(progress = { item.progress }, modifier = Modifier.fillMaxWidth(), color = MatrixGreen, trackColor = Surface)
     }
 }
 
