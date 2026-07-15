@@ -42,7 +42,8 @@ data class DashCard(
     val accent: Long = 0, // custom accent ARGB; 0 = use the service's default colour
     val icon: String = "", // optional header icon key (see tabIcon); blank = none
     val posterSize: String = "", // "small" | "large" | "" (medium) for poster-row cards
-    val background: Boolean = false, // show the first item's art as a Ken-Burns card background
+    val background: Boolean = false, // show a random shown item's art as a Ken-Burns card background
+    val theme: String = "", // "" (flat) | "solid" | "glass" — card container look
 )
 
 /** A dashboard tab (a bottom-nav category) holding an ordered list of cards. */

@@ -491,7 +491,7 @@ private fun WidgetTabContent(
                     onRemove = { vm.removeCard(tab.id, card.id) },
                     onMoveUp = { vm.moveCard(tab.id, card.id, -1) },
                     onMoveDown = { vm.moveCard(tab.id, card.id, +1) },
-                    onSaveConfig = { title, count, accent, icon, posterSize, background -> vm.updateCard(tab.id, card.id, title, count, accent, icon, posterSize, background) },
+                    onSaveConfig = { title, count, accent, icon, posterSize, background, theme -> vm.updateCard(tab.id, card.id, title, count, accent, icon, posterSize, background, theme) },
                 )
             }
         }
@@ -511,7 +511,7 @@ private fun DashCardView(
     onRemove: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
-    onSaveConfig: (String, Int, Long, String, String, Boolean) -> Unit,
+    onSaveConfig: (String, Int, Long, String, String, Boolean, String) -> Unit,
 ) {
     val accent = if (card.accent != 0L) Color(card.accent) else Color((config?.type ?: ServiceType.JELLYFIN).accent)
     val posterWidth = when (card.posterSize) { "small" -> 84.dp; "large" -> 150.dp; else -> 120.dp }
@@ -561,20 +561,31 @@ private fun DashCardView(
         }
     }
 
-    val bgUrl = when (card.type) {
-        CardType.JELLYFIN_RECENT, CardType.JELLYFIN_RESUME -> items?.firstOrNull { it.posterUrl.isNotBlank() }?.posterUrl
-        CardType.SEERR_TRENDING, CardType.SEERR_POPULAR_MOVIES, CardType.SEERR_POPULAR_TV -> discover?.firstOrNull { it.posterUrl.isNotBlank() }?.posterUrl
+    val bgPool = when (card.type) {
+        CardType.JELLYFIN_RECENT, CardType.JELLYFIN_RESUME -> items?.take(card.count)?.map { it.posterUrl }?.filter { it.isNotBlank() }
+        CardType.SEERR_TRENDING, CardType.SEERR_POPULAR_MOVIES, CardType.SEERR_POPULAR_TV -> discover?.take(card.count)?.map { it.posterUrl }?.filter { it.isNotBlank() }
         else -> null
     }
+    // Pick one poster at random per open; re-picks only when the data reloads (or the tab is reopened / app restarts).
+    val bgUrl = remember(items, discover) { bgPool?.randomOrNull() }
     val hasBg = card.background && bgUrl != null && config != null
+    val boxed = hasBg || card.theme == "solid" || card.theme == "glass"
 
     Box(
         Modifier.fillMaxWidth()
-            .padding(vertical = if (hasBg) 8.dp else 0.dp)
-            .then(if (hasBg) Modifier.clip(RoundedCornerShape(14.dp)) else Modifier),
+            .padding(vertical = if (boxed) 8.dp else 0.dp)
+            .then(if (boxed) Modifier.clip(RoundedCornerShape(14.dp)) else Modifier)
+            .then(
+                when {
+                    hasBg -> Modifier
+                    card.theme == "solid" -> Modifier.background(Surface)
+                    card.theme == "glass" -> Modifier.background(Surface.copy(alpha = 0.5f)).border(1.dp, MatrixGreen.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+                    else -> Modifier
+                },
+            ),
     ) {
         if (hasBg) KenBurnsBackground(bgUrl!!, config!!)
-    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = if (hasBg) 12.dp else 0.dp)) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = if (boxed) 12.dp else 0.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f).clickable { onOpenService() }, verticalAlignment = Alignment.CenterVertically) {
                 if (card.icon.isNotBlank()) {
@@ -681,7 +692,7 @@ private fun DashCardView(
                 }
             }
         }
-        if (!hasBg) {
+        if (!boxed) {
             Spacer(Modifier.height(10.dp))
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
         }
@@ -695,6 +706,7 @@ private fun DashCardView(
         var cfgIcon by remember { mutableStateOf(card.icon) }
         var cfgPoster by remember { mutableStateOf(card.posterSize) }
         var cfgBg by remember { mutableStateOf(card.background) }
+        var cfgTheme by remember { mutableStateOf(card.theme) }
         val isPoster = card.type in setOf(CardType.JELLYFIN_RECENT, CardType.JELLYFIN_RESUME, CardType.SEERR_TRENDING, CardType.SEERR_POPULAR_MOVIES, CardType.SEERR_POPULAR_TV)
         val serviceColor = Color((config?.type ?: ServiceType.JELLYFIN).accent)
         val palette = listOf(0L, 0xFF35D07AL, 0xFF00A4DCL, 0xFFFFC230L, 0xFFE66000L, 0xFF818CF8L, 0xFFEC4899L, 0xFF8B5CF6L, 0xFFE5534BL)
@@ -713,6 +725,21 @@ private fun DashCardView(
                         TextButton(onClick = { if (cfgCount > 3) cfgCount-- }, contentPadding = PaddingValues(8.dp)) { Text("−", fontFamily = Mono, color = MatrixGreen, fontSize = 22.sp) }
                         Text("$cfgCount", fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, modifier = Modifier.widthIn(min = 40.dp), textAlign = TextAlign.Center)
                         TextButton(onClick = { if (cfgCount < 20) cfgCount++ }, contentPadding = PaddingValues(8.dp)) { Text("+", fontFamily = Mono, color = MatrixGreen, fontSize = 22.sp) }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    label("CARD STYLE")
+                    Spacer(Modifier.height(6.dp))
+                    Row {
+                        listOf("" to "Flat", "solid" to "Solid", "glass" to "Glass").forEach { (value, lbl) ->
+                            val sel = cfgTheme == value
+                            Box(
+                                Modifier.padding(end = 8.dp).size(width = 74.dp, height = 38.dp).clip(RoundedCornerShape(8.dp))
+                                    .background(if (sel) MatrixGreen else Surface)
+                                    .border(1.dp, if (sel) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .clickable { cfgTheme = value },
+                                contentAlignment = Alignment.Center,
+                            ) { Text(lbl, fontFamily = Mono, color = if (sel) Black else MatrixGreen, fontSize = 13.sp) }
+                        }
                     }
                     Spacer(Modifier.height(16.dp))
                     label("ACCENT (1st = service default)")
@@ -785,7 +812,7 @@ private fun DashCardView(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { onSaveConfig(cfgTitle, cfgCount, cfgAccent, cfgIcon, cfgPoster, cfgBg); showConfig = false }) {
+                TextButton(onClick = { onSaveConfig(cfgTitle, cfgCount, cfgAccent, cfgIcon, cfgPoster, cfgBg, cfgTheme); showConfig = false }) {
                     Text("Save", fontFamily = Mono, color = MatrixGreen)
                 }
             },

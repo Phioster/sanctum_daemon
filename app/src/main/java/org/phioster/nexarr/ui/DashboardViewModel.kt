@@ -187,11 +187,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         persistTabs(_tabs.value.map { if (it.id == tabId) it.copy(cards = it.cards.filterNot { c -> c.id == cardId }) else it })
     }
 
-    fun updateCard(tabId: String, cardId: String, title: String, count: Int, accent: Long, icon: String, posterSize: String, background: Boolean) {
+    fun updateCard(tabId: String, cardId: String, title: String, count: Int, accent: Long, icon: String, posterSize: String, background: Boolean, theme: String) {
         persistTabs(_tabs.value.map { tab ->
             if (tab.id != tabId) tab
             else tab.copy(cards = tab.cards.map {
-                if (it.id == cardId) it.copy(title = title.trim(), count = count.coerceIn(3, 20), accent = accent, icon = icon, posterSize = posterSize, background = background) else it
+                if (it.id == cardId) it.copy(title = title.trim(), count = count.coerceIn(3, 20), accent = accent, icon = icon, posterSize = posterSize, background = background, theme = theme) else it
             })
         })
     }
