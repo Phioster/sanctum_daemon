@@ -7,7 +7,9 @@ import kotlinx.serialization.Serializable
  * picker can offer the matching configured services. New types are added here over time.
  */
 @Serializable
-enum class CardType(val label: String, val service: ServiceType) {
+enum class CardType(val label: String, val service: ServiceType?) {
+    SECTION("Section", null),
+    QUICKBUTTONS("Quick Buttons", null),
     JELLYFIN_SESSIONS("Active Sessions", ServiceType.JELLYFIN),
     JELLYFIN_RECENT("Recently Added", ServiceType.JELLYFIN),
     JELLYFIN_RESUME("Continue Watching", ServiceType.JELLYFIN),
@@ -53,4 +55,5 @@ data class DashTab(
     val name: String,
     val cards: List<DashCard> = emptyList(),
     val icon: String = "", // icon key (see tabIcon in UI); blank = default
+    val accent: Long = 0, // custom tab accent ARGB; 0 = MatrixGreen default
 )

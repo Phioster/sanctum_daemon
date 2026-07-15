@@ -161,12 +161,26 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { dashStore.save(list) }
     }
 
-    fun addTab(name: String, icon: String = "") {
-        persistTabs(_tabs.value + org.phioster.nexarr.model.DashTab(java.util.UUID.randomUUID().toString(), name.ifBlank { "Tab" }, icon = icon))
+    fun addTab(name: String, icon: String = "", accent: Long = 0) {
+        persistTabs(_tabs.value + org.phioster.nexarr.model.DashTab(java.util.UUID.randomUUID().toString(), name.ifBlank { "Tab" }, icon = icon, accent = accent))
     }
 
     fun setTabIcon(tabId: String, icon: String) {
         persistTabs(_tabs.value.map { if (it.id == tabId) it.copy(icon = icon) else it })
+    }
+
+    fun setTabAccent(tabId: String, accent: Long) {
+        persistTabs(_tabs.value.map { if (it.id == tabId) it.copy(accent = accent) else it })
+    }
+
+    fun moveTab(tabId: String, direction: Int): Int {
+        val list = _tabs.value.toMutableList()
+        val idx = list.indexOfFirst { it.id == tabId }
+        val target = idx + direction
+        if (idx < 0 || target < 0 || target >= list.size) return idx
+        list[idx] = list[target].also { list[target] = list[idx] }
+        persistTabs(list)
+        return target
     }
 
     fun removeTab(tabId: String) {

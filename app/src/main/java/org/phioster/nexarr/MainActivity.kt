@@ -243,6 +243,24 @@ private val tabIcons: List<Pair<String, ImageVector>> = listOf(
 private fun tabIcon(key: String): ImageVector =
     tabIcons.firstOrNull { it.first == key }?.second ?: Icons.Filled.Home
 
+/** Accent choices shared by card and tab pickers; 0 = "use the default" (service/tab colour). */
+private val accentPalette = listOf(0L, 0xFF35D07AL, 0xFF00A4DCL, 0xFFFFC230L, 0xFFE66000L, 0xFF818CF8L, 0xFFEC4899L, 0xFF8B5CF6L, 0xFFE5534BL)
+
+@Composable
+private fun AccentPickerRow(selected: Long, defaultColor: Color, onPick: (Long) -> Unit) {
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+        accentPalette.forEach { c ->
+            val col = if (c == 0L) defaultColor else Color(c)
+            val sel = selected == c
+            Box(
+                Modifier.padding(end = 10.dp).size(34.dp).clip(RoundedCornerShape(50))
+                    .background(col).border(if (sel) 3.dp else 0.dp, MatrixGreen, RoundedCornerShape(50))
+                    .clickable { onPick(c) },
+            )
+        }
+    }
+}
+
 @Composable
 private fun IconPickerGrid(selected: String, onPick: (String) -> Unit) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
@@ -284,11 +302,14 @@ private fun HomeShell(
     var showEditTab by remember { mutableStateOf(false) }
     var editTabName by remember { mutableStateOf("") }
     var editTabIcon by remember { mutableStateOf("home") }
+    var newTabAccent by remember { mutableStateOf(0L) }
+    var editTabAccent by remember { mutableStateOf(0L) }
 
     val servicesIndex = tabs.size
     val current = selected.coerceIn(0, servicesIndex)
     val onServices = current == servicesIndex
     val currentTab = tabs.getOrNull(current)
+    val currentAccent = currentTab?.takeIf { it.accent != 0L }?.let { Color(it.accent) } ?: MatrixGreen
 
     LaunchedEffect(onServices) {
         if (onServices) while (true) { kotlinx.coroutines.delay(30_000); vm.refreshAll() }
@@ -304,7 +325,7 @@ private fun HomeShell(
         containerColor = Black,
         topBar = {
             TopAppBar(
-                title = { Text(if (onServices) "> nexarr_" else (currentTab?.name ?: "home"), fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen) },
+                title = { Text(if (onServices) "> nexarr_" else (currentTab?.name ?: "home"), fontFamily = Mono, fontWeight = FontWeight.Bold, color = if (onServices) MatrixGreen else currentAccent) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
                 actions = {
                     IconButton(onClick = onSearch) { Icon(Icons.Filled.Search, contentDescription = "Search", tint = MatrixGreen) }
@@ -321,12 +342,16 @@ private fun HomeShell(
         bottomBar = {
             NavigationBar(containerColor = Surface) {
                 tabs.forEachIndexed { i, t ->
+                    val ta = if (t.accent != 0L) Color(t.accent) else MatrixGreen
                     NavigationBarItem(
                         selected = current == i,
                         onClick = { selected = i; editMode = false },
                         icon = { Icon(tabIcon(t.icon), contentDescription = null) },
                         label = { Text(t.name, fontFamily = Mono, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        colors = navColors,
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = Black, selectedTextColor = ta, indicatorColor = ta,
+                            unselectedIconColor = ta.copy(alpha = 0.5f), unselectedTextColor = ta.copy(alpha = 0.5f),
+                        ),
                     )
                 }
                 NavigationBarItem(
@@ -354,9 +379,10 @@ private fun HomeShell(
                     tab = currentTab,
                     editMode = editMode,
                     onOpenService = onOpen,
-                    onAddTab = { newTabName = ""; newTabIcon = "home"; showAddTab = true },
-                    onEditTab = { editTabName = currentTab.name; editTabIcon = currentTab.icon.ifBlank { "home" }; showEditTab = true },
+                    onAddTab = { newTabName = ""; newTabIcon = "home"; newTabAccent = 0L; showAddTab = true },
+                    onEditTab = { editTabName = currentTab.name; editTabIcon = currentTab.icon.ifBlank { "home" }; editTabAccent = currentTab.accent; showEditTab = true },
                     onDeleteTab = { vm.removeTab(currentTab.id); selected = 0; editMode = false },
+                    onMoveTab = { dir -> selected = vm.moveTab(currentTab.id, dir) },
                 )
             }
         }
@@ -381,10 +407,14 @@ private fun HomeShell(
                     Text("ICON", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
                     Spacer(Modifier.height(6.dp))
                     IconPickerGrid(newTabIcon) { newTabIcon = it }
+                    Spacer(Modifier.height(12.dp))
+                    Text("ACCENT", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    Spacer(Modifier.height(6.dp))
+                    AccentPickerRow(newTabAccent, MatrixGreen) { newTabAccent = it }
                 }
             },
             confirmButton = {
-                TextButton(enabled = newTabName.isNotBlank(), onClick = { val n = newTabName; val ic = newTabIcon; showAddTab = false; vm.addTab(n, ic); selected = tabs.size }) {
+                TextButton(enabled = newTabName.isNotBlank(), onClick = { val n = newTabName; val ic = newTabIcon; val ac = newTabAccent; showAddTab = false; vm.addTab(n, ic, ac); selected = tabs.size }) {
                     Text("Add", fontFamily = Mono, color = MatrixGreen)
                 }
             },
@@ -403,10 +433,14 @@ private fun HomeShell(
                     Text("ICON", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
                     Spacer(Modifier.height(6.dp))
                     IconPickerGrid(editTabIcon) { editTabIcon = it }
+                    Spacer(Modifier.height(12.dp))
+                    Text("ACCENT", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    Spacer(Modifier.height(6.dp))
+                    AccentPickerRow(editTabAccent, MatrixGreen) { editTabAccent = it }
                 }
             },
             confirmButton = {
-                TextButton(enabled = editTabName.isNotBlank(), onClick = { val id = currentTab.id; val n = editTabName; val ic = editTabIcon; showEditTab = false; vm.renameTab(id, n); vm.setTabIcon(id, ic) }) {
+                TextButton(enabled = editTabName.isNotBlank(), onClick = { val id = currentTab.id; val n = editTabName; val ic = editTabIcon; val ac = editTabAccent; showEditTab = false; vm.renameTab(id, n); vm.setTabIcon(id, ic); vm.setTabAccent(id, ac) }) {
                     Text("Save", fontFamily = Mono, color = MatrixGreen)
                 }
             },
@@ -454,6 +488,7 @@ private fun WidgetTabContent(
     onAddTab: () -> Unit,
     onEditTab: () -> Unit,
     onDeleteTab: () -> Unit,
+    onMoveTab: (Int) -> Unit,
 ) {
     val services by vm.services.collectAsState()
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
@@ -461,9 +496,13 @@ private fun WidgetTabContent(
             item {
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("◀", fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, modifier = Modifier.clickable { onMoveTab(-1) }.padding(end = 12.dp))
+                        Text("▶", fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, modifier = Modifier.clickable { onMoveTab(1) })
+                    }
                     Text("+ new tab", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, modifier = Modifier.clickable { onAddTab() })
                     Text("edit tab", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, modifier = Modifier.clickable { onEditTab() })
-                    Text("delete this tab", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.clickable { onDeleteTab() })
+                    Text("delete", fontFamily = Mono, color = ErrRed, fontSize = 13.sp, modifier = Modifier.clickable { onDeleteTab() })
                 }
                 Spacer(Modifier.height(4.dp))
                 HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
@@ -492,6 +531,7 @@ private fun WidgetTabContent(
                     onMoveUp = { vm.moveCard(tab.id, card.id, -1) },
                     onMoveDown = { vm.moveCard(tab.id, card.id, +1) },
                     onSaveConfig = { title, count, accent, icon, posterSize, background, theme -> vm.updateCard(tab.id, card.id, title, count, accent, icon, posterSize, background, theme) },
+                    allServices = services,
                 )
             }
         }
@@ -512,8 +552,10 @@ private fun DashCardView(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onSaveConfig: (String, Int, Long, String, String, Boolean, String) -> Unit,
+    allServices: List<ServiceConfig> = emptyList(),
 ) {
-    val accentColor = if (card.accent != 0L) Color(card.accent) else Color((config?.type ?: ServiceType.JELLYFIN).accent)
+    val serviceless = card.type.service == null
+    val accentColor = if (card.accent != 0L) Color(card.accent) else if (config != null) Color(config.type.accent) else MatrixGreen
     // On a solid (accent-tinted) panel, accent-coloured text/icons flip to black for contrast.
     val accent = if (card.theme == "solid") Black else accentColor
     val posterWidth = when (card.posterSize) { "small" -> 84.dp; "large" -> 150.dp; else -> 120.dp }
@@ -529,8 +571,11 @@ private fun DashCardView(
     var nzbHistory by remember { mutableStateOf<List<org.phioster.nexarr.model.NzbHistoryEntry>?>(null) }
     var discover by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrDiscoverItem>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(card.id, config?.id) {
+        if (serviceless) return@LaunchedEffect // Section / Quick Buttons need no data
         if (config == null) { error = "service not found"; return@LaunchedEffect }
         // Retry a couple of times: on a cold start the Jellyfin token may not be ready yet.
         var attempt = 0
@@ -538,6 +583,7 @@ private fun DashCardView(
             error = null
             try {
                 when (card.type) {
+                    CardType.SECTION, CardType.QUICKBUTTONS -> {}
                     CardType.JELLYFIN_SESSIONS -> sessions = vm.jellyfinSessionList(config)
                     CardType.JELLYFIN_RECENT -> items = vm.jellyfinRecent(config, null)
                     CardType.JELLYFIN_RESUME -> items = vm.jellyfinContinue(config)
@@ -603,8 +649,8 @@ private fun DashCardView(
                     Spacer(Modifier.width(8.dp))
                 }
                 Column {
-                    Text(card.title.ifBlank { card.type.label }.uppercase(), fontFamily = Mono, color = if (card.theme == "solid") Black else MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(config?.label ?: "?", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp)
+                    Text(card.title.ifBlank { card.type.label }.uppercase(), fontFamily = Mono, color = if (card.theme == "solid") Black else if (card.type == CardType.SECTION) accentColor else MatrixGreen, fontSize = if (card.type == CardType.SECTION) 15.sp else 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (!serviceless) Text(config?.label ?: "?", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp)
                 }
             }
             if (editMode) {
@@ -619,6 +665,27 @@ private fun DashCardView(
         val empty = @Composable { msg: String -> Text(msg, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp) }
         when {
             error != null -> Text("error: $error", fontFamily = Mono, color = ErrRed, fontSize = 11.sp)
+            card.type == CardType.SECTION -> HorizontalDivider(color = accentColor.copy(alpha = 0.6f), thickness = 2.dp)
+            card.type == CardType.QUICKBUTTONS -> {
+                val actions = allServices.flatMap { svc -> quickActionsFor(svc).map { svc to it } }
+                if (actions.isEmpty()) empty("no actions available")
+                else Column {
+                    actions.forEach { (svc, qa) ->
+                        Text(
+                            "▸ ${qa.label}",
+                            fontFamily = Mono, color = accentColor, fontSize = 13.sp,
+                            modifier = Modifier.fillMaxWidth()
+                                .clickable {
+                                    scope.launch {
+                                        val res = runCatching { qa.run(vm, svc) }.getOrElse { it.message ?: "failed" }
+                                        android.widget.Toast.makeText(ctx, res, android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                                .padding(vertical = 8.dp),
+                        )
+                    }
+                }
+            }
             card.type == CardType.JELLYFIN_SESSIONS -> {
                 val s = sessions
                 when {
@@ -718,8 +785,7 @@ private fun DashCardView(
         var cfgBg by remember { mutableStateOf(card.background) }
         var cfgTheme by remember { mutableStateOf(card.theme) }
         val isPoster = card.type in setOf(CardType.JELLYFIN_RECENT, CardType.JELLYFIN_RESUME, CardType.SEERR_TRENDING, CardType.SEERR_POPULAR_MOVIES, CardType.SEERR_POPULAR_TV)
-        val serviceColor = Color((config?.type ?: ServiceType.JELLYFIN).accent)
-        val palette = listOf(0L, 0xFF35D07AL, 0xFF00A4DCL, 0xFFFFC230L, 0xFFE66000L, 0xFF818CF8L, 0xFFEC4899L, 0xFF8B5CF6L, 0xFFE5534BL)
+        val serviceColor = if (config != null) Color(config.type.accent) else MatrixGreen
         val label = @Composable { t: String -> Text(t, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp) }
         AlertDialog(
             onDismissRequest = { showConfig = false },
@@ -754,17 +820,7 @@ private fun DashCardView(
                     Spacer(Modifier.height(16.dp))
                     label("ACCENT (1st = service default)")
                     Spacer(Modifier.height(6.dp))
-                    Row(Modifier.horizontalScroll(rememberScrollState())) {
-                        palette.forEach { c ->
-                            val col = if (c == 0L) serviceColor else Color(c)
-                            val sel = cfgAccent == c
-                            Box(
-                                Modifier.padding(end = 10.dp).size(34.dp).clip(RoundedCornerShape(50))
-                                    .background(col).border(if (sel) 3.dp else 0.dp, MatrixGreen, RoundedCornerShape(50))
-                                    .clickable { cfgAccent = c },
-                            )
-                        }
-                    }
+                    AccentPickerRow(cfgAccent, serviceColor) { cfgAccent = it }
                     Spacer(Modifier.height(16.dp))
                     label("HEADER ICON")
                     Spacer(Modifier.height(6.dp))
@@ -891,6 +947,16 @@ private fun DashDiscoverPoster(item: org.phioster.nexarr.model.SeerrDiscoverItem
     }
 }
 
+/** A one-tap action a Quick Buttons card can run against a service. */
+private class QuickAction(val label: String, val run: suspend (DashboardViewModel, ServiceConfig) -> String)
+
+private fun quickActionsFor(svc: ServiceConfig): List<QuickAction> = when (svc.type) {
+    ServiceType.JELLYFIN -> listOf(QuickAction("Scan ${svc.label}") { vm, s -> vm.jellyfinScan(s) })
+    ServiceType.RADARR, ServiceType.SONARR, ServiceType.LIDARR -> listOf(QuickAction("Search ${svc.label}") { vm, s -> vm.arrSearchAllItems(s, false) })
+    ServiceType.PROWLARR -> listOf(QuickAction("Test ${svc.label}") { vm, s -> vm.prowlarrTestAll(s) })
+    else -> emptyList()
+}
+
 @Composable
 private fun BoxScope.KenBurnsBackground(url: String, config: ServiceConfig) {
     val t = rememberInfiniteTransition(label = "kb")
@@ -914,12 +980,14 @@ private fun AddCardDialog(
 ) {
     // Card types grouped by the service they pull from, only for service types the
     // user actually has configured — like nzb360's per-service "Add new card" sheet.
+    // Service-less types (Section, Quick Buttons) live in a "Layout" group shown first.
     val groups = remember(services) {
-        CardType.entries.groupBy { it.service }
-            .filterKeys { st -> services.any { it.type == st } }
-            .toList()
+        val byService = CardType.entries.groupBy { it.service }
+        val layout = byService[null]?.let { listOf<Pair<ServiceType?, List<CardType>>>(null to it) } ?: emptyList()
+        layout + byService.filterKeys { st -> st != null && services.any { it.type == st } }.toList()
     }
-    var expanded by remember { mutableStateOf<ServiceType?>(groups.firstOrNull()?.first) }
+    fun keyOf(st: ServiceType?) = st?.name ?: "layout"
+    var expandedKey by remember { mutableStateOf(groups.firstOrNull()?.let { keyOf(it.first) } ?: "") }
     var pendingType by remember { mutableStateOf<CardType?>(null) }
 
     AlertDialog(
@@ -932,17 +1000,17 @@ private fun AddCardDialog(
                     Text("no services configured yet", fontFamily = Mono, color = ErrRed, fontSize = 13.sp)
                 }
                 groups.forEach { (svcType, types) ->
-                    val accent = Color(svcType.accent)
-                    val open = expanded == svcType
+                    val accent = if (svcType != null) Color(svcType.accent) else MatrixGreen
+                    val open = expandedKey == keyOf(svcType)
                     Row(
                         Modifier.fillMaxWidth()
-                            .clickable { expanded = if (open) null else svcType; pendingType = null }
+                            .clickable { expandedKey = if (open) "" else keyOf(svcType); pendingType = null }
                             .padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text("●", color = accent, fontSize = 12.sp)
                         Spacer(Modifier.width(8.dp))
-                        Text(svcType.label, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        Text(svcType?.label ?: "Layout", fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         Text("${types.size} cards", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp)
                         Spacer(Modifier.width(8.dp))
                         Text(if (open) "▾" else "▸", fontFamily = Mono, color = MatrixGreen)
@@ -955,14 +1023,17 @@ private fun AddCardDialog(
                                 fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.85f), fontSize = 13.sp,
                                 modifier = Modifier.fillMaxWidth()
                                     .clickable {
-                                        if (cfgs.size == 1) onAdd(t, cfgs.first().id)
-                                        else pendingType = if (pendingType == t) null else t
+                                        when {
+                                            svcType == null -> onAdd(t, "") // service-less card
+                                            cfgs.size == 1 -> onAdd(t, cfgs.first().id)
+                                            else -> pendingType = if (pendingType == t) null else t
+                                        }
                                     }
                                     .padding(start = 20.dp, top = 7.dp, bottom = 7.dp),
                             )
                             // If several services of this type exist, pick which one.
-                            if (pendingType == t) {
-                                services.filter { it.type == svcType }.forEach { c ->
+                            if (pendingType == t && svcType != null) {
+                                cfgs.forEach { c ->
                                     Text(
                                         "  → ${c.label}",
                                         fontFamily = Mono, color = accent, fontSize = 12.sp,
