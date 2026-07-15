@@ -1267,10 +1267,26 @@ private fun NotifyToggleRow(label: String, sub: String, checked: Boolean, enable
 @Composable
 private fun NotificationSettingsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
     val s by vm.notifySettings.collectAsState()
+    val endpoint by vm.notifyEndpoint.collectAsState()
     val context = LocalContext.current
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     val permLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
     ) { }
+
+    fun enableLivePush() {
+        val distributors = org.unifiedpush.android.connector.UnifiedPush.getDistributors(context)
+        if (distributors.isEmpty()) {
+            android.widget.Toast.makeText(context, "No push app found — install ntfy first", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        org.unifiedpush.android.connector.UnifiedPush.saveDistributor(context, distributors.first())
+        org.unifiedpush.android.connector.UnifiedPush.registerApp(context)
+    }
+
+    fun disableLivePush() {
+        org.unifiedpush.android.connector.UnifiedPush.unregisterApp(context)
+    }
 
     fun requestPermIfNeeded() {
         if (android.os.Build.VERSION.SDK_INT >= 33 &&
@@ -1320,6 +1336,35 @@ private fun NotificationSettingsScreen(vm: DashboardViewModel, onBack: () -> Uni
                 "Android runs background checks at most every 15 minutes and may delay them to save battery. The first check just records the current state, so you only get notified about things that happen afterwards.",
                 fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp,
             )
+
+            Spacer(Modifier.height(24.dp))
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
+            Text("LIVE PUSH (ntfy)", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
+            Text(
+                "Instant push via your ntfy server — no 15-minute wait. Enable it, then paste the endpoint URL below into each service's webhook (Radarr/Sonarr/Lidarr › Connect › Webhook, Jellyseerr › Notifications › Webhook, etc.).",
+                fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp,
+            )
+            Spacer(Modifier.height(10.dp))
+            if (endpoint.isBlank()) {
+                Box(
+                    Modifier.clip(RoundedCornerShape(8.dp)).background(MatrixGreen).clickable { enableLivePush() }.padding(horizontal = 16.dp, vertical = 10.dp),
+                ) { Text("Enable live push", fontFamily = Mono, color = Black, fontSize = 14.sp) }
+            } else {
+                Text("ENDPOINT URL", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp)
+                Spacer(Modifier.height(4.dp))
+                Text(endpoint, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.3f), RoundedCornerShape(6.dp)).padding(10.dp))
+                Spacer(Modifier.height(10.dp))
+                Row {
+                    Box(
+                        Modifier.clip(RoundedCornerShape(8.dp)).background(MatrixGreen).clickable { clipboard.setText(androidx.compose.ui.text.AnnotatedString(endpoint)) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                    ) { Text("Copy URL", fontFamily = Mono, color = Black, fontSize = 14.sp) }
+                    Spacer(Modifier.width(10.dp))
+                    Box(
+                        Modifier.clip(RoundedCornerShape(8.dp)).border(1.dp, ErrRed, RoundedCornerShape(8.dp)).clickable { disableLivePush() }.padding(horizontal = 16.dp, vertical = 10.dp),
+                    ) { Text("Disable", fontFamily = Mono, color = ErrRed, fontSize = 14.sp) }
+                }
+            }
+            Spacer(Modifier.height(32.dp))
         }
     }
 }

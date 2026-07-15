@@ -15,6 +15,7 @@ import org.phioster.nexarr.model.NotifySettings
 private val Context.notifyDataStore by preferencesDataStore(name = "nexarr_notify")
 private val SETTINGS_KEY = stringPreferencesKey("settings_json")
 private val SEEN_KEY = stringPreferencesKey("seen_json")
+private val ENDPOINT_KEY = stringPreferencesKey("endpoint")
 private val json = Json { ignoreUnknownKeys = true }
 
 /**
@@ -40,5 +41,12 @@ class NotifyStore(private val context: Context) {
 
     suspend fun saveSeen(m: Map<String, List<String>>) {
         context.notifyDataStore.edit { it[SEEN_KEY] = json.encodeToString(m) }
+    }
+
+    /** The UnifiedPush endpoint URL the user pastes into each service's webhook (blank = not registered). */
+    val endpoint: Flow<String> = context.notifyDataStore.data.map { it[ENDPOINT_KEY] ?: "" }
+
+    suspend fun saveEndpoint(url: String) {
+        context.notifyDataStore.edit { it[ENDPOINT_KEY] = url }
     }
 }

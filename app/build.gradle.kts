@@ -13,8 +13,8 @@ android {
         applicationId = "org.phioster.nexarr"
         minSdk = 26
         targetSdk = 35
-        versionCode = 65
-        versionName = "0.48.0"
+        versionCode = 66
+        versionName = "0.49.0"
     }
 
     signingConfigs {
@@ -71,6 +71,9 @@ dependencies {
 
     // Background notification polling
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+
+    // Live push via UnifiedPush (ntfy distributor)
+    implementation("org.unifiedpush.android:connector:2.4.0")
 
     // Image loading (posters, cast photos)
     implementation("io.coil-kt:coil-compose:2.7.0")
