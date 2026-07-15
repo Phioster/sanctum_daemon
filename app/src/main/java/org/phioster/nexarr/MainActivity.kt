@@ -58,6 +58,14 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -482,7 +490,7 @@ private fun WidgetTabContent(
                     onRemove = { vm.removeCard(tab.id, card.id) },
                     onMoveUp = { vm.moveCard(tab.id, card.id, -1) },
                     onMoveDown = { vm.moveCard(tab.id, card.id, +1) },
-                    onSaveConfig = { title, count, accent, icon, posterSize -> vm.updateCard(tab.id, card.id, title, count, accent, icon, posterSize) },
+                    onSaveConfig = { title, count, accent, icon, posterSize, background -> vm.updateCard(tab.id, card.id, title, count, accent, icon, posterSize, background) },
                 )
             }
         }
@@ -502,7 +510,7 @@ private fun DashCardView(
     onRemove: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
-    onSaveConfig: (String, Int, Long, String, String) -> Unit,
+    onSaveConfig: (String, Int, Long, String, String, Boolean) -> Unit,
 ) {
     val accent = if (card.accent != 0L) Color(card.accent) else Color((config?.type ?: ServiceType.JELLYFIN).accent)
     val posterWidth = when (card.posterSize) { "small" -> 84.dp; "large" -> 150.dp; else -> 120.dp }
@@ -552,7 +560,20 @@ private fun DashCardView(
         }
     }
 
-    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+    val bgUrl = when (card.type) {
+        CardType.JELLYFIN_RECENT, CardType.JELLYFIN_RESUME -> items?.firstOrNull { it.posterUrl.isNotBlank() }?.posterUrl
+        CardType.SEERR_TRENDING, CardType.SEERR_POPULAR_MOVIES, CardType.SEERR_POPULAR_TV -> discover?.firstOrNull { it.posterUrl.isNotBlank() }?.posterUrl
+        else -> null
+    }
+    val hasBg = card.background && bgUrl != null && config != null
+
+    Box(
+        Modifier.fillMaxWidth()
+            .padding(vertical = if (hasBg) 8.dp else 0.dp)
+            .then(if (hasBg) Modifier.clip(RoundedCornerShape(14.dp)) else Modifier),
+    ) {
+        if (hasBg) KenBurnsBackground(bgUrl!!, config!!)
+    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = if (hasBg) 12.dp else 0.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f).clickable { onOpenService() }, verticalAlignment = Alignment.CenterVertically) {
                 if (card.icon.isNotBlank()) {
@@ -659,8 +680,11 @@ private fun DashCardView(
                 }
             }
         }
-        Spacer(Modifier.height(10.dp))
-        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+        if (!hasBg) {
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+        }
+    }
     }
 
     if (showConfig) {
@@ -669,6 +693,7 @@ private fun DashCardView(
         var cfgAccent by remember { mutableStateOf(card.accent) }
         var cfgIcon by remember { mutableStateOf(card.icon) }
         var cfgPoster by remember { mutableStateOf(card.posterSize) }
+        var cfgBg by remember { mutableStateOf(card.background) }
         val isPoster = card.type in setOf(CardType.JELLYFIN_RECENT, CardType.JELLYFIN_RESUME, CardType.SEERR_TRENDING, CardType.SEERR_POPULAR_MOVIES, CardType.SEERR_POPULAR_TV)
         val serviceColor = Color((config?.type ?: ServiceType.JELLYFIN).accent)
         val palette = listOf(0L, 0xFF35D07AL, 0xFF00A4DCL, 0xFFFFC230L, 0xFFE66000L, 0xFF818CF8L, 0xFFEC4899L, 0xFF8B5CF6L, 0xFFE5534BL)
@@ -741,11 +766,25 @@ private fun DashCardView(
                                 ) { Text(lbl, fontFamily = Mono, color = if (sel) Black else MatrixGreen, fontSize = 15.sp) }
                             }
                         }
+                        Spacer(Modifier.height(16.dp))
+                        Row(
+                            Modifier.fillMaxWidth().clickable { cfgBg = !cfgBg },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(
+                                Modifier.size(22.dp).clip(RoundedCornerShape(5.dp))
+                                    .background(if (cfgBg) MatrixGreen else Surface)
+                                    .border(1.dp, if (cfgBg) MatrixGreen else MatrixGreen.copy(alpha = 0.4f), RoundedCornerShape(5.dp)),
+                                contentAlignment = Alignment.Center,
+                            ) { if (cfgBg) Text("✓", fontFamily = Mono, color = Black, fontSize = 13.sp) }
+                            Spacer(Modifier.width(10.dp))
+                            Text("Fanart background (Ken Burns)", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
+                        }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { onSaveConfig(cfgTitle, cfgCount, cfgAccent, cfgIcon, cfgPoster); showConfig = false }) {
+                TextButton(onClick = { onSaveConfig(cfgTitle, cfgCount, cfgAccent, cfgIcon, cfgPoster, cfgBg); showConfig = false }) {
                     Text("Save", fontFamily = Mono, color = MatrixGreen)
                 }
             },
@@ -812,6 +851,21 @@ private fun DashDiscoverPoster(item: org.phioster.nexarr.model.SeerrDiscoverItem
         Spacer(Modifier.height(4.dp))
         Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
+}
+
+@Composable
+private fun BoxScope.KenBurnsBackground(url: String, config: ServiceConfig) {
+    val t = rememberInfiniteTransition(label = "kb")
+    val scale by t.animateFloat(1.08f, 1.28f, infiniteRepeatable(tween(19000, easing = LinearEasing), RepeatMode.Reverse), label = "s")
+    val dx by t.animateFloat(-18f, 18f, infiniteRepeatable(tween(23000, easing = LinearEasing), RepeatMode.Reverse), label = "x")
+    val dy by t.animateFloat(12f, -12f, infiniteRepeatable(tween(27000, easing = LinearEasing), RepeatMode.Reverse), label = "y")
+    JellyPoster(
+        url, config,
+        Modifier.matchParentSize().graphicsLayer { scaleX = scale; scaleY = scale; translationX = dx; translationY = dy },
+        RoundedCornerShape(0.dp), ContentScale.Crop,
+    )
+    // Dark scrim so the monospace foreground stays readable over any art.
+    Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Black.copy(alpha = 0.55f), Black.copy(alpha = 0.82f)))))
 }
 
 @Composable
