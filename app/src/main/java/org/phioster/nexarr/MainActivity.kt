@@ -789,7 +789,7 @@ private fun JellyfinScreen(
     var mediaContents by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyMediaItem>?>(null) }
     var resumeItems by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyMediaItem>?>(null) }
     var latestItems by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyMediaItem>?>(null) }
-    var browseStack by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var browseStack by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyMediaItem>>(emptyList()) }
     var mediaDetail by remember { mutableStateOf<org.phioster.nexarr.model.JellyMediaDetail?>(null) }
 
     suspend fun loadSessions() {
@@ -819,20 +819,22 @@ private fun JellyfinScreen(
             latestItems = vm.jellyfinRecent(config, null)
         } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
     }
-    suspend fun loadMediaFolder(id: String) {
+    suspend fun loadMediaFolder(parent: org.phioster.nexarr.model.JellyMediaItem) {
         listError = null
         mediaContents = null
-        try { mediaContents = vm.jellyfinItemList(config, id) } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
+        try {
+            mediaContents = vm.jellyfinItemList(config, parent.id, if (parent.kind == "Season") parent.number else null)
+        } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
     }
     LaunchedEffect(mode) { when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); else -> {} } }
     LaunchedEffect(mode, browseStack) {
-        if (mode == 3) { if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last().first) }
+        if (mode == 3) { if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last()) }
     }
     BackHandler(enabled = mode == 3 && (mediaDetail != null || browseStack.isNotEmpty())) {
         if (mediaDetail != null) mediaDetail = null else browseStack = browseStack.dropLast(1)
     }
     fun openMedia(it: org.phioster.nexarr.model.JellyMediaItem) {
-        if (it.isFolder) browseStack = browseStack + (it.id to it.name)
+        if (it.isFolder) browseStack = browseStack + it
         else scope.launch { mediaDetail = runCatching { vm.jellyfinMediaDetail(config, it.id) }.getOrElse { null } }
     }
     fun act(action: suspend () -> String) {
@@ -889,7 +891,7 @@ private fun JellyfinScreen(
                         scope.launch {
                             when (mode) {
                                 0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard()
-                                else -> if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last().first)
+                                else -> if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last())
                             }
                         }
                     }) {
@@ -982,10 +984,10 @@ private fun JellyfinScreen(
                                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                             Text("‹ back", fontFamily = Mono, color = accent, fontSize = 13.sp, modifier = Modifier.clickable { browseStack = browseStack.dropLast(1) })
                                             Spacer(Modifier.weight(1f))
-                                            Text("⟳ scan", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp, modifier = Modifier.clickable { scope.launch { actionMsg = vm.jellyfinScanLibrary(config, here.first) } })
+                                            Text("⟳ scan", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp, modifier = Modifier.clickable { scope.launch { actionMsg = vm.jellyfinScanLibrary(config, here.id) } })
                                         }
                                         Spacer(Modifier.height(4.dp))
-                                        Text(here.second, fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                        Text(here.name, fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                                         Spacer(Modifier.height(6.dp))
                                         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
                                     }

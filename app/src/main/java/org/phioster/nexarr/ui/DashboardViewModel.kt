@@ -194,8 +194,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         jellyfinResume(config)
     suspend fun jellyfinRecent(config: ServiceConfig, parentId: String? = null): List<org.phioster.nexarr.model.JellyMediaItem> =
         jellyfinLatest(config, parentId)
-    suspend fun jellyfinItemList(config: ServiceConfig, parentId: String): List<org.phioster.nexarr.model.JellyMediaItem> =
-        jellyfinItems(config, parentId)
+    suspend fun jellyfinItemList(config: ServiceConfig, parentId: String, seasonNumber: Int? = null): List<org.phioster.nexarr.model.JellyMediaItem> =
+        jellyfinItems(config, parentId, seasonNumber)
     suspend fun jellyfinMediaDetail(config: ServiceConfig, itemId: String): org.phioster.nexarr.model.JellyMediaDetail =
         jellyfinItemDetail(config, itemId)
     suspend fun jellyfinScanLibrary(config: ServiceConfig, itemId: String): String =

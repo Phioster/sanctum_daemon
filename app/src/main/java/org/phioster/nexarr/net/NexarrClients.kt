@@ -1586,6 +1586,7 @@ private fun JfItem.toMediaItem(config: ServiceConfig, token: String) = JellyMedi
     posterUrl = jellyImageUrl(config, Id, ImageTags?.get("Primary"), token),
     isFolder = IsFolder,
     progressPct = ((UserData?.PlayedPercentage ?: 0.0) / 100.0).toFloat(),
+    number = IndexNumber,
 )
 
 /** The user's libraries (Movies, Shows, Music, …). */
@@ -1612,12 +1613,18 @@ suspend fun jellyfinLatest(config: ServiceConfig, parentId: String? = null): Lis
     api.latest(uid, 20, parentId).map { it.toMediaItem(config, token) }
 }
 
-/** Contents of a library or folder. */
-suspend fun jellyfinItems(config: ServiceConfig, parentId: String): List<JellyMediaItem> = withContext(Dispatchers.IO) {
+/**
+ * Contents of a library or folder. When [seasonNumber] is given (i.e. the parent is a season),
+ * episodes are filtered to that exact season — Jellyfin otherwise merges Specials (season 0)
+ * into the season they aired within.
+ */
+suspend fun jellyfinItems(config: ServiceConfig, parentId: String, seasonNumber: Int? = null): List<JellyMediaItem> = withContext(Dispatchers.IO) {
     val token = jellyfinAccessToken(config)
     val api = jfApi(config, token)
     val uid = jellyfinResolveUserId(config, api)
-    api.items(uid, parentId).Items.map { it.toMediaItem(config, token) }
+    api.items(uid, parentId).Items
+        .filter { seasonNumber == null || it.Type != "Episode" || it.ParentIndexNumber == seasonNumber }
+        .map { it.toMediaItem(config, token) }
 }
 
 /** Full detail for one media item, including cast. */
