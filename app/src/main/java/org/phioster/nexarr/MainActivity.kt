@@ -513,7 +513,9 @@ private fun DashCardView(
     onMoveDown: () -> Unit,
     onSaveConfig: (String, Int, Long, String, String, Boolean, String) -> Unit,
 ) {
-    val accent = if (card.accent != 0L) Color(card.accent) else Color((config?.type ?: ServiceType.JELLYFIN).accent)
+    val accentColor = if (card.accent != 0L) Color(card.accent) else Color((config?.type ?: ServiceType.JELLYFIN).accent)
+    // On a solid (accent-tinted) panel, accent-coloured text/icons flip to black for contrast.
+    val accent = if (card.theme == "solid") Black else accentColor
     val posterWidth = when (card.posterSize) { "small" -> 84.dp; "large" -> 150.dp; else -> 120.dp }
     var showConfig by remember { mutableStateOf(false) }
     var items by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyMediaItem>?>(null) }
@@ -578,13 +580,21 @@ private fun DashCardView(
             .then(
                 when {
                     hasBg -> Modifier
-                    card.theme == "solid" -> Modifier.background(Surface)
-                    card.theme == "glass" -> Modifier.background(Surface.copy(alpha = 0.5f)).border(1.dp, MatrixGreen.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+                    card.theme == "solid" -> Modifier.background(androidx.compose.ui.graphics.lerp(accentColor, Black, 0.4f))
+                    card.theme == "glass" -> Modifier.background(Surface.copy(alpha = 0.5f)).border(1.5.dp, accentColor.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
                     else -> Modifier
                 },
             ),
     ) {
         if (hasBg) KenBurnsBackground(bgUrl!!, config!!)
+        if (card.theme == "glass") {
+            // Glass sheen: a soft diagonal highlight tinted with the accent.
+            Box(
+                Modifier.matchParentSize().background(
+                    Brush.linearGradient(listOf(Color.White.copy(alpha = 0.16f), Color.Transparent, accentColor.copy(alpha = 0.10f))),
+                ),
+            )
+        }
     Column(Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = if (boxed) 12.dp else 0.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f).clickable { onOpenService() }, verticalAlignment = Alignment.CenterVertically) {
@@ -593,7 +603,7 @@ private fun DashCardView(
                     Spacer(Modifier.width(8.dp))
                 }
                 Column {
-                    Text(card.title.ifBlank { card.type.label }.uppercase(), fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(card.title.ifBlank { card.type.label }.uppercase(), fontFamily = Mono, color = if (card.theme == "solid") Black else MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(config?.label ?: "?", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp)
                 }
             }
