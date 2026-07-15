@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -491,7 +492,10 @@ private fun WidgetTabContent(
     onMoveTab: (Int) -> Unit,
 ) {
     val services by vm.services.collectAsState()
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    val listState = rememberLazyListState()
+    // Entering edit mode prepends the tab-edit bar at the top; scroll up so it's visible.
+    LaunchedEffect(editMode) { if (editMode) listState.animateScrollToItem(0) }
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), state = listState) {
         if (editMode) {
             item {
                 Spacer(Modifier.height(8.dp))
