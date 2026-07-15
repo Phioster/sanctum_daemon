@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,6 +31,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -38,8 +40,15 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.ImeAction
@@ -185,7 +194,7 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
             onBack = { searchOpen = false },
             onOpenService = { cfg -> searchOpen = false; detail = cfg },
         )
-        else -> DashboardScreen(
+        else -> HomeShell(
             vm = vm,
             onAdd = { addOpen = true },
             onOpen = { detail = it },
@@ -197,78 +206,332 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DashboardScreen(
+private fun HomeShell(
     vm: DashboardViewModel,
     onAdd: () -> Unit,
     onOpen: (ServiceConfig) -> Unit,
     onEdit: (ServiceConfig) -> Unit,
     onSearch: () -> Unit,
 ) {
+    val tabs by vm.tabs.collectAsState()
     val services by vm.services.collectAsState()
-    val statuses by vm.statuses.collectAsState()
+    var selected by remember { mutableStateOf(0) }
+    var editMode by remember { mutableStateOf(false) }
+    var showAddCard by remember { mutableStateOf(false) }
+    var showAddTab by remember { mutableStateOf(false) }
+    var newTabName by remember { mutableStateOf("") }
 
-    // Auto-refresh every 30s while the dashboard is on screen.
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(30_000)
-            vm.refreshAll()
-        }
+    val servicesIndex = tabs.size
+    val current = selected.coerceIn(0, servicesIndex)
+    val onServices = current == servicesIndex
+    val currentTab = tabs.getOrNull(current)
+
+    LaunchedEffect(onServices) {
+        if (onServices) while (true) { kotlinx.coroutines.delay(30_000); vm.refreshAll() }
     }
+    BackHandler(enabled = editMode) { editMode = false }
+
+    val navColors = NavigationBarItemDefaults.colors(
+        selectedIconColor = Black, selectedTextColor = MatrixGreen, indicatorColor = MatrixGreen,
+        unselectedIconColor = MatrixGreen.copy(alpha = 0.5f), unselectedTextColor = MatrixGreen.copy(alpha = 0.5f),
+    )
 
     Scaffold(
         containerColor = Black,
         topBar = {
             TopAppBar(
-                title = { Text("> nexarr_", fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen) },
+                title = { Text(if (onServices) "> nexarr_" else (currentTab?.name ?: "home"), fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
                 actions = {
-                    IconButton(onClick = onSearch) {
-                        Icon(Icons.Filled.Search, contentDescription = "Search", tint = MatrixGreen)
-                    }
-                    IconButton(onClick = { vm.refreshAll() }) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
+                    IconButton(onClick = onSearch) { Icon(Icons.Filled.Search, contentDescription = "Search", tint = MatrixGreen) }
+                    if (onServices) {
+                        IconButton(onClick = { vm.refreshAll() }) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen) }
+                    } else {
+                        IconButton(onClick = { editMode = !editMode }) {
+                            Icon(if (editMode) Icons.Filled.Check else Icons.Filled.Edit, contentDescription = "Edit", tint = if (editMode) MatrixGreen else MatrixGreen.copy(alpha = 0.8f))
+                        }
                     }
                 },
             )
         },
+        bottomBar = {
+            NavigationBar(containerColor = Surface) {
+                tabs.forEachIndexed { i, t ->
+                    NavigationBarItem(
+                        selected = current == i,
+                        onClick = { selected = i; editMode = false },
+                        icon = { Icon(Icons.Filled.Home, contentDescription = null) },
+                        label = { Text(t.name, fontFamily = Mono, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        colors = navColors,
+                    )
+                }
+                NavigationBarItem(
+                    selected = onServices,
+                    onClick = { selected = servicesIndex; editMode = false },
+                    icon = { Icon(Icons.Filled.Menu, contentDescription = null) },
+                    label = { Text("Services", fontFamily = Mono, fontSize = 10.sp) },
+                    colors = navColors,
+                )
+            }
+        },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAdd, containerColor = MatrixGreen, contentColor = Black) {
-                Icon(Icons.Filled.Add, contentDescription = "Add service")
+            when {
+                onServices -> FloatingActionButton(onClick = onAdd, containerColor = MatrixGreen, contentColor = Black) { Icon(Icons.Filled.Add, contentDescription = "Add service") }
+                editMode -> FloatingActionButton(onClick = { showAddCard = true }, containerColor = MatrixGreen, contentColor = Black) { Icon(Icons.Filled.Add, contentDescription = "Add card") }
             }
         },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            if (services.isEmpty()) {
-                Spacer(Modifier.height(48.dp))
-                Text(
-                    "no services yet\n\ntap + to add a service",
-                    fontFamily = Mono,
-                    color = MatrixGreen.copy(alpha = 0.6f),
-                    fontSize = 14.sp,
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            if (onServices) {
+                ServicesContent(vm, onOpen, onEdit)
+            } else if (currentTab != null) {
+                WidgetTabContent(
+                    vm = vm,
+                    tab = currentTab,
+                    editMode = editMode,
+                    onOpenService = onOpen,
+                    onAddTab = { newTabName = ""; showAddTab = true },
+                    onDeleteTab = { vm.removeTab(currentTab.id); selected = 0; editMode = false },
                 )
-            }
-            services.forEachIndexed { index, svc ->
-                ServiceCard(
-                    config = svc,
-                    status = statuses[svc.id],
-                    isFirst = index == 0,
-                    isLast = index == services.lastIndex,
-                    onOpen = { onOpen(svc) },
-                    onEdit = { onEdit(svc) },
-                    onRemove = { vm.removeService(svc.id) },
-                    onMoveUp = { vm.moveService(svc.id, -1) },
-                    onMoveDown = { vm.moveService(svc.id, +1) },
-                )
-                Spacer(Modifier.height(12.dp))
             }
         }
     }
+
+    if (showAddCard && currentTab != null) {
+        AddCardDialog(
+            services = services,
+            onDismiss = { showAddCard = false },
+            onAdd = { type, sid -> vm.addCard(currentTab.id, type, sid); showAddCard = false },
+        )
+    }
+    if (showAddTab) {
+        AlertDialog(
+            onDismissRequest = { showAddTab = false },
+            containerColor = Surface,
+            title = { Text("New tab", fontFamily = Mono, color = MatrixGreen) },
+            text = { Field("Tab name", newTabName) { newTabName = it } },
+            confirmButton = {
+                TextButton(enabled = newTabName.isNotBlank(), onClick = { val n = newTabName; showAddTab = false; vm.addTab(n); selected = tabs.size }) {
+                    Text("Add", fontFamily = Mono, color = MatrixGreen)
+                }
+            },
+            dismissButton = { TextButton(onClick = { showAddTab = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+}
+
+@Composable
+private fun ServicesContent(
+    vm: DashboardViewModel,
+    onOpen: (ServiceConfig) -> Unit,
+    onEdit: (ServiceConfig) -> Unit,
+) {
+    val services by vm.services.collectAsState()
+    val statuses by vm.statuses.collectAsState()
+    Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
+        if (services.isEmpty()) {
+            Spacer(Modifier.height(48.dp))
+            Text("no services yet\n\ntap + to add a service", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 14.sp)
+        }
+        services.forEachIndexed { index, svc ->
+            ServiceCard(
+                config = svc,
+                status = statuses[svc.id],
+                isFirst = index == 0,
+                isLast = index == services.lastIndex,
+                onOpen = { onOpen(svc) },
+                onEdit = { onEdit(svc) },
+                onRemove = { vm.removeService(svc.id) },
+                onMoveUp = { vm.moveService(svc.id, -1) },
+                onMoveDown = { vm.moveService(svc.id, +1) },
+            )
+            Spacer(Modifier.height(12.dp))
+        }
+    }
+}
+
+@Composable
+private fun WidgetTabContent(
+    vm: DashboardViewModel,
+    tab: org.phioster.nexarr.model.DashTab,
+    editMode: Boolean,
+    onOpenService: (ServiceConfig) -> Unit,
+    onAddTab: () -> Unit,
+    onDeleteTab: () -> Unit,
+) {
+    val services by vm.services.collectAsState()
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        if (editMode) {
+            item {
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("+ new tab", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, modifier = Modifier.clickable { onAddTab() })
+                    Text("delete this tab", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.clickable { onDeleteTab() })
+                }
+                Spacer(Modifier.height(4.dp))
+                HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
+            }
+        }
+        if (tab.cards.isEmpty()) {
+            item {
+                Spacer(Modifier.height(60.dp))
+                Text(
+                    if (editMode) "tap + to add a card" else "empty tab\n\ntap the pencil to edit",
+                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        } else {
+            itemsIndexed(tab.cards, key = { _, c -> c.id }) { index, card ->
+                val config = services.firstOrNull { it.id == card.serviceId }
+                DashCardView(
+                    vm = vm,
+                    card = card,
+                    config = config,
+                    editMode = editMode,
+                    isFirst = index == 0,
+                    isLast = index == tab.cards.lastIndex,
+                    onOpenService = { config?.let(onOpenService) },
+                    onRemove = { vm.removeCard(tab.id, card.id) },
+                    onMoveUp = { vm.moveCard(tab.id, card.id, -1) },
+                    onMoveDown = { vm.moveCard(tab.id, card.id, +1) },
+                )
+            }
+        }
+        item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+@Composable
+private fun DashCardView(
+    vm: DashboardViewModel,
+    card: org.phioster.nexarr.model.DashCard,
+    config: ServiceConfig?,
+    editMode: Boolean,
+    isFirst: Boolean,
+    isLast: Boolean,
+    onOpenService: () -> Unit,
+    onRemove: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+) {
+    val accent = Color((config?.type ?: ServiceType.JELLYFIN).accent)
+    var items by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyMediaItem>?>(null) }
+    var sessions by remember { mutableStateOf<List<org.phioster.nexarr.model.JellySession>?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(card.id, config?.id) {
+        if (config == null) { error = "service not found"; return@LaunchedEffect }
+        error = null
+        try {
+            when (card.type) {
+                org.phioster.nexarr.model.CardType.JELLYFIN_SESSIONS -> sessions = vm.jellyfinSessionList(config)
+                org.phioster.nexarr.model.CardType.JELLYFIN_RECENT -> items = vm.jellyfinRecent(config, null)
+                org.phioster.nexarr.model.CardType.JELLYFIN_RESUME -> items = vm.jellyfinContinue(config)
+            }
+        } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { error = t.message }
+    }
+
+    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).clickable { onOpenService() }) {
+                Text(card.title.ifBlank { card.type.label }.uppercase(), fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(config?.label ?: "?", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp)
+            }
+            if (editMode) {
+                if (!isFirst) TextButton(onClick = onMoveUp, contentPadding = PaddingValues(4.dp)) { Text("↑", fontFamily = Mono, color = MatrixGreen) }
+                if (!isLast) TextButton(onClick = onMoveDown, contentPadding = PaddingValues(4.dp)) { Text("↓", fontFamily = Mono, color = MatrixGreen) }
+                TextButton(onClick = onRemove, contentPadding = PaddingValues(4.dp)) { Text("✕", fontFamily = Mono, color = ErrRed) }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        when {
+            error != null -> Text("error: $error", fontFamily = Mono, color = ErrRed, fontSize = 11.sp)
+            card.type == org.phioster.nexarr.model.CardType.JELLYFIN_SESSIONS -> {
+                val s = sessions
+                when {
+                    s == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp)
+                    s.isEmpty() -> Text("no active sessions", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp)
+                    else -> Column { s.forEach { DashSessionRow(it, accent) } }
+                }
+            }
+            else -> {
+                val it2 = items
+                when {
+                    it2 == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp)
+                    it2.isEmpty() -> Text("nothing here", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp)
+                    else -> Row(Modifier.horizontalScroll(rememberScrollState())) {
+                        it2.forEach { m -> if (config != null) JellyPosterCard(m, config, accent) { onOpenService() } }
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+    }
+}
+
+@Composable
+private fun DashSessionRow(item: org.phioster.nexarr.model.JellySession, accent: Color) {
+    val playing = item.nowPlaying.isNotEmpty()
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text(if (playing) item.nowPlaying else "${item.user} · idle", fontFamily = Mono, color = if (playing) MatrixGreen else MatrixGreen.copy(alpha = 0.5f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text("${item.user}${if (item.device.isNotBlank()) " · ${item.device}" else ""}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (playing) {
+            Spacer(Modifier.height(4.dp))
+            LinearProgressIndicator(progress = { item.progressPct }, modifier = Modifier.fillMaxWidth(), color = MatrixGreen, trackColor = Surface)
+        }
+    }
+}
+
+@Composable
+private fun AddCardDialog(
+    services: List<ServiceConfig>,
+    onDismiss: () -> Unit,
+    onAdd: (org.phioster.nexarr.model.CardType, String) -> Unit,
+) {
+    var chosenType by remember { mutableStateOf<org.phioster.nexarr.model.CardType?>(null) }
+    val typeService = chosenType?.service
+    val candidates = services.filter { chosenType == null || it.type == typeService }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surface,
+        title = { Text("Add card", fontFamily = Mono, color = MatrixGreen) },
+        text = {
+            Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+                Text("CARD TYPE", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                Spacer(Modifier.height(4.dp))
+                org.phioster.nexarr.model.CardType.entries.forEach { t ->
+                    val sel = chosenType == t
+                    Text(
+                        "${if (sel) "◉" else "○"} ${t.label}",
+                        fontFamily = Mono, color = if (sel) MatrixGreen else MatrixGreen.copy(alpha = 0.8f), fontSize = 13.sp,
+                        modifier = Modifier.fillMaxWidth().clickable { chosenType = t }.padding(vertical = 6.dp),
+                    )
+                }
+                if (chosenType != null) {
+                    Spacer(Modifier.height(8.dp))
+                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
+                    Spacer(Modifier.height(8.dp))
+                    Text("SERVICE (${typeService?.label})", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    Spacer(Modifier.height(4.dp))
+                    if (candidates.isEmpty()) {
+                        Text("no ${typeService?.label} service configured", fontFamily = Mono, color = ErrRed, fontSize = 12.sp)
+                    } else {
+                        candidates.forEach { c ->
+                            Text(
+                                "› ${c.label}",
+                                fontFamily = Mono, color = Color(c.type.accent), fontSize = 13.sp,
+                                modifier = Modifier.fillMaxWidth().clickable { onAdd(chosenType!!, c.id) }.padding(vertical = 8.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

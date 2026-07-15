@@ -124,12 +124,16 @@ import org.phioster.nexarr.net.runSearchMissing
 class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     private val store = ServiceStore(app)
+    private val dashStore = org.phioster.nexarr.data.DashboardStore(app)
 
     private val _services = MutableStateFlow<List<ServiceConfig>>(emptyList())
     val services: StateFlow<List<ServiceConfig>> = _services.asStateFlow()
 
     private val _statuses = MutableStateFlow<Map<String, ServiceStatus>>(emptyMap())
     val statuses: StateFlow<Map<String, ServiceStatus>> = _statuses.asStateFlow()
+
+    private val _tabs = MutableStateFlow<List<org.phioster.nexarr.model.DashTab>>(emptyList())
+    val tabs: StateFlow<List<org.phioster.nexarr.model.DashTab>> = _tabs.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -138,6 +142,56 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                 refreshAll()
             }
         }
+        viewModelScope.launch {
+            dashStore.tabs.collect { list ->
+                _tabs.value = if (list.isEmpty()) listOf(defaultHomeTab()) else list
+            }
+        }
+    }
+
+    private fun defaultHomeTab() = org.phioster.nexarr.model.DashTab(
+        id = java.util.UUID.randomUUID().toString(),
+        name = "Home",
+        cards = emptyList(),
+    )
+
+    private fun persistTabs(list: List<org.phioster.nexarr.model.DashTab>) {
+        _tabs.value = list
+        viewModelScope.launch { dashStore.save(list) }
+    }
+
+    fun addTab(name: String) {
+        persistTabs(_tabs.value + org.phioster.nexarr.model.DashTab(java.util.UUID.randomUUID().toString(), name.ifBlank { "Tab" }))
+    }
+
+    fun removeTab(tabId: String) {
+        val list = _tabs.value.filterNot { it.id == tabId }
+        persistTabs(list.ifEmpty { listOf(defaultHomeTab()) })
+    }
+
+    fun renameTab(tabId: String, name: String) {
+        persistTabs(_tabs.value.map { if (it.id == tabId) it.copy(name = name.ifBlank { it.name }) else it })
+    }
+
+    fun addCard(tabId: String, type: org.phioster.nexarr.model.CardType, serviceId: String) {
+        val card = org.phioster.nexarr.model.DashCard(java.util.UUID.randomUUID().toString(), type, serviceId)
+        persistTabs(_tabs.value.map { if (it.id == tabId) it.copy(cards = it.cards + card) else it })
+    }
+
+    fun removeCard(tabId: String, cardId: String) {
+        persistTabs(_tabs.value.map { if (it.id == tabId) it.copy(cards = it.cards.filterNot { c -> c.id == cardId }) else it })
+    }
+
+    fun moveCard(tabId: String, cardId: String, direction: Int) {
+        persistTabs(_tabs.value.map { tab ->
+            if (tab.id != tabId) return@map tab
+            val cards = tab.cards.toMutableList()
+            val idx = cards.indexOfFirst { it.id == cardId }
+            val target = idx + direction
+            if (idx < 0 || target < 0 || target >= cards.size) return@map tab
+            cards[idx] = cards[target].also { cards[target] = cards[idx] }
+            tab.copy(cards = cards)
+        })
     }
 
     fun refreshAll() {
