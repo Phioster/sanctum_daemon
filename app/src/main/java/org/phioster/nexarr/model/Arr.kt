@@ -44,6 +44,26 @@ data class ArrDetail(
     val status: String,
     val sizeMb: Long,
     val facts: List<Pair<String, String>>, // label -> value chips
+    val posterUrl: String,
+    val tmdbId: Int,
+    val genres: String,
+)
+
+/** A cast member (resolved via a Seerr/Overseerr TMDB proxy). */
+data class ArrCastMember(
+    val name: String,
+    val character: String,
+    val profileUrl: String,
+)
+
+/** A candidate file from a manual-import scan; [rawJson] is reused to build the import command. */
+data class ArrImportItem(
+    val relativePath: String,
+    val matchedTitle: String,
+    val quality: String,
+    val rejection: String,
+    val importable: Boolean,
+    val rawJson: String,
 )
 
 /** A Sonarr episode (grouped by season in the UI). */

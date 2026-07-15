@@ -8,12 +8,15 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -23,9 +26,11 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import retrofit2.Response
+import org.phioster.nexarr.model.ArrCastMember
 import org.phioster.nexarr.model.ArrDetail
 import org.phioster.nexarr.model.ArrEpisode
 import org.phioster.nexarr.model.ArrHistoryItem
+import org.phioster.nexarr.model.ArrImportItem
 import org.phioster.nexarr.model.ArrLibraryItem
 import org.phioster.nexarr.model.ArrLookupItem
 import org.phioster.nexarr.model.ArrMissingItem
@@ -322,6 +327,8 @@ private interface SeerrApi {
 
     @GET("api/v1/movie/{id}") suspend fun movie(@Path("id") id: Int): SeerrMeta
     @GET("api/v1/tv/{id}") suspend fun tv(@Path("id") id: Int): SeerrMeta
+    @GET("api/v1/movie/{id}") suspend fun movieRaw(@Path("id") id: Int): JsonObject
+    @GET("api/v1/tv/{id}") suspend fun tvRaw(@Path("id") id: Int): JsonObject
     @POST("api/v1/request/{id}/approve") suspend fun approve(@Path("id") id: Int): Response<ResponseBody>
     @POST("api/v1/request/{id}/decline") suspend fun decline(@Path("id") id: Int): Response<ResponseBody>
 
@@ -546,6 +553,7 @@ private interface ArrApi {
     @GET suspend fun diskspace(@Url url: String): List<ArrDiskRecord>
     @GET suspend fun systemStatus(@Url url: String): ArrSystemStatusRec
     @GET suspend fun healthChecks(@Url url: String): List<ArrHealthRecord>
+    @GET suspend fun manualImport(@Url url: String): List<JsonObject>
 }
 
 private fun arrBase(type: ServiceType) = if (type == ServiceType.LIDARR) "api/v1" else "api/v3"
@@ -747,8 +755,19 @@ suspend fun arrDetail(config: ServiceConfig, id: Int): ArrDetail = withContext(D
     val o = apiFor<ArrApi>(config, apiKeyHeader(config)).itemDetail("$base/$path/$id")
     val statsObj = o["statistics"] as? JsonObject
     val sizeMb = ((statsObj?.let { jsInt(it, "sizeOnDisk") } ?: jsInt(o, "sizeOnDisk") ?: 0).toLong()) / (1024 * 1024)
+    val poster = (o["images"] as? JsonArray)?.mapNotNull { it as? JsonObject }
+        ?.firstOrNull { jsStr(it, "coverType") == "poster" }
+        ?.let { jsStr(it, "remoteUrl") ?: jsStr(it, "url") } ?: ""
+    val genres = (o["genres"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.content }
+        ?.joinToString(", ") ?: ""
+    val ratingsObj = o["ratings"] as? JsonObject
+    val rating = ratingsObj?.let { r ->
+        (r["tmdb"] as? JsonObject ?: r["imdb"] as? JsonObject)?.get("value")?.let { (it as? JsonPrimitive)?.doubleOrNull }
+    }
     val facts = buildList {
-        jsStr(o, "status")?.takeIf { it.isNotBlank() }?.let { add("status" to it) }
+        rating?.let { add("rating" to "%.1f".format(it)) }
+        jsStr(o, "certification")?.takeIf { it.isNotBlank() }?.let { add("rated" to it) }
+        jsInt(o, "runtime")?.takeIf { it > 0 }?.let { add("runtime" to "${it}m") }
         if (config.type == ServiceType.SONARR) {
             statsObj?.let {
                 val total = jsInt(it, "episodeCount") ?: 0
@@ -760,7 +779,6 @@ suspend fun arrDetail(config: ServiceConfig, id: Int): ArrDetail = withContext(D
         } else {
             add("file" to if (jsBool(o, "hasFile") == true) "downloaded" else "missing")
             jsStr(o, "studio")?.takeIf { it.isNotBlank() }?.let { add("studio" to it) }
-            jsInt(o, "runtime")?.takeIf { it > 0 }?.let { add("runtime" to "${it}m") }
         }
     }
     ArrDetail(
@@ -772,6 +790,9 @@ suspend fun arrDetail(config: ServiceConfig, id: Int): ArrDetail = withContext(D
         status = jsStr(o, "status") ?: "",
         sizeMb = sizeMb,
         facts = facts,
+        posterUrl = poster,
+        tmdbId = jsInt(o, "tmdbId") ?: 0,
+        genres = genres,
     )
 }
 
@@ -826,6 +847,86 @@ suspend fun arrSystem(config: ServiceConfig): ArrSystemInfo = withContext(Dispat
             }.getOrDefault(emptyList())
         }
         ArrSystemInfo(version = versionD.await(), health = healthD.await(), disks = disksD.await())
+    }
+}
+
+/** Scans a folder for manually-importable files (Radarr/Sonarr). */
+suspend fun arrManualImportScan(config: ServiceConfig, folder: String): List<ArrImportItem> = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    val encoded = java.net.URLEncoder.encode(folder, "UTF-8")
+    apiFor<ArrApi>(config, apiKeyHeader(config)).manualImport("$base/manualimport?folder=$encoded&filterExistingFiles=false").map { o ->
+        val quality = ((o["quality"] as? JsonObject)?.get("quality") as? JsonObject)?.let { jsStr(it, "name") } ?: ""
+        val matched = when (config.type) {
+            ServiceType.SONARR -> {
+                val series = jsStr((o["series"] as? JsonObject) ?: JsonObject(emptyMap()), "title")
+                val eps = (o["episodes"] as? JsonArray)?.mapNotNull { (it as? JsonObject) }
+                    ?.joinToString(",") { "S%02dE%02d".format(jsInt(it, "seasonNumber") ?: 0, jsInt(it, "episodeNumber") ?: 0) }
+                listOfNotNull(series?.takeIf { it.isNotBlank() }, eps?.takeIf { it.isNotBlank() }).joinToString(" ")
+            }
+            else -> jsStr((o["movie"] as? JsonObject) ?: JsonObject(emptyMap()), "title") ?: ""
+        }
+        val rejections = (o["rejections"] as? JsonArray)?.mapNotNull { (it as? JsonObject)?.let { r -> jsStr(r, "reason") } } ?: emptyList()
+        val hasMatch = when (config.type) {
+            ServiceType.SONARR -> (o["series"] as? JsonObject) != null && (o["episodes"] as? JsonArray)?.isNotEmpty() == true
+            else -> (o["movie"] as? JsonObject) != null
+        }
+        ArrImportItem(
+            relativePath = jsStr(o, "relativePath") ?: jsStr(o, "name") ?: "?",
+            matchedTitle = matched.ifBlank { "— unmatched —" },
+            quality = quality,
+            rejection = rejections.joinToString("; "),
+            importable = hasMatch && rejections.isEmpty(),
+            rawJson = json.encodeToString(JsonObject.serializer(), o),
+        )
+    }
+}
+
+/** Executes a manual import for the given scanned items (importMode "move"). */
+suspend fun arrManualImportExecute(config: ServiceConfig, rawItems: List<String>): String = withContext(Dispatchers.IO) {
+    try {
+        val base = arrBase(config.type)
+        val files = rawItems.map { raw ->
+            val o = json.parseToJsonElement(raw).jsonObject
+            buildJsonObject {
+                jsStr(o, "path")?.let { put("path", it) }
+                jsStr(o, "folderName")?.let { put("folderName", it) }
+                o["quality"]?.let { put("quality", it) }
+                o["languages"]?.let { put("languages", it) }
+                jsStr(o, "releaseGroup")?.let { put("releaseGroup", it) }
+                if (config.type == ServiceType.SONARR) {
+                    (o["series"] as? JsonObject)?.let { s -> jsInt(s, "id")?.let { put("seriesId", it) } }
+                    (o["episodes"] as? JsonArray)?.let { eps ->
+                        putJsonArray("episodeIds") { eps.mapNotNull { (it as? JsonObject)?.let { e -> jsInt(e, "id") } }.forEach { add(it) } }
+                    }
+                } else {
+                    (o["movie"] as? JsonObject)?.let { m -> jsInt(m, "id")?.let { put("movieId", it) } }
+                }
+            }
+        }
+        val body = buildJsonObject {
+            put("name", "ManualImport")
+            put("importMode", "move")
+            put("files", JsonArray(files))
+        }
+        okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).command("$base/command", body), "importing ${files.size} file(s)")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+/** Resolves cast for a tmdbId via a Seerr/Overseerr TMDB proxy. */
+suspend fun seerrCast(seerrConfig: ServiceConfig, tmdbId: Int, isTv: Boolean): List<ArrCastMember> = withContext(Dispatchers.IO) {
+    if (tmdbId <= 0) return@withContext emptyList()
+    val api = apiFor<SeerrApi>(seerrConfig, apiKeyHeader(seerrConfig))
+    val detail = if (isTv) api.tvRaw(tmdbId) else api.movieRaw(tmdbId)
+    val cast = (detail["credits"] as? JsonObject)?.get("cast") as? JsonArray ?: return@withContext emptyList()
+    cast.mapNotNull { it as? JsonObject }.take(20).map { c ->
+        val profile = jsStr(c, "profilePath")
+        ArrCastMember(
+            name = jsStr(c, "name") ?: "?",
+            character = jsStr(c, "character") ?: "",
+            profileUrl = if (!profile.isNullOrBlank()) "https://image.tmdb.org/t/p/w185$profile" else "",
+        )
     }
 }
 

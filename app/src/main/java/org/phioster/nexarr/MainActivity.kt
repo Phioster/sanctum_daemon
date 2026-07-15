@@ -10,7 +10,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
+import coil.compose.AsyncImage
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -968,6 +974,11 @@ private fun ArrScreen(
     val supportsDetail = config.type == ServiceType.RADARR || config.type == ServiceType.SONARR
     var showSystem by remember { mutableStateOf(false) }
     var arrSys by remember { mutableStateOf<org.phioster.nexarr.model.ArrSystemInfo?>(null) }
+    var showImport by remember { mutableStateOf(false) }
+    var importFolder by remember { mutableStateOf("") }
+    var importItems by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrImportItem>?>(null) }
+    var importScanning by remember { mutableStateOf(false) }
+    var importSelected by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var query by remember { mutableStateOf("") }
     var sortBy by remember { mutableStateOf(0) } // 0=Title, 1=Year, 2=Size
     var sortMenu by remember { mutableStateOf(false) }
@@ -1067,6 +1078,9 @@ private fun ArrScreen(
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
                             DropdownMenuItem(text = { Text("Add new", fontFamily = Mono) }, onClick = { barMenu = false; addTerm = ""; addResults = null; showAdd = true })
                             if (supportsDetail) {
+                                DropdownMenuItem(text = { Text("Manual import", fontFamily = Mono) }, onClick = {
+                                    barMenu = false; showImport = true; importItems = null; importSelected = emptySet()
+                                })
                                 DropdownMenuItem(text = { Text("System & health", fontFamily = Mono) }, onClick = {
                                     barMenu = false; showSystem = true; arrSys = null
                                     scope.launch { arrSys = runCatching { vm.arrSystemInfo(config) }.getOrNull() }
@@ -1325,6 +1339,71 @@ private fun ArrScreen(
             confirmButton = { TextButton(onClick = { showSystem = false }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
+
+    if (showImport) {
+        val items = importItems
+        AlertDialog(
+            onDismissRequest = { showImport = false },
+            containerColor = Surface,
+            title = { Text("Manual import", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    Field("Folder path on server", importFolder) { importFolder = it }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            importScanning = true; importItems = null; importSelected = emptySet()
+                            scope.launch {
+                                importItems = runCatching { vm.arrManualScan(config, importFolder.trim()) }.getOrElse {
+                                    actionMsg = "error: ${it.message}"; emptyList()
+                                }
+                                importSelected = importItems!!.mapIndexedNotNull { i, it -> if (it.importable) i else null }.toSet()
+                                importScanning = false
+                            }
+                        },
+                        enabled = importFolder.isNotBlank() && !importScanning,
+                    ) { Text(if (importScanning) "scanning…" else "Scan", fontFamily = Mono) }
+                    Spacer(Modifier.height(8.dp))
+                    Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+                        when {
+                            items == null -> {}
+                            items.isEmpty() -> Text("no importable files", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                            else -> items.forEachIndexed { i, it ->
+                                val checked = i in importSelected
+                                Row(
+                                    Modifier.fillMaxWidth().clickable {
+                                        importSelected = if (checked) importSelected - i else importSelected + i
+                                    }.padding(vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(if (checked) "[x] " else "[ ] ", fontFamily = Mono, color = if (checked) MatrixGreen else MatrixGreen.copy(alpha = 0.4f), fontSize = 12.sp)
+                                    Column(Modifier.weight(1f)) {
+                                        Text(it.relativePath, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text("→ ${it.matchedTitle}${if (it.quality.isNotBlank()) " · ${it.quality}" else ""}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        if (it.rejection.isNotBlank()) Text(it.rejection, fontFamily = Mono, color = Color(0xFFFFAA00), fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = items != null && importSelected.isNotEmpty(),
+                    onClick = {
+                        val chosen = items!!.filterIndexed { i, _ -> i in importSelected }.map { it.rawJson }
+                        showImport = false
+                        scope.launch {
+                            actionMsg = vm.arrManualImport(config, chosen)
+                            vm.refreshAll()
+                        }
+                    },
+                ) { Text("Import (${importSelected.size})", fontFamily = Mono, color = MatrixGreen) }
+            },
+            dismissButton = { TextButton(onClick = { showImport = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
 }
 
 @Composable
@@ -1438,12 +1517,17 @@ private fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, itemI
     var releases by remember { mutableStateOf<List<ArrRelease>?>(null) }
     var pickerTitle by remember { mutableStateOf("") }
     var confirmGrab by remember { mutableStateOf<ArrRelease?>(null) }
+    var cast by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrCastMember>?>(null) }
 
     LaunchedEffect(itemId) {
         loadError = null
         try {
-            detail = vm.arrDetailOf(config, itemId)
+            val d = vm.arrDetailOf(config, itemId)
+            detail = d
             if (isSonarr) episodes = vm.arrEpisodesOf(config, itemId)
+            if (vm.hasSeerr() && d.tmdbId > 0) {
+                cast = runCatching { vm.arrCast(d.tmdbId, isSonarr) }.getOrDefault(emptyList())
+            }
         } catch (c: kotlinx.coroutines.CancellationException) {
             throw c
         } catch (t: Throwable) {
@@ -1495,19 +1579,43 @@ private fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, itemI
             item {
                 val d = detail
                 Spacer(Modifier.height(8.dp))
-                Row(Modifier.horizontalScroll(rememberScrollState())) {
-                    val chips = buildList {
-                        d?.year?.takeIf { it > 0 }?.let { add("year" to it.toString()) }
-                        add("monitored" to if (d?.monitored == true) "yes" else "no")
-                        d?.sizeMb?.takeIf { it > 0 }?.let { add("size" to if (it >= 1024) "%.1f GB".format(it / 1024.0) else "$it MB") }
-                        d?.facts?.let { addAll(it) }
+                Row {
+                    if (!d?.posterUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = d!!.posterUrl,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .width(110.dp)
+                                .height(165.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Surface),
+                        )
+                        Spacer(Modifier.width(14.dp))
                     }
-                    chips.forEach { (k, v) ->
-                        Column(Modifier.padding(end = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(v, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            Text(k.uppercase(), fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 10.sp)
+                    Column(Modifier.weight(1f)) {
+                        val chips = buildList {
+                            d?.year?.takeIf { it > 0 }?.let { add("year" to it.toString()) }
+                            add("monitored" to if (d?.monitored == true) "yes" else "no")
+                            d?.sizeMb?.takeIf { it > 0 }?.let { add("size" to if (it >= 1024) "%.1f GB".format(it / 1024.0) else "$it MB") }
+                            d?.facts?.let { addAll(it) }
+                        }
+                        chips.chunked(2).forEach { pair ->
+                            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                                pair.forEach { (k, v) ->
+                                    Column(Modifier.weight(1f)) {
+                                        Text(v, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(k.uppercase(), fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 9.sp)
+                                    }
+                                }
+                                if (pair.size == 1) Spacer(Modifier.weight(1f))
+                            }
                         }
                     }
+                }
+                if (!d?.genres.isNullOrBlank()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(d!!.genres, fontFamily = Mono, color = accent.copy(alpha = 0.85f), fontSize = 11.sp)
                 }
                 actionMsg?.let {
                     Spacer(Modifier.height(8.dp))
@@ -1516,6 +1624,33 @@ private fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, itemI
                 if (!d?.overview.isNullOrBlank()) {
                     Spacer(Modifier.height(10.dp))
                     Text(d!!.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp)
+                }
+                val cst = cast
+                if (!cst.isNullOrEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    Text("CAST", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Row(Modifier.horizontalScroll(rememberScrollState())) {
+                        cst.forEach { member ->
+                            Column(Modifier.width(84.dp).padding(end = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                if (member.profileUrl.isNotBlank()) {
+                                    AsyncImage(
+                                        model = member.profileUrl,
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.size(72.dp).clip(RoundedCornerShape(36.dp)).background(Surface),
+                                    )
+                                } else {
+                                    Box(Modifier.size(72.dp).clip(RoundedCornerShape(36.dp)).background(Surface))
+                                }
+                                Spacer(Modifier.height(4.dp))
+                                Text(member.name, fontFamily = Mono, color = MatrixGreen, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                                if (member.character.isNotBlank()) {
+                                    Text(member.character, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                                }
+                            }
+                        }
+                    }
                 }
                 Spacer(Modifier.height(12.dp))
                 HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
