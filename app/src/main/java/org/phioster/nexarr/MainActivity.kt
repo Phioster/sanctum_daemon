@@ -482,7 +482,7 @@ private fun WidgetTabContent(
                     onRemove = { vm.removeCard(tab.id, card.id) },
                     onMoveUp = { vm.moveCard(tab.id, card.id, -1) },
                     onMoveDown = { vm.moveCard(tab.id, card.id, +1) },
-                    onSaveConfig = { title, count -> vm.updateCard(tab.id, card.id, title, count) },
+                    onSaveConfig = { title, count, accent, icon, posterSize -> vm.updateCard(tab.id, card.id, title, count, accent, icon, posterSize) },
                 )
             }
         }
@@ -502,9 +502,10 @@ private fun DashCardView(
     onRemove: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
-    onSaveConfig: (String, Int) -> Unit,
+    onSaveConfig: (String, Int, Long, String, String) -> Unit,
 ) {
-    val accent = Color((config?.type ?: ServiceType.JELLYFIN).accent)
+    val accent = if (card.accent != 0L) Color(card.accent) else Color((config?.type ?: ServiceType.JELLYFIN).accent)
+    val posterWidth = when (card.posterSize) { "small" -> 84.dp; "large" -> 150.dp; else -> 120.dp }
     var showConfig by remember { mutableStateOf(false) }
     var items by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyMediaItem>?>(null) }
     var sessions by remember { mutableStateOf<List<org.phioster.nexarr.model.JellySession>?>(null) }
@@ -553,9 +554,15 @@ private fun DashCardView(
 
     Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f).clickable { onOpenService() }) {
-                Text(card.title.ifBlank { card.type.label }.uppercase(), fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(config?.label ?: "?", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp)
+            Row(Modifier.weight(1f).clickable { onOpenService() }, verticalAlignment = Alignment.CenterVertically) {
+                if (card.icon.isNotBlank()) {
+                    Icon(tabIcon(card.icon), contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                }
+                Column {
+                    Text(card.title.ifBlank { card.type.label }.uppercase(), fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(config?.label ?: "?", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp)
+                }
             }
             if (editMode) {
                 TextButton(onClick = { showConfig = true }, contentPadding = PaddingValues(4.dp)) { Text("⚙", fontFamily = Mono, color = MatrixGreen) }
@@ -638,7 +645,7 @@ private fun DashCardView(
                 when {
                     d == null -> loading()
                     d.isEmpty() -> empty("nothing here")
-                    else -> Row(Modifier.horizontalScroll(rememberScrollState())) { d.take(card.count).forEach { DashDiscoverPoster(it) { onOpenService() } } }
+                    else -> Row(Modifier.horizontalScroll(rememberScrollState())) { d.take(card.count).forEach { DashDiscoverPoster(it, posterWidth) { onOpenService() } } }
                 }
             }
             else -> {
@@ -647,7 +654,7 @@ private fun DashCardView(
                     it2 == null -> loading()
                     it2.isEmpty() -> empty("nothing here")
                     else -> Row(Modifier.horizontalScroll(rememberScrollState())) {
-                        it2.take(card.count).forEach { m -> if (config != null) JellyPosterCard(m, config, accent) { onOpenService() } }
+                        it2.take(card.count).forEach { m -> if (config != null) JellyPosterCard(m, config, accent, posterWidth) { onOpenService() } }
                     }
                 }
             }
@@ -659,25 +666,86 @@ private fun DashCardView(
     if (showConfig) {
         var cfgTitle by remember { mutableStateOf(card.title) }
         var cfgCount by remember { mutableStateOf(card.count) }
+        var cfgAccent by remember { mutableStateOf(card.accent) }
+        var cfgIcon by remember { mutableStateOf(card.icon) }
+        var cfgPoster by remember { mutableStateOf(card.posterSize) }
+        val isPoster = card.type in setOf(CardType.JELLYFIN_RECENT, CardType.JELLYFIN_RESUME, CardType.SEERR_TRENDING, CardType.SEERR_POPULAR_MOVIES, CardType.SEERR_POPULAR_TV)
+        val serviceColor = Color((config?.type ?: ServiceType.JELLYFIN).accent)
+        val palette = listOf(0L, 0xFF35D07AL, 0xFF00A4DCL, 0xFFFFC230L, 0xFFE66000L, 0xFF818CF8L, 0xFFEC4899L, 0xFF8B5CF6L, 0xFFE5534BL)
+        val label = @Composable { t: String -> Text(t, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp) }
         AlertDialog(
             onDismissRequest = { showConfig = false },
             containerColor = Surface,
             title = { Text("Card settings", fontFamily = Mono, color = MatrixGreen) },
             text = {
-                Column {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
                     Field("Title (blank = ${card.type.label})", cfgTitle) { cfgTitle = it }
                     Spacer(Modifier.height(16.dp))
-                    Text("ENTRIES SHOWN", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    label("ENTRIES SHOWN")
                     Spacer(Modifier.height(6.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = { if (cfgCount > 3) cfgCount-- }, contentPadding = PaddingValues(8.dp)) { Text("−", fontFamily = Mono, color = MatrixGreen, fontSize = 22.sp) }
                         Text("$cfgCount", fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, modifier = Modifier.widthIn(min = 40.dp), textAlign = TextAlign.Center)
                         TextButton(onClick = { if (cfgCount < 20) cfgCount++ }, contentPadding = PaddingValues(8.dp)) { Text("+", fontFamily = Mono, color = MatrixGreen, fontSize = 22.sp) }
                     }
+                    Spacer(Modifier.height(16.dp))
+                    label("ACCENT (1st = service default)")
+                    Spacer(Modifier.height(6.dp))
+                    Row(Modifier.horizontalScroll(rememberScrollState())) {
+                        palette.forEach { c ->
+                            val col = if (c == 0L) serviceColor else Color(c)
+                            val sel = cfgAccent == c
+                            Box(
+                                Modifier.padding(end = 10.dp).size(34.dp).clip(RoundedCornerShape(50))
+                                    .background(col).border(if (sel) 3.dp else 0.dp, MatrixGreen, RoundedCornerShape(50))
+                                    .clickable { cfgAccent = c },
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    label("HEADER ICON")
+                    Spacer(Modifier.height(6.dp))
+                    Row(Modifier.horizontalScroll(rememberScrollState())) {
+                        val noneSel = cfgIcon.isBlank()
+                        Box(
+                            Modifier.padding(end = 8.dp).size(44.dp).clip(RoundedCornerShape(8.dp))
+                                .background(if (noneSel) MatrixGreen else Surface)
+                                .border(1.dp, if (noneSel) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                .clickable { cfgIcon = "" },
+                            contentAlignment = Alignment.Center,
+                        ) { Text("∅", fontFamily = Mono, color = if (noneSel) Black else MatrixGreen, fontSize = 18.sp) }
+                        tabIcons.forEach { (key, icon) ->
+                            val sel = cfgIcon == key
+                            Box(
+                                Modifier.padding(end = 8.dp).size(44.dp).clip(RoundedCornerShape(8.dp))
+                                    .background(if (sel) MatrixGreen else Surface)
+                                    .border(1.dp, if (sel) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .clickable { cfgIcon = key },
+                                contentAlignment = Alignment.Center,
+                            ) { Icon(icon, contentDescription = key, tint = if (sel) Black else MatrixGreen) }
+                        }
+                    }
+                    if (isPoster) {
+                        Spacer(Modifier.height(16.dp))
+                        label("POSTER SIZE")
+                        Spacer(Modifier.height(6.dp))
+                        Row {
+                            listOf("small" to "S", "" to "M", "large" to "L").forEach { (value, lbl) ->
+                                val sel = cfgPoster == value
+                                Box(
+                                    Modifier.padding(end = 8.dp).size(width = 52.dp, height = 38.dp).clip(RoundedCornerShape(8.dp))
+                                        .background(if (sel) MatrixGreen else Surface)
+                                        .border(1.dp, if (sel) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                        .clickable { cfgPoster = value },
+                                    contentAlignment = Alignment.Center,
+                                ) { Text(lbl, fontFamily = Mono, color = if (sel) Black else MatrixGreen, fontSize = 15.sp) }
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { onSaveConfig(cfgTitle, cfgCount); showConfig = false }) {
+                TextButton(onClick = { onSaveConfig(cfgTitle, cfgCount, cfgAccent, cfgIcon, cfgPoster); showConfig = false }) {
                     Text("Save", fontFamily = Mono, color = MatrixGreen)
                 }
             },
@@ -728,17 +796,18 @@ private fun DashNzbRow(title: String, status: String, progress: Float, accent: C
 }
 
 @Composable
-private fun DashDiscoverPoster(item: org.phioster.nexarr.model.SeerrDiscoverItem, onClick: () -> Unit) {
-    Column(Modifier.width(96.dp).padding(end = 10.dp).clickable { onClick() }) {
+private fun DashDiscoverPoster(item: org.phioster.nexarr.model.SeerrDiscoverItem, width: androidx.compose.ui.unit.Dp = 96.dp, onClick: () -> Unit) {
+    val h = width * 1.5f
+    Column(Modifier.width(width).padding(end = 10.dp).clickable { onClick() }) {
         if (item.posterUrl.isNotBlank()) {
             AsyncImage(
                 model = item.posterUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.width(96.dp).height(144.dp).clip(RoundedCornerShape(6.dp)).background(Surface),
+                modifier = Modifier.width(width).height(h).clip(RoundedCornerShape(6.dp)).background(Surface),
             )
         } else {
-            Box(Modifier.width(96.dp).height(144.dp).clip(RoundedCornerShape(6.dp)).background(Surface))
+            Box(Modifier.width(width).height(h).clip(RoundedCornerShape(6.dp)).background(Surface))
         }
         Spacer(Modifier.height(4.dp))
         Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -2056,13 +2125,14 @@ private fun JellyPoster(url: String, config: ServiceConfig, modifier: Modifier, 
 }
 
 @Composable
-private fun JellyPosterCard(item: org.phioster.nexarr.model.JellyMediaItem, config: ServiceConfig, accent: Color, onClick: () -> Unit) {
-    Column(Modifier.width(120.dp).padding(end = 10.dp).clickable { onClick() }) {
+private fun JellyPosterCard(item: org.phioster.nexarr.model.JellyMediaItem, config: ServiceConfig, accent: Color, width: androidx.compose.ui.unit.Dp = 120.dp, onClick: () -> Unit) {
+    val h = width * 1.5f
+    Column(Modifier.width(width).padding(end = 10.dp).clickable { onClick() }) {
         Box {
             if (item.posterUrl.isNotBlank()) {
-                JellyPoster(item.posterUrl, config, Modifier.width(120.dp).height(180.dp), RoundedCornerShape(6.dp), ContentScale.Crop)
+                JellyPoster(item.posterUrl, config, Modifier.width(width).height(h), RoundedCornerShape(6.dp), ContentScale.Crop)
             } else {
-                Box(Modifier.width(120.dp).height(180.dp).clip(RoundedCornerShape(6.dp)).background(Surface))
+                Box(Modifier.width(width).height(h).clip(RoundedCornerShape(6.dp)).background(Surface))
             }
             if (item.progressPct > 0.01f) {
                 LinearProgressIndicator(

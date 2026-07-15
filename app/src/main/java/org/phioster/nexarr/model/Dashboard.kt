@@ -39,6 +39,9 @@ data class DashCard(
     val serviceId: String,
     val title: String = "", // optional override; blank = use the type's label
     val count: Int = 8, // how many entries the card shows
+    val accent: Long = 0, // custom accent ARGB; 0 = use the service's default colour
+    val icon: String = "", // optional header icon key (see tabIcon); blank = none
+    val posterSize: String = "", // "small" | "large" | "" (medium) for poster-row cards
 )
 
 /** A dashboard tab (a bottom-nav category) holding an ordered list of cards. */
