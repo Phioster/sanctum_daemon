@@ -744,7 +744,7 @@ private fun DashCardView(
                 when {
                     s == null -> loading()
                     s.isEmpty() -> empty("no active sessions")
-                    else -> Column { s.forEach { DashSessionRow(it, accent) } }
+                    else -> Column { s.forEach { DashSessionRow(it, accent, card.density) } }
                 }
             }
             card.type == CardType.SEERR_REQUESTS -> {
@@ -760,7 +760,7 @@ private fun DashCardView(
                 when {
                     q == null -> loading()
                     q.isEmpty() -> empty("queue empty")
-                    else -> Column { q.take(card.count).forEach { DashQueueRow(it, accent) } }
+                    else -> Column { q.take(card.count).forEach { DashQueueRow(it, accent, card.density) } }
                 }
             }
             card.type == CardType.RADARR_MISSING || card.type == CardType.SONARR_MISSING || card.type == CardType.LIDARR_MISSING -> {
@@ -792,7 +792,7 @@ private fun DashCardView(
                 when {
                     q == null -> loading()
                     q.isEmpty() -> empty("queue empty")
-                    else -> Column { q.take(card.count).forEach { DashNzbRow(it.name, it.status, it.progress, accent) } }
+                    else -> Column { q.take(card.count).forEach { DashNzbRow(it.name, it.status, it.progress, accent, card.density) } }
                 }
             }
             card.type == CardType.NZBGET_HISTORY -> {
@@ -810,7 +810,7 @@ private fun DashCardView(
                     d.isEmpty() -> empty("nothing here")
                     else -> Row(Modifier.horizontalScroll(rememberScrollState())) {
                         d.take(card.count).forEach { di ->
-                            DashDiscoverPoster(di, posterWidth) {
+                            DashDiscoverPoster(di, posterWidth, card.density != "compact") {
                                 config?.let { c -> scope.launch { detail = runCatching { vm.seerrMediaDetailById(c, di.tmdbId, di.mediaType).toMediaDetail() }.getOrNull() } }
                             }
                         }
@@ -824,7 +824,7 @@ private fun DashCardView(
                     it2.isEmpty() -> empty("nothing here")
                     else -> Row(Modifier.horizontalScroll(rememberScrollState())) {
                         it2.take(card.count).forEach { m ->
-                            if (config != null) JellyPosterCard(m, config, accent, posterWidth) {
+                            if (config != null) JellyPosterCard(m, config, accent, posterWidth, card.density != "compact") {
                                 scope.launch { detail = runCatching { vm.jellyfinMediaDetail(config, m.id).toMediaDetail() }.getOrNull() }
                             }
                         }
@@ -969,11 +969,12 @@ private fun DashCardView(
 }
 
 @Composable
-private fun DashSessionRow(item: org.phioster.nexarr.model.JellySession, accent: Color) {
+private fun DashSessionRow(item: org.phioster.nexarr.model.JellySession, accent: Color, density: String = "") {
     val playing = item.nowPlaying.isNotEmpty()
-    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+    val vpad = when (density) { "compact" -> 2.dp; "detail" -> 9.dp; else -> 6.dp }
+    Column(Modifier.fillMaxWidth().padding(vertical = vpad)) {
         Text(if (playing) item.nowPlaying else "${item.user} · idle", fontFamily = Mono, color = if (playing) MatrixGreen else MatrixGreen.copy(alpha = 0.5f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text("${item.user}${if (item.device.isNotBlank()) " · ${item.device}" else ""}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (density != "compact") Text("${item.user}${if (item.device.isNotBlank()) " · ${item.device}" else ""}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (playing) {
             Spacer(Modifier.height(4.dp))
             LinearProgressIndicator(progress = { item.progressPct }, modifier = Modifier.fillMaxWidth(), color = MatrixGreen, trackColor = Surface)
@@ -992,27 +993,22 @@ private fun DashLineRow(title: String, subtitle: String, accent: Color, density:
 }
 
 @Composable
-private fun DashQueueRow(item: org.phioster.nexarr.model.ArrQueueItem, accent: Color) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text("${item.status} · ${(item.progress * 100).toInt()}%", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(4.dp))
-        LinearProgressIndicator(progress = { item.progress }, modifier = Modifier.fillMaxWidth(), color = MatrixGreen, trackColor = Surface)
-    }
-}
+private fun DashQueueRow(item: org.phioster.nexarr.model.ArrQueueItem, accent: Color, density: String = "") =
+    DashNzbRow(item.title, item.status, item.progress, accent, density)
 
 @Composable
-private fun DashNzbRow(title: String, status: String, progress: Float, accent: Color) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Text(title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text("$status · ${(progress * 100).toInt()}%", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+private fun DashNzbRow(title: String, status: String, progress: Float, accent: Color, density: String = "") {
+    val vpad = when (density) { "compact" -> 2.dp; "detail" -> 9.dp; else -> 6.dp }
+    Column(Modifier.fillMaxWidth().padding(vertical = vpad)) {
+        Text(title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = if (density == "detail") 2 else 1, overflow = TextOverflow.Ellipsis)
+        if (density != "compact") Text("$status · ${(progress * 100).toInt()}%", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(4.dp))
         LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth(), color = MatrixGreen, trackColor = Surface)
     }
 }
 
 @Composable
-private fun DashDiscoverPoster(item: org.phioster.nexarr.model.SeerrDiscoverItem, width: androidx.compose.ui.unit.Dp = 96.dp, onClick: () -> Unit) {
+private fun DashDiscoverPoster(item: org.phioster.nexarr.model.SeerrDiscoverItem, width: androidx.compose.ui.unit.Dp = 96.dp, caption: Boolean = true, onClick: () -> Unit) {
     val h = width * 1.5f
     Column(Modifier.width(width).padding(end = 10.dp).clickable { onClick() }) {
         if (item.posterUrl.isNotBlank()) {
@@ -1025,8 +1021,10 @@ private fun DashDiscoverPoster(item: org.phioster.nexarr.model.SeerrDiscoverItem
         } else {
             Box(Modifier.width(width).height(h).clip(RoundedCornerShape(6.dp)).background(Surface))
         }
-        Spacer(Modifier.height(4.dp))
-        Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        if (caption) {
+            Spacer(Modifier.height(4.dp))
+            Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
@@ -2429,7 +2427,7 @@ private fun JellyPoster(url: String, config: ServiceConfig, modifier: Modifier, 
 }
 
 @Composable
-private fun JellyPosterCard(item: org.phioster.nexarr.model.JellyMediaItem, config: ServiceConfig, accent: Color, width: androidx.compose.ui.unit.Dp = 120.dp, onClick: () -> Unit) {
+private fun JellyPosterCard(item: org.phioster.nexarr.model.JellyMediaItem, config: ServiceConfig, accent: Color, width: androidx.compose.ui.unit.Dp = 120.dp, caption: Boolean = true, onClick: () -> Unit) {
     val h = width * 1.5f
     Column(Modifier.width(width).padding(end = 10.dp).clickable { onClick() }) {
         Box {
@@ -2446,10 +2444,12 @@ private fun JellyPosterCard(item: org.phioster.nexarr.model.JellyMediaItem, conf
                 )
             }
         }
-        Spacer(Modifier.height(4.dp))
-        Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (item.subtitle.isNotBlank()) {
-            Text(item.subtitle, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (caption) {
+            Spacer(Modifier.height(4.dp))
+            Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (item.subtitle.isNotBlank()) {
+                Text(item.subtitle, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }
