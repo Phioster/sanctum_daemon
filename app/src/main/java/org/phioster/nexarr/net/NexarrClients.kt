@@ -31,8 +31,11 @@ import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
 import org.phioster.nexarr.model.ProwlarrCategory
+import org.phioster.nexarr.model.ProwlarrHistoryItem
 import org.phioster.nexarr.model.ProwlarrIndexerItem
 import org.phioster.nexarr.model.ProwlarrRelease
+import org.phioster.nexarr.model.ProwlarrSystemInfo
+import org.phioster.nexarr.model.ProwlarrTaskItem
 import org.phioster.nexarr.model.SeerrIssueItem
 import org.phioster.nexarr.model.SeerrRequestItem
 import org.phioster.nexarr.model.SeerrSearchItem
@@ -206,9 +209,30 @@ private interface LidarrApi {
     val seeders: Int? = null,
     val ageMinutes: Double = 0.0,
     val categories: List<ProwlarrCategoryRef> = emptyList(),
+    val downloadUrl: String = "",
+    val magnetUrl: String = "",
+    val publishDate: String = "",
 )
 
 @Serializable private data class ProwlarrGrabReq(val guid: String, val indexerId: Int)
+
+@Serializable private data class ProwlarrHistoryRec(
+    val eventType: String = "",
+    val date: String = "",
+    val indexer: String = "",
+    val data: ProwlarrHistoryData = ProwlarrHistoryData(),
+)
+@Serializable private data class ProwlarrHistoryData(val query: String? = null, val title: String? = null)
+@Serializable private data class ProwlarrHistoryPage(val records: List<ProwlarrHistoryRec> = emptyList())
+
+@Serializable private data class ProwlarrTaskRec(
+    val name: String = "",
+    val lastExecution: String? = null,
+    val nextExecution: String? = null,
+)
+
+@Serializable private data class ProwlarrSystemStatusRec(val version: String = "")
+@Serializable private data class ProwlarrHealthRec(val type: String = "", val message: String = "")
 
 private interface ProwlarrApi {
     @GET("api/v1/indexerstats") suspend fun stats(): ProwlarrStats
@@ -226,6 +250,15 @@ private interface ProwlarrApi {
         @Query("limit") limit: Int = 100,
     ): List<ProwlarrReleaseRecord>
     @POST("api/v1/search") suspend fun grab(@Body body: ProwlarrGrabReq): Response<ResponseBody>
+    @GET("api/v1/history") suspend fun history(
+        @Query("page") page: Int = 1,
+        @Query("pageSize") pageSize: Int = 50,
+        @Query("sortKey") sortKey: String = "date",
+        @Query("sortDirection") sortDirection: String = "descending",
+    ): ProwlarrHistoryPage
+    @GET("api/v1/system/task") suspend fun tasks(): List<ProwlarrTaskRec>
+    @GET("api/v1/system/status") suspend fun systemStatus(): ProwlarrSystemStatusRec
+    @GET("api/v1/health") suspend fun health(): List<ProwlarrHealthRec>
 }
 
 // ---- Seerr (Overseerr-compatible, api/v1) ----
@@ -450,6 +483,7 @@ private interface ArrApi {
     @GET suspend fun rootFolders(@Url url: String): List<ArrRootFolderRecord>
     @POST suspend fun command(@Url url: String, @Body body: JsonObject): Response<ResponseBody>
     @POST suspend fun add(@Url url: String, @Body body: JsonObject): Response<ResponseBody>
+    @POST suspend fun releasePush(@Url url: String, @Body body: JsonObject): Response<ResponseBody>
     @DELETE suspend fun deleteQueue(@Url url: String): Response<ResponseBody>
 }
 
@@ -856,11 +890,66 @@ suspend fun prowlarrSearch(config: ServiceConfig, query: String, categoryId: Int
             indexer = r.indexer,
             title = r.title,
             sizeMb = r.size / (1024 * 1024),
+            sizeBytes = r.size,
             protocol = r.protocol,
             seeders = if (r.protocol == "torrent") r.seeders else null,
             ageDays = (r.ageMinutes / (60 * 24)).toInt(),
             categories = r.categories.joinToString(", ") { it.name }.ifBlank { "—" },
+            downloadUrl = r.downloadUrl,
+            magnetUrl = r.magnetUrl,
+            publishDate = r.publishDate,
         )
+    }
+}
+
+suspend fun prowlarrHistory(config: ServiceConfig): List<ProwlarrHistoryItem> = withContext(Dispatchers.IO) {
+    val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
+    api.history().records.map { h ->
+        ProwlarrHistoryItem(
+            title = h.data.title ?: h.data.query ?: "—",
+            indexer = h.indexer,
+            eventType = h.eventType,
+            date = h.date.take(16).replace('T', ' '),
+        )
+    }
+}
+
+suspend fun prowlarrTasks(config: ServiceConfig): List<ProwlarrTaskItem> = withContext(Dispatchers.IO) {
+    val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
+    api.tasks().map { t ->
+        ProwlarrTaskItem(
+            name = t.name,
+            lastExecution = (t.lastExecution ?: "").take(16).replace('T', ' '),
+            nextExecution = (t.nextExecution ?: "").take(16).replace('T', ' '),
+        )
+    }
+}
+
+suspend fun prowlarrSystem(config: ServiceConfig): ProwlarrSystemInfo = withContext(Dispatchers.IO) {
+    val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
+    val version = runCatching { api.systemStatus().version }.getOrDefault("?")
+    val health = runCatching { api.health().map { it.type to it.message } }.getOrDefault(emptyList())
+    ProwlarrSystemInfo(version = version, health = health)
+}
+
+/** Pushes a Prowlarr release to a Radarr/Sonarr instance via release/push. */
+suspend fun arrPushRelease(arrConfig: ServiceConfig, release: ProwlarrRelease): String = withContext(Dispatchers.IO) {
+    try {
+        val api = apiFor<ArrApi>(arrConfig, apiKeyHeader(arrConfig))
+        val url = "${arrBase(arrConfig.type)}/release/push"
+        val body = buildJsonObject {
+            put("title", release.title)
+            val dl = release.downloadUrl.ifBlank { release.magnetUrl }
+            put("downloadUrl", dl)
+            if (release.magnetUrl.isNotBlank()) put("magnetUrl", release.magnetUrl)
+            put("protocol", if (release.protocol == "torrent") "torrent" else "usenet")
+            put("publishDate", release.publishDate.ifBlank { "1970-01-01T00:00:00Z" })
+            put("size", release.sizeBytes)
+            put("indexer", release.indexer)
+        }
+        okOr(api.releasePush(url, body), "sent to ${arrConfig.label}")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
     }
 }
 

@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.phioster.nexarr.data.ServiceStore
 import org.phioster.nexarr.model.ServiceConfig
+import org.phioster.nexarr.model.ServiceType
 import org.phioster.nexarr.model.ServiceStatus
 import org.phioster.nexarr.model.ArrLibraryItem
 import org.phioster.nexarr.model.ArrLookupItem
@@ -18,8 +19,11 @@ import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
 import org.phioster.nexarr.model.ProwlarrCategory
+import org.phioster.nexarr.model.ProwlarrHistoryItem
 import org.phioster.nexarr.model.ProwlarrIndexerItem
 import org.phioster.nexarr.model.ProwlarrRelease
+import org.phioster.nexarr.model.ProwlarrSystemInfo
+import org.phioster.nexarr.model.ProwlarrTaskItem
 import org.phioster.nexarr.model.SeerrIssueItem
 import org.phioster.nexarr.model.SeerrRequestItem
 import org.phioster.nexarr.model.SeerrSearchItem
@@ -51,10 +55,14 @@ import org.phioster.nexarr.net.seerrSearch
 import org.phioster.nexarr.net.runJellyfinScan
 import org.phioster.nexarr.net.runNzbgetPause
 import org.phioster.nexarr.net.runNzbgetResume
+import org.phioster.nexarr.net.arrPushRelease
 import org.phioster.nexarr.net.prowlarrCategories
 import org.phioster.nexarr.net.prowlarrGrab
+import org.phioster.nexarr.net.prowlarrHistory
 import org.phioster.nexarr.net.prowlarrIndexers
 import org.phioster.nexarr.net.prowlarrSearch
+import org.phioster.nexarr.net.prowlarrSystem
+import org.phioster.nexarr.net.prowlarrTasks
 import org.phioster.nexarr.net.prowlarrTestIndexer
 import org.phioster.nexarr.net.prowlarrToggleIndexer
 import org.phioster.nexarr.net.runProwlarrTestAll
@@ -120,6 +128,14 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun prowlarrGrabRelease(config: ServiceConfig, release: ProwlarrRelease): String =
         prowlarrGrab(config, release)
     fun prowlarrCategoryOptions(): List<ProwlarrCategory> = prowlarrCategories
+    suspend fun prowlarrHistoryList(config: ServiceConfig): List<ProwlarrHistoryItem> = prowlarrHistory(config)
+    suspend fun prowlarrTaskList(config: ServiceConfig): List<ProwlarrTaskItem> = prowlarrTasks(config)
+    suspend fun prowlarrSystemInfo(config: ServiceConfig): ProwlarrSystemInfo = prowlarrSystem(config)
+    suspend fun sendReleaseToArr(arrConfig: ServiceConfig, release: ProwlarrRelease): String =
+        arrPushRelease(arrConfig, release)
+    /** Configured Radarr/Sonarr services, for the "send to" menu. */
+    fun arrTargets(): List<ServiceConfig> =
+        _services.value.filter { it.type == ServiceType.RADARR || it.type == ServiceType.SONARR }
     suspend fun nzbgetPause(config: ServiceConfig): String = runNzbgetPause(config)
     suspend fun nzbgetResume(config: ServiceConfig): String = runNzbgetResume(config)
 

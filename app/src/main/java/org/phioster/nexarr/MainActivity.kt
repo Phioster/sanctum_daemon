@@ -573,9 +573,10 @@ private fun ProwlarrScreen(
     val status = statuses[config.id]
     val accent = Color(config.type.accent)
     val scope = rememberCoroutineScope()
-    var mode by remember { mutableStateOf(0) } // 0=Indexers, 1=Search
+    var mode by remember { mutableStateOf(0) } // 0=Indexers, 1=Search, 2=History
     var indexers by remember { mutableStateOf<List<ProwlarrIndexerItem>?>(null) }
     var releases by remember { mutableStateOf<List<ProwlarrRelease>?>(null) }
+    var history by remember { mutableStateOf<List<org.phioster.nexarr.model.ProwlarrHistoryItem>?>(null) }
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var barMenu by remember { mutableStateOf(false) }
@@ -585,6 +586,10 @@ private fun ProwlarrScreen(
     var catMenu by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
     var confirmGrab by remember { mutableStateOf<ProwlarrRelease?>(null) }
+    var systemInfo by remember { mutableStateOf<org.phioster.nexarr.model.ProwlarrSystemInfo?>(null) }
+    var tasks by remember { mutableStateOf<List<org.phioster.nexarr.model.ProwlarrTaskItem>?>(null) }
+    var showSystem by remember { mutableStateOf(false) }
+    val arrTargets = remember { vm.arrTargets() }
 
     suspend fun loadIndexers() {
         listError = null
@@ -596,7 +601,20 @@ private fun ProwlarrScreen(
             listError = t.message
         }
     }
-    LaunchedEffect(mode) { if (mode == 0 && indexers == null) loadIndexers() }
+    suspend fun loadHistory() {
+        listError = null
+        try {
+            history = vm.prowlarrHistoryList(config)
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            listError = t.message
+        }
+    }
+    LaunchedEffect(mode) {
+        if (mode == 0 && indexers == null) loadIndexers()
+        if (mode == 2 && history == null) loadHistory()
+    }
 
     fun runSearch() {
         if (query.isBlank()) return
@@ -636,6 +654,13 @@ private fun ProwlarrScreen(
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
                             DropdownMenuItem(text = { Text("Test all indexers", fontFamily = Mono) }, onClick = { barMenu = false; act({ vm.prowlarrTestAll(config) }, false) })
+                            DropdownMenuItem(text = { Text("System & tasks", fontFamily = Mono) }, onClick = {
+                                barMenu = false; showSystem = true; systemInfo = null; tasks = null
+                                scope.launch {
+                                    systemInfo = runCatching { vm.prowlarrSystemInfo(config) }.getOrNull()
+                                    tasks = runCatching { vm.prowlarrTaskList(config) }.getOrDefault(emptyList())
+                                }
+                            })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
                         }
@@ -662,9 +687,11 @@ private fun ProwlarrScreen(
                     FilterChip(selected = mode == 0, onClick = { mode = 0 }, label = { Text("Indexers", fontFamily = Mono) })
                     Spacer(Modifier.width(8.dp))
                     FilterChip(selected = mode == 1, onClick = { mode = 1 }, label = { Text("Search", fontFamily = Mono) })
+                    Spacer(Modifier.width(8.dp))
+                    FilterChip(selected = mode == 2, onClick = { mode = 2 }, label = { Text("History", fontFamily = Mono) })
                     Spacer(Modifier.weight(1f))
-                    if (mode == 0) {
-                        IconButton(onClick = { scope.launch { loadIndexers() } }) {
+                    if (mode == 0 || mode == 2) {
+                        IconButton(onClick = { scope.launch { if (mode == 0) loadIndexers() else loadHistory() } }) {
                             Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                         }
                     }
@@ -701,27 +728,46 @@ private fun ProwlarrScreen(
                     Text("error: $listError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
                 } else {
                     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                        if (mode == 0) {
-                            val ix = indexers
-                            when {
-                                ix == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                ix.isEmpty() -> item { Text("no indexers", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                else -> items(ix) { row ->
-                                    ProwlarrIndexerRow(
-                                        item = row,
-                                        accent = accent,
-                                        onTest = { act({ vm.prowlarrTest(config, row.id) }, false) },
-                                        onToggle = { act({ vm.prowlarrToggle(config, row.id, !row.enable) }, true) },
-                                    )
+                        when (mode) {
+                            0 -> {
+                                val ix = indexers
+                                when {
+                                    ix == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    ix.isEmpty() -> item { Text("no indexers", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    else -> items(ix) { row ->
+                                        ProwlarrIndexerRow(
+                                            item = row,
+                                            accent = accent,
+                                            onTest = { act({ vm.prowlarrTest(config, row.id) }, false) },
+                                            onToggle = { act({ vm.prowlarrToggle(config, row.id, !row.enable) }, true) },
+                                        )
+                                    }
                                 }
                             }
-                        } else {
-                            val r = releases
-                            when {
-                                searching -> item { Text("searching…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                r == null -> item { Text("enter a query and search", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                r.isEmpty() -> item { Text("no results", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                else -> items(r) { rel -> ProwlarrReleaseRow(rel, accent) { confirmGrab = rel } }
+                            1 -> {
+                                val r = releases
+                                when {
+                                    searching -> item { Text("searching…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    r == null -> item { Text("enter a query and search", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    r.isEmpty() -> item { Text("no results", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    else -> items(r) { rel ->
+                                        ProwlarrReleaseRow(
+                                            item = rel,
+                                            accent = accent,
+                                            arrTargets = arrTargets,
+                                            onGrab = { confirmGrab = rel },
+                                            onSendTo = { target -> scope.launch { actionMsg = vm.sendReleaseToArr(target, rel) } },
+                                        )
+                                    }
+                                }
+                            }
+                            else -> {
+                                val h = history
+                                when {
+                                    h == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    h.isEmpty() -> item { Text("no history", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    else -> items(h) { ev -> ProwlarrHistoryRow(ev, accent) }
+                                }
                             }
                         }
                     }
@@ -753,6 +799,63 @@ private fun ProwlarrScreen(
             },
             dismissButton = { TextButton(onClick = { confirmGrab = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
+    }
+
+    if (showSystem) {
+        AlertDialog(
+            onDismissRequest = { showSystem = false },
+            containerColor = Surface,
+            title = { Text("System & tasks", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                    val si = systemInfo
+                    Text("version ${si?.version ?: "…"}", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text("HEALTH", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    when {
+                        si == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        si.health.isEmpty() -> Text("all healthy", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
+                        else -> si.health.forEach { (type, msg) ->
+                            val c = if (type.equals("error", true)) ErrRed else Color(0xFFFFAA00)
+                            Text("• $msg", fontFamily = Mono, color = c, fontSize = 12.sp)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Text("TASKS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    val tk = tasks
+                    when {
+                        tk == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        tk.isEmpty() -> Text("no tasks", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        else -> tk.forEach { t ->
+                            Column(Modifier.padding(vertical = 4.dp)) {
+                                Text(t.name, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
+                                Text("last ${t.lastExecution.ifBlank { "—" }} · next ${t.nextExecution.ifBlank { "—" }}", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showSystem = false }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+}
+
+@Composable
+private fun ProwlarrHistoryRow(item: org.phioster.nexarr.model.ProwlarrHistoryItem, accent: Color) {
+    val evColor = when (item.eventType) {
+        "releaseGrabbed" -> MatrixGreen
+        "indexerQuery" -> accent.copy(alpha = 0.8f)
+        else -> MatrixGreen.copy(alpha = 0.6f)
+    }
+    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+        Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(2.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("${item.indexer} · ${item.date}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text(item.eventType, fontFamily = Mono, color = evColor, fontSize = 10.sp)
+        }
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
     }
 }
 
@@ -798,7 +901,14 @@ private fun ProwlarrIndexerRow(item: ProwlarrIndexerItem, accent: Color, onTest:
 }
 
 @Composable
-private fun ProwlarrReleaseRow(item: ProwlarrRelease, accent: Color, onGrab: () -> Unit) {
+private fun ProwlarrReleaseRow(
+    item: ProwlarrRelease,
+    accent: Color,
+    arrTargets: List<ServiceConfig>,
+    onGrab: () -> Unit,
+    onSendTo: (ServiceConfig) -> Unit,
+) {
+    var menu by remember { mutableStateOf(false) }
     val meta = buildString {
         append(item.indexer)
         append(" · ")
@@ -806,20 +916,28 @@ private fun ProwlarrReleaseRow(item: ProwlarrRelease, accent: Color, onGrab: () 
         if (item.protocol == "torrent") append(" · ${item.seeders ?: 0}S")
         else append(" · ${item.ageDays}d")
     }
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clickable { onGrab() }
-            .padding(vertical = 10.dp),
-    ) {
-        Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(2.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(meta, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            Text(item.categories, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Box {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clickable { menu = true }
+                .padding(vertical = 10.dp),
+        ) {
+            Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(2.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(meta, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(item.categories, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
         }
-        Spacer(Modifier.height(8.dp))
-        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(text = { Text("Grab (Prowlarr)", fontFamily = Mono) }, onClick = { menu = false; onGrab() })
+            arrTargets.forEach { t ->
+                DropdownMenuItem(text = { Text("Send to ${t.label}", fontFamily = Mono) }, onClick = { menu = false; onSendTo(t) })
+            }
+        }
     }
 }
 
