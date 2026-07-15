@@ -394,7 +394,7 @@ private fun SeerrScreen(
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
                             DropdownMenuItem(text = { Text("New request", fontFamily = Mono) }, onClick = { barMenu = false; searchTerm = ""; searchResults = null; showAdd = true })
-                            DropdownMenuItem(text = { Text("Open in Seerr", fontFamily = Mono) }, onClick = { barMenu = false; openExternal(context, emptyList(), config.baseUrl) })
+                            DropdownMenuItem(text = { Text("Open in Seerr", fontFamily = Mono) }, onClick = { barMenu = false; openExternal(context, seerrAppPackages, config.baseUrl) })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
                         }
@@ -3208,6 +3208,9 @@ private fun AddServiceScreen(
 
 /** Known Android app packages that can display a Jellyfin server. */
 private val jellyfinAppPackages = listOf("org.jellyfin.mobile", "dev.jdtech.jellyfin")
+
+/** Known Android app packages for Overseerr/Jellyseerr. */
+private val seerrAppPackages = listOf("dev.seerr.mobileapp")
 
 /**
  * Open [webUrl] in the first installed app from [packages]; otherwise hand the URL to the
