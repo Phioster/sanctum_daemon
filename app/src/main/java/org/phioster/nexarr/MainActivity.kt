@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
@@ -46,6 +47,16 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Tv
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.LiveTv
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -205,6 +216,44 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
     }
 }
 
+/** Selectable tab icons; the stored key maps back to a Material icon. */
+private val tabIcons: List<Pair<String, ImageVector>> = listOf(
+    "home" to Icons.Filled.Home,
+    "movie" to Icons.Filled.Movie,
+    "tv" to Icons.Filled.Tv,
+    "livetv" to Icons.Filled.LiveTv,
+    "music" to Icons.Filled.MusicNote,
+    "download" to Icons.Filled.Download,
+    "book" to Icons.Filled.MenuBook,
+    "star" to Icons.Filled.Star,
+    "favorite" to Icons.Filled.Favorite,
+    "folder" to Icons.Filled.Folder,
+)
+
+private fun tabIcon(key: String): ImageVector =
+    tabIcons.firstOrNull { it.first == key }?.second ?: Icons.Filled.Home
+
+@Composable
+private fun IconPickerGrid(selected: String, onPick: (String) -> Unit) {
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+        tabIcons.forEach { (key, icon) ->
+            val sel = key == selected
+            Box(
+                Modifier
+                    .padding(end = 8.dp)
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (sel) MatrixGreen else Surface)
+                    .border(1.dp, if (sel) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                    .clickable { onPick(key) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, contentDescription = key, tint = if (sel) Black else MatrixGreen)
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeShell(
@@ -221,6 +270,7 @@ private fun HomeShell(
     var showAddCard by remember { mutableStateOf(false) }
     var showAddTab by remember { mutableStateOf(false) }
     var newTabName by remember { mutableStateOf("") }
+    var newTabIcon by remember { mutableStateOf("home") }
 
     val servicesIndex = tabs.size
     val current = selected.coerceIn(0, servicesIndex)
@@ -261,7 +311,7 @@ private fun HomeShell(
                     NavigationBarItem(
                         selected = current == i,
                         onClick = { selected = i; editMode = false },
-                        icon = { Icon(Icons.Filled.Home, contentDescription = null) },
+                        icon = { Icon(tabIcon(t.icon), contentDescription = null) },
                         label = { Text(t.name, fontFamily = Mono, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         colors = navColors,
                     )
@@ -291,7 +341,7 @@ private fun HomeShell(
                     tab = currentTab,
                     editMode = editMode,
                     onOpenService = onOpen,
-                    onAddTab = { newTabName = ""; showAddTab = true },
+                    onAddTab = { newTabName = ""; newTabIcon = "home"; showAddTab = true },
                     onDeleteTab = { vm.removeTab(currentTab.id); selected = 0; editMode = false },
                 )
             }
@@ -310,9 +360,17 @@ private fun HomeShell(
             onDismissRequest = { showAddTab = false },
             containerColor = Surface,
             title = { Text("New tab", fontFamily = Mono, color = MatrixGreen) },
-            text = { Field("Tab name", newTabName) { newTabName = it } },
+            text = {
+                Column {
+                    Field("Tab name", newTabName) { newTabName = it }
+                    Spacer(Modifier.height(12.dp))
+                    Text("ICON", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    Spacer(Modifier.height(6.dp))
+                    IconPickerGrid(newTabIcon) { newTabIcon = it }
+                }
+            },
             confirmButton = {
-                TextButton(enabled = newTabName.isNotBlank(), onClick = { val n = newTabName; showAddTab = false; vm.addTab(n); selected = tabs.size }) {
+                TextButton(enabled = newTabName.isNotBlank(), onClick = { val n = newTabName; val ic = newTabIcon; showAddTab = false; vm.addTab(n, ic); selected = tabs.size }) {
                     Text("Add", fontFamily = Mono, color = MatrixGreen)
                 }
             },
@@ -551,43 +609,67 @@ private fun AddCardDialog(
     onDismiss: () -> Unit,
     onAdd: (org.phioster.nexarr.model.CardType, String) -> Unit,
 ) {
-    var chosenType by remember { mutableStateOf<org.phioster.nexarr.model.CardType?>(null) }
-    val typeService = chosenType?.service
-    val candidates = services.filter { chosenType == null || it.type == typeService }
+    // Card types grouped by the service they pull from, only for service types the
+    // user actually has configured — like nzb360's per-service "Add new card" sheet.
+    val groups = remember(services) {
+        CardType.entries.groupBy { it.service }
+            .filterKeys { st -> services.any { it.type == st } }
+            .toList()
+    }
+    var expanded by remember { mutableStateOf<ServiceType?>(groups.firstOrNull()?.first) }
+    var pendingType by remember { mutableStateOf<CardType?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Surface,
         title = { Text("Add card", fontFamily = Mono, color = MatrixGreen) },
         text = {
-            Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
-                Text("CARD TYPE", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                Spacer(Modifier.height(4.dp))
-                CardType.entries.forEach { t ->
-                    val sel = chosenType == t
-                    Text(
-                        "${if (sel) "◉" else "○"} ${t.label} · ${t.service.label}",
-                        fontFamily = Mono, color = if (sel) MatrixGreen else MatrixGreen.copy(alpha = 0.8f), fontSize = 13.sp,
-                        modifier = Modifier.fillMaxWidth().clickable { chosenType = t }.padding(vertical = 6.dp),
-                    )
+            Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
+                if (groups.isEmpty()) {
+                    Text("no services configured yet", fontFamily = Mono, color = ErrRed, fontSize = 13.sp)
                 }
-                if (chosenType != null) {
-                    Spacer(Modifier.height(8.dp))
-                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
-                    Spacer(Modifier.height(8.dp))
-                    Text("SERVICE (${typeService?.label})", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                    Spacer(Modifier.height(4.dp))
-                    if (candidates.isEmpty()) {
-                        Text("no ${typeService?.label} service configured", fontFamily = Mono, color = ErrRed, fontSize = 12.sp)
-                    } else {
-                        candidates.forEach { c ->
+                groups.forEach { (svcType, types) ->
+                    val accent = Color(svcType.accent)
+                    val open = expanded == svcType
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .clickable { expanded = if (open) null else svcType; pendingType = null }
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("●", color = accent, fontSize = 12.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(svcType.label, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        Text("${types.size} cards", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (open) "▾" else "▸", fontFamily = Mono, color = MatrixGreen)
+                    }
+                    if (open) {
+                        types.forEach { t ->
+                            val cfgs = services.filter { it.type == svcType }
                             Text(
-                                "› ${c.label}",
-                                fontFamily = Mono, color = Color(c.type.accent), fontSize = 13.sp,
-                                modifier = Modifier.fillMaxWidth().clickable { onAdd(chosenType!!, c.id) }.padding(vertical = 8.dp),
+                                "› ${t.label}",
+                                fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.85f), fontSize = 13.sp,
+                                modifier = Modifier.fillMaxWidth()
+                                    .clickable {
+                                        if (cfgs.size == 1) onAdd(t, cfgs.first().id)
+                                        else pendingType = if (pendingType == t) null else t
+                                    }
+                                    .padding(start = 20.dp, top = 7.dp, bottom = 7.dp),
                             )
+                            // If several services of this type exist, pick which one.
+                            if (pendingType == t) {
+                                services.filter { it.type == svcType }.forEach { c ->
+                                    Text(
+                                        "  → ${c.label}",
+                                        fontFamily = Mono, color = accent, fontSize = 12.sp,
+                                        modifier = Modifier.fillMaxWidth().clickable { onAdd(t, c.id) }.padding(start = 40.dp, top = 6.dp, bottom = 6.dp),
+                                    )
+                                }
+                            }
                         }
                     }
+                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
                 }
             }
         },

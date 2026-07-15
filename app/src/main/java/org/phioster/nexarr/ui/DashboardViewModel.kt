@@ -160,8 +160,12 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { dashStore.save(list) }
     }
 
-    fun addTab(name: String) {
-        persistTabs(_tabs.value + org.phioster.nexarr.model.DashTab(java.util.UUID.randomUUID().toString(), name.ifBlank { "Tab" }))
+    fun addTab(name: String, icon: String = "") {
+        persistTabs(_tabs.value + org.phioster.nexarr.model.DashTab(java.util.UUID.randomUUID().toString(), name.ifBlank { "Tab" }, icon = icon))
+    }
+
+    fun setTabIcon(tabId: String, icon: String) {
+        persistTabs(_tabs.value.map { if (it.id == tabId) it.copy(icon = icon) else it })
     }
 
     fun removeTab(tabId: String) {

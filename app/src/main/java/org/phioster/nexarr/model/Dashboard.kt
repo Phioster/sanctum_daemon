@@ -35,4 +35,5 @@ data class DashTab(
     val id: String,
     val name: String,
     val cards: List<DashCard> = emptyList(),
+    val icon: String = "", // icon key (see tabIcon in UI); blank = default
 )
