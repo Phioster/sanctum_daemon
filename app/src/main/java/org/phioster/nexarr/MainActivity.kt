@@ -481,6 +481,9 @@ private fun SeerrScreen(
     var confirmItem by remember { mutableStateOf<SeerrSearchItem?>(null) }
     var mediaDetail by remember { mutableStateOf<org.phioster.nexarr.model.SeerrMediaDetail?>(null) }
     var mediaDetailLoading by remember { mutableStateOf(false) }
+    var showStats by remember { mutableStateOf(false) }
+    var stats by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
+    var users by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrUserInfo>?>(null) }
     var seasons by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrSeason>?>(null) }
     var selectedSeasons by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var issueDetailId by remember { mutableStateOf<Int?>(null) }
@@ -545,6 +548,13 @@ private fun SeerrScreen(
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
                             DropdownMenuItem(text = { Text("New request", fontFamily = Mono) }, onClick = { barMenu = false; searchTerm = ""; searchResults = null; showAdd = true })
+                            DropdownMenuItem(text = { Text("Users & stats", fontFamily = Mono) }, onClick = {
+                                barMenu = false; showStats = true; stats = null; users = null
+                                scope.launch {
+                                    stats = runCatching { vm.seerrStats(config) }.getOrDefault(emptyList())
+                                    users = runCatching { vm.seerrUserList(config) }.getOrDefault(emptyList())
+                                }
+                            })
                             DropdownMenuItem(text = { Text("Open in Seerr", fontFamily = Mono) }, onClick = { barMenu = false; openExternal(context, seerrAppPackages, config.baseUrl) })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
@@ -863,6 +873,55 @@ private fun SeerrScreen(
         )
     }
 
+    if (showStats) {
+        AlertDialog(
+            onDismissRequest = { showStats = false },
+            containerColor = Surface,
+            title = { Text("Users & stats", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
+                    Text("REQUESTS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    Spacer(Modifier.height(6.dp))
+                    val st = stats
+                    when {
+                        st == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        else -> st.chunked(2).forEach { pair ->
+                            Row(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
+                                pair.forEach { (k, v) ->
+                                    Column(Modifier.weight(1f)) {
+                                        Text(v, fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                        Text(k.uppercase(), fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 9.sp)
+                                    }
+                                }
+                                if (pair.size == 1) Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
+                    Spacer(Modifier.height(8.dp))
+                    Text("USERS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    Spacer(Modifier.height(6.dp))
+                    val us = users
+                    when {
+                        us == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        us.isEmpty() -> Text("no users", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        else -> us.forEach { u ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(u.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    if (u.email.isNotBlank()) Text(u.email, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                Text("${u.requestCount} req", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showStats = false }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
     issueDetailId?.let { iid ->
         AlertDialog(
             onDismissRequest = { issueDetailId = null },
@@ -1027,6 +1086,7 @@ private fun JellyfinScreen(
     var dashInfo by remember { mutableStateOf<org.phioster.nexarr.model.JellySystemInfo?>(null) }
     var tasks by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyTask>?>(null) }
     var activity by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyActivity>?>(null) }
+    var devices by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyDevice>?>(null) }
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var barMenu by remember { mutableStateOf(false) }
@@ -1062,6 +1122,7 @@ private fun JellyfinScreen(
             dashInfo = vm.jellyfinInfo(config)
             tasks = vm.jellyfinTaskList(config)
             activity = vm.jellyfinActivityLog(config)
+            devices = runCatching { vm.jellyfinDeviceList(config) }.getOrDefault(emptyList())
         } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
     }
     suspend fun loadMediaHome() {
@@ -1276,6 +1337,14 @@ private fun JellyfinScreen(
                                     ac == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
                                     ac.isEmpty() -> item { Text("no activity", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
                                     else -> items(ac) { e -> JellyActivityRow(e, accent) }
+                                }
+                                val dv = devices
+                                if (!dv.isNullOrEmpty()) {
+                                    item {
+                                        Spacer(Modifier.height(12.dp))
+                                        Text("DEVICES", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                    }
+                                    items(dv) { d -> JellyDeviceRow(d, accent) }
                                 }
                             }
                         }
@@ -1608,6 +1677,26 @@ private fun JellyActivityRow(item: org.phioster.nexarr.model.JellyActivity, acce
         Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(2.dp))
         Text("${item.date}${if (item.overview.isNotBlank()) " · ${item.overview}" else ""}", fontFamily = Mono, color = sevColor, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(6.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
+    }
+}
+
+@Composable
+private fun JellyDeviceRow(item: org.phioster.nexarr.model.JellyDevice, accent: Color) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            if (item.app.isNotBlank()) Text(item.app, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp)
+        }
+        Spacer(Modifier.height(2.dp))
+        Text(
+            buildString {
+                if (item.user.isNotBlank()) append(item.user)
+                if (item.lastActivity.isNotBlank()) { if (isNotEmpty()) append(" · "); append(item.lastActivity) }
+            },
+            fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
         Spacer(Modifier.height(6.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
     }

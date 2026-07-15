@@ -38,6 +38,7 @@ import org.phioster.nexarr.model.ArrMissingItem
 import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.JellyActivity
+import org.phioster.nexarr.model.JellyDevice
 import org.phioster.nexarr.model.JellyLibrary
 import org.phioster.nexarr.model.JellyMediaDetail
 import org.phioster.nexarr.model.JellyMediaItem
@@ -63,6 +64,7 @@ import org.phioster.nexarr.model.SeerrIssueItem
 import org.phioster.nexarr.model.SeerrRequestItem
 import org.phioster.nexarr.model.SeerrMediaDetail
 import org.phioster.nexarr.model.SeerrSearchItem
+import org.phioster.nexarr.model.SeerrUserInfo
 import org.phioster.nexarr.model.SeerrSeason
 import org.phioster.nexarr.model.ServiceConfig
 import org.phioster.nexarr.model.ServiceStatus
@@ -191,6 +193,14 @@ private data class JfCounts(
 )
 @Serializable private data class JfActivityPage(val Items: List<JfActivityEntry> = emptyList())
 
+@Serializable private data class JfDevice(
+    val Name: String = "",
+    val AppName: String = "",
+    val LastUserName: String? = null,
+    val DateLastActivity: String? = null,
+)
+@Serializable private data class JfDevicePage(val Items: List<JfDevice> = emptyList())
+
 @Serializable private data class JfUserData(
     val PlayedPercentage: Double? = null,
     val Played: Boolean = false,
@@ -285,6 +295,7 @@ private interface JellyfinApi {
     @GET("ScheduledTasks") suspend fun scheduledTasks(): List<JfTask>
     @POST("ScheduledTasks/Running/{id}") suspend fun runTask(@Path("id") id: String): Response<ResponseBody>
     @GET("System/ActivityLog/Entries") suspend fun activityLog(@Query("limit") limit: Int = 30): JfActivityPage
+    @GET("Devices") suspend fun devices(): JfDevicePage
     @POST("System/Restart") suspend fun restartServer(): Response<ResponseBody>
     @POST("System/Shutdown") suspend fun shutdownServer(): Response<ResponseBody>
 }
@@ -428,10 +439,23 @@ private interface ProwlarrApi {
 // ---- Seerr (Overseerr-compatible, api/v1) ----
 
 @Serializable private data class SeerrCounts(
+    val total: Int = 0,
+    val movie: Int = 0,
+    val tv: Int = 0,
     val pending: Int = 0,
     val approved: Int = 0,
+    val processing: Int = 0,
     val available: Int = 0,
+    val declined: Int = 0,
 )
+@Serializable private data class SeerrUserRec(
+    val id: Int = 0,
+    val displayName: String = "",
+    val username: String? = null,
+    val email: String? = null,
+    val requestCount: Int = 0,
+)
+@Serializable private data class SeerrUserPage(val results: List<SeerrUserRec> = emptyList())
 
 @Serializable private data class SeerrMedia(val tmdbId: Int = 0, val mediaType: String = "")
 @Serializable private data class SeerrUser(val displayName: String = "")
@@ -466,6 +490,7 @@ private interface ProwlarrApi {
 
 private interface SeerrApi {
     @GET("api/v1/request/count") suspend fun counts(): SeerrCounts
+    @GET("api/v1/user") suspend fun users(@Query("take") take: Int = 100, @Query("sort") sort: String = "requests"): SeerrUserPage
 
     @GET("api/v1/request") suspend fun requests(
         @Query("take") take: Int,
@@ -656,6 +681,32 @@ suspend fun seerrSeasons(config: ServiceConfig, tmdbId: Int): List<SeerrSeason> 
             val n = jsInt(s, "seasonNumber") ?: return@mapNotNull null
             if (n < 1) null else SeerrSeason(n, jsStr(s, "name") ?: "Season $n", jsInt(s, "episodeCount") ?: 0)
         } ?: emptyList()
+}
+
+/** Request-count statistics for the admin stats view. */
+suspend fun seerrRequestStats(config: ServiceConfig): List<Pair<String, String>> = withContext(Dispatchers.IO) {
+    val c = apiFor<SeerrApi>(config, apiKeyHeader(config)).counts()
+    listOf(
+        "total" to c.total.toString(),
+        "movies" to c.movie.toString(),
+        "tv" to c.tv.toString(),
+        "pending" to c.pending.toString(),
+        "approved" to c.approved.toString(),
+        "processing" to c.processing.toString(),
+        "available" to c.available.toString(),
+        "declined" to c.declined.toString(),
+    )
+}
+
+/** Seerr users, sorted by request count. */
+suspend fun seerrUsers(config: ServiceConfig): List<SeerrUserInfo> = withContext(Dispatchers.IO) {
+    apiFor<SeerrApi>(config, apiKeyHeader(config)).users().results.map { u ->
+        SeerrUserInfo(
+            name = u.displayName.ifBlank { u.username ?: "user #${u.id}" },
+            email = u.email ?: "",
+            requestCount = u.requestCount,
+        )
+    }
 }
 
 /** Create a request; [seasons] null = movie or all seasons, else the chosen season numbers. */
@@ -1852,6 +1903,18 @@ suspend fun jellyfinActivity(config: ServiceConfig): List<JellyActivity> = withC
             overview = e.ShortOverview ?: "",
         )
     }
+}
+
+suspend fun jellyfinDevices(config: ServiceConfig): List<JellyDevice> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    jfApi(config, token).devices().Items.map { d ->
+        JellyDevice(
+            name = d.Name.ifBlank { "?" },
+            app = d.AppName,
+            user = d.LastUserName ?: "",
+            lastActivity = (d.DateLastActivity ?: "").take(16).replace('T', ' '),
+        )
+    }.sortedByDescending { it.lastActivity }
 }
 
 suspend fun jellyfinRestart(config: ServiceConfig): String = withContext(Dispatchers.IO) {

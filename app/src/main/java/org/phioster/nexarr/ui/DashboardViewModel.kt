@@ -74,6 +74,8 @@ import org.phioster.nexarr.net.seerrDeleteIssueById
 import org.phioster.nexarr.net.seerrDiscover
 import org.phioster.nexarr.net.seerrIssueDetail
 import org.phioster.nexarr.net.seerrMediaDetail
+import org.phioster.nexarr.net.seerrRequestStats
+import org.phioster.nexarr.net.seerrUsers
 import org.phioster.nexarr.net.seerrIssues
 import org.phioster.nexarr.net.seerrRequest
 import org.phioster.nexarr.net.seerrRequests
@@ -82,6 +84,7 @@ import org.phioster.nexarr.net.seerrSeasons
 import org.phioster.nexarr.net.seerrSetIssueStatus
 import org.phioster.nexarr.net.jellyfinActivity
 import org.phioster.nexarr.net.jellyfinCreateUser
+import org.phioster.nexarr.net.jellyfinDevices
 import org.phioster.nexarr.net.jellyfinDeleteUser
 import org.phioster.nexarr.net.jellyfinItemDetail
 import org.phioster.nexarr.net.jellyfinItems
@@ -187,6 +190,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun jellyfinRunTaskById(config: ServiceConfig, taskId: String): String = jellyfinRunTask(config, taskId)
     suspend fun jellyfinActivityLog(config: ServiceConfig): List<org.phioster.nexarr.model.JellyActivity> = jellyfinActivity(config)
     suspend fun jellyfinRestartServer(config: ServiceConfig): String = jellyfinRestart(config)
+    suspend fun jellyfinDeviceList(config: ServiceConfig): List<org.phioster.nexarr.model.JellyDevice> =
+        jellyfinDevices(config)
     suspend fun jellyfinLibraryList(config: ServiceConfig): List<org.phioster.nexarr.model.JellyLibrary> =
         jellyfinLibraries(config)
     suspend fun jellyfinAddUser(config: ServiceConfig, name: String, password: String): String =
@@ -307,6 +312,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         seerrDiscover(config, kind)
     suspend fun seerrMediaDetailById(config: ServiceConfig, tmdbId: Int, mediaType: String): org.phioster.nexarr.model.SeerrMediaDetail =
         seerrMediaDetail(config, tmdbId, mediaType)
+    suspend fun seerrStats(config: ServiceConfig): List<Pair<String, String>> = seerrRequestStats(config)
+    suspend fun seerrUserList(config: ServiceConfig): List<org.phioster.nexarr.model.SeerrUserInfo> = seerrUsers(config)
     suspend fun seerrSeasonsList(config: ServiceConfig, tmdbId: Int): List<org.phioster.nexarr.model.SeerrSeason> =
         seerrSeasons(config, tmdbId)
     suspend fun seerrRequestMedia(config: ServiceConfig, tmdbId: Int, mediaType: String, seasons: List<Int>?): String =

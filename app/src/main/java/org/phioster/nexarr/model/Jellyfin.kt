@@ -57,6 +57,14 @@ data class JellyActivity(
     val overview: String,
 )
 
+/** A client device known to the server. */
+data class JellyDevice(
+    val name: String,
+    val app: String,
+    val user: String,
+    val lastActivity: String,
+)
+
 /** A browsable media item: a library, folder (series/album/season), or a playable leaf. */
 data class JellyMediaItem(
     val id: String,

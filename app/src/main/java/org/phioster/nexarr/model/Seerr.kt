@@ -49,6 +49,13 @@ data class SeerrMediaDetail(
     val cast: List<ArrCastMember>,
 )
 
+/** A Seerr user, for the admin user list. */
+data class SeerrUserInfo(
+    val name: String,
+    val email: String,
+    val requestCount: Int,
+)
+
 /** A season of a TV show, for per-season requests. */
 data class SeerrSeason(
     val seasonNumber: Int,
