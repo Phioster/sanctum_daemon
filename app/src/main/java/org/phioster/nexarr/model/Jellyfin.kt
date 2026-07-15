@@ -56,3 +56,25 @@ data class JellyActivity(
     val severity: String,
     val overview: String,
 )
+
+/** A browsable media item: a library, folder (series/album/season), or a playable leaf. */
+data class JellyMediaItem(
+    val id: String,
+    val name: String,
+    val kind: String, // "movies"/"tvshows"/"music" for libraries; else "Movie"/"Series"/"Episode"/"Audio"/"MusicAlbum"/…
+    val subtitle: String,
+    val posterUrl: String,
+    val isFolder: Boolean,
+    val progressPct: Float, // 0..1, for "continue watching" rows
+)
+
+/** Full detail for a single media item. */
+data class JellyMediaDetail(
+    val id: String,
+    val name: String,
+    val overview: String,
+    val posterUrl: String,
+    val facts: List<Pair<String, String>>,
+    val genres: String,
+    val cast: List<ArrCastMember>,
+)

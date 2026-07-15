@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -784,6 +785,12 @@ private fun JellyfinScreen(
     var showCreateUser by remember { mutableStateOf(false) }
     var newUserName by remember { mutableStateOf("") }
     var newUserPass by remember { mutableStateOf("") }
+    var mediaViews by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyMediaItem>?>(null) }
+    var mediaContents by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyMediaItem>?>(null) }
+    var resumeItems by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyMediaItem>?>(null) }
+    var latestItems by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyMediaItem>?>(null) }
+    var browseStack by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var mediaDetail by remember { mutableStateOf<org.phioster.nexarr.model.JellyMediaDetail?>(null) }
 
     suspend fun loadSessions() {
         listError = null
@@ -804,7 +811,30 @@ private fun JellyfinScreen(
             activity = vm.jellyfinActivityLog(config)
         } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
     }
-    LaunchedEffect(mode) { when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); else -> loadDashboard() } }
+    suspend fun loadMediaHome() {
+        listError = null
+        try {
+            mediaViews = vm.jellyfinViews(config)
+            resumeItems = vm.jellyfinContinue(config)
+            latestItems = vm.jellyfinRecent(config, null)
+        } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
+    }
+    suspend fun loadMediaFolder(id: String) {
+        listError = null
+        mediaContents = null
+        try { mediaContents = vm.jellyfinItemList(config, id) } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
+    }
+    LaunchedEffect(mode) { when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); else -> {} } }
+    LaunchedEffect(mode, browseStack) {
+        if (mode == 3) { if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last().first) }
+    }
+    BackHandler(enabled = mode == 3 && (mediaDetail != null || browseStack.isNotEmpty())) {
+        if (mediaDetail != null) mediaDetail = null else browseStack = browseStack.dropLast(1)
+    }
+    fun openMedia(it: org.phioster.nexarr.model.JellyMediaItem) {
+        if (it.isFolder) browseStack = browseStack + (it.id to it.name)
+        else scope.launch { mediaDetail = runCatching { vm.jellyfinMediaDetail(config, it.id) }.getOrElse { null } }
+    }
     fun act(action: suspend () -> String) {
         scope.launch { actionMsg = action(); loadSessions() }
     }
@@ -846,13 +876,23 @@ private fun JellyfinScreen(
                     Spacer(Modifier.height(10.dp))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    FilterChip(selected = mode == 0, onClick = { mode = 0 }, label = { Text("Now Playing", fontFamily = Mono) })
-                    Spacer(Modifier.width(6.dp))
-                    FilterChip(selected = mode == 1, onClick = { mode = 1 }, label = { Text("Users", fontFamily = Mono) })
-                    Spacer(Modifier.width(6.dp))
-                    FilterChip(selected = mode == 2, onClick = { mode = 2 }, label = { Text("Dashboard", fontFamily = Mono) })
-                    Spacer(Modifier.weight(1f))
-                    IconButton(onClick = { scope.launch { when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); else -> loadDashboard() } } }) {
+                    Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                        FilterChip(selected = mode == 0, onClick = { mode = 0 }, label = { Text("Now Playing", fontFamily = Mono) })
+                        Spacer(Modifier.width(6.dp))
+                        FilterChip(selected = mode == 3, onClick = { mode = 3 }, label = { Text("Media", fontFamily = Mono) })
+                        Spacer(Modifier.width(6.dp))
+                        FilterChip(selected = mode == 1, onClick = { mode = 1 }, label = { Text("Users", fontFamily = Mono) })
+                        Spacer(Modifier.width(6.dp))
+                        FilterChip(selected = mode == 2, onClick = { mode = 2 }, label = { Text("Dashboard", fontFamily = Mono) })
+                    }
+                    IconButton(onClick = {
+                        scope.launch {
+                            when (mode) {
+                                0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard()
+                                else -> if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last().first)
+                            }
+                        }
+                    }) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                     }
                 }
@@ -901,7 +941,63 @@ private fun JellyfinScreen(
                                     else -> items(u) { usr -> JellyUserRow(usr, accent) { editUser = usr } }
                                 }
                             }
-                            else -> {
+                            3 -> {
+                                if (browseStack.isEmpty()) {
+                                    val res = resumeItems
+                                    if (!res.isNullOrEmpty()) {
+                                        item {
+                                            Spacer(Modifier.height(8.dp))
+                                            Text("CONTINUE WATCHING", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                            Spacer(Modifier.height(6.dp))
+                                            Row(Modifier.horizontalScroll(rememberScrollState())) {
+                                                res.forEach { m -> JellyPosterCard(m, config, accent) { openMedia(m) } }
+                                            }
+                                        }
+                                    }
+                                    val lat = latestItems
+                                    if (!lat.isNullOrEmpty()) {
+                                        item {
+                                            Spacer(Modifier.height(12.dp))
+                                            Text("RECENTLY ADDED", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                            Spacer(Modifier.height(6.dp))
+                                            Row(Modifier.horizontalScroll(rememberScrollState())) {
+                                                lat.forEach { m -> JellyPosterCard(m, config, accent) { openMedia(m) } }
+                                            }
+                                        }
+                                    }
+                                    item {
+                                        Spacer(Modifier.height(12.dp))
+                                        Text("LIBRARIES", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                    }
+                                    val v = mediaViews
+                                    when {
+                                        v == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                        v.isEmpty() -> item { Text("no libraries", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                        else -> items(v) { m -> JellyMediaRow(m, config, accent) { openMedia(m) } }
+                                    }
+                                } else {
+                                    val here = browseStack.last()
+                                    item {
+                                        Spacer(Modifier.height(8.dp))
+                                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                            Text("‹ back", fontFamily = Mono, color = accent, fontSize = 13.sp, modifier = Modifier.clickable { browseStack = browseStack.dropLast(1) })
+                                            Spacer(Modifier.weight(1f))
+                                            Text("⟳ scan", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp, modifier = Modifier.clickable { scope.launch { actionMsg = vm.jellyfinScanLibrary(config, here.first) } })
+                                        }
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(here.second, fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                        Spacer(Modifier.height(6.dp))
+                                        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
+                                    }
+                                    val m = mediaContents
+                                    when {
+                                        m == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
+                                        m.isEmpty() -> item { Text("empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
+                                        else -> items(m) { it2 -> JellyMediaRow(it2, config, accent) { openMedia(it2) } }
+                                    }
+                                }
+                            }
+                            2 -> {
                                 item {
                                     val si = dashInfo
                                     Spacer(Modifier.height(8.dp))
@@ -1005,6 +1101,122 @@ private fun JellyfinScreen(
                 scope.launch { actionMsg = vm.jellyfinRemoveUser(config, usr.id); loadUsers() }
             },
         )
+    }
+
+    mediaDetail?.let { d ->
+        AlertDialog(
+            onDismissRequest = { mediaDetail = null },
+            containerColor = Surface,
+            title = { Text(d.name, fontFamily = Mono, color = MatrixGreen, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    if (d.posterUrl.isNotBlank()) {
+                        JellyPoster(d.posterUrl, config, Modifier.fillMaxWidth().heightIn(max = 260.dp), RoundedCornerShape(8.dp), ContentScale.Fit)
+                        Spacer(Modifier.height(10.dp))
+                    }
+                    if (d.facts.isNotEmpty()) {
+                        d.facts.chunked(2).forEach { pair ->
+                            Row(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
+                                pair.forEach { (k, v) ->
+                                    Column(Modifier.weight(1f)) {
+                                        Text(v, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(k.uppercase(), fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 9.sp)
+                                    }
+                                }
+                                if (pair.size == 1) Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+                    if (d.genres.isNotBlank()) {
+                        Text(d.genres, fontFamily = Mono, color = accent.copy(alpha = 0.85f), fontSize = 11.sp)
+                    }
+                    if (d.overview.isNotBlank()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp)
+                    }
+                    if (d.cast.isNotEmpty()) {
+                        Spacer(Modifier.height(12.dp))
+                        Text("CAST", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                        Spacer(Modifier.height(6.dp))
+                        Row(Modifier.horizontalScroll(rememberScrollState())) {
+                            d.cast.forEach { member ->
+                                Column(Modifier.width(84.dp).padding(end = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    if (member.profileUrl.isNotBlank()) {
+                                        JellyPoster(member.profileUrl, config, Modifier.size(72.dp).clip(RoundedCornerShape(36.dp)), RoundedCornerShape(36.dp), ContentScale.Crop)
+                                    } else {
+                                        Box(Modifier.size(72.dp).clip(RoundedCornerShape(36.dp)).background(Surface))
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(member.name, fontFamily = Mono, color = MatrixGreen, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                                    if (member.character.isNotBlank()) {
+                                        Text(member.character, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { mediaDetail = null }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+}
+
+@Composable
+private fun JellyPoster(url: String, config: ServiceConfig, modifier: Modifier, shape: androidx.compose.ui.graphics.Shape, scale: ContentScale) {
+    val ctx = LocalContext.current
+    val model = ImageRequest.Builder(ctx).data(url).apply {
+        config.customHeaders.forEach { (k, v) -> addHeader(k, v) }
+    }.build()
+    AsyncImage(
+        model = model,
+        contentDescription = null,
+        contentScale = scale,
+        modifier = modifier.clip(shape).background(Surface),
+    )
+}
+
+@Composable
+private fun JellyPosterCard(item: org.phioster.nexarr.model.JellyMediaItem, config: ServiceConfig, accent: Color, onClick: () -> Unit) {
+    Column(Modifier.width(120.dp).padding(end = 10.dp).clickable { onClick() }) {
+        Box {
+            if (item.posterUrl.isNotBlank()) {
+                JellyPoster(item.posterUrl, config, Modifier.width(120.dp).height(180.dp), RoundedCornerShape(6.dp), ContentScale.Crop)
+            } else {
+                Box(Modifier.width(120.dp).height(180.dp).clip(RoundedCornerShape(6.dp)).background(Surface))
+            }
+            if (item.progressPct > 0.01f) {
+                LinearProgressIndicator(
+                    progress = { item.progressPct },
+                    modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter),
+                    color = accent, trackColor = Black.copy(alpha = 0.6f),
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (item.subtitle.isNotBlank()) {
+            Text(item.subtitle, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun JellyMediaRow(item: org.phioster.nexarr.model.JellyMediaItem, config: ServiceConfig, accent: Color, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (item.posterUrl.isNotBlank()) {
+            JellyPoster(item.posterUrl, config, Modifier.width(46.dp).height(68.dp), RoundedCornerShape(4.dp), ContentScale.Crop)
+        } else {
+            Box(Modifier.width(46.dp).height(68.dp).clip(RoundedCornerShape(4.dp)).background(Surface))
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (item.subtitle.isNotBlank()) {
+                Text(item.subtitle, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        if (item.isFolder) Text("›", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 18.sp)
     }
 }
 

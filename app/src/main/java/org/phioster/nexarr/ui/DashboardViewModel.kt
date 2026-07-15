@@ -79,7 +79,13 @@ import org.phioster.nexarr.net.seerrSetIssueStatus
 import org.phioster.nexarr.net.jellyfinActivity
 import org.phioster.nexarr.net.jellyfinCreateUser
 import org.phioster.nexarr.net.jellyfinDeleteUser
+import org.phioster.nexarr.net.jellyfinItemDetail
+import org.phioster.nexarr.net.jellyfinItems
+import org.phioster.nexarr.net.jellyfinLatest
 import org.phioster.nexarr.net.jellyfinLibraries
+import org.phioster.nexarr.net.jellyfinLibraryViews
+import org.phioster.nexarr.net.jellyfinResume
+import org.phioster.nexarr.net.jellyfinScanItem
 import org.phioster.nexarr.net.jellyfinSetPassword
 import org.phioster.nexarr.net.jellyfinSetPolicy
 import org.phioster.nexarr.net.jellyfinPlayCommand
@@ -182,6 +188,18 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     ): String = jellyfinSetPolicy(config, userId, admin, disabled, allowDownloads, enableAllFolders, enabledFolders)
     suspend fun jellyfinResetPassword(config: ServiceConfig, userId: String, newPassword: String): String =
         jellyfinSetPassword(config, userId, newPassword)
+    suspend fun jellyfinViews(config: ServiceConfig): List<org.phioster.nexarr.model.JellyMediaItem> =
+        jellyfinLibraryViews(config)
+    suspend fun jellyfinContinue(config: ServiceConfig): List<org.phioster.nexarr.model.JellyMediaItem> =
+        jellyfinResume(config)
+    suspend fun jellyfinRecent(config: ServiceConfig, parentId: String? = null): List<org.phioster.nexarr.model.JellyMediaItem> =
+        jellyfinLatest(config, parentId)
+    suspend fun jellyfinItemList(config: ServiceConfig, parentId: String): List<org.phioster.nexarr.model.JellyMediaItem> =
+        jellyfinItems(config, parentId)
+    suspend fun jellyfinMediaDetail(config: ServiceConfig, itemId: String): org.phioster.nexarr.model.JellyMediaDetail =
+        jellyfinItemDetail(config, itemId)
+    suspend fun jellyfinScanLibrary(config: ServiceConfig, itemId: String): String =
+        jellyfinScanItem(config, itemId)
 
     suspend fun searchMissing(config: ServiceConfig): String = runSearchMissing(config)
     suspend fun prowlarrTestAll(config: ServiceConfig): String = runProwlarrTestAll(config)

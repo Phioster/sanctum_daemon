@@ -39,6 +39,8 @@ import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.JellyActivity
 import org.phioster.nexarr.model.JellyLibrary
+import org.phioster.nexarr.model.JellyMediaDetail
+import org.phioster.nexarr.model.JellyMediaItem
 import org.phioster.nexarr.model.JellySession
 import org.phioster.nexarr.model.JellySystemInfo
 import org.phioster.nexarr.model.JellyTask
@@ -87,9 +89,13 @@ private const val MB_AUTH =
 /** config.id -> (jellyfin access token, user label) once a login has succeeded. */
 private val jellyfinSession = mutableMapOf<String, Pair<String, String>>()
 
+/** config.id -> the resolved Jellyfin user id used for media-browsing endpoints. */
+private val jellyfinUserIdCache = mutableMapOf<String, String>()
+
 /** Drop a cached Jellyfin login token (e.g. after its config was edited). */
 fun clearJellyfinSession(id: String) {
     jellyfinSession.remove(id)
+    jellyfinUserIdCache.remove(id)
 }
 
 private fun okClient(config: ServiceConfig, authHeaders: Map<String, String>): OkHttpClient =
@@ -183,6 +189,48 @@ private data class JfCounts(
 )
 @Serializable private data class JfActivityPage(val Items: List<JfActivityEntry> = emptyList())
 
+@Serializable private data class JfUserData(
+    val PlayedPercentage: Double? = null,
+    val Played: Boolean = false,
+)
+@Serializable private data class JfItem(
+    val Id: String = "",
+    val Name: String = "",
+    val Type: String = "",
+    val CollectionType: String? = null,
+    val ProductionYear: Int? = null,
+    val IsFolder: Boolean = false,
+    val SeriesName: String? = null,
+    val ParentIndexNumber: Int? = null,
+    val IndexNumber: Int? = null,
+    val AlbumArtist: String? = null,
+    val ImageTags: Map<String, String>? = null,
+    val UserData: JfUserData? = null,
+)
+@Serializable private data class JfItemsResp(val Items: List<JfItem> = emptyList())
+@Serializable private data class JfPerson(
+    val Id: String = "",
+    val Name: String = "",
+    val Role: String? = null,
+    val Type: String? = null,
+    val PrimaryImageTag: String? = null,
+)
+@Serializable private data class JfStudio(val Name: String = "")
+@Serializable private data class JfItemDetail(
+    val Id: String = "",
+    val Name: String = "",
+    val Overview: String? = null,
+    val ProductionYear: Int? = null,
+    val Genres: List<String> = emptyList(),
+    val RunTimeTicks: Long? = null,
+    val OfficialRating: String? = null,
+    val CommunityRating: Double? = null,
+    val Type: String = "",
+    val Studios: List<JfStudio> = emptyList(),
+    val People: List<JfPerson> = emptyList(),
+    val ImageTags: Map<String, String>? = null,
+)
+
 @Serializable private data class JfAuthReq(val Username: String, val Pw: String)
 @Serializable private data class JfAuthResp(val AccessToken: String = "", val User: JfUser = JfUser())
 @Serializable private data class JfUser(val Name: String = "", val Policy: JfPolicy = JfPolicy())
@@ -208,6 +256,18 @@ private interface JellyfinApi {
     @POST("Users/{id}/Password") suspend fun setPassword(@Path("id") id: String, @Body body: JsonObject): Response<ResponseBody>
     @DELETE("Users/{id}") suspend fun deleteUser(@Path("id") id: String): Response<ResponseBody>
     @GET("Library/VirtualFolders") suspend fun virtualFolders(): List<JfVirtualFolder>
+    @GET("Users/{uid}/Views") suspend fun views(@Path("uid") uid: String): JfItemsResp
+    @GET("Users/{uid}/Items/Latest") suspend fun latest(@Path("uid") uid: String, @Query("Limit") limit: Int = 20, @Query("ParentId") parentId: String? = null): List<JfItem>
+    @GET("Users/{uid}/Items/Resume") suspend fun resume(@Path("uid") uid: String, @Query("Limit") limit: Int = 20): JfItemsResp
+    @GET("Users/{uid}/Items") suspend fun items(
+        @Path("uid") uid: String,
+        @Query("ParentId") parentId: String,
+        @Query("SortBy") sortBy: String = "IsFolder,SortName",
+        @Query("Limit") limit: Int = 300,
+        @Query("Fields") fields: String = "PrimaryImageAspectRatio",
+    ): JfItemsResp
+    @GET("Users/{uid}/Items/{id}") suspend fun itemDetail(@Path("uid") uid: String, @Path("id") id: String): JfItemDetail
+    @POST("Items/{id}/Refresh") suspend fun refreshItem(@Path("id") id: String): Response<ResponseBody>
     @POST("Sessions/{id}/Playing/{cmd}") suspend fun playCommand(@Path("id") id: String, @Path("cmd") cmd: String): Response<ResponseBody>
     @POST("Sessions/{id}/Message") suspend fun message(@Path("id") id: String, @Body body: JfMessageReq): Response<ResponseBody>
     @POST("Library/Refresh") suspend fun refreshLibrary(): Response<ResponseBody>
@@ -1479,6 +1539,123 @@ suspend fun jellyfinSetPassword(config: ServiceConfig, userId: String, newPasswo
             put("ResetPassword", false)
         }
         okOr(api.setPassword(userId, body), "password reset")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+// ---- Media browsing ----
+
+/** Resolve the user id whose libraries we browse (the logged-in user, else an admin). */
+private suspend fun jellyfinResolveUserId(config: ServiceConfig, api: JellyfinApi): String {
+    jellyfinUserIdCache[config.id]?.let { return it }
+    val users = api.users()
+    val chosen = if (config.useLogin) {
+        users.firstOrNull { it.Name.equals(config.username, true) } ?: users.firstOrNull()
+    } else {
+        users.firstOrNull { it.Policy.IsAdministrator } ?: users.firstOrNull()
+    }
+    val id = chosen?.Id ?: ""
+    if (id.isNotBlank()) jellyfinUserIdCache[config.id] = id
+    return id
+}
+
+private fun jellyImageUrl(config: ServiceConfig, id: String, tag: String?, token: String): String {
+    if (id.isBlank()) return ""
+    var url = "${config.normalizedBaseUrl}Items/$id/Images/Primary?maxHeight=450&quality=90"
+    if (!tag.isNullOrBlank()) url += "&tag=$tag"
+    if (token.isNotBlank()) url += "&api_key=$token"
+    return url
+}
+
+private fun jfSubtitle(item: JfItem): String = when (item.Type) {
+    "Episode" -> buildString {
+        item.SeriesName?.let { append(it) }
+        val s = item.ParentIndexNumber; val e = item.IndexNumber
+        if (s != null && e != null) { if (isNotEmpty()) append(" · "); append("S%02dE%02d".format(s, e)) }
+    }
+    "Audio", "MusicAlbum" -> item.AlbumArtist ?: (item.ProductionYear?.toString() ?: "")
+    else -> item.ProductionYear?.toString() ?: ""
+}
+
+private fun JfItem.toMediaItem(config: ServiceConfig, token: String) = JellyMediaItem(
+    id = Id,
+    name = Name,
+    kind = CollectionType ?: Type,
+    subtitle = jfSubtitle(this),
+    posterUrl = jellyImageUrl(config, Id, ImageTags?.get("Primary"), token),
+    isFolder = IsFolder,
+    progressPct = ((UserData?.PlayedPercentage ?: 0.0) / 100.0).toFloat(),
+)
+
+/** The user's libraries (Movies, Shows, Music, …). */
+suspend fun jellyfinLibraryViews(config: ServiceConfig): List<JellyMediaItem> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val api = jfApi(config, token)
+    val uid = jellyfinResolveUserId(config, api)
+    api.views(uid).Items.map { it.toMediaItem(config, token) }
+}
+
+/** "Continue watching" — partially played items. */
+suspend fun jellyfinResume(config: ServiceConfig): List<JellyMediaItem> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val api = jfApi(config, token)
+    val uid = jellyfinResolveUserId(config, api)
+    api.resume(uid).Items.map { it.toMediaItem(config, token) }
+}
+
+/** "Recently added" — newest items, optionally within one library. */
+suspend fun jellyfinLatest(config: ServiceConfig, parentId: String? = null): List<JellyMediaItem> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val api = jfApi(config, token)
+    val uid = jellyfinResolveUserId(config, api)
+    api.latest(uid, 20, parentId).map { it.toMediaItem(config, token) }
+}
+
+/** Contents of a library or folder. */
+suspend fun jellyfinItems(config: ServiceConfig, parentId: String): List<JellyMediaItem> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val api = jfApi(config, token)
+    val uid = jellyfinResolveUserId(config, api)
+    api.items(uid, parentId).Items.map { it.toMediaItem(config, token) }
+}
+
+/** Full detail for one media item, including cast. */
+suspend fun jellyfinItemDetail(config: ServiceConfig, itemId: String): JellyMediaDetail = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val api = jfApi(config, token)
+    val uid = jellyfinResolveUserId(config, api)
+    val d = api.itemDetail(uid, itemId)
+    val facts = buildList {
+        d.ProductionYear?.takeIf { it > 0 }?.let { add("year" to it.toString()) }
+        d.RunTimeTicks?.takeIf { it > 0 }?.let { add("runtime" to "${it / 600_000_000} min") }
+        d.OfficialRating?.takeIf { it.isNotBlank() }?.let { add("rating" to it) }
+        d.CommunityRating?.let { add("score" to "%.1f".format(it)) }
+        d.Studios.firstOrNull()?.Name?.takeIf { it.isNotBlank() }?.let { add("studio" to it) }
+    }
+    val cast = d.People.filter { it.Type == "Actor" }.take(20).map { p ->
+        ArrCastMember(
+            name = p.Name,
+            character = p.Role ?: "",
+            profileUrl = if (!p.PrimaryImageTag.isNullOrBlank()) jellyImageUrl(config, p.Id, p.PrimaryImageTag, token) else "",
+        )
+    }
+    JellyMediaDetail(
+        id = d.Id,
+        name = d.Name,
+        overview = d.Overview ?: "",
+        posterUrl = jellyImageUrl(config, d.Id, d.ImageTags?.get("Primary"), token),
+        facts = facts,
+        genres = d.Genres.joinToString(" · "),
+        cast = cast,
+    )
+}
+
+/** Trigger a metadata/library refresh for a single library or item. */
+suspend fun jellyfinScanItem(config: ServiceConfig, itemId: String): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        okOr(jfApi(config, token).refreshItem(itemId), "scan started")
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
     }
