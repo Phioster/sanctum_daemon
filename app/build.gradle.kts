@@ -73,7 +73,7 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.9.1")
 
     // Live push via UnifiedPush (ntfy distributor)
-    implementation("org.unifiedpush.android:connector:2.4.0")
+    implementation("com.github.UnifiedPush:android-connector:2.1.1")
 
     // Image loading (posters, cast photos)
     implementation("io.coil-kt:coil-compose:2.7.0")
