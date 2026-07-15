@@ -37,6 +37,8 @@ import org.phioster.nexarr.model.ArrLookupItem
 import org.phioster.nexarr.model.ArrMissingItem
 import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
+import org.phioster.nexarr.model.JellySession
+import org.phioster.nexarr.model.JellyUser
 import org.phioster.nexarr.model.ArrRelease
 import org.phioster.nexarr.model.ArrSystemInfo
 import org.phioster.nexarr.model.NzbHistoryEntry
@@ -122,8 +124,33 @@ private data class JfCounts(
     val SongCount: Int = 0,
 )
 
-@Serializable private data class JfSession(val NowPlayingItem: JfNowPlaying? = null)
-@Serializable private data class JfNowPlaying(val Name: String? = null)
+@Serializable private data class JfSession(
+    val Id: String = "",
+    val UserName: String? = null,
+    val Client: String? = null,
+    val DeviceName: String? = null,
+    val LastActivityDate: String? = null,
+    val SupportsRemoteControl: Boolean = false,
+    val NowPlayingItem: JfNowPlaying? = null,
+    val PlayState: JfPlayState? = null,
+)
+@Serializable private data class JfNowPlaying(
+    val Name: String? = null,
+    val Type: String? = null,
+    val SeriesName: String? = null,
+    val ProductionYear: Int? = null,
+    val RunTimeTicks: Long? = null,
+)
+@Serializable private data class JfPlayState(
+    val PositionTicks: Long? = null,
+    val IsPaused: Boolean = false,
+)
+@Serializable private data class JfUserFull(
+    val Name: String = "",
+    val LastActivityDate: String? = null,
+    val Policy: JfPolicy = JfPolicy(),
+)
+@Serializable private data class JfMessageReq(val Text: String, val Header: String = "Nexarr", val TimeoutMs: Long = 5000)
 
 @Serializable private data class JfAuthReq(val Username: String, val Pw: String)
 @Serializable private data class JfAuthResp(val AccessToken: String = "", val User: JfUser = JfUser())
@@ -137,6 +164,9 @@ private interface JellyfinAuthApi {
 private interface JellyfinApi {
     @GET("Items/Counts") suspend fun counts(): JfCounts
     @GET("Sessions") suspend fun sessions(): List<JfSession>
+    @GET("Users") suspend fun users(): List<JfUserFull>
+    @POST("Sessions/{id}/Playing/{cmd}") suspend fun playCommand(@Path("id") id: String, @Path("cmd") cmd: String): Response<ResponseBody>
+    @POST("Sessions/{id}/Message") suspend fun message(@Path("id") id: String, @Body body: JfMessageReq): Response<ResponseBody>
     @POST("Library/Refresh") suspend fun refreshLibrary(): Response<ResponseBody>
 }
 
@@ -1274,6 +1304,68 @@ suspend fun runJellyfinScan(config: ServiceConfig): String = withContext(Dispatc
         val token = jellyfinAccessToken(config)
         val resp = apiFor<JellyfinApi>(config, mapOf("X-Emby-Token" to token)).refreshLibrary()
         if (resp.isSuccessful) "library scan started" else "error: HTTP ${resp.code()}"
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+private fun jfApi(config: ServiceConfig, token: String) = apiFor<JellyfinApi>(config, mapOf("X-Emby-Token" to token))
+
+suspend fun jellyfinSessions(config: ServiceConfig): List<JellySession> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    jfApi(config, token).sessions()
+        .filter { it.UserName != null || it.NowPlayingItem != null }
+        .map { s ->
+            val np = s.NowPlayingItem
+            val run = np?.RunTimeTicks ?: 0L
+            val pos = s.PlayState?.PositionTicks ?: 0L
+            val pct = if (run > 0) (pos.toFloat() / run).coerceIn(0f, 1f) else 0f
+            val subtitle = when {
+                np == null -> "${s.client ?: ""}".ifBlank { "idle" }
+                np.Type == "Episode" -> np.SeriesName ?: "Episode"
+                else -> listOfNotNull(np.Type, np.ProductionYear?.toString()).joinToString(" · ")
+            }
+            JellySession(
+                id = s.Id,
+                user = s.UserName ?: "?",
+                device = s.DeviceName ?: "",
+                client = s.Client ?: "",
+                nowPlaying = np?.Name ?: "",
+                subtitle = subtitle,
+                progressPct = pct,
+                paused = s.PlayState?.IsPaused ?: false,
+                canControl = s.SupportsRemoteControl,
+                lastActivity = (s.LastActivityDate ?: "").take(16).replace('T', ' '),
+            )
+        }
+        .sortedByDescending { it.nowPlaying.isNotEmpty() }
+}
+
+suspend fun jellyfinUsers(config: ServiceConfig): List<JellyUser> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    jfApi(config, token).users().map { u ->
+        JellyUser(
+            name = u.Name,
+            lastActivity = (u.LastActivityDate ?: "").take(16).replace('T', ' '),
+            admin = u.Policy.IsAdministrator,
+        )
+    }.sortedByDescending { it.lastActivity }
+}
+
+/** Playback control: cmd = "Pause" | "Unpause" | "Stop" | "PlayPause". */
+suspend fun jellyfinPlayCommand(config: ServiceConfig, sessionId: String, cmd: String): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        okOr(jfApi(config, token).playCommand(sessionId, cmd), cmd.lowercase())
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun jellyfinSendMessage(config: ServiceConfig, sessionId: String, text: String): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        okOr(jfApi(config, token).message(sessionId, JfMessageReq(text)), "message sent")
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
     }

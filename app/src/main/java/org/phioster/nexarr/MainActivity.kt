@@ -167,6 +167,7 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
                     ArrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
                 ServiceType.SEERR -> SeerrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
                 ServiceType.PROWLARR -> ProwlarrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
+                ServiceType.JELLYFIN -> JellyfinScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
                 else -> ServiceDetailScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
             }
         }
@@ -750,6 +751,206 @@ private fun SeerrDiscoverRow(item: org.phioster.nexarr.model.SeerrDiscoverItem, 
             )
         }
         Text(item.status.ifBlank { "request" }, fontFamily = Mono, color = statusColor, fontSize = 11.sp)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun JellyfinScreen(
+    vm: DashboardViewModel,
+    config: ServiceConfig,
+    onBack: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val statuses by vm.statuses.collectAsState()
+    val status = statuses[config.id]
+    val accent = Color(config.type.accent)
+    val scope = rememberCoroutineScope()
+    var mode by remember { mutableStateOf(0) } // 0=Now Playing, 1=Users
+    var sessions by remember { mutableStateOf<List<org.phioster.nexarr.model.JellySession>?>(null) }
+    var users by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyUser>?>(null) }
+    var listError by remember { mutableStateOf<String?>(null) }
+    var actionMsg by remember { mutableStateOf<String?>(null) }
+    var barMenu by remember { mutableStateOf(false) }
+    var messageFor by remember { mutableStateOf<String?>(null) }
+    var messageText by remember { mutableStateOf("") }
+
+    suspend fun loadSessions() {
+        listError = null
+        try { sessions = vm.jellyfinSessionList(config) } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
+    }
+    suspend fun loadUsers() {
+        listError = null
+        try { users = vm.jellyfinUserList(config) } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
+    }
+    LaunchedEffect(mode) { if (mode == 0) loadSessions() else loadUsers() }
+    fun act(action: suspend () -> String) {
+        scope.launch { actionMsg = action(); loadSessions() }
+    }
+
+    Scaffold(
+        containerColor = Black,
+        topBar = {
+            TopAppBar(
+                title = { Text(config.label, fontFamily = Mono, color = MatrixGreen) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
+                },
+                actions = {
+                    Box {
+                        IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
+                        DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
+                            DropdownMenuItem(text = { Text("Scan library", fontFamily = Mono) }, onClick = { barMenu = false; scope.launch { actionMsg = vm.jellyfinScan(config) } })
+                            DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
+                            DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
+            )
+        },
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            Column(Modifier.padding(16.dp)) {
+                if (status?.ok == true) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        status.stats.forEach { (k, v) ->
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(v, fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen, fontSize = 20.sp)
+                                Text(k.uppercase(), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    FilterChip(selected = mode == 0, onClick = { mode = 0 }, label = { Text("Now Playing", fontFamily = Mono) })
+                    Spacer(Modifier.width(8.dp))
+                    FilterChip(selected = mode == 1, onClick = { mode = 1 }, label = { Text("Users", fontFamily = Mono) })
+                    Spacer(Modifier.weight(1f))
+                    IconButton(onClick = { scope.launch { if (mode == 0) loadSessions() else loadUsers() } }) {
+                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
+                    }
+                }
+                actionMsg?.let {
+                    Spacer(Modifier.height(6.dp))
+                    Text(it, fontFamily = Mono, color = if (it.startsWith("error")) ErrRed else MatrixGreen, fontSize = 12.sp)
+                }
+            }
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                if (listError != null) {
+                    Text("error: $listError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
+                } else {
+                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                        if (mode == 0) {
+                            val s = sessions
+                            when {
+                                s == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                s.isEmpty() -> item { Text("no active sessions", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                else -> items(s) { sess ->
+                                    JellySessionRow(
+                                        item = sess,
+                                        accent = accent,
+                                        onPlayPause = { act { vm.jellyfinControl(config, sess.id, if (sess.paused) "Unpause" else "Pause") } },
+                                        onStop = { act { vm.jellyfinControl(config, sess.id, "Stop") } },
+                                        onMessage = { messageFor = sess.id; messageText = "" },
+                                    )
+                                }
+                            }
+                        } else {
+                            val u = users
+                            when {
+                                u == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                u.isEmpty() -> item { Text("no users", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                else -> items(u) { usr -> JellyUserRow(usr, accent) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    messageFor?.let { sid ->
+        AlertDialog(
+            onDismissRequest = { messageFor = null },
+            containerColor = Surface,
+            title = { Text("Send message", fontFamily = Mono, color = MatrixGreen) },
+            text = { Field("Message", messageText) { messageText = it } },
+            confirmButton = {
+                TextButton(enabled = messageText.isNotBlank(), onClick = {
+                    val txt = messageText; messageFor = null
+                    scope.launch { actionMsg = vm.jellyfinMessage(config, sid, txt) }
+                }) { Text("Send", fontFamily = Mono, color = MatrixGreen) }
+            },
+            dismissButton = { TextButton(onClick = { messageFor = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+}
+
+@Composable
+private fun JellySessionRow(
+    item: org.phioster.nexarr.model.JellySession,
+    accent: Color,
+    onPlayPause: () -> Unit,
+    onStop: () -> Unit,
+    onMessage: () -> Unit,
+) {
+    val playing = item.nowPlaying.isNotEmpty()
+    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                if (playing) item.nowPlaying else "${item.user} · idle",
+                fontFamily = Mono, color = if (playing) MatrixGreen else MatrixGreen.copy(alpha = 0.5f),
+                fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+            )
+            if (playing) Text(if (item.paused) "paused" else "playing", fontFamily = Mono, color = if (item.paused) Color(0xFFFFAA00) else MatrixGreen, fontSize = 11.sp)
+        }
+        Spacer(Modifier.height(2.dp))
+        Text(
+            buildString {
+                append(item.user)
+                if (item.device.isNotBlank()) append(" · ${item.device}")
+                if (playing && item.subtitle.isNotBlank()) append(" · ${item.subtitle}")
+                if (!playing && item.lastActivity.isNotBlank()) append(" · ${item.lastActivity}")
+            },
+            fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+        if (playing) {
+            Spacer(Modifier.height(6.dp))
+            LinearProgressIndicator(progress = { item.progressPct }, modifier = Modifier.fillMaxWidth(), color = MatrixGreen, trackColor = Surface)
+            if (item.canControl) {
+                Spacer(Modifier.height(6.dp))
+                Row {
+                    TextButton(onClick = onPlayPause) { Text(if (item.paused) "▶ play" else "❚❚ pause", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp) }
+                    TextButton(onClick = onStop) { Text("■ stop", fontFamily = Mono, color = ErrRed, fontSize = 12.sp) }
+                    TextButton(onClick = onMessage) { Text("✉ msg", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp) }
+                }
+            } else {
+                Spacer(Modifier.height(4.dp))
+                Text("no remote control", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.4f), fontSize = 10.sp)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+    }
+}
+
+@Composable
+private fun JellyUserRow(item: org.phioster.nexarr.model.JellyUser, accent: Color) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (item.admin) Text("admin", fontFamily = Mono, color = accent, fontSize = 10.sp)
+        }
+        if (item.lastActivity.isNotBlank()) {
+            Spacer(Modifier.height(2.dp))
+            Text("last active ${item.lastActivity}", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+        }
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
     }
 }
 
