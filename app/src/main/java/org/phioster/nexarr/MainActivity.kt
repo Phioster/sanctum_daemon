@@ -81,6 +81,8 @@ import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
+import org.phioster.nexarr.model.ProwlarrIndexerItem
+import org.phioster.nexarr.model.ProwlarrRelease
 import org.phioster.nexarr.model.SeerrIssueItem
 import org.phioster.nexarr.model.SeerrRequestItem
 import org.phioster.nexarr.model.SeerrSearchItem
@@ -154,6 +156,7 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
                 ServiceType.RADARR, ServiceType.SONARR, ServiceType.LIDARR ->
                     ArrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
                 ServiceType.SEERR -> SeerrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
+                ServiceType.PROWLARR -> ProwlarrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
                 else -> ServiceDetailScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
             }
         }
@@ -551,6 +554,269 @@ private fun SeerrIssueRow(item: SeerrIssueItem, accent: Color) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(item.subtitle, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(item.status, fontFamily = Mono, color = statusColor, fontSize = 11.sp)
+        }
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProwlarrScreen(
+    vm: DashboardViewModel,
+    config: ServiceConfig,
+    onBack: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val statuses by vm.statuses.collectAsState()
+    val status = statuses[config.id]
+    val accent = Color(config.type.accent)
+    val scope = rememberCoroutineScope()
+    var mode by remember { mutableStateOf(0) } // 0=Indexers, 1=Search
+    var indexers by remember { mutableStateOf<List<ProwlarrIndexerItem>?>(null) }
+    var releases by remember { mutableStateOf<List<ProwlarrRelease>?>(null) }
+    var listError by remember { mutableStateOf<String?>(null) }
+    var actionMsg by remember { mutableStateOf<String?>(null) }
+    var barMenu by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    val categories = remember { vm.prowlarrCategoryOptions() }
+    var category by remember { mutableStateOf(categories.first()) }
+    var catMenu by remember { mutableStateOf(false) }
+    var searching by remember { mutableStateOf(false) }
+    var confirmGrab by remember { mutableStateOf<ProwlarrRelease?>(null) }
+
+    suspend fun loadIndexers() {
+        listError = null
+        try {
+            indexers = vm.prowlarrIndexerList(config)
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            listError = t.message
+        }
+    }
+    LaunchedEffect(mode) { if (mode == 0 && indexers == null) loadIndexers() }
+
+    fun runSearch() {
+        if (query.isBlank()) return
+        searching = true
+        releases = null
+        listError = null
+        scope.launch {
+            try {
+                releases = vm.prowlarrSearchList(config, query, category.id)
+            } catch (c: kotlinx.coroutines.CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                listError = t.message
+            } finally {
+                searching = false
+            }
+        }
+    }
+    fun act(action: suspend () -> String, reloadIndexers: Boolean) {
+        scope.launch {
+            actionMsg = action()
+            if (reloadIndexers) loadIndexers()
+            vm.refreshAll()
+        }
+    }
+
+    Scaffold(
+        containerColor = Black,
+        topBar = {
+            TopAppBar(
+                title = { Text(config.label, fontFamily = Mono, color = MatrixGreen) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
+                },
+                actions = {
+                    Box {
+                        IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
+                        DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
+                            DropdownMenuItem(text = { Text("Test all indexers", fontFamily = Mono) }, onClick = { barMenu = false; act({ vm.prowlarrTestAll(config) }, false) })
+                            DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
+                            DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
+            )
+        },
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            Column(Modifier.padding(16.dp)) {
+                if (status?.ok == true) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        status.stats.forEach { (k, v) ->
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(v, fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen, fontSize = 20.sp)
+                                Text(k.uppercase(), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    FilterChip(selected = mode == 0, onClick = { mode = 0 }, label = { Text("Indexers", fontFamily = Mono) })
+                    Spacer(Modifier.width(8.dp))
+                    FilterChip(selected = mode == 1, onClick = { mode = 1 }, label = { Text("Search", fontFamily = Mono) })
+                    Spacer(Modifier.weight(1f))
+                    if (mode == 0) {
+                        IconButton(onClick = { scope.launch { loadIndexers() } }) {
+                            Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
+                        }
+                    }
+                }
+                if (mode == 1) {
+                    Spacer(Modifier.height(8.dp))
+                    Field("Search all indexers", query) { query = it }
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box {
+                            OutlinedButton(onClick = { catMenu = true }) {
+                                Text("cat: ${category.name}", fontFamily = Mono, color = MatrixGreen)
+                            }
+                            DropdownMenu(expanded = catMenu, onDismissRequest = { catMenu = false }) {
+                                categories.forEach { c ->
+                                    DropdownMenuItem(text = { Text(c.name, fontFamily = Mono) }, onClick = { catMenu = false; category = c })
+                                }
+                            }
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        OutlinedButton(onClick = { runSearch() }, enabled = query.isNotBlank() && !searching) {
+                            Text(if (searching) "…" else "Search", fontFamily = Mono)
+                        }
+                    }
+                }
+                actionMsg?.let {
+                    Spacer(Modifier.height(6.dp))
+                    Text(it, fontFamily = Mono, color = if (it.startsWith("error")) ErrRed else MatrixGreen, fontSize = 12.sp)
+                }
+            }
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                if (listError != null) {
+                    Text("error: $listError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
+                } else {
+                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                        if (mode == 0) {
+                            val ix = indexers
+                            when {
+                                ix == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                ix.isEmpty() -> item { Text("no indexers", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                else -> items(ix) { row ->
+                                    ProwlarrIndexerRow(
+                                        item = row,
+                                        accent = accent,
+                                        onTest = { act({ vm.prowlarrTest(config, row.id) }, false) },
+                                        onToggle = { act({ vm.prowlarrToggle(config, row.id, !row.enable) }, true) },
+                                    )
+                                }
+                            }
+                        } else {
+                            val r = releases
+                            when {
+                                searching -> item { Text("searching…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                r == null -> item { Text("enter a query and search", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                r.isEmpty() -> item { Text("no results", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                else -> items(r) { rel -> ProwlarrReleaseRow(rel, accent) { confirmGrab = rel } }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    confirmGrab?.let { rel ->
+        AlertDialog(
+            onDismissRequest = { confirmGrab = null },
+            containerColor = Surface,
+            title = { Text("Grab release", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    Text(rel.title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Text("${rel.indexer} · ${rel.protocol} · ${rel.sizeMb} MB", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Text("Sends to Prowlarr's download client.", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val r = rel
+                    confirmGrab = null
+                    scope.launch { actionMsg = vm.prowlarrGrabRelease(config, r) }
+                }) { Text("Grab", fontFamily = Mono, color = MatrixGreen) }
+            },
+            dismissButton = { TextButton(onClick = { confirmGrab = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+}
+
+@Composable
+private fun ProwlarrIndexerRow(item: ProwlarrIndexerItem, accent: Color, onTest: () -> Unit, onToggle: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    val stateColor = when {
+        item.failing -> ErrRed
+        !item.enable -> MatrixGreen.copy(alpha = 0.4f)
+        else -> MatrixGreen
+    }
+    Box {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clickable { menu = true }
+                .padding(vertical = 10.dp),
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(item.name, fontFamily = Mono, color = stateColor, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(
+                    when {
+                        item.failing -> "failing"
+                        !item.enable -> "disabled"
+                        else -> item.protocol
+                    },
+                    fontFamily = Mono, color = stateColor, fontSize = 11.sp,
+                )
+            }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                "prio ${item.priority} · ${item.grabs} grabs · ${item.queries} q · ${item.failRate}% fail",
+                fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp,
+            )
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+        }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(text = { Text("Test", fontFamily = Mono) }, onClick = { menu = false; onTest() })
+            DropdownMenuItem(text = { Text(if (item.enable) "Disable" else "Enable", fontFamily = Mono) }, onClick = { menu = false; onToggle() })
+        }
+    }
+}
+
+@Composable
+private fun ProwlarrReleaseRow(item: ProwlarrRelease, accent: Color, onGrab: () -> Unit) {
+    val meta = buildString {
+        append(item.indexer)
+        append(" · ")
+        append(if (item.sizeMb >= 1024) "%.1f GB".format(item.sizeMb / 1024.0) else "${item.sizeMb} MB")
+        if (item.protocol == "torrent") append(" · ${item.seeders ?: 0}S")
+        else append(" · ${item.ageDays}d")
+    }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clickable { onGrab() }
+            .padding(vertical = 10.dp),
+    ) {
+        Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(2.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(meta, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text(item.categories, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.height(8.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))

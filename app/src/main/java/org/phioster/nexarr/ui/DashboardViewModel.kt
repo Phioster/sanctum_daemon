@@ -17,6 +17,9 @@ import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
+import org.phioster.nexarr.model.ProwlarrCategory
+import org.phioster.nexarr.model.ProwlarrIndexerItem
+import org.phioster.nexarr.model.ProwlarrRelease
 import org.phioster.nexarr.model.SeerrIssueItem
 import org.phioster.nexarr.model.SeerrRequestItem
 import org.phioster.nexarr.model.SeerrSearchItem
@@ -48,6 +51,12 @@ import org.phioster.nexarr.net.seerrSearch
 import org.phioster.nexarr.net.runJellyfinScan
 import org.phioster.nexarr.net.runNzbgetPause
 import org.phioster.nexarr.net.runNzbgetResume
+import org.phioster.nexarr.net.prowlarrCategories
+import org.phioster.nexarr.net.prowlarrGrab
+import org.phioster.nexarr.net.prowlarrIndexers
+import org.phioster.nexarr.net.prowlarrSearch
+import org.phioster.nexarr.net.prowlarrTestIndexer
+import org.phioster.nexarr.net.prowlarrToggleIndexer
 import org.phioster.nexarr.net.runProwlarrTestAll
 import org.phioster.nexarr.net.runSearchMissing
 
@@ -102,6 +111,15 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun searchMissing(config: ServiceConfig): String = runSearchMissing(config)
     suspend fun prowlarrTestAll(config: ServiceConfig): String = runProwlarrTestAll(config)
+    suspend fun prowlarrIndexerList(config: ServiceConfig): List<ProwlarrIndexerItem> = prowlarrIndexers(config)
+    suspend fun prowlarrToggle(config: ServiceConfig, id: Int, enable: Boolean): String =
+        prowlarrToggleIndexer(config, id, enable)
+    suspend fun prowlarrTest(config: ServiceConfig, id: Int): String = prowlarrTestIndexer(config, id)
+    suspend fun prowlarrSearchList(config: ServiceConfig, query: String, categoryId: Int): List<ProwlarrRelease> =
+        prowlarrSearch(config, query, categoryId)
+    suspend fun prowlarrGrabRelease(config: ServiceConfig, release: ProwlarrRelease): String =
+        prowlarrGrab(config, release)
+    fun prowlarrCategoryOptions(): List<ProwlarrCategory> = prowlarrCategories
     suspend fun nzbgetPause(config: ServiceConfig): String = runNzbgetPause(config)
     suspend fun nzbgetResume(config: ServiceConfig): String = runNzbgetResume(config)
 
