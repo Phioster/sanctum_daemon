@@ -39,6 +39,7 @@ import org.phioster.nexarr.model.ArrLookupItem
 import org.phioster.nexarr.model.ArrMissingItem
 import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
+import org.phioster.nexarr.model.ArrCalendarItem
 import org.phioster.nexarr.model.JellyActivity
 import org.phioster.nexarr.model.JellyDevice
 import org.phioster.nexarr.model.JellyLibrary
