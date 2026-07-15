@@ -7,6 +7,14 @@ data class ArrMissingItem(
     val subtitle: String,
 )
 
+/** An upcoming release from a Servarr calendar (movie/episode/album). */
+data class ArrCalendarItem(
+    val title: String,
+    val subtitle: String,
+    val date: String,
+    val hasFile: Boolean,
+)
+
 /** A download in a Servarr app's queue. */
 data class ArrQueueItem(
     val id: Int,

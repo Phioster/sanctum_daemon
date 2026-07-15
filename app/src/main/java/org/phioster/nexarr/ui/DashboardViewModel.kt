@@ -42,6 +42,7 @@ import org.phioster.nexarr.net.arrDetail
 import org.phioster.nexarr.net.arrEpisodes
 import org.phioster.nexarr.net.arrGrab
 import org.phioster.nexarr.net.arrHistory
+import org.phioster.nexarr.net.arrCalendar
 import org.phioster.nexarr.net.arrLibrary
 import org.phioster.nexarr.net.arrManualImportExecute
 import org.phioster.nexarr.net.arrManualImportScan
@@ -350,6 +351,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrDeleteItem(config: ServiceConfig, id: Int, deleteFiles: Boolean): String =
         arrDelete(config, id, deleteFiles)
     suspend fun arrHistoryList(config: ServiceConfig): List<ArrHistoryItem> = arrHistory(config)
+    suspend fun arrCalendarList(config: ServiceConfig): List<org.phioster.nexarr.model.ArrCalendarItem> = arrCalendar(config)
     suspend fun arrSearchAllItems(config: ServiceConfig, cutoff: Boolean): String = arrSearchAll(config, cutoff)
     suspend fun arrSystemInfo(config: ServiceConfig): org.phioster.nexarr.model.ArrSystemInfo = arrSystem(config)
     suspend fun arrManualScan(config: ServiceConfig, folder: String): List<org.phioster.nexarr.model.ArrImportItem> =

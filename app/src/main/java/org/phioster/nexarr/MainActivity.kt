@@ -507,6 +507,11 @@ private fun DashCardView(
     var requests by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrRequestItem>?>(null) }
     var queue by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrQueueItem>?>(null) }
     var missing by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrMissingItem>?>(null) }
+    var calendar by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrCalendarItem>?>(null) }
+    var history by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrHistoryItem>?>(null) }
+    var nzbQueue by remember { mutableStateOf<List<org.phioster.nexarr.model.NzbQueueItem>?>(null) }
+    var nzbHistory by remember { mutableStateOf<List<org.phioster.nexarr.model.NzbHistoryEntry>?>(null) }
+    var discover by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrDiscoverItem>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(card.id, config?.id) {
@@ -523,6 +528,13 @@ private fun DashCardView(
                     CardType.SEERR_REQUESTS -> requests = vm.seerrList(config, "all")
                     CardType.RADARR_QUEUE, CardType.SONARR_QUEUE, CardType.LIDARR_QUEUE -> queue = vm.arrQueueList(config)
                     CardType.RADARR_MISSING, CardType.SONARR_MISSING, CardType.LIDARR_MISSING -> missing = vm.arrMissingList(config)
+                    CardType.RADARR_CALENDAR, CardType.SONARR_CALENDAR, CardType.LIDARR_CALENDAR -> calendar = vm.arrCalendarList(config)
+                    CardType.RADARR_HISTORY, CardType.SONARR_HISTORY, CardType.LIDARR_HISTORY -> history = vm.arrHistoryList(config)
+                    CardType.NZBGET_QUEUE -> nzbQueue = vm.queue(config)
+                    CardType.NZBGET_HISTORY -> nzbHistory = vm.history(config, false)
+                    CardType.SEERR_TRENDING -> discover = vm.seerrDiscoverList(config, "trending")
+                    CardType.SEERR_POPULAR_MOVIES -> discover = vm.seerrDiscoverList(config, "movies")
+                    CardType.SEERR_POPULAR_TV -> discover = vm.seerrDiscoverList(config, "tv")
                 }
                 break
             } catch (c: kotlinx.coroutines.CancellationException) {
@@ -584,6 +596,46 @@ private fun DashCardView(
                     else -> Column { m.take(8).forEach { DashLineRow(it.title, it.subtitle, accent) } }
                 }
             }
+            card.type == CardType.RADARR_CALENDAR || card.type == CardType.SONARR_CALENDAR || card.type == CardType.LIDARR_CALENDAR -> {
+                val c = calendar
+                when {
+                    c == null -> loading()
+                    c.isEmpty() -> empty("nothing upcoming")
+                    else -> Column { c.take(8).forEach { DashLineRow("${if (it.hasFile) "✓ " else ""}${it.title}", "${it.date}${if (it.subtitle.isNotBlank()) " · ${it.subtitle}" else ""}", accent) } }
+                }
+            }
+            card.type == CardType.RADARR_HISTORY || card.type == CardType.SONARR_HISTORY || card.type == CardType.LIDARR_HISTORY -> {
+                val h = history
+                when {
+                    h == null -> loading()
+                    h.isEmpty() -> empty("no history")
+                    else -> Column { h.take(8).forEach { DashLineRow(it.title, "${it.eventType} · ${it.date}", accent) } }
+                }
+            }
+            card.type == CardType.NZBGET_QUEUE -> {
+                val q = nzbQueue
+                when {
+                    q == null -> loading()
+                    q.isEmpty() -> empty("queue empty")
+                    else -> Column { q.take(8).forEach { DashNzbRow(it.name, it.status, it.progress, accent) } }
+                }
+            }
+            card.type == CardType.NZBGET_HISTORY -> {
+                val h = nzbHistory
+                when {
+                    h == null -> loading()
+                    h.isEmpty() -> empty("no history")
+                    else -> Column { h.take(8).forEach { DashLineRow(it.name, it.status, accent) } }
+                }
+            }
+            card.type == CardType.SEERR_TRENDING || card.type == CardType.SEERR_POPULAR_MOVIES || card.type == CardType.SEERR_POPULAR_TV -> {
+                val d = discover
+                when {
+                    d == null -> loading()
+                    d.isEmpty() -> empty("nothing here")
+                    else -> Row(Modifier.horizontalScroll(rememberScrollState())) { d.forEach { DashDiscoverPoster(it) { onOpenService() } } }
+                }
+            }
             else -> {
                 val it2 = items
                 when {
@@ -628,6 +680,34 @@ private fun DashQueueRow(item: org.phioster.nexarr.model.ArrQueueItem, accent: C
         Text("${item.status} · ${(item.progress * 100).toInt()}%", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(4.dp))
         LinearProgressIndicator(progress = { item.progress }, modifier = Modifier.fillMaxWidth(), color = MatrixGreen, trackColor = Surface)
+    }
+}
+
+@Composable
+private fun DashNzbRow(title: String, status: String, progress: Float, accent: Color) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text(title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text("$status · ${(progress * 100).toInt()}%", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(4.dp))
+        LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth(), color = MatrixGreen, trackColor = Surface)
+    }
+}
+
+@Composable
+private fun DashDiscoverPoster(item: org.phioster.nexarr.model.SeerrDiscoverItem, onClick: () -> Unit) {
+    Column(Modifier.width(96.dp).padding(end = 10.dp).clickable { onClick() }) {
+        if (item.posterUrl.isNotBlank()) {
+            AsyncImage(
+                model = item.posterUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.width(96.dp).height(144.dp).clip(RoundedCornerShape(6.dp)).background(Surface),
+            )
+        } else {
+            Box(Modifier.width(96.dp).height(144.dp).clip(RoundedCornerShape(6.dp)).background(Surface))
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 

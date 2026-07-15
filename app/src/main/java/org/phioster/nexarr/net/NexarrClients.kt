@@ -888,6 +888,7 @@ private interface ArrApi {
     @POST suspend fun downloadRelease(@Url url: String, @Body body: ArrGrabReq): Response<ResponseBody>
     @DELETE suspend fun deleteItem(@Url url: String): Response<ResponseBody>
     @GET suspend fun history(@Url url: String): ArrHistoryPage
+    @GET suspend fun calendar(@Url url: String): List<JsonObject>
     @GET suspend fun diskspace(@Url url: String): List<ArrDiskRecord>
     @GET suspend fun systemStatus(@Url url: String): ArrSystemStatusRec
     @GET suspend fun healthChecks(@Url url: String): List<ArrHealthRecord>
@@ -1052,6 +1053,40 @@ suspend fun arrMissing(config: ServiceConfig): List<ArrMissingItem> = withContex
             else -> ArrMissingItem(r.id, r.title, if (r.year > 0) r.year.toString() else "")
         }
     }
+}
+
+suspend fun arrCalendar(config: ServiceConfig): List<ArrCalendarItem> = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    val now = java.time.Instant.now()
+    val start = now.toString()
+    val end = now.plus(java.time.Duration.ofDays(30)).toString()
+    val url = "$base/calendar?start=$start&end=$end&includeSeries=true&includeArtist=true&unmonitored=false"
+    apiFor<ArrApi>(config, apiKeyHeader(config)).calendar(url).mapNotNull { o ->
+        val hasFile = jsBool(o, "hasFile") ?: false
+        when (config.type) {
+            ServiceType.SONARR -> {
+                val series = (o["series"] as? JsonObject)
+                val show = series?.let { jsStr(it, "title") } ?: "?"
+                val s = jsInt(o, "seasonNumber") ?: 0
+                val e = jsInt(o, "episodeNumber") ?: 0
+                val ep = jsStr(o, "title") ?: ""
+                val date = jsStr(o, "airDateUtc") ?: jsStr(o, "airDate") ?: ""
+                ArrCalendarItem(show, "S%02dE%02d%s".format(s, e, if (ep.isNotBlank()) " · $ep" else ""), date.take(10), hasFile)
+            }
+            ServiceType.LIDARR -> {
+                val artist = (o["artist"] as? JsonObject)?.let { jsStr(it, "artistName") } ?: ""
+                val album = jsStr(o, "title") ?: "?"
+                val date = jsStr(o, "releaseDate") ?: ""
+                ArrCalendarItem(album, artist, date.take(10), hasFile)
+            }
+            else -> {
+                val title = jsStr(o, "title") ?: "?"
+                val date = jsStr(o, "digitalRelease") ?: jsStr(o, "physicalRelease") ?: jsStr(o, "inCinemas") ?: ""
+                val year = jsInt(o, "year")?.takeIf { it > 0 }?.toString() ?: ""
+                ArrCalendarItem(title, year, date.take(10), hasFile)
+            }
+        }
+    }.filter { it.date.isNotBlank() }.sortedBy { it.date }.take(30)
 }
 
 suspend fun arrQueue(config: ServiceConfig): List<ArrQueueItem> = withContext(Dispatchers.IO) {

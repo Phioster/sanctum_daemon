@@ -18,6 +18,17 @@ enum class CardType(val label: String, val service: ServiceType) {
     RADARR_MISSING("Missing / Wanted", ServiceType.RADARR),
     SONARR_MISSING("Missing / Wanted", ServiceType.SONARR),
     LIDARR_MISSING("Missing / Wanted", ServiceType.LIDARR),
+    RADARR_CALENDAR("Coming Soon", ServiceType.RADARR),
+    SONARR_CALENDAR("Airing Next", ServiceType.SONARR),
+    LIDARR_CALENDAR("Coming Soon", ServiceType.LIDARR),
+    RADARR_HISTORY("Recently Downloaded", ServiceType.RADARR),
+    SONARR_HISTORY("Recently Downloaded", ServiceType.SONARR),
+    LIDARR_HISTORY("Recently Downloaded", ServiceType.LIDARR),
+    NZBGET_QUEUE("Active Downloads", ServiceType.NZBGET),
+    NZBGET_HISTORY("Recently Downloaded", ServiceType.NZBGET),
+    SEERR_TRENDING("Trending", ServiceType.SEERR),
+    SEERR_POPULAR_MOVIES("Popular Movies", ServiceType.SEERR),
+    SEERR_POPULAR_TV("Popular Shows", ServiceType.SEERR),
 }
 
 /** A single widget on a dashboard tab: a card type bound to one configured service. */
