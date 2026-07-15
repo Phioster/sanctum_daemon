@@ -314,6 +314,7 @@ private fun SeerrScreen(
     val status = statuses[config.id]
     val accent = Color(config.type.accent)
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var mode by remember { mutableStateOf(0) } // 0=Requests, 1=Issues, 2=Discover
     var reqFilter by remember { mutableStateOf("all") }
     var issueFilter by remember { mutableStateOf("open") }
@@ -393,6 +394,7 @@ private fun SeerrScreen(
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
                             DropdownMenuItem(text = { Text("New request", fontFamily = Mono) }, onClick = { barMenu = false; searchTerm = ""; searchResults = null; showAdd = true })
+                            DropdownMenuItem(text = { Text("Open in Seerr", fontFamily = Mono) }, onClick = { barMenu = false; openExternal(context, emptyList(), config.baseUrl) })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
                         }
@@ -768,6 +770,7 @@ private fun JellyfinScreen(
     val status = statuses[config.id]
     val accent = Color(config.type.accent)
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var mode by remember { mutableStateOf(0) } // 0=Now Playing, 1=Users, 2=Dashboard
     var sessions by remember { mutableStateOf<List<org.phioster.nexarr.model.JellySession>?>(null) }
     var users by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyUser>?>(null) }
@@ -853,6 +856,7 @@ private fun JellyfinScreen(
                     Box {
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
+                            DropdownMenuItem(text = { Text("Open in Jellyfin", fontFamily = Mono) }, onClick = { barMenu = false; openExternal(context, jellyfinAppPackages, "${config.normalizedBaseUrl}web/") })
                             DropdownMenuItem(text = { Text("Scan library", fontFamily = Mono) }, onClick = { barMenu = false; scope.launch { actionMsg = vm.jellyfinScan(config) } })
                             DropdownMenuItem(text = { Text("Restart server", fontFamily = Mono) }, onClick = { barMenu = false; confirmRestart = true })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
@@ -1160,6 +1164,11 @@ private fun JellyfinScreen(
                 }
             },
             confirmButton = { TextButton(onClick = { mediaDetail = null }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+            dismissButton = {
+                TextButton(onClick = { openExternal(context, jellyfinAppPackages, "${config.normalizedBaseUrl}web/#/details?id=${d.id}") }) {
+                    Text("Open in Jellyfin", fontFamily = Mono, color = accent)
+                }
+            },
         )
     }
 }
@@ -3195,6 +3204,22 @@ private fun AddServiceScreen(
             }
         }
     }
+}
+
+/** Known Android app packages that can display a Jellyfin server. */
+private val jellyfinAppPackages = listOf("org.jellyfin.mobile", "dev.jdtech.jellyfin")
+
+/**
+ * Open [webUrl] in the first installed app from [packages]; otherwise hand the URL to the
+ * system, which routes it to an installed PWA (e.g. Seerr added to the home screen) or the
+ * browser.
+ */
+private fun openExternal(context: android.content.Context, packages: List<String>, webUrl: String) {
+    for (pkg in packages) {
+        val launch = context.packageManager.getLaunchIntentForPackage(pkg)
+        if (launch != null) { runCatching { context.startActivity(launch) }; return }
+    }
+    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))) }
 }
 
 @Composable
