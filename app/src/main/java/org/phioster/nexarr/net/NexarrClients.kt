@@ -32,6 +32,7 @@ import org.phioster.nexarr.model.ArrMissingItem
 import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.ArrRelease
+import org.phioster.nexarr.model.ArrSystemInfo
 import org.phioster.nexarr.model.NzbHistoryEntry
 import org.phioster.nexarr.model.NzbQueueItem
 import org.phioster.nexarr.model.ProwlarrCategory
@@ -490,6 +491,7 @@ suspend fun seerrCreateRequest(config: ServiceConfig, item: SeerrSearchItem): St
 
 @Serializable private data class ArrQualityRef(val quality: ArrQualityName = ArrQualityName())
 @Serializable private data class ArrQualityName(val name: String = "")
+@Serializable private data class ArrCustomFormatRef(val name: String = "")
 @Serializable private data class ArrReleaseRecord(
     val guid: String = "",
     val indexerId: Int = 0,
@@ -501,9 +503,18 @@ suspend fun seerrCreateRequest(config: ServiceConfig, item: SeerrSearchItem): St
     val ageMinutes: Double = 0.0,
     val quality: ArrQualityRef = ArrQualityRef(),
     val customFormatScore: Int = 0,
+    val customFormats: List<ArrCustomFormatRef> = emptyList(),
     val approved: Boolean = false,
     val rejections: List<String> = emptyList(),
 )
+
+@Serializable private data class ArrDiskRecord(
+    val path: String = "",
+    val freeSpace: Long = 0,
+    val totalSpace: Long = 0,
+)
+@Serializable private data class ArrSystemStatusRec(val version: String = "")
+@Serializable private data class ArrHealthRecord(val type: String = "", val message: String = "")
 
 @Serializable private data class ArrGrabReq(val guid: String, val indexerId: Int)
 
@@ -532,6 +543,9 @@ private interface ArrApi {
     @POST suspend fun downloadRelease(@Url url: String, @Body body: ArrGrabReq): Response<ResponseBody>
     @DELETE suspend fun deleteItem(@Url url: String): Response<ResponseBody>
     @GET suspend fun history(@Url url: String): ArrHistoryPage
+    @GET suspend fun diskspace(@Url url: String): List<ArrDiskRecord>
+    @GET suspend fun systemStatus(@Url url: String): ArrSystemStatusRec
+    @GET suspend fun healthChecks(@Url url: String): List<ArrHealthRecord>
 }
 
 private fun arrBase(type: ServiceType) = if (type == ServiceType.LIDARR) "api/v1" else "api/v3"
@@ -789,10 +803,26 @@ suspend fun arrReleases(config: ServiceConfig, movieId: Int?, episodeId: Int?): 
             ageDays = (r.ageMinutes / (60 * 24)).toInt(),
             quality = r.quality.quality.name,
             score = r.customFormatScore,
+            customFormats = r.customFormats.joinToString(", ") { it.name }.trim(),
             approved = r.approved,
-            rejection = r.rejections.firstOrNull() ?: "",
+            rejection = r.rejections.joinToString("; "),
         )
-    }.sortedByDescending { it.approved }
+    }.sortedWith(compareByDescending<ArrRelease> { it.approved }.thenByDescending { it.score })
+}
+
+suspend fun arrSystem(config: ServiceConfig): ArrSystemInfo = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    val api = apiFor<ArrApi>(config, apiKeyHeader(config))
+    val version = runCatching { api.systemStatus("$base/system/status").version }.getOrDefault("?")
+    val health = runCatching { api.healthChecks("$base/health").map { it.type to it.message } }.getOrDefault(emptyList())
+    val disks = runCatching {
+        api.diskspace("$base/diskspace").map { d ->
+            val freeGb = d.freeSpace / (1024.0 * 1024 * 1024)
+            val totalGb = d.totalSpace / (1024.0 * 1024 * 1024)
+            d.path to "%.0f / %.0f GB free".format(freeGb, totalGb)
+        }
+    }.getOrDefault(emptyList())
+    ArrSystemInfo(version = version, health = health, disks = disks)
 }
 
 suspend fun arrGrab(config: ServiceConfig, guid: String, indexerId: Int): String = withContext(Dispatchers.IO) {

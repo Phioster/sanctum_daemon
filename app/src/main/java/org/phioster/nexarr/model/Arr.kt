@@ -69,8 +69,16 @@ data class ArrRelease(
     val ageDays: Int,
     val quality: String,
     val score: Int,
+    val customFormats: String, // joined custom-format names, "" if none
     val approved: Boolean,
-    val rejection: String,
+    val rejection: String, // all rejection reasons joined, "" if approved
+)
+
+/** System status + health + disk space for a Servarr app. */
+data class ArrSystemInfo(
+    val version: String,
+    val health: List<Pair<String, String>>, // type -> message
+    val disks: List<Pair<String, String>>, // path -> "free / total"
 )
 
 /** A history event in a Servarr app. */

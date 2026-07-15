@@ -41,6 +41,7 @@ import org.phioster.nexarr.net.arrHistory
 import org.phioster.nexarr.net.arrLibrary
 import org.phioster.nexarr.net.arrReleases
 import org.phioster.nexarr.net.arrSearchAll
+import org.phioster.nexarr.net.arrSystem
 import org.phioster.nexarr.net.arrLibrarySearch
 import org.phioster.nexarr.net.arrLookup
 import org.phioster.nexarr.net.arrMetadataProfiles
@@ -183,6 +184,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         arrDelete(config, id, deleteFiles)
     suspend fun arrHistoryList(config: ServiceConfig): List<ArrHistoryItem> = arrHistory(config)
     suspend fun arrSearchAllItems(config: ServiceConfig, cutoff: Boolean): String = arrSearchAll(config, cutoff)
+    suspend fun arrSystemInfo(config: ServiceConfig): org.phioster.nexarr.model.ArrSystemInfo = arrSystem(config)
 
     suspend fun seerrList(config: ServiceConfig, filter: String): List<SeerrRequestItem> =
         seerrRequests(config, filter)

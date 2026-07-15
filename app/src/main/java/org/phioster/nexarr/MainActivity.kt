@@ -966,6 +966,8 @@ private fun ArrScreen(
     var history by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrHistoryItem>?>(null) }
     var detailId by remember { mutableStateOf<Int?>(null) }
     val supportsDetail = config.type == ServiceType.RADARR || config.type == ServiceType.SONARR
+    var showSystem by remember { mutableStateOf(false) }
+    var arrSys by remember { mutableStateOf<org.phioster.nexarr.model.ArrSystemInfo?>(null) }
     var query by remember { mutableStateOf("") }
     var sortBy by remember { mutableStateOf(0) } // 0=Title, 1=Year, 2=Size
     var sortMenu by remember { mutableStateOf(false) }
@@ -1064,6 +1066,12 @@ private fun ArrScreen(
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
                             DropdownMenuItem(text = { Text("Add new", fontFamily = Mono) }, onClick = { barMenu = false; addTerm = ""; addResults = null; showAdd = true })
+                            if (supportsDetail) {
+                                DropdownMenuItem(text = { Text("System & health", fontFamily = Mono) }, onClick = {
+                                    barMenu = false; showSystem = true; arrSys = null
+                                    scope.launch { arrSys = runCatching { vm.arrSystemInfo(config) }.getOrNull() }
+                                })
+                            }
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
                         }
@@ -1278,6 +1286,43 @@ private fun ArrScreen(
                 ) { Text("Add", fontFamily = Mono, color = MatrixGreen) }
             },
             dismissButton = { TextButton(onClick = { selected = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    if (showSystem) {
+        AlertDialog(
+            onDismissRequest = { showSystem = false },
+            containerColor = Surface,
+            title = { Text("System & health", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                val si = arrSys
+                Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+                    Text("version ${si?.version ?: "…"}", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
+                    Spacer(Modifier.height(10.dp))
+                    Text("DISK", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    when {
+                        si == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        si.disks.isEmpty() -> Text("—", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        else -> si.disks.forEach { (path, info) ->
+                            Column(Modifier.padding(vertical = 3.dp)) {
+                                Text(path, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(info, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Text("HEALTH", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    when {
+                        si == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        si.health.isEmpty() -> Text("all healthy", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
+                        else -> si.health.forEach { (type, msg) ->
+                            val c = if (type.equals("error", true)) ErrRed else Color(0xFFFFAA00)
+                            Text("• $msg", fontFamily = Mono, color = c, fontSize = 11.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showSystem = false }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
 }
@@ -1582,12 +1627,33 @@ private fun ArrReleaseRow(item: ArrRelease, accent: Color, onGrab: () -> Unit) {
         if (item.protocol == "torrent") append(" · ${item.seeders ?: 0}S") else append(" · ${item.ageDays}d")
         if (item.quality.isNotBlank()) append(" · ${item.quality}")
     }
+    val scoreColor = when {
+        item.score > 0 -> MatrixGreen
+        item.score < 0 -> ErrRed
+        else -> MatrixGreen.copy(alpha = 0.6f)
+    }
     Column(Modifier.fillMaxWidth().clickable { onGrab() }.padding(vertical = 8.dp)) {
         Text(item.title, fontFamily = Mono, color = if (item.approved) MatrixGreen else MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(2.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(meta, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            Text(if (item.approved) "score ${item.score}" else item.rejection.take(24), fontFamily = Mono, color = if (item.approved) MatrixGreen.copy(alpha = 0.6f) else ErrRed, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(3.dp))
+        Text(meta, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (item.customFormats.isNotBlank()) {
+            Spacer(Modifier.height(3.dp))
+            Text("formats: ${item.customFormats}", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 10.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        Spacer(Modifier.height(3.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("score ${item.score}", fontFamily = Mono, color = scoreColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                if (item.approved) "· approved" else "· rejected",
+                fontFamily = Mono,
+                color = if (item.approved) MatrixGreen.copy(alpha = 0.7f) else Color(0xFFFFAA00),
+                fontSize = 10.sp,
+            )
+        }
+        if (!item.approved && item.rejection.isNotBlank()) {
+            Spacer(Modifier.height(2.dp))
+            Text(item.rejection, fontFamily = Mono, color = Color(0xFFFFAA00).copy(alpha = 0.85f), fontSize = 10.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.height(6.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
