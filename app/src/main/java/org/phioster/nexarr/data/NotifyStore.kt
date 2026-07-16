@@ -52,20 +52,24 @@ class NotifyStore(private val context: Context) {
         context.notifyDataStore.edit { it[SEEN_KEY] = json.encodeToString(m) }
     }
 
-    /** Timestamp of the last ntfy message + recently seen ids, so reconnects can
-     *  catch up via ?since= without re-notifying messages from the same second. */
-    suspend fun ntfyCursor(): Pair<Long, List<String>> = context.notifyDataStore.data.first().let { prefs ->
-        val recent = prefs[NTFY_RECENT_IDS_KEY]
+    private fun timeKey(scope: String) = if (scope.isEmpty()) NTFY_LAST_TIME_KEY else longPreferencesKey("ntfy_last_time_$scope")
+    private fun idsKey(scope: String) = if (scope.isEmpty()) NTFY_RECENT_IDS_KEY else stringPreferencesKey("ntfy_recent_ids_$scope")
+
+    /** Timestamp of the last ntfy message + recently seen ids (per server [scope]),
+     *  so reconnects can catch up via ?since= without re-notifying messages from
+     *  the same second. A scope without its own cursor inherits the legacy one. */
+    suspend fun ntfyCursor(scope: String = ""): Pair<Long, List<String>> = context.notifyDataStore.data.first().let { prefs ->
+        val recent = (prefs[idsKey(scope)] ?: prefs[NTFY_RECENT_IDS_KEY])
             ?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }
             ?: prefs[NTFY_LAST_ID_KEY]?.let { listOf(it) } // migrate the legacy single-id cursor
             ?: emptyList()
-        (prefs[NTFY_LAST_TIME_KEY] ?: 0L) to recent
+        ((prefs[timeKey(scope)] ?: prefs[NTFY_LAST_TIME_KEY]) ?: 0L) to recent
     }
 
-    suspend fun saveNtfyCursor(time: Long, recentIds: List<String>) {
+    suspend fun saveNtfyCursor(time: Long, recentIds: List<String>, scope: String = "") {
         context.notifyDataStore.edit {
-            it[NTFY_LAST_TIME_KEY] = time
-            it[NTFY_RECENT_IDS_KEY] = json.encodeToString(recentIds.takeLast(20))
+            it[timeKey(scope)] = time
+            it[idsKey(scope)] = json.encodeToString(recentIds.takeLast(20))
         }
     }
 }

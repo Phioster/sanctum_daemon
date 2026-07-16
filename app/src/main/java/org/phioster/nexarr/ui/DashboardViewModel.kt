@@ -167,8 +167,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
             val ctx = getApplication<Application>()
             if (s.enabled) org.phioster.nexarr.notify.Notifications.schedule(ctx, s.intervalMin)
             else org.phioster.nexarr.notify.Notifications.cancel(ctx)
-            if (s.live && s.ntfyServer.isNotBlank() && s.ntfyTopic.isNotBlank()) org.phioster.nexarr.notify.NtfyStreamService.start(ctx)
-            else org.phioster.nexarr.notify.NtfyStreamService.stop(ctx)
+            // Restart so the stream re-evaluates all subscriptions (settings topic +
+            // NTFY-service topics); it stops itself when none remain.
+            org.phioster.nexarr.notify.NtfyStreamService.restart(ctx)
         }
     }
 
@@ -295,12 +296,23 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
             val idx = list.indexOfFirst { it.id == config.id }
             val updated = if (idx >= 0) list.toMutableList().apply { this[idx] = config } else list + config
             store.save(updated)
+            // The ntfy stream snapshots its subscriptions on start — re-read them.
+            if (config.type == org.phioster.nexarr.model.ServiceType.NTFY) {
+                org.phioster.nexarr.notify.NtfyStreamService.restart(getApplication())
+            }
         }
     }
 
     fun removeService(id: String) {
-        viewModelScope.launch { store.save(_services.value.filterNot { it.id == id }) }
+        viewModelScope.launch {
+            val wasNtfy = _services.value.firstOrNull { it.id == id }?.type == org.phioster.nexarr.model.ServiceType.NTFY
+            store.save(_services.value.filterNot { it.id == id })
+            if (wasNtfy) org.phioster.nexarr.notify.NtfyStreamService.restart(getApplication())
+        }
     }
+
+    suspend fun ntfyMessages(config: ServiceConfig, topic: String): List<org.phioster.nexarr.model.NtfyMessage> =
+        org.phioster.nexarr.net.ntfyHistory(config, topic)
 
     /** Reorder a service card. [direction] = -1 to move up, +1 to move down. */
     fun moveService(id: String, direction: Int) {
@@ -468,6 +480,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrHistoryList(config: ServiceConfig): List<ArrHistoryItem> = arrHistory(config)
     suspend fun arrCalendarList(config: ServiceConfig): List<org.phioster.nexarr.model.ArrCalendarItem> = arrCalendar(config)
     suspend fun arrSearchAllItems(config: ServiceConfig, cutoff: Boolean): String = arrSearchAll(config, cutoff)
+    suspend fun arrRssSyncNow(config: ServiceConfig): String = org.phioster.nexarr.net.arrRssSync(config)
     suspend fun arrSystemInfo(config: ServiceConfig): org.phioster.nexarr.model.ArrSystemInfo = arrSystem(config)
     suspend fun arrManualScan(config: ServiceConfig, folder: String): List<org.phioster.nexarr.model.ArrImportItem> =
         arrManualImportScan(config, folder)

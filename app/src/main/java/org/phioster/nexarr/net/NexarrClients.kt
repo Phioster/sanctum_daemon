@@ -25,6 +25,7 @@ import kotlinx.serialization.json.putJsonObject
 import okhttp3.Credentials
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.ResponseBody
 import retrofit2.Response
 import org.phioster.nexarr.model.ArrAlbum
@@ -40,6 +41,7 @@ import org.phioster.nexarr.model.ArrMissingItem
 import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.ArrCalendarItem
+import org.phioster.nexarr.model.NtfyMessage
 import org.phioster.nexarr.model.JellyActivity
 import org.phioster.nexarr.model.JellyChannel
 import org.phioster.nexarr.model.JellyDevice
@@ -1608,6 +1610,16 @@ suspend fun arrHistory(config: ServiceConfig): List<ArrHistoryItem> = withContex
 }
 
 /** Search all missing or cutoff-unmet items. */
+/** Triggers an RSS sync (check all indexer feeds for new releases now). */
+suspend fun arrRssSync(config: ServiceConfig): String = withContext(Dispatchers.IO) {
+    try {
+        val body = buildJsonObject { put("name", "RssSync") }
+        okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).command("${arrBase(config.type)}/command", body), "RSS sync started")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
 suspend fun arrSearchAll(config: ServiceConfig, cutoff: Boolean): String = withContext(Dispatchers.IO) {
     try {
         val base = arrBase(config.type)
@@ -1704,6 +1716,39 @@ private fun rateBody(kbps: Int): JsonObject =
         putJsonArray("params") { add(kbps) }
     }
 
+// ---- ntfy ----
+
+private fun ntfyRequest(config: ServiceConfig, url: String): Request =
+    Request.Builder().url(url).apply {
+        if (config.apiKey.isNotBlank()) header("Authorization", "Bearer ${config.apiKey}")
+        config.customHeaders.forEach { (k, v) -> if (k.isNotBlank() && v.isNotBlank()) header(k, v) }
+    }.build()
+
+private suspend fun ntfyStatus(config: ServiceConfig): ServiceStatus {
+    val resp = baseOkClient.newCall(ntfyRequest(config, "${config.normalizedBaseUrl}v1/health")).execute()
+    resp.use { if (!it.isSuccessful) throw java.io.IOException("HTTP ${it.code}") }
+    return ServiceStatus(
+        ok = true,
+        stats = listOf("${config.topics.size}" to "TOPICS"),
+        note = config.topics.joinToString(", ").takeIf { it.isNotBlank() },
+    )
+}
+
+/** Cached messages of one topic, newest first (ntfy keeps ~12 h by default, more if configured). */
+suspend fun ntfyHistory(config: ServiceConfig, topic: String, since: String = "48h"): List<NtfyMessage> = withContext(Dispatchers.IO) {
+    val url = "${config.normalizedBaseUrl}$topic/json?poll=1&since=$since"
+    val resp = baseOkClient.newCall(ntfyRequest(config, url)).execute()
+    resp.use { r ->
+        if (!r.isSuccessful) throw java.io.IOException("HTTP ${r.code}")
+        val body = r.body?.string().orEmpty()
+        body.lineSequence()
+            .filter { it.isNotBlank() }
+            .mapNotNull { org.phioster.nexarr.notify.parseNtfyLine(it) }
+            .sortedByDescending { it.time }
+            .toList()
+    }
+}
+
 /** Runs the appropriate status calls for a service and maps them to a card. */
 suspend fun fetchStatus(config: ServiceConfig): ServiceStatus = withContext(Dispatchers.IO) {
     try {
@@ -1715,6 +1760,7 @@ suspend fun fetchStatus(config: ServiceConfig): ServiceStatus = withContext(Disp
             ServiceType.PROWLARR -> prowlarrStatus(config)
             ServiceType.SEERR -> seerrStatus(config)
             ServiceType.NZBGET -> nzbgetStatus(config)
+            ServiceType.NTFY -> ntfyStatus(config)
         }
     } catch (t: Throwable) {
         ServiceStatus(ok = false, error = t.message ?: t.javaClass.simpleName)
@@ -1914,8 +1960,15 @@ private fun jellyImageUrl(config: ServiceConfig, id: String, tag: String?, token
     if (id.isBlank()) return ""
     var url = "${config.normalizedBaseUrl}Items/$id/Images/Primary?maxHeight=450&quality=90"
     if (!tag.isNullOrBlank()) url += "&tag=$tag"
-    if (token.isNotBlank()) url += "&api_key=$token"
+    // No api_key in the URL — it would end up in Coil's disk cache. Loaders send
+    // the token via jellyfinImageHeaders() instead.
     return url
+}
+
+/** Headers for loading Jellyfin images (Coil), keeping the token out of the URL. */
+fun jellyfinImageHeaders(config: ServiceConfig): Map<String, String> {
+    val token = if (!config.useLogin) config.apiKey else jellyfinSession[config.id]?.first.orEmpty()
+    return if (token.isNotBlank()) mapOf("X-Emby-Token" to token) else emptyMap()
 }
 
 private fun jfSubtitle(item: JfItem): String = when (item.Type) {

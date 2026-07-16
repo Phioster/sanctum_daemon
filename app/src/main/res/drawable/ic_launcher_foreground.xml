@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nexarr launcher foreground: three service nodes wired to a hub, terminal
+     prompt >_ below — Termux-style matrix green on near-black. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- connector lines: nodes -> hub -->
+    <path
+        android:pathData="M36,38 L54,50 M54,36 L54,50 M72,38 L54,50"
+        android:strokeColor="#00FF41"
+        android:strokeWidth="2.5"
+        android:strokeAlpha="0.9" />
+
+    <!-- service nodes (outlined) -->
+    <path
+        android:pathData="M31.5,38 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0"
+        android:fillColor="#0A0F0A"
+        android:strokeColor="#00FF41"
+        android:strokeWidth="2.5" />
+    <path
+        android:pathData="M49.5,36 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0"
+        android:fillColor="#0A0F0A"
+        android:strokeColor="#00FF41"
+        android:strokeWidth="2.5" />
+    <path
+        android:pathData="M67.5,38 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0"
+        android:fillColor="#0A0F0A"
+        android:strokeColor="#00FF41"
+        android:strokeWidth="2.5" />
+
+    <!-- hub (filled) -->
+    <path
+        android:pathData="M50.5,50 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"
+        android:fillColor="#00FF41" />
+
+    <!-- terminal prompt: > -->
+    <path
+        android:pathData="M40,58 L50,66 L40,74"
+        android:strokeColor="#00FF41"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- terminal prompt: _ -->
+    <path
+        android:pathData="M57,74 L71,74"
+        android:strokeColor="#00FF41"
+        android:strokeWidth="6"
+        android:strokeLineCap="round" />
+</vector>

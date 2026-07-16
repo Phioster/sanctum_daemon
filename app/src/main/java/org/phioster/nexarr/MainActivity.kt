@@ -123,6 +123,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.phioster.nexarr.model.ArrLibraryItem
 import org.phioster.nexarr.model.ArrLookupItem
@@ -176,7 +177,13 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         lifecycleScope.launch {
             val s = org.phioster.nexarr.data.NotifyStore(this@MainActivity).currentSettings()
             if (s.enabled) org.phioster.nexarr.notify.Notifications.schedule(this@MainActivity, s.intervalMin)
-            if (s.live && s.ntfyServer.isNotBlank() && s.ntfyTopic.isNotBlank()) org.phioster.nexarr.notify.NtfyStreamService.start(this@MainActivity)
+            val hasNtfyService = runCatching {
+                org.phioster.nexarr.data.ServiceStore(this@MainActivity).services.first()
+                    .any { it.type == ServiceType.NTFY && it.topics.isNotEmpty() }
+            }.getOrDefault(false)
+            if ((s.live && s.ntfyServer.isNotBlank() && s.ntfyTopic.isNotBlank()) || hasNtfyService) {
+                org.phioster.nexarr.notify.NtfyStreamService.start(this@MainActivity)
+            }
         }
         setContent {
             MaterialTheme(colorScheme = NexarrColors) {
@@ -304,6 +311,7 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
                 ServiceType.SEERR -> SeerrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del, initialDetail = link?.seerrTmdb?.let { it to link.seerrMediaType })
                 ServiceType.PROWLARR -> ProwlarrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
                 ServiceType.JELLYFIN -> JellyfinScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del, initialItemId = link?.jellyItemId)
+                ServiceType.NTFY -> NtfyScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
                 else -> ServiceDetailScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
             }
         }
@@ -345,6 +353,27 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
             },
         )
     }
+}
+
+/** Real brand logo for a service type (colored PNG in drawable-nodpi). */
+private fun serviceLogoRes(type: ServiceType): Int = when (type) {
+    ServiceType.JELLYFIN -> R.drawable.svc_jellyfin
+    ServiceType.RADARR -> R.drawable.svc_radarr
+    ServiceType.SONARR -> R.drawable.svc_sonarr
+    ServiceType.LIDARR -> R.drawable.svc_lidarr
+    ServiceType.PROWLARR -> R.drawable.svc_prowlarr
+    ServiceType.SEERR -> R.drawable.svc_seerr
+    ServiceType.NZBGET -> R.drawable.svc_nzbget
+    ServiceType.NTFY -> R.drawable.svc_ntfy
+}
+
+@Composable
+private fun ServiceLogo(type: ServiceType, size: androidx.compose.ui.unit.Dp = 24.dp, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Image(
+        painter = androidx.compose.ui.res.painterResource(serviceLogoRes(type)),
+        contentDescription = "${type.label} logo",
+        modifier = modifier.size(size),
+    )
 }
 
 /** Selectable tab icons; the stored key maps back to a Material icon. */
@@ -853,10 +882,14 @@ private fun DashCardView(
                 if (card.icon.isNotBlank()) {
                     Icon(tabIcon(card.icon), contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
+                } else if (config != null && card.type != CardType.SECTION) {
+                    // No custom icon chosen -> the service's brand logo.
+                    ServiceLogo(config.type, 18.dp)
+                    Spacer(Modifier.width(8.dp))
                 }
                 Column {
                     Text(card.title.ifBlank { card.type.label }.uppercase(), fontFamily = Mono, color = if (card.theme == "solid") Black else if (card.type == CardType.SECTION) accentColor else MatrixGreen, fontSize = if (card.type == CardType.SECTION) 15.sp else 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (!serviceless) Text(config?.label ?: "?", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp)
+                    if (!serviceless || config != null) Text(config?.label ?: "?", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp)
                 }
             }
             if (editMode) {
@@ -873,7 +906,11 @@ private fun DashCardView(
             error != null -> Text("error: $error", fontFamily = Mono, color = ErrRed, fontSize = 11.sp)
             card.type == CardType.SECTION -> HorizontalDivider(color = accentColor.copy(alpha = 0.6f), thickness = 2.dp)
             card.type == CardType.QUICKBUTTONS -> {
-                val actions = allServices.flatMap { svc -> quickActionsFor(svc).map { svc to it } }
+                // Bound to one service when the card has a serviceId; legacy cards
+                // (serviceId "") keep the old all-services list.
+                val actions =
+                    if (config != null) quickActionsFor(config).map { config to it }
+                    else allServices.flatMap { svc -> quickActionsFor(svc).map { svc to it } }
                 if (actions.isEmpty()) empty("no actions available")
                 else Column {
                     actions.forEach { (svc, qa) ->
@@ -1258,9 +1295,19 @@ private fun MediaDetailDialog(d: MediaDetail, config: ServiceConfig, onDismiss: 
 private class QuickAction(val label: String, val run: suspend (DashboardViewModel, ServiceConfig) -> String)
 
 private fun quickActionsFor(svc: ServiceConfig): List<QuickAction> = when (svc.type) {
-    ServiceType.JELLYFIN -> listOf(QuickAction("Scan ${svc.label}") { vm, s -> vm.jellyfinScan(s) })
-    ServiceType.RADARR, ServiceType.SONARR, ServiceType.LIDARR -> listOf(QuickAction("Search ${svc.label}") { vm, s -> vm.arrSearchAllItems(s, false) })
-    ServiceType.PROWLARR -> listOf(QuickAction("Test ${svc.label}") { vm, s -> vm.prowlarrTestAll(s) })
+    ServiceType.JELLYFIN -> listOf(
+        QuickAction("Scan libraries") { vm, s -> vm.jellyfinScan(s) },
+        QuickAction("Restart server") { vm, s -> vm.jellyfinRestartServer(s) },
+    )
+    ServiceType.RADARR, ServiceType.SONARR, ServiceType.LIDARR -> listOf(
+        QuickAction("Search all missing") { vm, s -> vm.arrSearchAllItems(s, false) },
+        QuickAction("RSS sync") { vm, s -> vm.arrRssSyncNow(s) },
+    )
+    ServiceType.PROWLARR -> listOf(QuickAction("Test all indexers") { vm, s -> vm.prowlarrTestAll(s) })
+    ServiceType.NZBGET -> listOf(
+        QuickAction("Pause queue") { vm, s -> vm.nzbgetPause(s) },
+        QuickAction("Resume queue") { vm, s -> vm.nzbgetResume(s) },
+    )
     else -> emptyList()
 }
 
@@ -1291,7 +1338,9 @@ private fun AddCardDialog(
     val groups = remember(services) {
         val byService = CardType.entries.groupBy { it.service }
         val layout = byService[null]?.let { listOf<Pair<ServiceType?, List<CardType>>>(null to it) } ?: emptyList()
-        layout + byService.filterKeys { st -> st != null && services.any { it.type == st } }.toList()
+        // Quick Buttons is also offered per service (bound to that service's actions).
+        layout + byService.filterKeys { st -> st != null && services.any { it.type == st } }
+            .map { (st, types) -> st to (types + CardType.QUICKBUTTONS) }
     }
     fun keyOf(st: ServiceType?) = st?.name ?: "layout"
     var expandedKey by remember { mutableStateOf(groups.firstOrNull()?.let { keyOf(it.first) } ?: "") }
@@ -1315,7 +1364,7 @@ private fun AddCardDialog(
                             .padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("●", color = accent, fontSize = 12.sp)
+                        if (svcType != null) ServiceLogo(svcType, 18.dp) else Text("●", color = accent, fontSize = 12.sp)
                         Spacer(Modifier.width(8.dp))
                         Text(svcType?.label ?: "Layout", fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         Text("${types.size} cards", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp)
@@ -1550,15 +1599,19 @@ private fun GlobalSearchScreen(
                                 val head = hits.first()
                                 item(key = "h_$sid") {
                                     Spacer(Modifier.height(10.dp))
-                                    Text(
-                                        "${head.serviceLabel} · ${head.serviceType.label}".uppercase(),
-                                        fontFamily = Mono, color = Color(head.serviceType.accent), fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ServiceLogo(head.serviceType, 16.dp)
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            "${head.serviceLabel} · ${head.serviceType.label}".uppercase(),
+                                            fontFamily = Mono, color = Color(head.serviceType.accent), fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                        )
+                                    }
                                     Spacer(Modifier.height(4.dp))
                                     HorizontalDivider(color = MatrixGreen.copy(alpha = 0.12f))
                                 }
                                 items(hits, key = { "${sid}_${it.title}_${it.subtitle}" }) { hit ->
-                                    SearchResultRow(hit) { chosen = hit }
+                                    SearchResultRow(hit, services.firstOrNull { it.id == hit.serviceId }) { chosen = hit }
                                 }
                             }
                             item { Spacer(Modifier.height(24.dp)) }
@@ -1586,7 +1639,7 @@ private fun GlobalSearchScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (hit.posterUrl.isNotBlank()) {
                             AsyncImage(
-                                model = hit.posterUrl,
+                                model = searchPosterModel(hit, cfg),
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.width(64.dp).height(96.dp).clip(RoundedCornerShape(6.dp)).background(Black),
@@ -1628,13 +1681,24 @@ private fun GlobalSearchScreen(
     }
 }
 
+/** Coil model for a search-hit poster; Jellyfin posters need auth headers. */
 @Composable
-private fun SearchResultRow(hit: org.phioster.nexarr.model.SearchResult, onClick: () -> Unit) {
+private fun searchPosterModel(hit: org.phioster.nexarr.model.SearchResult, config: ServiceConfig?): Any {
+    if (hit.serviceType != ServiceType.JELLYFIN || config == null) return hit.posterUrl
+    val ctx = LocalContext.current
+    return ImageRequest.Builder(ctx).data(hit.posterUrl).apply {
+        config.customHeaders.forEach { (k, v) -> addHeader(k, v) }
+        org.phioster.nexarr.net.jellyfinImageHeaders(config).forEach { (k, v) -> addHeader(k, v) }
+    }.build()
+}
+
+@Composable
+private fun SearchResultRow(hit: org.phioster.nexarr.model.SearchResult, config: ServiceConfig?, onClick: () -> Unit) {
     val accent = Color(hit.serviceType.accent)
     Row(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         if (hit.posterUrl.isNotBlank()) {
             AsyncImage(
-                model = hit.posterUrl,
+                model = searchPosterModel(hit, config),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.width(40.dp).height(60.dp).clip(RoundedCornerShape(4.dp)).background(Surface),
@@ -1673,8 +1737,8 @@ private fun ServiceCard(
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(10.dp)) { Text("●", color = accent, fontSize = 12.sp) }
-                Spacer(Modifier.width(10.dp))
+                ServiceLogo(config.type, 30.dp)
+                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(config.label, fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen, fontSize = 18.sp)
                     Text(config.type.label, fontFamily = Mono, color = accent, fontSize = 12.sp)
@@ -1816,7 +1880,13 @@ private fun SeerrScreen(
         containerColor = Black,
         topBar = {
             TopAppBar(
-                title = { Text(config.label, fontFamily = Mono, color = MatrixGreen) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ServiceLogo(config.type, 22.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(config.label, fontFamily = Mono, color = MatrixGreen)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
                 },
@@ -2469,7 +2539,13 @@ private fun JellyfinScreen(
         containerColor = Black,
         topBar = {
             TopAppBar(
-                title = { Text(config.label, fontFamily = Mono, color = MatrixGreen) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ServiceLogo(config.type, 22.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(config.label, fontFamily = Mono, color = MatrixGreen)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
                 },
@@ -2799,6 +2875,23 @@ private fun JellyfinScreen(
                                     Spacer(Modifier.height(12.dp))
                                     Text("CHANNELS${if (!ch.isNullOrEmpty()) " (${ch.size})" else ""}", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
                                 }
+                                // Guide data expires daily — if no channel knows its current
+                                // program, offer to run the server's "Refresh Guide" task.
+                                if (!ch.isNullOrEmpty() && ch.none { it.nowPlaying.isNotBlank() }) {
+                                    item {
+                                        Text(
+                                            "no program data — guide may be stale · ⟳ refresh guide",
+                                            fontFamily = Mono, color = accent, fontSize = 12.sp,
+                                            modifier = Modifier.fillMaxWidth().clickable {
+                                                scope.launch {
+                                                    val task = runCatching { vm.jellyfinTaskList(config) }.getOrNull()
+                                                        ?.firstOrNull { it.name.contains("Guide", ignoreCase = true) }
+                                                    actionMsg = if (task == null) "guide task not found" else vm.jellyfinRunTaskById(config, task.id)
+                                                }
+                                            }.padding(vertical = 8.dp),
+                                        )
+                                    }
+                                }
                                 when {
                                     ch == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
                                     ch.isEmpty() -> item { Text("no channels", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
@@ -3088,6 +3181,7 @@ private fun JellyPoster(url: String, config: ServiceConfig, modifier: Modifier, 
     val ctx = LocalContext.current
     val model = ImageRequest.Builder(ctx).data(url).apply {
         config.customHeaders.forEach { (k, v) -> addHeader(k, v) }
+        org.phioster.nexarr.net.jellyfinImageHeaders(config).forEach { (k, v) -> addHeader(k, v) }
     }.build()
     AsyncImage(
         model = model,
@@ -3717,7 +3811,13 @@ private fun ProwlarrScreen(
         containerColor = Black,
         topBar = {
             TopAppBar(
-                title = { Text(config.label, fontFamily = Mono, color = MatrixGreen) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ServiceLogo(config.type, 22.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(config.label, fontFamily = Mono, color = MatrixGreen)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
                 },
@@ -4157,7 +4257,13 @@ private fun ArrScreen(
         containerColor = Black,
         topBar = {
             TopAppBar(
-                title = { Text(config.label, fontFamily = Mono, color = MatrixGreen) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ServiceLogo(config.type, 22.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(config.label, fontFamily = Mono, color = MatrixGreen)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
                 },
@@ -5014,7 +5120,13 @@ private fun NzbgetScreen(
         containerColor = Black,
         topBar = {
             TopAppBar(
-                title = { Text(config.label, fontFamily = Mono, color = MatrixGreen) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ServiceLogo(config.type, 22.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(config.label, fontFamily = Mono, color = MatrixGreen)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen)
@@ -5254,7 +5366,13 @@ private fun ServiceDetailScreen(
         containerColor = Black,
         topBar = {
             TopAppBar(
-                title = { Text(config.label, fontFamily = Mono, color = MatrixGreen) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ServiceLogo(config.type, 22.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(config.label, fontFamily = Mono, color = MatrixGreen)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen)
@@ -5360,6 +5478,7 @@ private fun AddServiceScreen(
     var jellyLogin by remember { mutableStateOf(existing?.useLogin ?: false) }
     var cfId by remember { mutableStateOf(existing?.customHeaders?.get("CF-Access-Client-Id") ?: "") }
     var cfSecret by remember { mutableStateOf(existing?.customHeaders?.get("CF-Access-Client-Secret") ?: "") }
+    var topics by remember { mutableStateOf(existing?.topics?.joinToString(", ") ?: "") }
     var testResult by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
@@ -5382,6 +5501,7 @@ private fun AddServiceScreen(
             password = password,
             useLogin = type == ServiceType.JELLYFIN && jellyLogin,
             customHeaders = headers,
+            topics = topics.split(',', ' ').map { it.trim() }.filter { it.isNotBlank() },
         )
         return if (existing != null) base.copy(id = existing.id) else base
     }
@@ -5389,6 +5509,7 @@ private fun AddServiceScreen(
     val canSave = url.isNotBlank() && when {
         type == ServiceType.NZBGET -> username.isNotBlank() && password.isNotBlank()
         type == ServiceType.JELLYFIN && jellyLogin -> username.isNotBlank() && password.isNotBlank()
+        type == ServiceType.NTFY -> topics.isNotBlank() // token optional (open servers exist)
         else -> apiKey.isNotBlank()
     }
 
@@ -5418,6 +5539,7 @@ private fun AddServiceScreen(
                     FilterChip(
                         selected = type == t,
                         onClick = { type = t },
+                        leadingIcon = { ServiceLogo(t, 18.dp) },
                         label = { Text(t.label, fontFamily = Mono) },
                     )
                     Spacer(Modifier.width(8.dp))
@@ -5439,6 +5561,10 @@ private fun AddServiceScreen(
 
             if (type.usesApiKeyHeader || (type == ServiceType.JELLYFIN && !jellyLogin)) {
                 Field("API key", apiKey) { apiKey = it }
+            }
+            if (type == ServiceType.NTFY) {
+                Field("Topics (comma-separated)", topics) { topics = it }
+                Field("Access token (optional, tk_…)", apiKey) { apiKey = it }
             }
             if (usesLogin) {
                 Field("Username", username) { username = it }
@@ -5469,6 +5595,105 @@ private fun AddServiceScreen(
                 Text(it, fontFamily = Mono, color = if (it.startsWith("ok")) MatrixGreen else Color(0xFFFFAA00), fontSize = 13.sp)
             }
         }
+    }
+}
+
+/** ntfy service screen: per-topic message history (read-only; live pushes come via the stream service). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NtfyScreen(
+    vm: DashboardViewModel,
+    config: ServiceConfig,
+    onBack: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val accent = Color(config.type.accent)
+    val scope = rememberCoroutineScope()
+    var topic by remember { mutableStateOf(config.topics.firstOrNull() ?: "") }
+    var messages by remember { mutableStateOf<List<org.phioster.nexarr.model.NtfyMessage>?>(null) }
+    var listError by remember { mutableStateOf<String?>(null) }
+    var barMenu by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+
+    suspend fun load() {
+        listError = null
+        messages = null
+        try {
+            messages = vm.ntfyMessages(config, topic)
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            listError = t.message
+        }
+    }
+    LaunchedEffect(topic) { if (topic.isNotBlank()) load() }
+
+    Scaffold(
+        containerColor = Black,
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ServiceLogo(config.type, 22.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(config.label, fontFamily = Mono, color = MatrixGreen)
+                    }
+                },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) } },
+                actions = {
+                    IconButton(onClick = { scope.launch { load() } }) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen) }
+                    IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "Menu", tint = MatrixGreen) }
+                    DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
+                        DropdownMenuItem(text = { Text("Edit service", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
+                        DropdownMenuItem(text = { Text("Delete service", fontFamily = Mono) }, onClick = { barMenu = false; confirmDelete = true })
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
+            )
+        },
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
+            if (config.topics.size > 1) {
+                Row(Modifier.horizontalScroll(rememberScrollState())) {
+                    config.topics.forEach { t ->
+                        FilterChip(selected = topic == t, onClick = { topic = t }, label = { Text(t, fontFamily = Mono) })
+                        Spacer(Modifier.width(8.dp))
+                    }
+                }
+            }
+            val msgs = messages
+            when {
+                topic.isBlank() -> Text("no topics configured — edit the service", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
+                listError != null -> Text("error: $listError", fontFamily = Mono, color = Color(0xFFFFAA00), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
+                msgs == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
+                msgs.isEmpty() -> Text("no cached messages (server keeps ~12 h)", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
+                else -> LazyColumn(Modifier.fillMaxSize()) {
+                    items(msgs) { m ->
+                        val time = if (m.time > 0) java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(m.time * 1000)) else ""
+                        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(m.title.ifBlank { m.topic }, fontFamily = Mono, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                Text(time, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp)
+                            }
+                            Text(m.text, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.85f), fontSize = 12.sp)
+                        }
+                        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
+                    }
+                    item { Spacer(Modifier.height(24.dp)) }
+                }
+            }
+        }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            containerColor = Surface,
+            title = { Text("Delete ${config.label}?", fontFamily = Mono, color = MatrixGreen) },
+            confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete", fontFamily = Mono, color = Color(0xFFFF5555)) } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
     }
 }
 

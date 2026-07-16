@@ -12,7 +12,8 @@ enum class ServiceType(val label: String, val accent: Long) {
     LIDARR("Lidarr", 0xFF159552L),
     PROWLARR("Prowlarr", 0xFFE66000L),
     NZBGET("NZBGet", 0xFF43B02AL),
-    SEERR("Seerr", 0xFF818CF8L);
+    SEERR("Seerr", 0xFF818CF8L),
+    NTFY("ntfy", 0xFF57C462L);
 
     /** Services that authenticate with a Servarr/Overseerr-style X-Api-Key header. */
     val usesApiKeyHeader: Boolean
@@ -41,6 +42,7 @@ data class ServiceConfig(
     val password: String = "",
     val useLogin: Boolean = false,
     val customHeaders: Map<String, String> = emptyMap(),
+    val topics: List<String> = emptyList(), // NTFY: subscribed topics (history + live notifications)
 ) {
     /** Retrofit needs a base URL that ends with a slash. */
     val normalizedBaseUrl: String
