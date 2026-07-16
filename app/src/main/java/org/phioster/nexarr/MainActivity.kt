@@ -2182,6 +2182,15 @@ private fun JellyfinScreen(
     var latestItems by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyMediaItem>?>(null) }
     var browseStack by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyMediaItem>>(emptyList()) }
     var mediaDetail by remember { mutableStateOf<org.phioster.nexarr.model.JellyMediaDetail?>(null) }
+    var logFiles by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyLogFile>?>(null) }
+    var logView by remember { mutableStateOf<String?>(null) } // log file name being viewed
+    var logText by remember { mutableStateOf<String?>(null) } // its content (null = loading)
+    var plugins by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyPlugin>?>(null) }
+    var editLibrary by remember { mutableStateOf<org.phioster.nexarr.model.JellyLibrary?>(null) }
+    var showAddLibrary by remember { mutableStateOf(false) }
+    var pluginDetail by remember { mutableStateOf<org.phioster.nexarr.model.JellyPlugin?>(null) }
+    var showCatalog by remember { mutableStateOf(false) }
+    var catalog by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyPackage>?>(null) }
 
     suspend fun loadSessions() {
         listError = null
@@ -2201,6 +2210,9 @@ private fun JellyfinScreen(
             tasks = vm.jellyfinTaskList(config)
             activity = vm.jellyfinActivityLog(config)
             devices = runCatching { vm.jellyfinDeviceList(config) }.getOrDefault(emptyList())
+            libraries = runCatching { vm.jellyfinLibraryList(config) }.getOrDefault(emptyList())
+            plugins = runCatching { vm.jellyfinPluginList(config) }.getOrDefault(emptyList())
+            logFiles = runCatching { vm.jellyfinLogList(config) }.getOrDefault(emptyList())
         } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
     }
     suspend fun loadMediaHome() {
@@ -2416,6 +2428,54 @@ private fun JellyfinScreen(
                                     ac.isEmpty() -> item { Text("no activity", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
                                     else -> items(ac) { e -> JellyActivityRow(e, accent) }
                                 }
+                                item {
+                                    Spacer(Modifier.height(12.dp))
+                                    Text("LIBRARIES", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                    Text(
+                                        "+ add library",
+                                        fontFamily = Mono, color = accent, fontSize = 13.sp,
+                                        modifier = Modifier.fillMaxWidth().clickable { showAddLibrary = true }.padding(vertical = 6.dp),
+                                    )
+                                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+                                }
+                                val lb = libraries
+                                when {
+                                    lb == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                    lb.isEmpty() -> item { Text("no libraries", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                    else -> items(lb) { l -> JellyLibraryRow(l, accent) { editLibrary = l } }
+                                }
+                                item {
+                                    Spacer(Modifier.height(12.dp))
+                                    Text("PLUGINS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                    Text(
+                                        "+ plugin catalog",
+                                        fontFamily = Mono, color = accent, fontSize = 13.sp,
+                                        modifier = Modifier.fillMaxWidth().clickable {
+                                            catalog = null; showCatalog = true
+                                            scope.launch { catalog = runCatching { vm.jellyfinCatalog(config) }.getOrDefault(emptyList()) }
+                                        }.padding(vertical = 6.dp),
+                                    )
+                                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+                                }
+                                val pl = plugins
+                                when {
+                                    pl == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                    pl.isEmpty() -> item { Text("no plugins", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                    else -> items(pl) { p -> JellyPluginRow(p, accent) { pluginDetail = p } }
+                                }
+                                val lg = logFiles
+                                if (!lg.isNullOrEmpty()) {
+                                    item {
+                                        Spacer(Modifier.height(12.dp))
+                                        Text("SERVER LOGS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                    }
+                                    items(lg) { f ->
+                                        JellyLogRow(f, accent) {
+                                            logView = f.name; logText = null
+                                            scope.launch { logText = vm.jellyfinLogText(config, f.name) }
+                                        }
+                                    }
+                                }
                                 val dv = devices
                                 if (!dv.isNullOrEmpty()) {
                                     item {
@@ -2503,6 +2563,89 @@ private fun JellyfinScreen(
                 editUser = null
                 scope.launch { actionMsg = vm.jellyfinRemoveUser(config, usr.id); loadUsers() }
             },
+        )
+    }
+
+    if (showAddLibrary) {
+        JellyAddLibraryDialog(
+            accent = accent,
+            onDismiss = { showAddLibrary = false },
+            onCreate = { name, type, path ->
+                showAddLibrary = false
+                scope.launch { actionMsg = vm.jellyfinCreateLibrary(config, name, type, path); loadDashboard() }
+            },
+        )
+    }
+
+    editLibrary?.let { lib ->
+        JellyLibraryDialog(
+            library = lib,
+            accent = accent,
+            onDismiss = { editLibrary = null },
+            onRename = { newName ->
+                editLibrary = null
+                scope.launch { actionMsg = vm.jellyfinRenameLibraryTo(config, lib.name, newName); loadDashboard() }
+            },
+            onAddPath = { path ->
+                editLibrary = null
+                scope.launch { actionMsg = vm.jellyfinLibraryAddPath(config, lib.name, path); loadDashboard() }
+            },
+            onRemovePath = { path ->
+                editLibrary = null
+                scope.launch { actionMsg = vm.jellyfinLibraryRemovePath(config, lib.name, path); loadDashboard() }
+            },
+            onDelete = {
+                editLibrary = null
+                scope.launch { actionMsg = vm.jellyfinRemoveLibrary(config, lib.name); loadDashboard() }
+            },
+        )
+    }
+
+    pluginDetail?.let { p ->
+        JellyPluginDialog(
+            plugin = p,
+            accent = accent,
+            onDismiss = { pluginDetail = null },
+            onToggle = {
+                pluginDetail = null
+                scope.launch { actionMsg = vm.jellyfinPluginEnable(config, p.id, p.version, p.status.equals("Disabled", true)); loadDashboard() }
+            },
+            onUninstall = {
+                pluginDetail = null
+                scope.launch { actionMsg = vm.jellyfinPluginUninstall(config, p.id, p.version); loadDashboard() }
+            },
+        )
+    }
+
+    if (showCatalog) {
+        JellyCatalogDialog(
+            catalog = catalog,
+            accent = accent,
+            onDismiss = { showCatalog = false },
+            onInstall = { pkg ->
+                showCatalog = false
+                scope.launch { actionMsg = vm.jellyfinCatalogInstall(config, pkg.name, pkg.guid); loadDashboard() }
+            },
+        )
+    }
+
+    logView?.let { name ->
+        AlertDialog(
+            onDismissRequest = { logView = null },
+            containerColor = Surface,
+            title = { Text(name, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            text = {
+                Box(Modifier.fillMaxWidth().heightIn(min = 200.dp, max = 480.dp).verticalScroll(rememberScrollState())) {
+                    Text(
+                        logText ?: "loading…",
+                        fontFamily = Mono,
+                        color = if (logText?.startsWith("error") == true) ErrRed else MatrixGreen.copy(alpha = 0.85f),
+                        fontSize = 9.sp,
+                        lineHeight = 12.sp,
+                    )
+                }
+            },
+            confirmButton = { TextButton(onClick = { logView = null }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
 
@@ -2781,6 +2924,255 @@ private fun JellyDeviceRow(item: org.phioster.nexarr.model.JellyDevice, accent: 
         Spacer(Modifier.height(6.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
     }
+}
+
+@Composable
+private fun JellyLibraryRow(item: org.phioster.nexarr.model.JellyLibrary, accent: Color, onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            if (item.collectionType.isNotBlank()) Text(item.collectionType, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp)
+        }
+        Spacer(Modifier.height(2.dp))
+        Text(
+            if (item.locations.isEmpty()) "no folders" else item.locations.joinToString(" · "),
+            fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(6.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
+    }
+}
+
+@Composable
+private fun JellyPluginRow(item: org.phioster.nexarr.model.JellyPlugin, accent: Color, onClick: () -> Unit) {
+    val statusColor = when (item.status.lowercase()) {
+        "active" -> MatrixGreen
+        "disabled" -> MatrixGreen.copy(alpha = 0.4f)
+        "restart" -> Color(0xFFFFAA00)
+        else -> ErrRed
+    }
+    Column(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text(item.status.lowercase(), fontFamily = Mono, color = statusColor, fontSize = 10.sp)
+        }
+        Spacer(Modifier.height(2.dp))
+        Text("v${item.version}", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp)
+        Spacer(Modifier.height(6.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
+    }
+}
+
+@Composable
+private fun JellyLogRow(item: org.phioster.nexarr.model.JellyLogFile, accent: Color, onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text(item.size, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp)
+        }
+        Spacer(Modifier.height(2.dp))
+        Text(item.date, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp)
+        Spacer(Modifier.height(6.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
+    }
+}
+
+@Composable
+private fun JellyAddLibraryDialog(
+    accent: Color,
+    onDismiss: () -> Unit,
+    onCreate: (name: String, type: String, path: String) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var type by remember { mutableStateOf("movies") }
+    var path by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surface,
+        title = { Text("New library", fontFamily = Mono, color = MatrixGreen) },
+        text = {
+            Column {
+                Field("Name", name) { name = it }
+                Spacer(Modifier.height(6.dp))
+                Text("TYPE", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                Row(Modifier.horizontalScroll(rememberScrollState())) {
+                    listOf("movies", "tvshows", "music", "books", "mixed").forEach { t ->
+                        FilterChip(
+                            selected = type == t,
+                            onClick = { type = t },
+                            label = { Text(t, fontFamily = Mono, fontSize = 11.sp) },
+                            modifier = Modifier.padding(end = 6.dp),
+                        )
+                    }
+                }
+                Field("Folder path on server", path) { path = it }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = name.isNotBlank() && path.isNotBlank(), onClick = {
+                onCreate(name.trim(), if (type == "mixed") "" else type, path.trim())
+            }) { Text("Create", fontFamily = Mono, color = MatrixGreen) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+    )
+}
+
+@Composable
+private fun JellyLibraryDialog(
+    library: org.phioster.nexarr.model.JellyLibrary,
+    accent: Color,
+    onDismiss: () -> Unit,
+    onRename: (String) -> Unit,
+    onAddPath: (String) -> Unit,
+    onRemovePath: (String) -> Unit,
+    onDelete: () -> Unit,
+) {
+    var name by remember { mutableStateOf(library.name) }
+    var newPath by remember { mutableStateOf("") }
+    var confirmRemovePath by remember { mutableStateOf<String?>(null) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surface,
+        title = { Text(library.name, fontFamily = Mono, color = MatrixGreen) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) { Field("Name", name) { name = it } }
+                    if (name.isNotBlank() && name.trim() != library.name) {
+                        TextButton(onClick = { onRename(name.trim()) }) { Text("Rename", fontFamily = Mono, color = accent, fontSize = 12.sp) }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text("FOLDERS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                library.locations.forEach { loc ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(loc, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        Text(
+                            if (confirmRemovePath == loc) "remove?" else "✕",
+                            fontFamily = Mono, color = ErrRed, fontSize = 12.sp,
+                            modifier = Modifier.clickable {
+                                if (confirmRemovePath == loc) onRemovePath(loc) else confirmRemovePath = loc
+                            }.padding(start = 8.dp),
+                        )
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) { Field("Add folder path", newPath) { newPath = it } }
+                    if (newPath.isNotBlank()) {
+                        TextButton(onClick = { onAddPath(newPath.trim()) }) { Text("Add", fontFamily = Mono, color = accent, fontSize = 12.sp) }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    if (confirmDelete) "Really delete this library? (media files stay on disk)" else "Delete library",
+                    fontFamily = Mono, color = ErrRed, fontSize = 12.sp,
+                    modifier = Modifier.clickable { if (confirmDelete) onDelete() else confirmDelete = true }.padding(vertical = 4.dp),
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+    )
+}
+
+@Composable
+private fun JellyPluginDialog(
+    plugin: org.phioster.nexarr.model.JellyPlugin,
+    accent: Color,
+    onDismiss: () -> Unit,
+    onToggle: () -> Unit,
+    onUninstall: () -> Unit,
+) {
+    var confirmUninstall by remember { mutableStateOf(false) }
+    val disabled = plugin.status.equals("Disabled", true)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surface,
+        title = { Text(plugin.name, fontFamily = Mono, color = MatrixGreen) },
+        text = {
+            Column {
+                Text("v${plugin.version} · ${plugin.status}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
+                if (plugin.description.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(plugin.description, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp)
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    if (disabled) "Enable plugin" else "Disable plugin",
+                    fontFamily = Mono, color = accent, fontSize = 13.sp,
+                    modifier = Modifier.clickable { onToggle() }.padding(vertical = 4.dp),
+                )
+                if (plugin.canUninstall) {
+                    Text(
+                        if (confirmUninstall) "Really uninstall?" else "Uninstall",
+                        fontFamily = Mono, color = ErrRed, fontSize = 13.sp,
+                        modifier = Modifier.clickable { if (confirmUninstall) onUninstall() else confirmUninstall = true }.padding(vertical = 4.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+    )
+}
+
+@Composable
+private fun JellyCatalogDialog(
+    catalog: List<org.phioster.nexarr.model.JellyPackage>?,
+    accent: Color,
+    onDismiss: () -> Unit,
+    onInstall: (org.phioster.nexarr.model.JellyPackage) -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    var confirmInstall by remember { mutableStateOf<String?>(null) } // package guid
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surface,
+        title = { Text("Plugin catalog", fontFamily = Mono, color = MatrixGreen) },
+        text = {
+            Column {
+                Field("Search", query) { query = it }
+                Spacer(Modifier.height(6.dp))
+                val list = catalog?.filter { query.isBlank() || it.name.contains(query, true) || it.description.contains(query, true) }
+                Box(Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 420.dp)) {
+                    when {
+                        catalog == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f))
+                        list.isNullOrEmpty() -> Text("no packages", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f))
+                        else -> LazyColumn {
+                            items(list) { pkg ->
+                                Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                        Text(pkg.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                        Text(
+                                            when {
+                                                pkg.installed -> "installed"
+                                                confirmInstall == pkg.guid -> "install?"
+                                                else -> "install"
+                                            },
+                                            fontFamily = Mono,
+                                            color = if (pkg.installed) MatrixGreen.copy(alpha = 0.4f) else accent,
+                                            fontSize = 11.sp,
+                                            modifier = Modifier.clickable(enabled = !pkg.installed) {
+                                                if (confirmInstall == pkg.guid) onInstall(pkg) else confirmInstall = pkg.guid
+                                            }.padding(start = 8.dp),
+                                        )
+                                    }
+                                    if (pkg.description.isNotBlank()) {
+                                        Text(
+                                            "${if (pkg.version.isNotBlank()) "v${pkg.version} · " else ""}${pkg.description}",
+                                            fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+    )
 }
 
 @Composable

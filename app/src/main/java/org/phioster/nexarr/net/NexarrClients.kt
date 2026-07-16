@@ -43,8 +43,11 @@ import org.phioster.nexarr.model.ArrCalendarItem
 import org.phioster.nexarr.model.JellyActivity
 import org.phioster.nexarr.model.JellyDevice
 import org.phioster.nexarr.model.JellyLibrary
+import org.phioster.nexarr.model.JellyLogFile
 import org.phioster.nexarr.model.JellyMediaDetail
 import org.phioster.nexarr.model.JellyMediaItem
+import org.phioster.nexarr.model.JellyPackage
+import org.phioster.nexarr.model.JellyPlugin
 import org.phioster.nexarr.model.JellySession
 import org.phioster.nexarr.model.JellySystemInfo
 import org.phioster.nexarr.model.JellyTask
@@ -171,7 +174,32 @@ private data class JfCounts(
 @Serializable private data class JfVirtualFolder(
     val Name: String = "",
     val ItemId: String = "",
+    val CollectionType: String? = null,
+    val Locations: List<String> = emptyList(),
 )
+@Serializable private data class JfLogFile(
+    val Name: String = "",
+    val DateModified: String = "",
+    val Size: Long = 0,
+)
+@Serializable private data class JfPlugin(
+    val Id: String = "",
+    val Version: String = "",
+    val Name: String = "",
+    val Description: String = "",
+    val Status: String = "",
+    val CanUninstall: Boolean = true,
+)
+@Serializable private data class JfPackageVersion(val version: String = "")
+@Serializable private data class JfPackage(
+    val name: String = "",
+    val guid: String = "",
+    val description: String = "",
+    val overview: String = "",
+    val versions: List<JfPackageVersion> = emptyList(),
+)
+@Serializable private data class JfMediaPathInfo(val Path: String = "")
+@Serializable private data class JfMediaPath(val Name: String = "", val PathInfo: JfMediaPathInfo = JfMediaPathInfo())
 @Serializable private data class JfMessageReq(val Text: String, val Header: String = "Nexarr", val TimeoutMs: Long = 5000)
 
 @Serializable private data class JfSystemInfo(
@@ -301,6 +329,41 @@ private interface JellyfinApi {
     @GET("Devices") suspend fun devices(): JfDevicePage
     @POST("System/Restart") suspend fun restartServer(): Response<ResponseBody>
     @POST("System/Shutdown") suspend fun shutdownServer(): Response<ResponseBody>
+    @GET("System/Logs") suspend fun logFiles(): List<JfLogFile>
+    @GET("System/Logs/Log") suspend fun logContent(@Query("name") name: String): Response<ResponseBody>
+    @POST("Library/VirtualFolders") suspend fun addVirtualFolder(
+        @Query("name") name: String,
+        @Query("collectionType") collectionType: String?,
+        @Query("paths") paths: List<String>,
+        @Query("refreshLibrary") refresh: Boolean = true,
+    ): Response<ResponseBody>
+    @DELETE("Library/VirtualFolders") suspend fun deleteVirtualFolder(
+        @Query("name") name: String,
+        @Query("refreshLibrary") refresh: Boolean = true,
+    ): Response<ResponseBody>
+    @POST("Library/VirtualFolders/Name") suspend fun renameVirtualFolder(
+        @Query("name") name: String,
+        @Query("newName") newName: String,
+        @Query("refreshLibrary") refresh: Boolean = true,
+    ): Response<ResponseBody>
+    @POST("Library/VirtualFolders/Paths") suspend fun addLibraryPath(
+        @Body body: JfMediaPath,
+        @Query("refreshLibrary") refresh: Boolean = true,
+    ): Response<ResponseBody>
+    @DELETE("Library/VirtualFolders/Paths") suspend fun removeLibraryPath(
+        @Query("name") name: String,
+        @Query("path") path: String,
+        @Query("refreshLibrary") refresh: Boolean = true,
+    ): Response<ResponseBody>
+    @GET("Plugins") suspend fun plugins(): List<JfPlugin>
+    @POST("Plugins/{id}/{version}/Enable") suspend fun enablePlugin(@Path("id") id: String, @Path("version") version: String): Response<ResponseBody>
+    @POST("Plugins/{id}/{version}/Disable") suspend fun disablePlugin(@Path("id") id: String, @Path("version") version: String): Response<ResponseBody>
+    @DELETE("Plugins/{id}/{version}") suspend fun uninstallPlugin(@Path("id") id: String, @Path("version") version: String): Response<ResponseBody>
+    @GET("Packages") suspend fun packages(): List<JfPackage>
+    @POST("Packages/Installed/{name}") suspend fun installPackage(
+        @Path("name") name: String,
+        @Query("assemblyGuid") guid: String,
+    ): Response<ResponseBody>
 }
 
 // ---- Radarr ----
@@ -1696,7 +1759,9 @@ suspend fun jellyfinUsers(config: ServiceConfig): List<JellyUser> = withContext(
 suspend fun jellyfinLibraries(config: ServiceConfig): List<JellyLibrary> = withContext(Dispatchers.IO) {
     val token = jellyfinAccessToken(config)
     runCatching {
-        jfApi(config, token).virtualFolders().map { JellyLibrary(id = it.ItemId, name = it.Name) }
+        jfApi(config, token).virtualFolders().map {
+            JellyLibrary(id = it.ItemId, name = it.Name, collectionType = it.CollectionType ?: "", locations = it.Locations)
+        }
     }.getOrDefault(emptyList())
 }
 
@@ -1982,6 +2047,141 @@ suspend fun jellyfinRestart(config: ServiceConfig): String = withContext(Dispatc
     try {
         val token = jellyfinAccessToken(config)
         okOr(jfApi(config, token).restartServer(), "restarting")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+private fun humanSize(bytes: Long): String = when {
+    bytes >= 1_048_576 -> "%.1f MB".format(bytes / 1_048_576.0)
+    bytes >= 1_024 -> "%.0f KB".format(bytes / 1_024.0)
+    else -> "$bytes B"
+}
+
+suspend fun jellyfinLogFiles(config: ServiceConfig): List<JellyLogFile> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    jfApi(config, token).logFiles().map {
+        JellyLogFile(
+            name = it.Name,
+            date = it.DateModified.take(16).replace('T', ' ').drop(5),
+            size = humanSize(it.Size),
+        )
+    }.sortedByDescending { it.date }
+}
+
+/** Returns the tail of a server log file (last [maxLines] lines — files can be several MB). */
+suspend fun jellyfinLogContent(config: ServiceConfig, name: String, maxLines: Int = 400): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        val resp = jfApi(config, token).logContent(name)
+        if (!resp.isSuccessful) return@withContext "error: HTTP ${resp.code()}"
+        val text = resp.body()?.string() ?: return@withContext "error: empty response"
+        val lines = text.lines()
+        if (lines.size <= maxLines) text
+        else "… (${lines.size - maxLines} earlier lines truncated)\n" + lines.takeLast(maxLines).joinToString("\n")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun jellyfinAddLibrary(config: ServiceConfig, name: String, collectionType: String, path: String): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        okOr(jfApi(config, token).addVirtualFolder(name, collectionType.ifBlank { null }, listOf(path)), "library added")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun jellyfinDeleteLibrary(config: ServiceConfig, name: String): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        okOr(jfApi(config, token).deleteVirtualFolder(name), "library deleted")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun jellyfinRenameLibrary(config: ServiceConfig, name: String, newName: String): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        okOr(jfApi(config, token).renameVirtualFolder(name, newName), "library renamed")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun jellyfinAddLibraryPath(config: ServiceConfig, libraryName: String, path: String): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        okOr(jfApi(config, token).addLibraryPath(JfMediaPath(Name = libraryName, PathInfo = JfMediaPathInfo(Path = path))), "path added")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun jellyfinRemoveLibraryPath(config: ServiceConfig, libraryName: String, path: String): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        okOr(jfApi(config, token).removeLibraryPath(libraryName, path), "path removed")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun jellyfinPlugins(config: ServiceConfig): List<JellyPlugin> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    jfApi(config, token).plugins().map {
+        JellyPlugin(
+            id = it.Id,
+            version = it.Version,
+            name = it.Name,
+            description = it.Description,
+            status = it.Status,
+            canUninstall = it.CanUninstall,
+        )
+    }.sortedBy { it.name.lowercase() }
+}
+
+suspend fun jellyfinSetPluginEnabled(config: ServiceConfig, id: String, version: String, enabled: Boolean): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        val api = jfApi(config, token)
+        okOr(if (enabled) api.enablePlugin(id, version) else api.disablePlugin(id, version), if (enabled) "plugin enabled (restart server to apply)" else "plugin disabled (restart server to apply)")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun jellyfinUninstallPlugin(config: ServiceConfig, id: String, version: String): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        okOr(jfApi(config, token).uninstallPlugin(id, version), "plugin uninstalled (restart server to apply)")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+/** The server's plugin catalog, with installed ones flagged. */
+suspend fun jellyfinPackages(config: ServiceConfig): List<JellyPackage> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val api = jfApi(config, token)
+    val installed = runCatching { api.plugins().map { it.Name.lowercase() }.toSet() }.getOrDefault(emptySet())
+    api.packages().map {
+        JellyPackage(
+            name = it.name,
+            guid = it.guid,
+            description = it.description.ifBlank { it.overview },
+            version = it.versions.firstOrNull()?.version ?: "",
+            installed = it.name.lowercase() in installed,
+        )
+    }.sortedBy { it.name.lowercase() }
+}
+
+suspend fun jellyfinInstallPackage(config: ServiceConfig, name: String, guid: String): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        okOr(jfApi(config, token).installPackage(name, guid), "installing… (restart server when done)")
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
     }

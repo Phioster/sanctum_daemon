@@ -26,10 +26,38 @@ data class JellyUser(
     val enabledFolders: List<String> = emptyList(),
 )
 
-/** A Jellyfin library (virtual folder), for per-user access control. */
+/** A Jellyfin library (virtual folder), for per-user access control and library management. */
 data class JellyLibrary(
     val id: String,
     val name: String,
+    val collectionType: String = "", // "movies"/"tvshows"/"music"/… or "" (mixed)
+    val locations: List<String> = emptyList(), // folder paths on the server
+)
+
+/** A server log file (System/Logs). */
+data class JellyLogFile(
+    val name: String,
+    val date: String, // last modified, "MM-dd HH:mm"
+    val size: String, // human-readable, e.g. "1.2 MB"
+)
+
+/** An installed plugin. */
+data class JellyPlugin(
+    val id: String,
+    val version: String,
+    val name: String,
+    val description: String,
+    val status: String, // "Active" / "Disabled" / "Restart" / "Malfunctioned" / …
+    val canUninstall: Boolean,
+)
+
+/** A plugin available in the server's catalog (Packages). */
+data class JellyPackage(
+    val name: String,
+    val guid: String,
+    val description: String,
+    val version: String, // latest available version
+    val installed: Boolean = false,
 )
 
 /** Jellyfin server info for the admin dashboard. */

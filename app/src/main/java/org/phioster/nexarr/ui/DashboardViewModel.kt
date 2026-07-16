@@ -92,8 +92,20 @@ import org.phioster.nexarr.net.jellyfinDeleteUser
 import org.phioster.nexarr.net.jellyfinItemDetail
 import org.phioster.nexarr.net.jellyfinItems
 import org.phioster.nexarr.net.jellyfinLatest
+import org.phioster.nexarr.net.jellyfinAddLibrary
+import org.phioster.nexarr.net.jellyfinAddLibraryPath
+import org.phioster.nexarr.net.jellyfinDeleteLibrary
+import org.phioster.nexarr.net.jellyfinInstallPackage
 import org.phioster.nexarr.net.jellyfinLibraries
 import org.phioster.nexarr.net.jellyfinLibraryViews
+import org.phioster.nexarr.net.jellyfinLogContent
+import org.phioster.nexarr.net.jellyfinLogFiles
+import org.phioster.nexarr.net.jellyfinPackages
+import org.phioster.nexarr.net.jellyfinPlugins
+import org.phioster.nexarr.net.jellyfinRemoveLibraryPath
+import org.phioster.nexarr.net.jellyfinRenameLibrary
+import org.phioster.nexarr.net.jellyfinSetPluginEnabled
+import org.phioster.nexarr.net.jellyfinUninstallPlugin
 import org.phioster.nexarr.net.jellyfinResume
 import org.phioster.nexarr.net.jellyfinScanItem
 import org.phioster.nexarr.net.jellyfinSetPassword
@@ -322,6 +334,30 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         jellyfinItemDetail(config, itemId)
     suspend fun jellyfinScanLibrary(config: ServiceConfig, itemId: String): String =
         jellyfinScanItem(config, itemId)
+    suspend fun jellyfinLogList(config: ServiceConfig): List<org.phioster.nexarr.model.JellyLogFile> =
+        jellyfinLogFiles(config)
+    suspend fun jellyfinLogText(config: ServiceConfig, name: String): String =
+        jellyfinLogContent(config, name)
+    suspend fun jellyfinCreateLibrary(config: ServiceConfig, name: String, collectionType: String, path: String): String =
+        jellyfinAddLibrary(config, name, collectionType, path)
+    suspend fun jellyfinRemoveLibrary(config: ServiceConfig, name: String): String =
+        jellyfinDeleteLibrary(config, name)
+    suspend fun jellyfinRenameLibraryTo(config: ServiceConfig, name: String, newName: String): String =
+        jellyfinRenameLibrary(config, name, newName)
+    suspend fun jellyfinLibraryAddPath(config: ServiceConfig, libraryName: String, path: String): String =
+        jellyfinAddLibraryPath(config, libraryName, path)
+    suspend fun jellyfinLibraryRemovePath(config: ServiceConfig, libraryName: String, path: String): String =
+        jellyfinRemoveLibraryPath(config, libraryName, path)
+    suspend fun jellyfinPluginList(config: ServiceConfig): List<org.phioster.nexarr.model.JellyPlugin> =
+        jellyfinPlugins(config)
+    suspend fun jellyfinPluginEnable(config: ServiceConfig, id: String, version: String, enabled: Boolean): String =
+        jellyfinSetPluginEnabled(config, id, version, enabled)
+    suspend fun jellyfinPluginUninstall(config: ServiceConfig, id: String, version: String): String =
+        jellyfinUninstallPlugin(config, id, version)
+    suspend fun jellyfinCatalog(config: ServiceConfig): List<org.phioster.nexarr.model.JellyPackage> =
+        jellyfinPackages(config)
+    suspend fun jellyfinCatalogInstall(config: ServiceConfig, name: String, guid: String): String =
+        jellyfinInstallPackage(config, name, guid)
 
     /** Cross-service search: query every configured service in parallel, flatten the hits. */
     suspend fun globalSearch(term: String): List<org.phioster.nexarr.model.SearchResult> =
