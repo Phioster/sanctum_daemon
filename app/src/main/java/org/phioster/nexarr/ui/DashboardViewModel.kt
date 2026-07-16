@@ -94,6 +94,12 @@ import org.phioster.nexarr.net.jellyfinItems
 import org.phioster.nexarr.net.jellyfinLatest
 import org.phioster.nexarr.net.jellyfinAddLibrary
 import org.phioster.nexarr.net.jellyfinAddLibraryPath
+import org.phioster.nexarr.net.jellyfinAddTuner
+import org.phioster.nexarr.net.jellyfinAddXmltvProvider
+import org.phioster.nexarr.net.jellyfinChannels
+import org.phioster.nexarr.net.jellyfinDeleteProvider
+import org.phioster.nexarr.net.jellyfinDeleteTuner
+import org.phioster.nexarr.net.jellyfinLiveTv
 import org.phioster.nexarr.net.jellyfinDeleteLibrary
 import org.phioster.nexarr.net.jellyfinInstallPackage
 import org.phioster.nexarr.net.jellyfinLibraries
@@ -358,6 +364,18 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         jellyfinPackages(config)
     suspend fun jellyfinCatalogInstall(config: ServiceConfig, name: String, guid: String): String =
         jellyfinInstallPackage(config, name, guid)
+    suspend fun jellyfinLiveTvStatus(config: ServiceConfig): org.phioster.nexarr.model.JellyLiveTv =
+        jellyfinLiveTv(config)
+    suspend fun jellyfinChannelList(config: ServiceConfig): List<org.phioster.nexarr.model.JellyChannel> =
+        jellyfinChannels(config)
+    suspend fun jellyfinTunerAdd(config: ServiceConfig, type: String, url: String): String =
+        jellyfinAddTuner(config, type, url)
+    suspend fun jellyfinTunerDelete(config: ServiceConfig, id: String): String =
+        jellyfinDeleteTuner(config, id)
+    suspend fun jellyfinProviderAdd(config: ServiceConfig, path: String): String =
+        jellyfinAddXmltvProvider(config, path)
+    suspend fun jellyfinProviderDelete(config: ServiceConfig, id: String): String =
+        jellyfinDeleteProvider(config, id)
 
     /** Cross-service search: query every configured service in parallel, flatten the hits. */
     suspend fun globalSearch(term: String): List<org.phioster.nexarr.model.SearchResult> =

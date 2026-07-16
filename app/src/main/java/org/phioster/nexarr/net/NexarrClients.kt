@@ -41,7 +41,11 @@ import org.phioster.nexarr.model.ArrProfile
 import org.phioster.nexarr.model.ArrQueueItem
 import org.phioster.nexarr.model.ArrCalendarItem
 import org.phioster.nexarr.model.JellyActivity
+import org.phioster.nexarr.model.JellyChannel
 import org.phioster.nexarr.model.JellyDevice
+import org.phioster.nexarr.model.JellyGuideProvider
+import org.phioster.nexarr.model.JellyLiveTv
+import org.phioster.nexarr.model.JellyTuner
 import org.phioster.nexarr.model.JellyLibrary
 import org.phioster.nexarr.model.JellyLogFile
 import org.phioster.nexarr.model.JellyMediaDetail
@@ -200,6 +204,40 @@ private data class JfCounts(
 )
 @Serializable private data class JfMediaPathInfo(val Path: String = "")
 @Serializable private data class JfMediaPath(val Name: String = "", val PathInfo: JfMediaPathInfo = JfMediaPathInfo())
+@Serializable private data class JfLiveTvServiceInfo(
+    val Name: String = "",
+    val Status: String = "",
+    val StatusMessage: String? = null,
+    val Tuners: List<String> = emptyList(),
+)
+@Serializable private data class JfLiveTvInfo(
+    val IsEnabled: Boolean = false,
+    val Services: List<JfLiveTvServiceInfo> = emptyList(),
+)
+@Serializable private data class JfTunerHost(
+    val Id: String = "",
+    val Url: String = "",
+    val Type: String = "",
+    val FriendlyName: String? = null,
+)
+@Serializable private data class JfListingProvider(
+    val Id: String = "",
+    val Type: String = "",
+    val Path: String? = null,
+    val ListingsId: String? = null,
+)
+@Serializable private data class JfLiveTvOptions(
+    val TunerHosts: List<JfTunerHost> = emptyList(),
+    val ListingProviders: List<JfListingProvider> = emptyList(),
+)
+@Serializable private data class JfChannelProgram(val Name: String = "")
+@Serializable private data class JfChannel(
+    val Id: String = "",
+    val Name: String = "",
+    val ChannelNumber: String? = null,
+    val CurrentProgram: JfChannelProgram? = null,
+)
+@Serializable private data class JfChannelsResp(val Items: List<JfChannel> = emptyList())
 @Serializable private data class JfMessageReq(val Text: String, val Header: String = "Nexarr", val TimeoutMs: Long = 5000)
 
 @Serializable private data class JfSystemInfo(
@@ -364,6 +402,16 @@ private interface JellyfinApi {
         @Path("name") name: String,
         @Query("assemblyGuid") guid: String,
     ): Response<ResponseBody>
+    @GET("LiveTv/Info") suspend fun liveTvInfo(): JfLiveTvInfo
+    @GET("System/Configuration/livetv") suspend fun liveTvOptions(): JfLiveTvOptions
+    @GET("LiveTv/Channels") suspend fun liveTvChannels(
+        @Query("addCurrentProgram") addCurrentProgram: Boolean = true,
+        @Query("limit") limit: Int = 300,
+    ): JfChannelsResp
+    @POST("LiveTv/TunerHosts") suspend fun addTunerHost(@Body body: JsonObject): Response<ResponseBody>
+    @DELETE("LiveTv/TunerHosts") suspend fun deleteTunerHost(@Query("id") id: String): Response<ResponseBody>
+    @POST("LiveTv/ListingProviders") suspend fun addListingProvider(@Body body: JsonObject): Response<ResponseBody>
+    @DELETE("LiveTv/ListingProviders") suspend fun deleteListingProvider(@Query("id") id: String): Response<ResponseBody>
 }
 
 // ---- Radarr ----
@@ -2182,6 +2230,81 @@ suspend fun jellyfinInstallPackage(config: ServiceConfig, name: String, guid: St
     try {
         val token = jellyfinAccessToken(config)
         okOr(jfApi(config, token).installPackage(name, guid), "installing… (restart server when done)")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun jellyfinLiveTv(config: ServiceConfig): JellyLiveTv = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val api = jfApi(config, token)
+    val info = api.liveTvInfo()
+    val opts = runCatching { api.liveTvOptions() }.getOrDefault(JfLiveTvOptions())
+    JellyLiveTv(
+        enabled = info.IsEnabled,
+        services = info.Services.map { s ->
+            buildString {
+                append(s.Name.ifBlank { "Live TV" })
+                append(" — ").append(s.Status.ifBlank { "?" })
+                append(" (${s.Tuners.size} tuner${if (s.Tuners.size == 1) "" else "s"})")
+                if (!s.StatusMessage.isNullOrBlank()) append(" · ${s.StatusMessage}")
+            }
+        },
+        tuners = opts.TunerHosts.map {
+            JellyTuner(id = it.Id, name = it.FriendlyName?.takeIf { n -> n.isNotBlank() } ?: it.Type, type = it.Type, url = it.Url)
+        },
+        providers = opts.ListingProviders.map {
+            JellyGuideProvider(id = it.Id, type = it.Type, path = it.Path ?: it.ListingsId ?: "")
+        },
+    )
+}
+
+suspend fun jellyfinChannels(config: ServiceConfig): List<JellyChannel> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    jfApi(config, token).liveTvChannels().Items.map {
+        JellyChannel(
+            id = it.Id,
+            number = it.ChannelNumber ?: "",
+            name = it.Name,
+            nowPlaying = it.CurrentProgram?.Name ?: "",
+        )
+    }
+}
+
+suspend fun jellyfinAddTuner(config: ServiceConfig, type: String, url: String): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        val body = buildJsonObject { put("Type", type); put("Url", url) }
+        okOr(jfApi(config, token).addTunerHost(body), "tuner added")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun jellyfinDeleteTuner(config: ServiceConfig, id: String): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        okOr(jfApi(config, token).deleteTunerHost(id), "tuner removed")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+/** Adds an XMLTV guide provider (file path or URL). */
+suspend fun jellyfinAddXmltvProvider(config: ServiceConfig, path: String): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        val body = buildJsonObject { put("Type", "xmltv"); put("Path", path) }
+        okOr(jfApi(config, token).addListingProvider(body), "guide provider added")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+suspend fun jellyfinDeleteProvider(config: ServiceConfig, id: String): String = withContext(Dispatchers.IO) {
+    try {
+        val token = jellyfinAccessToken(config)
+        okOr(jfApi(config, token).deleteListingProvider(id), "guide provider removed")
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
     }

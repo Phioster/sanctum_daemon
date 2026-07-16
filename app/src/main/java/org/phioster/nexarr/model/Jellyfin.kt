@@ -51,6 +51,37 @@ data class JellyPlugin(
     val canUninstall: Boolean,
 )
 
+/** Live TV admin state: overall status plus configured tuners and guide providers. */
+data class JellyLiveTv(
+    val enabled: Boolean,
+    val services: List<String>, // e.g. "Emby — Ok (2 tuners)"
+    val tuners: List<JellyTuner>,
+    val providers: List<JellyGuideProvider>,
+)
+
+/** A configured tuner host (M3U playlist or HDHomeRun). */
+data class JellyTuner(
+    val id: String,
+    val name: String, // friendly name or the type
+    val type: String, // "m3u" / "hdhomerun" / …
+    val url: String,
+)
+
+/** A configured guide-data (EPG) provider. */
+data class JellyGuideProvider(
+    val id: String,
+    val type: String, // "xmltv" / "schedulesdirect" / …
+    val path: String, // file path or URL of the guide source
+)
+
+/** A Live TV channel with what's currently airing. */
+data class JellyChannel(
+    val id: String,
+    val number: String,
+    val name: String,
+    val nowPlaying: String, // current program name, "" if unknown
+)
+
 /** A plugin available in the server's catalog (Packages). */
 data class JellyPackage(
     val name: String,

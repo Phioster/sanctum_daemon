@@ -2191,6 +2191,12 @@ private fun JellyfinScreen(
     var pluginDetail by remember { mutableStateOf<org.phioster.nexarr.model.JellyPlugin?>(null) }
     var showCatalog by remember { mutableStateOf(false) }
     var catalog by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyPackage>?>(null) }
+    var liveTv by remember { mutableStateOf<org.phioster.nexarr.model.JellyLiveTv?>(null) }
+    var channels by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyChannel>?>(null) }
+    var showAddTuner by remember { mutableStateOf(false) }
+    var showAddProvider by remember { mutableStateOf(false) }
+    var confirmDeleteTuner by remember { mutableStateOf<String?>(null) }
+    var confirmDeleteProvider by remember { mutableStateOf<String?>(null) }
 
     suspend fun loadSessions() {
         listError = null
@@ -2215,6 +2221,14 @@ private fun JellyfinScreen(
             logFiles = runCatching { vm.jellyfinLogList(config) }.getOrDefault(emptyList())
         } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
     }
+    suspend fun loadLiveTv() {
+        listError = null
+        confirmDeleteTuner = null; confirmDeleteProvider = null
+        try {
+            liveTv = vm.jellyfinLiveTvStatus(config)
+            channels = runCatching { vm.jellyfinChannelList(config) }.getOrDefault(emptyList())
+        } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
+    }
     suspend fun loadMediaHome() {
         listError = null
         try {
@@ -2230,7 +2244,7 @@ private fun JellyfinScreen(
             mediaContents = vm.jellyfinItemList(config, parent.id, if (parent.kind == "Season") parent.number else null)
         } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
     }
-    LaunchedEffect(mode) { when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); else -> {} } }
+    LaunchedEffect(mode) { when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv(); else -> {} } }
     LaunchedEffect(mode, browseStack) {
         if (mode == 3) { if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last()) }
     }
@@ -2291,11 +2305,13 @@ private fun JellyfinScreen(
                         FilterChip(selected = mode == 1, onClick = { mode = 1 }, label = { Text("Users", fontFamily = Mono) })
                         Spacer(Modifier.width(6.dp))
                         FilterChip(selected = mode == 2, onClick = { mode = 2 }, label = { Text("Dashboard", fontFamily = Mono) })
+                        Spacer(Modifier.width(6.dp))
+                        FilterChip(selected = mode == 4, onClick = { mode = 4 }, label = { Text("Live TV", fontFamily = Mono) })
                     }
                     IconButton(onClick = {
                         scope.launch {
                             when (mode) {
-                                0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard()
+                                0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv()
                                 else -> if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last())
                             }
                         }
@@ -2485,6 +2501,104 @@ private fun JellyfinScreen(
                                     items(dv) { d -> JellyDeviceRow(d, accent) }
                                 }
                             }
+                            4 -> {
+                                val tv = liveTv
+                                item {
+                                    Spacer(Modifier.height(8.dp))
+                                    when {
+                                        tv == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f))
+                                        !tv.enabled -> Text("Live TV is not enabled on this server", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                                        else -> tv.services.forEach { s ->
+                                            Text(s, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
+                                        }
+                                    }
+                                    Spacer(Modifier.height(12.dp))
+                                    Text("TUNERS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                    Text(
+                                        "+ add tuner",
+                                        fontFamily = Mono, color = accent, fontSize = 13.sp,
+                                        modifier = Modifier.fillMaxWidth().clickable { showAddTuner = true }.padding(vertical = 6.dp),
+                                    )
+                                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+                                }
+                                val tuners = tv?.tuners
+                                when {
+                                    tuners == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                    tuners.isEmpty() -> item { Text("no tuners", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                    else -> items(tuners) { t ->
+                                        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                                Column(Modifier.weight(1f)) {
+                                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                                        Text(t.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                                        Text(t.type, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp)
+                                                    }
+                                                    Spacer(Modifier.height(2.dp))
+                                                    Text(t.url, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                }
+                                                Text(
+                                                    if (confirmDeleteTuner == t.id) "remove?" else "✕",
+                                                    fontFamily = Mono, color = ErrRed, fontSize = 12.sp,
+                                                    modifier = Modifier.clickable {
+                                                        if (confirmDeleteTuner == t.id) scope.launch { actionMsg = vm.jellyfinTunerDelete(config, t.id); loadLiveTv() }
+                                                        else confirmDeleteTuner = t.id
+                                                    }.padding(start = 12.dp),
+                                                )
+                                            }
+                                            Spacer(Modifier.height(6.dp))
+                                            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
+                                        }
+                                    }
+                                }
+                                item {
+                                    Spacer(Modifier.height(12.dp))
+                                    Text("GUIDE PROVIDERS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                    Text(
+                                        "+ add xmltv guide",
+                                        fontFamily = Mono, color = accent, fontSize = 13.sp,
+                                        modifier = Modifier.fillMaxWidth().clickable { showAddProvider = true }.padding(vertical = 6.dp),
+                                    )
+                                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+                                }
+                                val providers = tv?.providers
+                                when {
+                                    providers == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                    providers.isEmpty() -> item { Text("no guide providers", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                    else -> items(providers) { p ->
+                                        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                                Column(Modifier.weight(1f)) {
+                                                    Text(p.type, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
+                                                    if (p.path.isNotBlank()) {
+                                                        Spacer(Modifier.height(2.dp))
+                                                        Text(p.path, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                    }
+                                                }
+                                                Text(
+                                                    if (confirmDeleteProvider == p.id) "remove?" else "✕",
+                                                    fontFamily = Mono, color = ErrRed, fontSize = 12.sp,
+                                                    modifier = Modifier.clickable {
+                                                        if (confirmDeleteProvider == p.id) scope.launch { actionMsg = vm.jellyfinProviderDelete(config, p.id); loadLiveTv() }
+                                                        else confirmDeleteProvider = p.id
+                                                    }.padding(start = 12.dp),
+                                                )
+                                            }
+                                            Spacer(Modifier.height(6.dp))
+                                            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
+                                        }
+                                    }
+                                }
+                                val ch = channels
+                                item {
+                                    Spacer(Modifier.height(12.dp))
+                                    Text("CHANNELS${if (!ch.isNullOrEmpty()) " (${ch.size})" else ""}", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                }
+                                when {
+                                    ch == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                    ch.isEmpty() -> item { Text("no channels", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                    else -> items(ch) { c -> JellyChannelRow(c, accent) }
+                                }
+                            }
                         }
                     }
                 }
@@ -2626,6 +2740,56 @@ private fun JellyfinScreen(
                 showCatalog = false
                 scope.launch { actionMsg = vm.jellyfinCatalogInstall(config, pkg.name, pkg.guid); loadDashboard() }
             },
+        )
+    }
+
+    if (showAddTuner) {
+        var tunerType by remember { mutableStateOf("m3u") }
+        var tunerUrl by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showAddTuner = false },
+            containerColor = Surface,
+            title = { Text("New tuner", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    Text("TYPE", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    Row {
+                        listOf("m3u" to "M3U playlist", "hdhomerun" to "HDHomeRun").forEach { (key, label) ->
+                            FilterChip(
+                                selected = tunerType == key,
+                                onClick = { tunerType = key },
+                                label = { Text(label, fontFamily = Mono, fontSize = 11.sp) },
+                                modifier = Modifier.padding(end = 6.dp),
+                            )
+                        }
+                    }
+                    Field(if (tunerType == "m3u") "Playlist URL or file path" else "Device address", tunerUrl) { tunerUrl = it }
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = tunerUrl.isNotBlank(), onClick = {
+                    val ty = tunerType; val u = tunerUrl.trim(); showAddTuner = false
+                    scope.launch { actionMsg = vm.jellyfinTunerAdd(config, ty, u); loadLiveTv() }
+                }) { Text("Add", fontFamily = Mono, color = MatrixGreen) }
+            },
+            dismissButton = { TextButton(onClick = { showAddTuner = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    if (showAddProvider) {
+        var providerPath by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showAddProvider = false },
+            containerColor = Surface,
+            title = { Text("New XMLTV guide", fontFamily = Mono, color = MatrixGreen) },
+            text = { Field("XMLTV URL or file path", providerPath) { providerPath = it } },
+            confirmButton = {
+                TextButton(enabled = providerPath.isNotBlank(), onClick = {
+                    val p = providerPath.trim(); showAddProvider = false
+                    scope.launch { actionMsg = vm.jellyfinProviderAdd(config, p); loadLiveTv() }
+                }) { Text("Add", fontFamily = Mono, color = MatrixGreen) }
+            },
+            dismissButton = { TextButton(onClick = { showAddProvider = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
 
@@ -2972,6 +3136,27 @@ private fun JellyLogRow(item: org.phioster.nexarr.model.JellyLogFile, accent: Co
         }
         Spacer(Modifier.height(2.dp))
         Text(item.date, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp)
+        Spacer(Modifier.height(6.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
+    }
+}
+
+@Composable
+private fun JellyChannelRow(item: org.phioster.nexarr.model.JellyChannel, accent: Color) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                buildString {
+                    if (item.number.isNotBlank()) append("${item.number} · ")
+                    append(item.name)
+                },
+                fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+            )
+        }
+        if (item.nowPlaying.isNotBlank()) {
+            Spacer(Modifier.height(2.dp))
+            Text("▶ ${item.nowPlaying}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
         Spacer(Modifier.height(6.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
     }
