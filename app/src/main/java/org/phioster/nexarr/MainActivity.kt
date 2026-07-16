@@ -368,6 +368,10 @@ private fun HomeShell(
         }
     }
     BackHandler(enabled = editMode) { editMode = false }
+    // Back with the drawer open closes the drawer instead of finishing the activity.
+    BackHandler(enabled = drawerState.currentValue == androidx.compose.material3.DrawerValue.Open) {
+        scope.launch { drawerState.close() }
+    }
 
     androidx.compose.material3.ModalNavigationDrawer(
         drawerState = drawerState,
