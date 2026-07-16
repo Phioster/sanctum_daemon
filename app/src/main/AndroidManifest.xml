@@ -21,6 +21,8 @@
 
     <application
         android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="Nexarr"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"

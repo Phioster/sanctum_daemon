@@ -4,7 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.lifecycle.lifecycleScope
-import androidx.activity.ComponentActivity
+import androidx.activity.viewModels
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -58,6 +58,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Folder
@@ -163,7 +164,11 @@ private val NexarrColors = darkColorScheme(
     outline = MatrixGreen.copy(alpha = 0.4f),
 )
 
-class MainActivity : ComponentActivity() {
+// FragmentActivity (not ComponentActivity) because BiometricPrompt requires it.
+class MainActivity : androidx.fragment.app.FragmentActivity() {
+    private val vm: DashboardViewModel by viewModels()
+    private var backgroundedAt = 0L
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -175,11 +180,78 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             MaterialTheme(colorScheme = NexarrColors) {
-                NexarrApp()
+                AppLockGate(vm = vm, activity = this) { NexarrApp(vm = vm) }
             }
         }
     }
+
+    override fun onStop() {
+        super.onStop()
+        backgroundedAt = android.os.SystemClock.elapsedRealtime()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // Re-lock after more than 2 minutes in the background (cold start locks anyway).
+        if (backgroundedAt > 0 && android.os.SystemClock.elapsedRealtime() - backgroundedAt > 2 * 60_000L) {
+            vm.unlocked.value = false
+        }
+    }
 }
+
+/** Fires the system biometric/credential prompt; [onSuccess] runs on the main executor. */
+private fun showUnlockPrompt(activity: androidx.fragment.app.FragmentActivity, onSuccess: () -> Unit) {
+    val prompt = androidx.biometric.BiometricPrompt(
+        activity,
+        androidx.core.content.ContextCompat.getMainExecutor(activity),
+        object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) = onSuccess()
+        },
+    )
+    val info = androidx.biometric.BiometricPrompt.PromptInfo.Builder()
+        .setTitle("Nexarr")
+        .setSubtitle("unlock")
+        .setAllowedAuthenticators(
+            androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK or
+                androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL,
+        )
+        .build()
+    prompt.authenticate(info)
+}
+
+/** Shows a lock screen (and the system prompt) until unlocked, when the app lock is enabled. */
+@Composable
+private fun AppLockGate(vm: DashboardViewModel, activity: androidx.fragment.app.FragmentActivity, content: @Composable () -> Unit) {
+    val appLock by vm.appLock.collectAsState()
+    var unlocked by vm.unlocked
+    if (!appLock || unlocked) {
+        content()
+        return
+    }
+    LaunchedEffect(Unit) { showUnlockPrompt(activity) { unlocked = true } }
+    Column(
+        Modifier.fillMaxSize().background(Black),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(Icons.Filled.Lock, contentDescription = "Locked", tint = MatrixGreen, modifier = Modifier.size(56.dp))
+        Spacer(Modifier.height(16.dp))
+        Text("nexarr locked", fontFamily = Mono, color = MatrixGreen, fontSize = 16.sp)
+        Spacer(Modifier.height(24.dp))
+        OutlinedButton(onClick = { showUnlockPrompt(activity) { unlocked = true } }) {
+            Text("unlock", fontFamily = Mono, color = MatrixGreen)
+        }
+    }
+}
+
+/** What to open inside a service screen when a search hit is tapped. */
+private data class SearchDeepLink(
+    val arrDetailId: Int? = null, // arr: open this library item's detail
+    val arrAddTerm: String? = null, // arr: open the add dialog pre-filled with this lookup term
+    val seerrTmdb: Int? = null, // Seerr: open this media detail
+    val seerrMediaType: String = "",
+    val jellyItemId: String? = null, // Jellyfin: open this item's detail
+)
 
 @Composable
 private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
@@ -190,10 +262,12 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
     var searchTerm by remember { mutableStateOf("") }
     var notifOpen by remember { mutableStateOf(false) }
     var detailFromSearch by remember { mutableStateOf(false) } // service opened from search results
+    var searchDeepLink by remember { mutableStateOf<SearchDeepLink?>(null) }
 
     // Back from a service returns to where it was opened from (search stays search).
     val closeDetail = {
         detail = null
+        searchDeepLink = null
         if (detailFromSearch) { detailFromSearch = false; searchOpen = true }
     }
     val editorOpen = addOpen || editing != null
@@ -219,23 +293,24 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
         )
         detail != null -> {
             val cfg = detail!!
+            val link = searchDeepLink
             val back = closeDetail
             val edit = { editing = cfg } // keep detail so back returns to the service
-            val del = { vm.removeService(cfg.id); detail = null; detailFromSearch = false }
+            val del = { vm.removeService(cfg.id); detail = null; detailFromSearch = false; searchDeepLink = null }
             when (cfg.type) {
                 ServiceType.NZBGET -> NzbgetScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
                 ServiceType.RADARR, ServiceType.SONARR, ServiceType.LIDARR ->
-                    ArrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
-                ServiceType.SEERR -> SeerrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
+                    ArrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del, initialDetailId = link?.arrDetailId, initialAddTerm = link?.arrAddTerm)
+                ServiceType.SEERR -> SeerrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del, initialDetail = link?.seerrTmdb?.let { it to link.seerrMediaType })
                 ServiceType.PROWLARR -> ProwlarrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
-                ServiceType.JELLYFIN -> JellyfinScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
+                ServiceType.JELLYFIN -> JellyfinScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del, initialItemId = link?.jellyItemId)
                 else -> ServiceDetailScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
             }
         }
         searchOpen -> GlobalSearchScreen(
             vm = vm,
             onBack = { searchOpen = false },
-            onOpenService = { cfg -> searchOpen = false; detailFromSearch = true; detail = cfg },
+            onOpenService = { cfg, link -> searchOpen = false; detailFromSearch = true; searchDeepLink = link; detail = cfg },
             initialTerm = searchTerm,
             onTermChange = { searchTerm = it },
         )
@@ -247,6 +322,27 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
             onEdit = { editing = it },
             onSearch = { term -> searchTerm = term; searchOpen = true },
             onNotifications = { notifOpen = true },
+        )
+    }
+
+    // After a restore onto a new device the encrypted services blob can't be
+    // decrypted (its Keystore key stayed on the old device) — explain instead
+    // of silently showing an empty services list.
+    val servicesUnreadable by vm.servicesUnreadable.collectAsState()
+    if (servicesUnreadable) {
+        AlertDialog(
+            onDismissRequest = {},
+            containerColor = Surface,
+            title = { Text("restored data unreadable", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Text(
+                    "Your service list was restored from another device's backup. Its encryption key lives in that device's secure hardware, so it can't be read here.\n\nReset the store and add your services again.",
+                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { vm.clearUnreadableServices() }) { Text("Reset & start over", fontFamily = Mono, color = MatrixGreen) }
+            },
         )
     }
 }
@@ -1359,6 +1455,25 @@ private fun NotificationSettingsScreen(vm: DashboardViewModel, onBack: () -> Uni
                 if (on) requestPermIfNeeded()
                 vm.saveNotifySettings(s.copy(live = on, ntfyServer = srv.trim().trimEnd('/'), ntfyTopic = top.trim(), ntfyToken = tok.trim()))
             }
+
+            Spacer(Modifier.height(24.dp))
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
+            Text("SECURITY", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
+            val appLock by vm.appLock.collectAsState()
+            NotifyToggleRow("App lock", "Require fingerprint/face or device PIN on open", appLock) { on ->
+                if (!on) { vm.setAppLock(false); return@NotifyToggleRow }
+                val bm = androidx.biometric.BiometricManager.from(context)
+                val authenticators = androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK or
+                    androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                if (bm.canAuthenticate(authenticators) != androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS) {
+                    android.widget.Toast.makeText(context, "no biometrics or device PIN set up", android.widget.Toast.LENGTH_LONG).show()
+                    return@NotifyToggleRow
+                }
+                // Require one successful unlock before enabling, so nobody locks themselves out.
+                (context as? androidx.fragment.app.FragmentActivity)?.let { act ->
+                    showUnlockPrompt(act) { vm.setAppLock(true); vm.unlocked.value = true }
+                }
+            }
             Spacer(Modifier.height(32.dp))
         }
     }
@@ -1369,7 +1484,7 @@ private fun NotificationSettingsScreen(vm: DashboardViewModel, onBack: () -> Uni
 private fun GlobalSearchScreen(
     vm: DashboardViewModel,
     onBack: () -> Unit,
-    onOpenService: (ServiceConfig) -> Unit,
+    onOpenService: (ServiceConfig, SearchDeepLink?) -> Unit,
     initialTerm: String = "",
     onTermChange: (String) -> Unit = {},
 ) {
@@ -1379,6 +1494,7 @@ private fun GlobalSearchScreen(
     var term by remember { mutableStateOf(initialTerm) }
     var results by remember { mutableStateOf<List<org.phioster.nexarr.model.SearchResult>?>(null) }
     var searching by remember { mutableStateOf(false) }
+    var chosen by remember { mutableStateOf<org.phioster.nexarr.model.SearchResult?>(null) } // tapped hit -> action dialog
     val focusRequester = remember { FocusRequester() }
 
     fun run() {
@@ -1442,8 +1558,7 @@ private fun GlobalSearchScreen(
                                     HorizontalDivider(color = MatrixGreen.copy(alpha = 0.12f))
                                 }
                                 items(hits, key = { "${sid}_${it.title}_${it.subtitle}" }) { hit ->
-                                    val cfg = services.firstOrNull { it.id == hit.serviceId }
-                                    SearchResultRow(hit) { cfg?.let(onOpenService) }
+                                    SearchResultRow(hit) { chosen = hit }
                                 }
                             }
                             item { Spacer(Modifier.height(24.dp)) }
@@ -1452,6 +1567,64 @@ private fun GlobalSearchScreen(
                 }
             }
         }
+    }
+
+    // Tapped hit -> show the object with the actions that make sense for it.
+    chosen?.let { hit ->
+        val cfg = services.firstOrNull { it.id == hit.serviceId }
+        val accent = Color(hit.serviceType.accent)
+        fun open(link: SearchDeepLink?) {
+            chosen = null
+            cfg?.let { onOpenService(it, link) }
+        }
+        AlertDialog(
+            onDismissRequest = { chosen = null },
+            containerColor = Surface,
+            title = { Text(hit.title, fontFamily = Mono, color = MatrixGreen, fontSize = 16.sp) },
+            text = {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (hit.posterUrl.isNotBlank()) {
+                            AsyncImage(
+                                model = hit.posterUrl,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.width(64.dp).height(96.dp).clip(RoundedCornerShape(6.dp)).background(Black),
+                            )
+                            Spacer(Modifier.width(12.dp))
+                        }
+                        Column {
+                            Text("${hit.serviceLabel} · ${hit.serviceType.label}".uppercase(), fontFamily = Mono, color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            if (hit.subtitle.isNotBlank()) {
+                                Spacer(Modifier.height(4.dp))
+                                Text(hit.subtitle, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    val actions: List<Pair<String, SearchDeepLink?>> = when (hit.serviceType) {
+                        ServiceType.RADARR, ServiceType.SONARR, ServiceType.LIDARR ->
+                            if (hit.libraryId > 0) listOf("open details" to SearchDeepLink(arrDetailId = hit.libraryId.toInt()))
+                            else listOf("add to ${hit.serviceType.label}…" to SearchDeepLink(arrAddTerm = hit.title))
+                        ServiceType.SEERR ->
+                            if (hit.tmdbId > 0) listOf("details / request" to SearchDeepLink(seerrTmdb = hit.tmdbId, seerrMediaType = hit.mediaType)) else emptyList()
+                        ServiceType.JELLYFIN ->
+                            if (hit.jellyItemId.isNotBlank()) listOf("open details" to SearchDeepLink(jellyItemId = hit.jellyItemId)) else emptyList()
+                        else -> emptyList()
+                    }
+                    (actions + ("open ${hit.serviceLabel}" to null)).forEach { (label, link) ->
+                        Text(
+                            "› $label",
+                            fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp,
+                            modifier = Modifier.fillMaxWidth().clickable { open(link) }.padding(vertical = 10.dp),
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { chosen = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) }
+            },
+        )
     }
 }
 
@@ -1554,6 +1727,7 @@ private fun SeerrScreen(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    initialDetail: Pair<Int, String>? = null, // deep link from global search: (tmdbId, mediaType)
 ) {
     val statuses by vm.statuses.collectAsState()
     val status = statuses[config.id]
@@ -1576,7 +1750,14 @@ private fun SeerrScreen(
     var searchResults by remember { mutableStateOf<List<SeerrSearchItem>?>(null) }
     var confirmItem by remember { mutableStateOf<SeerrSearchItem?>(null) }
     var mediaDetail by remember { mutableStateOf<org.phioster.nexarr.model.SeerrMediaDetail?>(null) }
-    var mediaDetailLoading by remember { mutableStateOf(false) }
+    var mediaDetailLoading by remember { mutableStateOf(initialDetail != null) }
+    // Deep link from search: open the media-detail dialog right away.
+    LaunchedEffect(Unit) {
+        if (initialDetail != null) {
+            mediaDetail = runCatching { vm.seerrMediaDetailById(config, initialDetail.first, initialDetail.second) }.getOrNull()
+            mediaDetailLoading = false
+        }
+    }
     var showStats by remember { mutableStateOf(false) }
     var stats by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
     var users by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrUserInfo>?>(null) }
@@ -2170,13 +2351,14 @@ private fun JellyfinScreen(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    initialItemId: String? = null, // deep link from global search: open this item's detail
 ) {
     val statuses by vm.statuses.collectAsState()
     val status = statuses[config.id]
     val accent = Color(config.type.accent)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    var mode by remember { mutableStateOf(0) } // 0=Now Playing, 1=Users, 2=Dashboard
+    var mode by remember { mutableStateOf(if (initialItemId != null) 3 else 0) } // 0=Now Playing, 1=Users, 2=Dashboard, 3=Media, 4=Live TV
     var sessions by remember { mutableStateOf<List<org.phioster.nexarr.model.JellySession>?>(null) }
     var users by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyUser>?>(null) }
     var dashInfo by remember { mutableStateOf<org.phioster.nexarr.model.JellySystemInfo?>(null) }
@@ -2200,6 +2382,12 @@ private fun JellyfinScreen(
     var latestItems by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyMediaItem>?>(null) }
     var browseStack by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyMediaItem>>(emptyList()) }
     var mediaDetail by remember { mutableStateOf<org.phioster.nexarr.model.JellyMediaDetail?>(null) }
+    // Deep link from search: open the item-detail dialog on top of the media tab.
+    LaunchedEffect(Unit) {
+        if (initialItemId != null) {
+            mediaDetail = runCatching { vm.jellyfinMediaDetail(config, initialItemId) }.getOrNull()
+        }
+    }
     var logFiles by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyLogFile>?>(null) }
     var logView by remember { mutableStateOf<String?>(null) } // log file name being viewed
     var logText by remember { mutableStateOf<String?>(null) } // its content (null = loading)
@@ -3850,6 +4038,8 @@ private fun ArrScreen(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    initialDetailId: Int? = null, // deep link from global search: open this item's detail
+    initialAddTerm: String? = null, // deep link from global search: open the add dialog with this term
 ) {
     val statuses by vm.statuses.collectAsState()
     val status = statuses[config.id]
@@ -3861,7 +4051,7 @@ private fun ArrScreen(
     var cutoff by remember { mutableStateOf<List<ArrMissingItem>?>(null) }
     var queue by remember { mutableStateOf<List<ArrQueueItem>?>(null) }
     var history by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrHistoryItem>?>(null) }
-    var detailId by remember { mutableStateOf<Int?>(null) }
+    var detailId by remember { mutableStateOf(initialDetailId) }
     val supportsDetail = config.type == ServiceType.RADARR || config.type == ServiceType.SONARR || config.type == ServiceType.LIDARR
     val supportsImport = config.type == ServiceType.RADARR || config.type == ServiceType.SONARR
     var showSystem by remember { mutableStateOf(false) }
@@ -3877,9 +4067,15 @@ private fun ArrScreen(
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var barMenu by remember { mutableStateOf(false) }
-    var showAdd by remember { mutableStateOf(false) }
-    var addTerm by remember { mutableStateOf("") }
+    var showAdd by remember { mutableStateOf(initialAddTerm != null) }
+    var addTerm by remember { mutableStateOf(initialAddTerm ?: "") }
     var addResults by remember { mutableStateOf<List<ArrLookupItem>?>(null) }
+    // Deep link from search: run the pre-filled lookup right away.
+    LaunchedEffect(Unit) {
+        if (initialAddTerm != null) {
+            addResults = runCatching { vm.arrLookupList(config, initialAddTerm) }.getOrElse { emptyList() }
+        }
+    }
     var selected by remember { mutableStateOf<ArrLookupItem?>(null) }
     var profiles by remember { mutableStateOf<List<ArrProfile>>(emptyList()) }
     var folders by remember { mutableStateOf<List<String>>(emptyList()) }

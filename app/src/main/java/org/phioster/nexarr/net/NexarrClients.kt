@@ -101,10 +101,10 @@ private const val MB_AUTH =
     "MediaBrowser Client=\"Nexarr\", Device=\"Android\", DeviceId=\"nexarr\", Version=\"0.3.0\""
 
 /** config.id -> (jellyfin access token, user label) once a login has succeeded. */
-private val jellyfinSession = mutableMapOf<String, Pair<String, String>>()
+private val jellyfinSession = java.util.concurrent.ConcurrentHashMap<String, Pair<String, String>>()
 
 /** config.id -> the resolved Jellyfin user id used for media-browsing endpoints. */
-private val jellyfinUserIdCache = mutableMapOf<String, String>()
+private val jellyfinUserIdCache = java.util.concurrent.ConcurrentHashMap<String, String>()
 
 /** Drop a cached Jellyfin login token (e.g. after its config was edited). */
 fun clearJellyfinSession(id: String) {
@@ -112,16 +112,21 @@ fun clearJellyfinSession(id: String) {
     jellyfinUserIdCache.remove(id)
 }
 
+// One shared client so every per-call client below reuses the same dispatcher and
+// connection pool (newBuilder() shares them) instead of spawning a pool per request.
+private val baseOkClient = OkHttpClient.Builder()
+    .connectTimeout(15, TimeUnit.SECONDS)
+    .readTimeout(20, TimeUnit.SECONDS)
+    .build()
+
 private fun okClient(config: ServiceConfig, authHeaders: Map<String, String>): OkHttpClient =
-    OkHttpClient.Builder()
+    baseOkClient.newBuilder()
         .addInterceptor { chain ->
             val b = chain.request().newBuilder()
             authHeaders.forEach { (k, v) -> if (v.isNotBlank()) b.header(k, v) }
             config.customHeaders.forEach { (k, v) -> if (k.isNotBlank() && v.isNotBlank()) b.header(k, v) }
             chain.proceed(b.build())
         }
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
         .build()
 
 private inline fun <reified T> apiFor(config: ServiceConfig, authHeaders: Map<String, String>): T =
@@ -1047,7 +1052,7 @@ private suspend fun arrSearchResults(config: ServiceConfig, term: String): List<
     return apiFor<ArrApi>(config, apiKeyHeader(config)).lookup("$base/$path/lookup", term).take(8).map { obj ->
         val title = jsStr(obj, "title") ?: jsStr(obj, "artistName") ?: "?"
         val year = jsInt(obj, "year") ?: 0
-        val inLib = (jsLong(obj, "id") ?: 0L) > 0
+        val libId = jsLong(obj, "id") ?: 0L
         val poster = (obj["images"] as? JsonArray)?.mapNotNull { it as? JsonObject }
             ?.firstOrNull { jsStr(it, "coverType") == "poster" }
             ?.let { jsStr(it, "remoteUrl") ?: jsStr(it, "url") } ?: ""
@@ -1056,8 +1061,9 @@ private suspend fun arrSearchResults(config: ServiceConfig, term: String): List<
             serviceLabel = config.label,
             serviceType = config.type,
             title = title,
-            subtitle = listOfNotNull(year.takeIf { it > 0 }?.toString(), if (inLib) "in library" else "not added").joinToString(" · "),
+            subtitle = listOfNotNull(year.takeIf { it > 0 }?.toString(), if (libId > 0) "in library" else "not added").joinToString(" · "),
             posterUrl = poster,
+            libraryId = libId,
         )
     }
 }
@@ -1072,6 +1078,8 @@ private suspend fun seerrSearchResults(config: ServiceConfig, term: String): Lis
             title = d.title,
             subtitle = listOfNotNull(d.year.takeIf { it.isNotBlank() }, d.status.ifBlank { "requestable" }).joinToString(" · "),
             posterUrl = d.posterUrl,
+            tmdbId = d.tmdbId,
+            mediaType = d.mediaType,
         )
     }
 }
@@ -1088,6 +1096,7 @@ private suspend fun jellyfinSearchResults(config: ServiceConfig, term: String): 
             title = it.Name,
             subtitle = listOfNotNull(it.Type.takeIf { t -> t.isNotBlank() }, it.ProductionYear?.toString(), "on Jellyfin").joinToString(" · "),
             posterUrl = jellyImageUrl(config, it.Id, it.ImageTags?.get("Primary"), token),
+            jellyItemId = it.Id,
         )
     }
 }

@@ -8,4 +8,9 @@ data class SearchResult(
     val title: String,
     val subtitle: String, // year + status, e.g. "2021 · in library"
     val posterUrl: String,
+    // Deep-link handles so a tap can open the object itself, not just the service:
+    val libraryId: Long = 0, // arr: the library item id; >0 = already in the library
+    val tmdbId: Int = 0, // Seerr: TMDB id for the media-detail dialog
+    val mediaType: String = "", // Seerr: "movie" / "tv"
+    val jellyItemId: String = "", // Jellyfin: item id for the media-detail dialog
 )

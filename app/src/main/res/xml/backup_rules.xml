@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API <= 30 backup rules: keep the dashboard layout, but never back up the
+     secrets stores — nexarr_services is Keystore-encrypted (unreadable on any
+     other device anyway) and nexarr_notify carries the ntfy token. -->
+<full-backup-content>
+    <exclude domain="file" path="datastore/nexarr_services.preferences_pb" />
+    <exclude domain="file" path="datastore/nexarr_notify.preferences_pb" />
+</full-backup-content>

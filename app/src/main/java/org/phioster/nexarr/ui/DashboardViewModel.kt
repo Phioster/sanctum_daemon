@@ -150,6 +150,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     /** Set when navigating away from inside the Services drawer; HomeShell reopens it once on return. */
     var reopenDrawer: Boolean = false
 
+    /** App-lock session state: survives rotation (VM outlives the activity), reset on process death. */
+    val unlocked = androidx.compose.runtime.mutableStateOf(false)
+
     private val store = ServiceStore(app)
     private val dashStore = org.phioster.nexarr.data.DashboardStore(app)
     private val notifyStore = org.phioster.nexarr.data.NotifyStore(app)
@@ -171,6 +174,17 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _services = MutableStateFlow<List<ServiceConfig>>(emptyList())
     val services: StateFlow<List<ServiceConfig>> = _services.asStateFlow()
+
+    /** True after a cross-device restore: the encrypted services blob exists but its Keystore key doesn't. */
+    val servicesUnreadable: StateFlow<Boolean> = store.decryptFailed
+
+    /** Drop the unreadable blob so the user can re-add their services. */
+    fun clearUnreadableServices() = viewModelScope.launch { store.clearUnreadable() }
+
+    val appLock: StateFlow<Boolean> =
+        dashStore.appLock.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
+
+    fun setAppLock(enabled: Boolean) = viewModelScope.launch { dashStore.setAppLock(enabled) }
 
     private val _statuses = MutableStateFlow<Map<String, ServiceStatus>>(emptyMap())
     val statuses: StateFlow<Map<String, ServiceStatus>> = _statuses.asStateFlow()

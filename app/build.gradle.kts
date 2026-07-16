@@ -13,8 +13,8 @@ android {
         applicationId = "org.phioster.nexarr"
         minSdk = 26
         targetSdk = 35
-        versionCode = 72
-        versionName = "0.54.1"
+        versionCode = 73
+        versionName = "0.55.0"
     }
 
     signingConfigs {
@@ -68,6 +68,9 @@ dependencies {
 
     // Persistence
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // App lock (fingerprint/face with device-credential fallback)
+    implementation("androidx.biometric:biometric:1.1.0")
 
     // Background notification polling
     implementation("androidx.work:work-runtime-ktx:2.9.1")

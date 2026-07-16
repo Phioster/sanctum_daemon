@@ -99,8 +99,8 @@ class NtfyStreamService : Service() {
         fun str(key: String) = (obj[key] as? JsonPrimitive)?.contentOrNull
         if (str("event") != "message") return // ignore open/keepalive/poll_request
         val id = str("id").orEmpty()
-        val (_, lastId) = store.ntfyCursor()
-        if (id.isNotEmpty() && id == lastId) return // duplicate at the ?since= boundary
+        val (_, recentIds) = store.ntfyCursor()
+        if (id.isNotEmpty() && id in recentIds) return // duplicate at the ?since= boundary
         val body = str("message") ?: return
         // The body may itself be JSON that a service (Radarr/Overseerr/…) posted.
         val inner = runCatching { json.parseToJsonElement(body) as? JsonObject }.getOrNull()
@@ -117,7 +117,7 @@ class NtfyStreamService : Service() {
             text = body.take(180)
         }
         postNotification(id.ifEmpty { text }.hashCode(), title, text)
-        (obj["time"] as? JsonPrimitive)?.contentOrNull?.toLongOrNull()?.let { store.saveNtfyCursor(it, id) }
+        (obj["time"] as? JsonPrimitive)?.contentOrNull?.toLongOrNull()?.let { store.saveNtfyCursor(it, recentIds + id) }
     }
 
     private fun postNotification(id: Int, title: String, text: String) {
