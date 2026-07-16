@@ -59,6 +59,7 @@ import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Folder
@@ -322,7 +323,7 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
             initialTerm = searchTerm,
             onTermChange = { searchTerm = it },
         )
-        notifOpen -> NotificationSettingsScreen(vm = vm, onBack = { notifOpen = false })
+        notifOpen -> SettingsScreen(vm = vm, onBack = { notifOpen = false })
         else -> HomeShell(
             vm = vm,
             onAdd = { addOpen = true },
@@ -529,7 +530,7 @@ private fun HomeShell(
                     IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Filled.Menu, contentDescription = "Services", tint = MatrixGreen) }
                 },
                 actions = {
-                    IconButton(onClick = { onSearch("") }) { Icon(Icons.Filled.Search, contentDescription = "Search", tint = MatrixGreen) }
+                    // No search icon here — the tabs already carry the inline search bar.
                     IconButton(onClick = { editMode = !editMode }) {
                         Icon(if (editMode) Icons.Filled.Check else Icons.Filled.Edit, contentDescription = "Edit", tint = if (editMode) MatrixGreen else MatrixGreen.copy(alpha = 0.8f))
                     }
@@ -656,7 +657,7 @@ private fun ServicesDrawer(
                 navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close", tint = MatrixGreen) } },
                 actions = {
                     IconButton(onClick = { onSearch("") }) { Icon(Icons.Filled.Search, contentDescription = "Search", tint = MatrixGreen) }
-                    IconButton(onClick = onNotifications) { Icon(Icons.Filled.Notifications, contentDescription = "Notifications", tint = MatrixGreen) }
+                    IconButton(onClick = onNotifications) { Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MatrixGreen) }
                     IconButton(onClick = { vm.refreshAll() }) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen) }
                 },
             )
@@ -1425,107 +1426,169 @@ private fun NotifyToggleRow(label: String, sub: String, checked: Boolean, enable
     }
 }
 
+/** Dedicated settings hub: categories on the first level, one section per screen. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NotificationSettingsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
-    val s by vm.notifySettings.collectAsState()
+private fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
+    var section by remember { mutableStateOf<String?>(null) }
+    BackHandler(enabled = section != null) { section = null }
+
+    Scaffold(
+        containerColor = Black,
+        topBar = {
+            TopAppBar(
+                title = { Text(section ?: "settings", fontFamily = Mono, color = MatrixGreen) },
+                navigationIcon = {
+                    IconButton(onClick = { if (section != null) section = null else onBack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
+            )
+        },
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+            when (section) {
+                null -> {
+                    SettingsCategoryRow("notifications", "Background polling: what to check and how often") { section = "notifications" }
+                    SettingsCategoryRow("live push (ntfy)", "Instant notifications from your ntfy server") { section = "live push (ntfy)" }
+                    SettingsCategoryRow("security", "Biometric app lock") { section = "security" }
+                    SettingsCategoryRow("about", "Version & project info") { section = "about" }
+                }
+                "notifications" -> NotifyPollingSection(vm)
+                "live push (ntfy)" -> LivePushSection(vm)
+                "security" -> SecuritySection(vm)
+                "about" -> AboutSection()
+            }
+            Spacer(Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun SettingsCategoryRow(title: String, sub: String, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp)
+            Text(sub, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 11.sp)
+        }
+        Text("›", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 18.sp)
+    }
+    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.12f))
+}
+
+/** Asks for POST_NOTIFICATIONS on API 33+ when a notification feature is switched on. */
+@Composable
+private fun rememberNotifPermissionRequester(): () -> Unit {
     val context = LocalContext.current
     val permLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
     ) { }
-
-    fun requestPermIfNeeded() {
+    return {
         if (android.os.Build.VERSION.SDK_INT >= 33 &&
             androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
         ) {
             permLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
     }
+}
 
-    Scaffold(
-        containerColor = Black,
-        topBar = {
-            TopAppBar(
-                title = { Text("notifications", fontFamily = Mono, color = MatrixGreen) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) } },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
-            )
-        },
-    ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
-            NotifyToggleRow("Enable notifications", "Background check every ${s.intervalMin} min", s.enabled) { on ->
-                if (on) requestPermIfNeeded()
-                vm.saveNotifySettings(s.copy(enabled = on))
-            }
-            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
-            Text("NOTIFY ME ABOUT", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
-            NotifyToggleRow("New media", "Newly added movies/episodes in Jellyfin", s.newMedia, s.enabled) { vm.saveNotifySettings(s.copy(newMedia = it)) }
-            NotifyToggleRow("Downloads imported", "Radarr / Sonarr / Lidarr finished importing", s.imports, s.enabled) { vm.saveNotifySettings(s.copy(imports = it)) }
-            NotifyToggleRow("New requests", "New pending requests in Seerr", s.requests, s.enabled) { vm.saveNotifySettings(s.copy(requests = it)) }
-            NotifyToggleRow("Health issues", "New Radarr / Sonarr / Lidarr warnings & errors", s.health, s.enabled) { vm.saveNotifySettings(s.copy(health = it)) }
-            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
-            Text("CHECK INTERVAL", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
-            Row {
-                listOf(15, 30, 60).forEach { m ->
-                    val sel = s.intervalMin == m
-                    Box(
-                        Modifier.padding(end = 8.dp).size(width = 72.dp, height = 40.dp).clip(RoundedCornerShape(8.dp))
-                            .background(if (sel) MatrixGreen else Surface)
-                            .border(1.dp, if (sel) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                            .clickable(enabled = s.enabled) { vm.saveNotifySettings(s.copy(intervalMin = m)) },
-                        contentAlignment = Alignment.Center,
-                    ) { Text("${m}m", fontFamily = Mono, color = if (sel) Black else MatrixGreen, fontSize = 14.sp) }
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-            Text(
-                "Android runs background checks at most every 15 minutes and may delay them to save battery. The first check just records the current state, so you only get notified about things that happen afterwards.",
-                fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp,
-            )
-
-            Spacer(Modifier.height(24.dp))
-            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
-            Text("LIVE PUSH (ntfy)", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
-            Text(
-                "Instant — no 15-minute wait. Nexarr subscribes directly to a topic on your ntfy server and shows every message posted to it (your existing service webhooks already do this). Keeps a small background connection open.",
-                fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp,
-            )
-            Spacer(Modifier.height(10.dp))
-            var srv by remember { mutableStateOf(s.ntfyServer) }
-            var top by remember { mutableStateOf(s.ntfyTopic) }
-            var tok by remember { mutableStateOf(s.ntfyToken) }
-            Field("Server URL (https://ntfy…)", srv) { srv = it }
-            Spacer(Modifier.height(8.dp))
-            Field("Topic (e.g. Homelab)", top) { top = it }
-            Spacer(Modifier.height(8.dp))
-            Field("Access token (optional)", tok) { tok = it }
-            Spacer(Modifier.height(4.dp))
-            NotifyToggleRow("Live push", if (s.live) "Connected to ${s.ntfyServer.ifBlank { "?" }}/${s.ntfyTopic.ifBlank { "?" }}" else "Off", s.live, srv.isNotBlank() && top.isNotBlank()) { on ->
-                if (on) requestPermIfNeeded()
-                vm.saveNotifySettings(s.copy(live = on, ntfyServer = srv.trim().trimEnd('/'), ntfyTopic = top.trim(), ntfyToken = tok.trim()))
-            }
-
-            Spacer(Modifier.height(24.dp))
-            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
-            Text("SECURITY", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
-            val appLock by vm.appLock.collectAsState()
-            NotifyToggleRow("App lock", "Require fingerprint/face or device PIN on open", appLock) { on ->
-                if (!on) { vm.setAppLock(false); return@NotifyToggleRow }
-                val bm = androidx.biometric.BiometricManager.from(context)
-                val authenticators = androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK or
-                    androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
-                if (bm.canAuthenticate(authenticators) != androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS) {
-                    android.widget.Toast.makeText(context, "no biometrics or device PIN set up", android.widget.Toast.LENGTH_LONG).show()
-                    return@NotifyToggleRow
-                }
-                // Require one successful unlock before enabling, so nobody locks themselves out.
-                (context as? androidx.fragment.app.FragmentActivity)?.let { act ->
-                    showUnlockPrompt(act) { vm.setAppLock(true); vm.unlocked.value = true }
-                }
-            }
-            Spacer(Modifier.height(32.dp))
+@Composable
+private fun NotifyPollingSection(vm: DashboardViewModel) {
+    val s by vm.notifySettings.collectAsState()
+    val requestPermIfNeeded = rememberNotifPermissionRequester()
+    NotifyToggleRow("Enable notifications", "Background check every ${s.intervalMin} min", s.enabled) { on ->
+        if (on) requestPermIfNeeded()
+        vm.saveNotifySettings(s.copy(enabled = on))
+    }
+    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
+    Text("NOTIFY ME ABOUT", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
+    NotifyToggleRow("New media", "Newly added movies/episodes in Jellyfin", s.newMedia, s.enabled) { vm.saveNotifySettings(s.copy(newMedia = it)) }
+    NotifyToggleRow("Downloads imported", "Radarr / Sonarr / Lidarr finished importing", s.imports, s.enabled) { vm.saveNotifySettings(s.copy(imports = it)) }
+    NotifyToggleRow("New requests", "New pending requests in Seerr", s.requests, s.enabled) { vm.saveNotifySettings(s.copy(requests = it)) }
+    NotifyToggleRow("Health issues", "New Radarr / Sonarr / Lidarr warnings & errors", s.health, s.enabled) { vm.saveNotifySettings(s.copy(health = it)) }
+    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
+    Text("CHECK INTERVAL", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
+    Row {
+        listOf(15, 30, 60).forEach { m ->
+            val sel = s.intervalMin == m
+            Box(
+                Modifier.padding(end = 8.dp).size(width = 72.dp, height = 40.dp).clip(RoundedCornerShape(8.dp))
+                    .background(if (sel) MatrixGreen else Surface)
+                    .border(1.dp, if (sel) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                    .clickable(enabled = s.enabled) { vm.saveNotifySettings(s.copy(intervalMin = m)) },
+                contentAlignment = Alignment.Center,
+            ) { Text("${m}m", fontFamily = Mono, color = if (sel) Black else MatrixGreen, fontSize = 14.sp) }
         }
     }
+    Spacer(Modifier.height(16.dp))
+    Text(
+        "Android runs background checks at most every 15 minutes and may delay them to save battery. The first check just records the current state, so you only get notified about things that happen afterwards.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp,
+    )
+}
+
+@Composable
+private fun LivePushSection(vm: DashboardViewModel) {
+    val s by vm.notifySettings.collectAsState()
+    val requestPermIfNeeded = rememberNotifPermissionRequester()
+    Text(
+        "Instant — no 15-minute wait. Nexarr subscribes directly to a topic on your ntfy server and shows every message posted to it (your existing service webhooks already do this). Keeps a small background connection open. Topics of configured ntfy services are subscribed too.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 12.dp),
+    )
+    Spacer(Modifier.height(10.dp))
+    var srv by remember { mutableStateOf(s.ntfyServer) }
+    var top by remember { mutableStateOf(s.ntfyTopic) }
+    var tok by remember { mutableStateOf(s.ntfyToken) }
+    Field("Server URL (https://ntfy…)", srv) { srv = it }
+    Spacer(Modifier.height(8.dp))
+    Field("Topic (e.g. Homelab)", top) { top = it }
+    Spacer(Modifier.height(8.dp))
+    Field("Access token (optional)", tok) { tok = it }
+    Spacer(Modifier.height(4.dp))
+    NotifyToggleRow("Live push", if (s.live) "Connected to ${s.ntfyServer.ifBlank { "?" }}/${s.ntfyTopic.ifBlank { "?" }}" else "Off", s.live, srv.isNotBlank() && top.isNotBlank()) { on ->
+        if (on) requestPermIfNeeded()
+        vm.saveNotifySettings(s.copy(live = on, ntfyServer = srv.trim().trimEnd('/'), ntfyTopic = top.trim(), ntfyToken = tok.trim()))
+    }
+}
+
+@Composable
+private fun SecuritySection(vm: DashboardViewModel) {
+    val context = LocalContext.current
+    val appLock by vm.appLock.collectAsState()
+    NotifyToggleRow("App lock", "Require fingerprint/face or device PIN on open", appLock) { on ->
+        if (!on) { vm.setAppLock(false); return@NotifyToggleRow }
+        val bm = androidx.biometric.BiometricManager.from(context)
+        val authenticators = androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK or
+            androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        if (bm.canAuthenticate(authenticators) != androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS) {
+            android.widget.Toast.makeText(context, "no biometrics or device PIN set up", android.widget.Toast.LENGTH_LONG).show()
+            return@NotifyToggleRow
+        }
+        // Require one successful unlock before enabling, so nobody locks themselves out.
+        (context as? androidx.fragment.app.FragmentActivity)?.let { act ->
+            showUnlockPrompt(act) { vm.setAppLock(true); vm.unlocked.value = true }
+        }
+    }
+    Text(
+        "Locks on cold start and after more than 2 minutes in the background. Live push keeps running while locked.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
+    )
+}
+
+@Composable
+private fun AboutSection() {
+    val context = LocalContext.current
+    val version = remember {
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
+    }
+    Text("> nexarr_", fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
+    Text("v$version", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 13.sp)
+    Spacer(Modifier.height(12.dp))
+    Text(
+        "Unified dashboard for Jellyfin and the *arr stack.\nGPL-3.0 · github.com/Phioster/nexarr",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 11.sp,
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1544,7 +1607,23 @@ private fun GlobalSearchScreen(
     var results by remember { mutableStateOf<List<org.phioster.nexarr.model.SearchResult>?>(null) }
     var searching by remember { mutableStateOf(false) }
     var chosen by remember { mutableStateOf<org.phioster.nexarr.model.SearchResult?>(null) } // tapped hit -> action dialog
+    // Result filters: empty service set = all; year accepts "2021" or "2018-2022"; status 0=all 1=have 2=missing.
+    var filterServices by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var filterYear by remember { mutableStateOf("") }
+    var filterStatus by remember { mutableStateOf(0) }
     val focusRequester = remember { FocusRequester() }
+
+    fun matchesYear(y: Int): Boolean {
+        val f = filterYear.trim()
+        if (f.isBlank()) return true
+        if (y == 0) return false
+        val range = f.split("-").mapNotNull { it.trim().toIntOrNull() }
+        return when {
+            range.size == 2 -> y in range[0]..range[1]
+            range.size == 1 -> y == range[0]
+            else -> true
+        }
+    }
 
     fun run() {
         val q = term.trim()
@@ -1585,13 +1664,51 @@ private fun GlobalSearchScreen(
                 Spacer(Modifier.width(8.dp))
                 IconButton(onClick = { run() }) { Icon(Icons.Filled.Search, contentDescription = "Search", tint = MatrixGreen) }
             }
+            // Filters (shown once there are results to narrow down)
+            if (results != null) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                    services.filter { svc -> results.orEmpty().any { it.serviceId == svc.id } }.forEach { svc ->
+                        val sel = svc.id in filterServices
+                        FilterChip(
+                            selected = sel || filterServices.isEmpty(),
+                            onClick = { filterServices = if (sel) filterServices - svc.id else filterServices + svc.id },
+                            leadingIcon = { ServiceLogo(svc.type, 16.dp) },
+                            label = { Text(svc.label, fontFamily = Mono, fontSize = 11.sp) },
+                        )
+                        Spacer(Modifier.width(6.dp))
+                    }
+                }
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = filterYear,
+                        onValueChange = { filterYear = it },
+                        label = { Text("year / from-to", fontFamily = Mono, fontSize = 10.sp) },
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = Mono),
+                        modifier = Modifier.width(150.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    listOf("all", "have", "missing").forEachIndexed { i, lbl ->
+                        FilterChip(
+                            selected = filterStatus == i,
+                            onClick = { filterStatus = i },
+                            label = { Text(lbl, fontFamily = Mono, fontSize = 11.sp) },
+                        )
+                        Spacer(Modifier.width(6.dp))
+                    }
+                }
+            }
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                val r = results
+                val r = results?.filter { hit ->
+                    (filterServices.isEmpty() || hit.serviceId in filterServices) &&
+                        matchesYear(hit.year) &&
+                        when (filterStatus) { 1 -> hit.inLibrary; 2 -> !hit.inLibrary; else -> true }
+                }
                 when {
                     searching -> Text("searching…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(16.dp))
                     r == null -> Text("type a title, then search", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 13.sp, modifier = Modifier.padding(16.dp))
-                    r.isEmpty() -> Text("no matches", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(16.dp))
+                    r.isEmpty() -> Text(if (results.orEmpty().isEmpty()) "no matches" else "no matches with these filters", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(16.dp))
                     else -> {
                         val grouped = r.groupBy { it.serviceId }
                         LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {

@@ -1066,6 +1066,8 @@ private suspend fun arrSearchResults(config: ServiceConfig, term: String): List<
             subtitle = listOfNotNull(year.takeIf { it > 0 }?.toString(), if (libId > 0) "in library" else "not added").joinToString(" · "),
             posterUrl = poster,
             libraryId = libId,
+            year = year,
+            inLibrary = libId > 0,
         )
     }
 }
@@ -1082,6 +1084,8 @@ private suspend fun seerrSearchResults(config: ServiceConfig, term: String): Lis
             posterUrl = d.posterUrl,
             tmdbId = d.tmdbId,
             mediaType = d.mediaType,
+            year = d.year.toIntOrNull() ?: 0,
+            inLibrary = d.status == "available",
         )
     }
 }
@@ -1099,6 +1103,8 @@ private suspend fun jellyfinSearchResults(config: ServiceConfig, term: String): 
             subtitle = listOfNotNull(it.Type.takeIf { t -> t.isNotBlank() }, it.ProductionYear?.toString(), "on Jellyfin").joinToString(" · "),
             posterUrl = jellyImageUrl(config, it.Id, it.ImageTags?.get("Primary"), token),
             jellyItemId = it.Id,
+            year = it.ProductionYear ?: 0,
+            inLibrary = true, // it's on the Jellyfin server
         )
     }
 }
