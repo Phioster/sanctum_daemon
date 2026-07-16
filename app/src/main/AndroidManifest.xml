@@ -3,6 +3,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <!-- So getLaunchIntentForPackage can see the companion apps on Android 11+. -->
     <queries>
@@ -30,17 +32,15 @@
             </intent-filter>
         </activity>
 
-        <!-- Live push: receives UnifiedPush broadcasts from the ntfy distributor. -->
-        <receiver
-            android:name=".notify.UnifiedPushReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="org.unifiedpush.android.connector.MESSAGE" />
-                <action android:name="org.unifiedpush.android.connector.UNREGISTERED" />
-                <action android:name="org.unifiedpush.android.connector.NEW_ENDPOINT" />
-                <action android:name="org.unifiedpush.android.connector.REGISTRATION_FAILED" />
-            </intent-filter>
-        </receiver>
+        <!-- Live push: keeps a streaming connection to the user's ntfy topic open. -->
+        <service
+            android:name=".notify.NtfyStreamService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Receiving live notifications from a self-hosted ntfy server" />
+        </service>
     </application>
 
 </manifest>

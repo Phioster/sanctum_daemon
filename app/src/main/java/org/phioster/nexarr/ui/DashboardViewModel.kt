@@ -132,17 +132,15 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     val notifySettings: StateFlow<org.phioster.nexarr.model.NotifySettings> =
         notifyStore.settings.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, org.phioster.nexarr.model.NotifySettings())
 
-    /** The UnifiedPush endpoint URL to paste into service webhooks ("" = live push not set up). */
-    val notifyEndpoint: StateFlow<String> =
-        notifyStore.endpoint.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, "")
-
-    /** Persists notification prefs and (re)schedules or cancels the background poller. */
+    /** Persists notification prefs; (re)schedules the poller and starts/stops the live-push service. */
     fun saveNotifySettings(s: org.phioster.nexarr.model.NotifySettings) {
         viewModelScope.launch {
             notifyStore.save(s)
             val ctx = getApplication<Application>()
             if (s.enabled) org.phioster.nexarr.notify.Notifications.schedule(ctx, s.intervalMin)
             else org.phioster.nexarr.notify.Notifications.cancel(ctx)
+            if (s.live && s.ntfyServer.isNotBlank() && s.ntfyTopic.isNotBlank()) org.phioster.nexarr.notify.NtfyStreamService.start(ctx)
+            else org.phioster.nexarr.notify.NtfyStreamService.stop(ctx)
         }
     }
 

@@ -17,6 +17,7 @@ object Notifications {
     const val CH_REQUESTS = "requests"
     const val CH_HEALTH = "health"
     const val CH_LIVE = "live"
+    const val CH_SERVICE = "live_service"
     private const val WORK = "nexarr_notify_poll"
 
     fun ensureChannels(ctx: Context) {
@@ -27,6 +28,7 @@ object Notifications {
             Triple(CH_REQUESTS, "Seerr requests", NotificationManager.IMPORTANCE_DEFAULT),
             Triple(CH_HEALTH, "Health issues", NotificationManager.IMPORTANCE_LOW),
             Triple(CH_LIVE, "Live push", NotificationManager.IMPORTANCE_HIGH),
+            Triple(CH_SERVICE, "Live push service", NotificationManager.IMPORTANCE_MIN),
         ).forEach { (id, name, importance) ->
             nm.createNotificationChannel(NotificationChannel(id, name, importance))
         }
