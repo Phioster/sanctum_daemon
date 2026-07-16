@@ -5568,6 +5568,7 @@ private fun ServiceDetailScreen(
                     color = MatrixGreen.copy(alpha = 0.5f),
                     fontSize = 13.sp,
                 )
+                else -> {} // NTFY has its own screen; nothing generic to offer here
             }
             actionResult?.let {
                 Spacer(Modifier.height(12.dp))
