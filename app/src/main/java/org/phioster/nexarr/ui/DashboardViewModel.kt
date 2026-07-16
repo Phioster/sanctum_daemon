@@ -143,6 +143,13 @@ import org.phioster.nexarr.net.runSearchMissing
 
 class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
+    // Home navigation state lives here (not in composables) so it survives when HomeShell
+    // leaves composition — otherwise back from a service always lands on the first tab.
+    val homeTab = androidx.compose.runtime.mutableIntStateOf(0)
+
+    /** Set when navigating away from inside the Services drawer; HomeShell reopens it once on return. */
+    var reopenDrawer: Boolean = false
+
     private val store = ServiceStore(app)
     private val dashStore = org.phioster.nexarr.data.DashboardStore(app)
     private val notifyStore = org.phioster.nexarr.data.NotifyStore(app)

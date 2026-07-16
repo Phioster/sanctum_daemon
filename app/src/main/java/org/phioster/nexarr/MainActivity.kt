@@ -189,12 +189,18 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
     var searchOpen by remember { mutableStateOf(false) }
     var searchTerm by remember { mutableStateOf("") }
     var notifOpen by remember { mutableStateOf(false) }
+    var detailFromSearch by remember { mutableStateOf(false) } // service opened from search results
 
+    // Back from a service returns to where it was opened from (search stays search).
+    val closeDetail = {
+        detail = null
+        if (detailFromSearch) { detailFromSearch = false; searchOpen = true }
+    }
     val editorOpen = addOpen || editing != null
     BackHandler(enabled = editorOpen || detail != null || searchOpen || notifOpen) {
         when {
             editorOpen -> { addOpen = false; editing = null }
-            detail != null -> detail = null
+            detail != null -> closeDetail()
             notifOpen -> notifOpen = false
             else -> searchOpen = false
         }
@@ -213,9 +219,9 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
         )
         detail != null -> {
             val cfg = detail!!
-            val back = { detail = null }
+            val back = closeDetail
             val edit = { editing = cfg } // keep detail so back returns to the service
-            val del = { vm.removeService(cfg.id); detail = null }
+            val del = { vm.removeService(cfg.id); detail = null; detailFromSearch = false }
             when (cfg.type) {
                 ServiceType.NZBGET -> NzbgetScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
                 ServiceType.RADARR, ServiceType.SONARR, ServiceType.LIDARR ->
@@ -229,8 +235,9 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
         searchOpen -> GlobalSearchScreen(
             vm = vm,
             onBack = { searchOpen = false },
-            onOpenService = { cfg -> searchOpen = false; detail = cfg },
+            onOpenService = { cfg -> searchOpen = false; detailFromSearch = true; detail = cfg },
             initialTerm = searchTerm,
+            onTermChange = { searchTerm = it },
         )
         notifOpen -> NotificationSettingsScreen(vm = vm, onBack = { notifOpen = false })
         else -> HomeShell(
@@ -331,7 +338,7 @@ private fun HomeShell(
 ) {
     val tabs by vm.tabs.collectAsState()
     val services by vm.services.collectAsState()
-    var selected by remember { mutableStateOf(0) }
+    var selected by vm.homeTab // survives leaving composition — back returns to the same tab
     var editMode by remember { mutableStateOf(false) }
     var showAddCard by remember { mutableStateOf(false) }
     var showAddTab by remember { mutableStateOf(false) }
@@ -346,7 +353,11 @@ private fun HomeShell(
     val current = selected.coerceIn(0, (tabs.size - 1).coerceAtLeast(0))
     val currentTab = tabs.getOrNull(current)
     val currentAccent = currentTab?.takeIf { it.accent != 0L }?.let { Color(it.accent) } ?: MatrixGreen
-    val drawerState = androidx.compose.material3.rememberDrawerState(androidx.compose.material3.DrawerValue.Closed)
+    // If the user navigated away from inside the drawer, reopen it so back returns them there.
+    val drawerState = androidx.compose.material3.rememberDrawerState(
+        if (vm.reopenDrawer) androidx.compose.material3.DrawerValue.Open else androidx.compose.material3.DrawerValue.Closed,
+    )
+    LaunchedEffect(Unit) { vm.reopenDrawer = false }
     val scope = rememberCoroutineScope()
 
     // Refresh service statuses while the Services drawer is open.
@@ -366,13 +377,14 @@ private fun HomeShell(
                 drawerShape = androidx.compose.ui.graphics.RectangleShape,
                 drawerContainerColor = Black,
             ) {
+                // Navigating away from inside the drawer flags it to reopen on return.
                 ServicesDrawer(
                     vm = vm,
-                    onOpen = { cfg -> scope.launch { drawerState.close() }; onOpen(cfg) },
-                    onEdit = onEdit,
-                    onAdd = onAdd,
-                    onNotifications = onNotifications,
-                    onSearch = onSearch,
+                    onOpen = { cfg -> vm.reopenDrawer = true; scope.launch { drawerState.close() }; onOpen(cfg) },
+                    onEdit = { cfg -> vm.reopenDrawer = true; onEdit(cfg) },
+                    onAdd = { vm.reopenDrawer = true; onAdd() },
+                    onNotifications = { vm.reopenDrawer = true; onNotifications() },
+                    onSearch = { term -> vm.reopenDrawer = true; onSearch(term) },
                     onClose = { scope.launch { drawerState.close() } },
                 )
             }
@@ -1355,6 +1367,7 @@ private fun GlobalSearchScreen(
     onBack: () -> Unit,
     onOpenService: (ServiceConfig) -> Unit,
     initialTerm: String = "",
+    onTermChange: (String) -> Unit = {},
 ) {
     val services by vm.services.collectAsState()
     val scope = rememberCoroutineScope()
@@ -1367,6 +1380,7 @@ private fun GlobalSearchScreen(
     fun run() {
         val q = term.trim()
         if (q.isBlank()) return
+        onTermChange(q) // hoist so returning from a result reopens this exact search
         scope.launch {
             searching = true
             results = runCatching { vm.globalSearch(q) }.getOrDefault(emptyList())

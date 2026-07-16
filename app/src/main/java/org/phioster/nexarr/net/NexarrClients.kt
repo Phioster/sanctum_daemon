@@ -405,6 +405,7 @@ private interface JellyfinApi {
     @GET("LiveTv/Info") suspend fun liveTvInfo(): JfLiveTvInfo
     @GET("System/Configuration/livetv") suspend fun liveTvOptions(): JfLiveTvOptions
     @GET("LiveTv/Channels") suspend fun liveTvChannels(
+        @Query("userId") userId: String? = null, // CurrentProgram is only filled with a user context
         @Query("addCurrentProgram") addCurrentProgram: Boolean = true,
         @Query("limit") limit: Int = 300,
     ): JfChannelsResp
@@ -2261,7 +2262,9 @@ suspend fun jellyfinLiveTv(config: ServiceConfig): JellyLiveTv = withContext(Dis
 
 suspend fun jellyfinChannels(config: ServiceConfig): List<JellyChannel> = withContext(Dispatchers.IO) {
     val token = jellyfinAccessToken(config)
-    jfApi(config, token).liveTvChannels().Items.map {
+    val api = jfApi(config, token)
+    val uid = runCatching { jellyfinResolveUserId(config, api) }.getOrNull()
+    api.liveTvChannels(userId = uid).Items.map {
         JellyChannel(
             id = it.Id,
             number = it.ChannelNumber ?: "",
