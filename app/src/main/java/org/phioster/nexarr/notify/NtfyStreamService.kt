@@ -36,8 +36,10 @@ class NtfyStreamService : Service() {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var job: Job? = null
     private val json = Json { ignoreUnknownKeys = true }
+    // readTimeout is the watchdog: ntfy sends a keepalive every ~45 s, so 77 s of
+    // silence means the connection is dead and we should reconnect.
     private val client = OkHttpClient.Builder()
-        .readTimeout(0, TimeUnit.MILLISECONDS) // long-lived stream
+        .readTimeout(77, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
         .build()
 
@@ -58,36 +60,47 @@ class NtfyStreamService : Service() {
 
     private suspend fun runLoop() {
         val store = NotifyStore(applicationContext)
+        var backoff = 2_000L
         while (currentCoroutineContext().isActive) {
             val s = store.currentSettings()
             if (!s.live || s.ntfyServer.isBlank() || s.ntfyTopic.isBlank()) {
                 stopSelf(); return
             }
-            val url = "${s.ntfyServer.trimEnd('/')}/${s.ntfyTopic}/json"
+            // On reconnect, ask for everything since the last seen message so nothing
+            // is missed while offline; a fresh install (time 0) subscribes live-only.
+            val (lastTime, _) = store.ntfyCursor()
+            val url = "${s.ntfyServer.trimEnd('/')}/${s.ntfyTopic}/json" +
+                if (lastTime > 0) "?since=$lastTime" else ""
             try {
                 val req = Request.Builder().url(url).apply {
                     if (s.ntfyToken.isNotBlank()) header("Authorization", "Bearer ${s.ntfyToken}")
                 }.build()
                 client.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) throw java.io.IOException("HTTP ${resp.code}")
+                    backoff = 2_000L // connected — reset backoff
                     val source = resp.body?.source() ?: return@use
                     while (!source.exhausted() && currentCoroutineContext().isActive) {
                         val line = source.readUtf8Line() ?: break
-                        if (line.isNotBlank()) handleLine(line)
+                        if (line.isNotBlank()) handleLine(line, store)
                     }
                 }
             } catch (c: CancellationException) {
                 throw c
             } catch (_: Throwable) {
-                // network hiccup / server restart → wait and reconnect
+                // network hiccup / server restart / watchdog timeout → backoff below
             }
-            delay(5000)
+            delay(backoff)
+            backoff = (backoff * 2).coerceAtMost(60_000L)
         }
     }
 
-    private fun handleLine(line: String) {
+    private suspend fun handleLine(line: String, store: NotifyStore) {
         val obj = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: return
         fun str(key: String) = (obj[key] as? JsonPrimitive)?.contentOrNull
         if (str("event") != "message") return // ignore open/keepalive/poll_request
+        val id = str("id").orEmpty()
+        val (_, lastId) = store.ntfyCursor()
+        if (id.isNotEmpty() && id == lastId) return // duplicate at the ?since= boundary
         val body = str("message") ?: return
         // The body may itself be JSON that a service (Radarr/Overseerr/…) posted.
         val inner = runCatching { json.parseToJsonElement(body) as? JsonObject }.getOrNull()
@@ -103,7 +116,8 @@ class NtfyStreamService : Service() {
             title = str("title") ?: "Nexarr"
             text = body.take(180)
         }
-        postNotification(str("id")?.hashCode() ?: text.hashCode(), title, text)
+        postNotification(id.ifEmpty { text }.hashCode(), title, text)
+        (obj["time"] as? JsonPrimitive)?.contentOrNull?.toLongOrNull()?.let { store.saveNtfyCursor(it, id) }
     }
 
     private fun postNotification(id: Int, title: String, text: String) {

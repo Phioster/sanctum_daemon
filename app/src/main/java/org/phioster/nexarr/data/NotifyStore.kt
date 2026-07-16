@@ -2,6 +2,7 @@ package org.phioster.nexarr.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -15,6 +16,8 @@ import org.phioster.nexarr.model.NotifySettings
 private val Context.notifyDataStore by preferencesDataStore(name = "nexarr_notify")
 private val SETTINGS_KEY = stringPreferencesKey("settings_json")
 private val SEEN_KEY = stringPreferencesKey("seen_json")
+private val NTFY_LAST_TIME_KEY = longPreferencesKey("ntfy_last_time")
+private val NTFY_LAST_ID_KEY = stringPreferencesKey("ntfy_last_id")
 private val json = Json { ignoreUnknownKeys = true }
 
 /**
@@ -40,5 +43,17 @@ class NotifyStore(private val context: Context) {
 
     suspend fun saveSeen(m: Map<String, List<String>>) {
         context.notifyDataStore.edit { it[SEEN_KEY] = json.encodeToString(m) }
+    }
+
+    /** Timestamp/id of the last ntfy message shown, so reconnects can catch up via ?since= without duplicates. */
+    suspend fun ntfyCursor(): Pair<Long, String> = context.notifyDataStore.data.first().let {
+        (it[NTFY_LAST_TIME_KEY] ?: 0L) to (it[NTFY_LAST_ID_KEY] ?: "")
+    }
+
+    suspend fun saveNtfyCursor(time: Long, id: String) {
+        context.notifyDataStore.edit {
+            it[NTFY_LAST_TIME_KEY] = time
+            it[NTFY_LAST_ID_KEY] = id
+        }
     }
 }
