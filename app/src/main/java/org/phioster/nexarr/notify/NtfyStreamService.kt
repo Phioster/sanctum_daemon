@@ -129,7 +129,7 @@ class NtfyStreamService : Service() {
         val msg = parseNtfyLine(line) ?: return
         val (_, recentIds) = store.ntfyCursor(cursorScope)
         if (msg.id.isNotEmpty() && msg.id in recentIds) return // duplicate at the ?since= boundary
-        val base = msg.title.ifBlank { "Nexarr" }
+        val base = msg.title.ifBlank { "Sanctumd" }
         // Messages from a secondary topic carry the topic as prefix so they're tellable apart.
         val title = if (msg.topic.isNotBlank() && msg.topic != mainTopic) "[${msg.topic}] $base" else base
         postNotification(msg.id.ifEmpty { msg.text }.hashCode(), title, msg.text)
@@ -154,7 +154,7 @@ class NtfyStreamService : Service() {
     private fun ongoingNotification() =
         NotificationCompat.Builder(this, Notifications.CH_SERVICE)
             .setSmallIcon(android.R.drawable.stat_notify_sync)
-            .setContentTitle("Nexarr live push")
+            .setContentTitle("Sanctumd live push")
             .setContentText("Listening for notifications")
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_MIN)

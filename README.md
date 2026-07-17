@@ -1,7 +1,8 @@
-# Nexarr
+# sanctum_daemon
 
-> Unified, native Android dashboard for a self-hosted homelab — Jellyfin admin
-> **and** the *arr / download stack in one app, with one consistent theme.
+> **Sanctumd** — a unified, native Android dashboard for a self-hosted homelab:
+> Jellyfin admin **and** the *arr / download stack in one app, with one
+> consistent terminal theme. The daemon that guards your homelab.
 
 Think "nzb360 + Jellyfin management", built as a single Compose app: you add
 your services once, everything shows up in one terminal-styled UI, and actions

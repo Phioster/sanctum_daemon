@@ -100,7 +100,7 @@ private val json = Json {
 }
 
 private const val MB_AUTH =
-    "MediaBrowser Client=\"Nexarr\", Device=\"Android\", DeviceId=\"nexarr\", Version=\"0.3.0\""
+    "MediaBrowser Client=\"Sanctumd\", Device=\"Android\", DeviceId=\"sanctumd\", Version=\"0.3.0\""
 
 /** config.id -> (jellyfin access token, user label) once a login has succeeded. */
 private val jellyfinSession = java.util.concurrent.ConcurrentHashMap<String, Pair<String, String>>()
@@ -245,7 +245,7 @@ private data class JfCounts(
     val CurrentProgram: JfChannelProgram? = null,
 )
 @Serializable private data class JfChannelsResp(val Items: List<JfChannel> = emptyList())
-@Serializable private data class JfMessageReq(val Text: String, val Header: String = "Nexarr", val TimeoutMs: Long = 5000)
+@Serializable private data class JfMessageReq(val Text: String, val Header: String = "Sanctumd", val TimeoutMs: Long = 5000)
 
 @Serializable private data class JfSystemInfo(
     val Version: String = "",

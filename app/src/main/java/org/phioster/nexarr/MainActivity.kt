@@ -217,7 +217,7 @@ private fun showUnlockPrompt(activity: androidx.fragment.app.FragmentActivity, o
         },
     )
     val info = androidx.biometric.BiometricPrompt.PromptInfo.Builder()
-        .setTitle("Nexarr")
+        .setTitle("Sanctumd")
         .setSubtitle("unlock")
         .setAllowedAuthenticators(
             androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK or
@@ -1563,7 +1563,7 @@ private fun LivePushSection(vm: DashboardViewModel) {
     val s by vm.notifySettings.collectAsState()
     val requestPermIfNeeded = rememberNotifPermissionRequester()
     Text(
-        "Instant — no 15-minute wait. Nexarr subscribes directly to a topic on your ntfy server and shows every message posted to it (your existing service webhooks already do this). Keeps a small background connection open. Topics of configured ntfy services are subscribed too.",
+        "Instant — no 15-minute wait. Sanctumd subscribes directly to a topic on your ntfy server and shows every message posted to it (your existing service webhooks already do this). Keeps a small background connection open. Topics of configured ntfy services are subscribed too.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 12.dp),
     )
     Spacer(Modifier.height(10.dp))
