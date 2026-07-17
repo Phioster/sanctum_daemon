@@ -83,6 +83,19 @@
                 android:resource="@xml/shortcut_icon_widget_info" />
         </receiver>
 
+        <!-- Homescreen widget: every service's status at a glance. -->
+        <receiver
+            android:name=".widget.StatusWidgetReceiver"
+            android:label="Sanctumd Status"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/status_widget_info" />
+        </receiver>
+
         <!-- Picks which shortcut the 1×1 icon widget fires (shown when placed). -->
         <activity
             android:name=".widget.ShortcutWidgetConfigActivity"
