@@ -26,7 +26,6 @@ import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
-import androidx.glance.layout.defaultWeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
@@ -84,8 +83,8 @@ class StatusWidget : GlanceAppWidget() {
                 Text(
                     "services",
                     style = TextStyle(color = ColorProvider(Green), fontSize = 12.sp, fontWeight = FontWeight.Bold),
-                    modifier = GlanceModifier.defaultWeight(),
                 )
+                Spacer(GlanceModifier.width(8.dp))
                 Text(
                     "⟳",
                     style = TextStyle(color = ColorProvider(Green), fontSize = 15.sp),
@@ -112,26 +111,27 @@ class StatusWidget : GlanceAppWidget() {
                                 ),
                             verticalAlignment = Alignment.Vertical.CenterVertically,
                         ) {
+                            Text(
+                                "●",
+                                style = TextStyle(
+                                    color = ColorProvider(if (snap?.ok == true) Green else if (snap == null) Dim else Red),
+                                    fontSize = 13.sp,
+                                ),
+                            )
+                            Spacer(GlanceModifier.width(8.dp))
                             Image(
                                 provider = ImageProvider(logoRes(svc.type)),
                                 contentDescription = null,
-                                modifier = GlanceModifier.size(22.dp),
+                                modifier = GlanceModifier.size(20.dp),
                             )
                             Spacer(GlanceModifier.width(8.dp))
-                            Column(GlanceModifier.defaultWeight()) {
+                            Column {
                                 Text(svc.label, maxLines = 1, style = TextStyle(color = ColorProvider(Green), fontSize = 13.sp))
                                 val note = snap?.note.orEmpty()
                                 if (note.isNotBlank()) {
                                     Text(note, maxLines = 1, style = TextStyle(color = ColorProvider(Dim), fontSize = 10.sp))
                                 }
                             }
-                            Text(
-                                "●",
-                                style = TextStyle(
-                                    color = ColorProvider(if (snap?.ok == true) Green else if (snap == null) Dim else Red),
-                                    fontSize = 14.sp,
-                                ),
-                            )
                         }
                     }
                 }

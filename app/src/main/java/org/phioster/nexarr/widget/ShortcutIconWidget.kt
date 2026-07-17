@@ -8,6 +8,8 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.Image
+import androidx.glance.ImageProvider
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -21,13 +23,21 @@ import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.padding
+import androidx.glance.layout.size
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import org.phioster.nexarr.R
 
-private val Green = Color(0xFF00FF41)
 private val Grey = Color(0xFF2C2C2E) // Nothing-widget-style neutral dark grey
+
+/** White monochrome icons offered for the 1×1 shortcut widget (index stored per widget). */
+val WIDGET_ICONS = listOf(
+    R.drawable.ic_wi_bolt, R.drawable.ic_wi_power, R.drawable.ic_wi_home, R.drawable.ic_wi_play,
+    R.drawable.ic_wi_refresh, R.drawable.ic_wi_bulb, R.drawable.ic_wi_wifi, R.drawable.ic_wi_server,
+    R.drawable.ic_wi_fire, R.drawable.ic_wi_settings, R.drawable.ic_wi_check, R.drawable.ic_wi_lock,
+)
 
 /**
  * A 1×1 icon widget that fires a single chosen HTTP shortcut (like the HTTP Shortcuts
@@ -40,7 +50,7 @@ class ShortcutIconWidget : GlanceAppWidget() {
             val prefs = currentState<Preferences>()
             val serviceId = prefs[serviceIdKey] ?: ""
             val name = prefs[nameKey] ?: ""
-            val emoji = prefs[emojiKey]?.takeIf { it.isNotBlank() } ?: "⚡"
+            val idx = (prefs[iconKey]?.toIntOrNull() ?: 0).coerceIn(0, WIDGET_ICONS.lastIndex)
             Column(
                 modifier = GlanceModifier.fillMaxSize()
                     .background(Grey)
@@ -57,7 +67,11 @@ class ShortcutIconWidget : GlanceAppWidget() {
                 verticalAlignment = Alignment.Vertical.CenterVertically,
                 horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
             ) {
-                Text(emoji, style = TextStyle(color = ColorProvider(Green), fontSize = 30.sp, textAlign = TextAlign.Center))
+                Image(
+                    provider = ImageProvider(WIDGET_ICONS[idx]),
+                    contentDescription = null,
+                    modifier = GlanceModifier.size(30.dp),
+                )
             }
         }
     }
@@ -65,7 +79,7 @@ class ShortcutIconWidget : GlanceAppWidget() {
     companion object {
         val serviceIdKey = stringPreferencesKey("icon_service_id")
         val nameKey = stringPreferencesKey("icon_shortcut_name")
-        val emojiKey = stringPreferencesKey("icon_emoji")
+        val iconKey = stringPreferencesKey("icon_index")
     }
 }
 

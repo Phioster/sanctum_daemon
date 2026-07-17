@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -52,12 +54,6 @@ private val Bg = Color(0xFF0A0F0A)
 private val Green = Color(0xFF00FF41)
 private val Chip = Color(0xFF13251A)
 private val Dim = Color(0xFF7A9A7A)
-
-/** Icons offered for the 1×1 shortcut widget (so it's recognisable without text). */
-private val ICONS = listOf(
-    "⚡", "🚀", "🖥️", "🏠", "🔌", "▶️", "🔄", "💡",
-    "🔋", "📡", "⚙️", "🔥", "🌙", "☀️", "✅", "🔒",
-)
 
 /** Shown when the 1×1 icon widget is placed: pick which shortcut it fires + an icon. */
 class ShortcutWidgetConfigActivity : ComponentActivity() {
@@ -88,13 +84,13 @@ class ShortcutWidgetConfigActivity : ComponentActivity() {
                 .flatMap { svc -> svc.shortcuts.map { svc to it } }
         }
 
-        fun save(svc: ServiceConfig, sc: HttpShortcut, emoji: String) {
+        fun save(svc: ServiceConfig, sc: HttpShortcut, iconIndex: Int) {
             scope.launch {
                 val glanceId = GlanceAppWidgetManager(ctx).getGlanceIdBy(appWidgetId)
                 updateAppWidgetState(ctx, glanceId) { prefs ->
                     prefs[ShortcutIconWidget.serviceIdKey] = svc.id
                     prefs[ShortcutIconWidget.nameKey] = sc.name
-                    prefs[ShortcutIconWidget.emojiKey] = emoji
+                    prefs[ShortcutIconWidget.iconKey] = iconIndex.toString()
                 }
                 ShortcutIconWidget().update(ctx, glanceId)
                 setResult(Activity.RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
@@ -138,14 +134,20 @@ class ShortcutWidgetConfigActivity : ComponentActivity() {
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    ICONS.forEach { e ->
+                    WIDGET_ICONS.forEachIndexed { i, res ->
                         Box(
                             Modifier.size(54.dp)
                                 .clip(RoundedCornerShape(14.dp))
                                 .background(Chip)
-                                .clickable { save(sel.first, sel.second, e) },
+                                .clickable { save(sel.first, sel.second, i) },
                             contentAlignment = Alignment.Center,
-                        ) { Text(e, fontSize = 26.sp) }
+                        ) {
+                            Image(
+                                painter = painterResource(res),
+                                contentDescription = null,
+                                modifier = Modifier.size(26.dp),
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.height(20.dp))
