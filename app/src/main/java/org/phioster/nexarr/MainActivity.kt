@@ -77,6 +77,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.ImeAction
@@ -188,11 +189,23 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 org.phioster.nexarr.notify.NtfyStreamService.start(this@MainActivity)
             }
         }
+        vm.setRoute(routeFromIntent(intent)) // launcher shortcut, if any
         setContent {
             MaterialTheme(colorScheme = NexarrColors) {
                 AppLockGate(vm = vm, activity = this) { NexarrApp(vm = vm) }
             }
         }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        routeFromIntent(intent)?.let { vm.setRoute(it) }
+    }
+
+    private fun routeFromIntent(intent: android.content.Intent?): org.phioster.nexarr.ui.PendingRoute? {
+        val route = intent?.getStringExtra("route") ?: return null
+        return org.phioster.nexarr.ui.PendingRoute(route, intent.getStringExtra("serviceId"))
     }
 
     override fun onStop() {
@@ -207,6 +220,31 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             vm.unlocked.value = false
         }
     }
+}
+
+/** (Re)publishes the launcher long-press shortcuts: Search + Settings always, plus
+ *  Seerr / Jellyfin when such a service is configured (opens that service directly). */
+private fun updateShortcuts(context: android.content.Context, services: List<ServiceConfig>) {
+    fun make(id: String, label: String, longLabel: String, iconRes: Int, extras: Map<String, String>): androidx.core.content.pm.ShortcutInfoCompat {
+        val intent = android.content.Intent(context, MainActivity::class.java).setAction(android.content.Intent.ACTION_VIEW)
+        extras.forEach { (k, v) -> intent.putExtra(k, v) }
+        return androidx.core.content.pm.ShortcutInfoCompat.Builder(context, id)
+            .setShortLabel(label)
+            .setLongLabel(longLabel)
+            .setIcon(androidx.core.graphics.drawable.IconCompat.createWithResource(context, iconRes))
+            .setIntent(intent)
+            .build()
+    }
+    val list = mutableListOf<androidx.core.content.pm.ShortcutInfoCompat>()
+    list += make("search", "Search", "Search", R.drawable.ic_shortcut_search, mapOf("route" to "search"))
+    list += make("settings", "Settings", "Settings", R.drawable.ic_shortcut_settings, mapOf("route" to "settings"))
+    services.firstOrNull { it.type == ServiceType.SEERR }?.let {
+        list += make("svc_seerr", "Seerr", "Open Seerr", R.drawable.svc_seerr, mapOf("route" to "service", "serviceId" to it.id))
+    }
+    services.firstOrNull { it.type == ServiceType.JELLYFIN }?.let {
+        list += make("svc_jellyfin", "Jellyfin", "Open Jellyfin", R.drawable.svc_jellyfin, mapOf("route" to "service", "serviceId" to it.id))
+    }
+    runCatching { androidx.core.content.pm.ShortcutManagerCompat.setDynamicShortcuts(context, list.take(4)) }
 }
 
 /** Fires the system biometric/credential prompt; [onSuccess] runs on the main executor. */
@@ -288,6 +326,25 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
             notifOpen -> notifOpen = false
             else -> searchOpen = false
         }
+    }
+
+    // Keep the launcher long-press shortcuts in sync with the configured services.
+    val shortcutCtx = LocalContext.current
+    val allServicesForShortcuts by vm.services.collectAsState()
+    LaunchedEffect(allServicesForShortcuts) { updateShortcuts(shortcutCtx, allServicesForShortcuts) }
+
+    // Route a tap on a launcher shortcut to the matching screen, once.
+    val pendingRoute by vm.pendingRoute.collectAsState()
+    LaunchedEffect(pendingRoute) {
+        val p = pendingRoute ?: return@LaunchedEffect
+        when (p.kind) {
+            "search" -> { addOpen = false; editing = null; detail = null; searchTerm = ""; searchOpen = true }
+            "settings" -> { addOpen = false; editing = null; detail = null; searchOpen = false; notifOpen = true }
+            "service" -> allServicesForShortcuts.firstOrNull { it.id == p.serviceId }?.let {
+                detailFromSearch = false; searchDeepLink = null; searchOpen = false; notifOpen = false; detail = it
+            }
+        }
+        vm.consumeRoute()
     }
 
     when {
@@ -676,6 +733,7 @@ private fun ServicesDrawer(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ServicesContent(
     vm: DashboardViewModel,
@@ -684,6 +742,13 @@ private fun ServicesContent(
 ) {
     val services by vm.services.collectAsState()
     val statuses by vm.statuses.collectAsState()
+    val scope = rememberCoroutineScope()
+    var refreshing by remember { mutableStateOf(false) }
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = { scope.launch { refreshing = true; vm.refreshAllSuspend(); refreshing = false } },
+        modifier = Modifier.fillMaxSize(),
+    ) {
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         if (services.isEmpty()) {
             Spacer(Modifier.height(48.dp))
@@ -704,8 +769,10 @@ private fun ServicesContent(
             Spacer(Modifier.height(12.dp))
         }
     }
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WidgetTabContent(
     vm: DashboardViewModel,
@@ -720,8 +787,22 @@ private fun WidgetTabContent(
 ) {
     val services by vm.services.collectAsState()
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    var refreshing by remember { mutableStateOf(false) }
     // Entering edit mode prepends the tab-edit bar at the top; scroll up so it's visible.
     LaunchedEffect(editMode) { if (editMode) listState.animateScrollToItem(0) }
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = {
+            scope.launch {
+                refreshing = true
+                vm.dashRefreshTick.intValue++ // force every card to reload its data
+                vm.refreshAllSuspend()
+                refreshing = false
+            }
+        },
+        modifier = Modifier.fillMaxSize(),
+    ) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), state = listState) {
         if (!editMode) {
             item {
@@ -774,6 +855,7 @@ private fun WidgetTabContent(
         }
         item { Spacer(Modifier.height(24.dp)) }
     }
+    }
 }
 
 @Composable
@@ -813,7 +895,7 @@ private fun DashCardView(
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(card.id, config?.id) {
+    LaunchedEffect(card.id, config?.id, vm.dashRefreshTick.intValue) {
         if (serviceless) return@LaunchedEffect // Section / Quick Buttons need no data
         if (config == null) { error = "service not found"; return@LaunchedEffect }
         // Retry a couple of times: on a cold start the Jellyfin token may not be ready yet.

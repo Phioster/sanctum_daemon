@@ -141,11 +141,24 @@ import org.phioster.nexarr.net.prowlarrToggleIndexer
 import org.phioster.nexarr.net.runProwlarrTestAll
 import org.phioster.nexarr.net.runSearchMissing
 
+/** Where a launcher shortcut wants to navigate. [serviceId] is set for kind "service". */
+data class PendingRoute(val kind: String, val serviceId: String? = null)
+
 class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     // Home navigation state lives here (not in composables) so it survives when HomeShell
     // leaves composition — otherwise back from a service always lands on the first tab.
     val homeTab = androidx.compose.runtime.mutableIntStateOf(0)
+
+    /** Bumped by pull-to-refresh on a dashboard tab; dashboard cards key their data
+     *  load on it, so incrementing forces every card to reload. */
+    val dashRefreshTick = androidx.compose.runtime.mutableIntStateOf(0)
+
+    /** A pending navigation from a launcher shortcut, consumed once by the UI. */
+    private val _pendingRoute = MutableStateFlow<PendingRoute?>(null)
+    val pendingRoute: StateFlow<PendingRoute?> = _pendingRoute.asStateFlow()
+    fun setRoute(route: PendingRoute?) { _pendingRoute.value = route }
+    fun consumeRoute() { _pendingRoute.value = null }
 
     /** Set when navigating away from inside the Services drawer; HomeShell reopens it once on return. */
     var reopenDrawer: Boolean = false
@@ -282,6 +295,17 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     fun refreshAll() {
         _services.value.forEach { config ->
             viewModelScope.launch {
+                setStatus(config.id, ServiceStatus.Loading)
+                setStatus(config.id, fetchStatus(config))
+            }
+        }
+    }
+
+    /** Like [refreshAll] but suspends until every service status has reloaded, so a
+     *  pull-to-refresh spinner can stay up until the work is actually done. */
+    suspend fun refreshAllSuspend() = kotlinx.coroutines.coroutineScope {
+        _services.value.forEach { config ->
+            launch {
                 setStatus(config.id, ServiceStatus.Loading)
                 setStatus(config.id, fetchStatus(config))
             }
