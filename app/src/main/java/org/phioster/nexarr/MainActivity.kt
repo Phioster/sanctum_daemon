@@ -848,6 +848,7 @@ private fun WidgetTabContent(
                     isFirst = index == 0,
                     isLast = index == tab.cards.lastIndex,
                     onOpenService = { config?.let(onOpenService) },
+                    onOpenAny = onOpenService,
                     onRemove = { vm.removeCard(tab.id, card.id) },
                     onMoveUp = { vm.moveCard(tab.id, card.id, -1) },
                     onMoveDown = { vm.moveCard(tab.id, card.id, +1) },
@@ -870,6 +871,7 @@ private fun DashCardView(
     isFirst: Boolean,
     isLast: Boolean,
     onOpenService: () -> Unit,
+    onOpenAny: (ServiceConfig) -> Unit = {},
     onRemove: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
@@ -1117,7 +1119,7 @@ private fun DashCardView(
                     else -> Column { c.take(card.count).forEach { DashLineRow("${if (it.hasFile) "✓ " else ""}${it.title}", "${it.date}${if (it.subtitle.isNotBlank()) " · ${it.subtitle}" else ""}", accent, card.density) { onOpenService() } } }
                 }
             }
-            card.type == CardType.UNIFIED_CALENDAR -> UnifiedCalendarCard(vm, accentColor, onOpenService)
+            card.type == CardType.UNIFIED_CALENDAR -> UnifiedCalendarCard(vm, accent, onOpenAny)
             card.type == CardType.RADARR_HISTORY || card.type == CardType.SONARR_HISTORY || card.type == CardType.LIDARR_HISTORY -> {
                 val h = history
                 when {
@@ -1199,6 +1201,7 @@ private fun DashCardView(
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     Field("Title (blank = ${card.type.label})", cfgTitle) { cfgTitle = it }
+                    if (card.type != CardType.UNIFIED_CALENDAR) { // count/density don't apply to the calendar grid
                     Spacer(Modifier.height(16.dp))
                     label("ENTRIES SHOWN")
                     Spacer(Modifier.height(6.dp))
@@ -1223,6 +1226,7 @@ private fun DashCardView(
                         }
                     }
                     Spacer(Modifier.height(16.dp))
+                    }
                     label("CARD STYLE")
                     Spacer(Modifier.height(6.dp))
                     Row {
@@ -1324,7 +1328,7 @@ private fun DashSessionRow(item: org.phioster.nexarr.model.JellySession, accent:
 /** Dashboard card: a month calendar grid of upcoming releases merged across all *arr,
  *  month-switchable, services marked by their accent colour; tap a day for its list. */
 @Composable
-private fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenService: () -> Unit) {
+private fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenService: (ServiceConfig) -> Unit) {
     var month by remember { mutableStateOf(java.time.YearMonth.now()) }
     var byDay by remember { mutableStateOf<Map<java.time.LocalDate, List<Pair<ServiceConfig, org.phioster.nexarr.model.ArrCalendarItem>>>?>(null) }
     var selected by remember { mutableStateOf<java.time.LocalDate?>(java.time.LocalDate.now()) }
@@ -1352,12 +1356,20 @@ private fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenSer
                 fontFamily = Mono, color = accent, fontSize = 14.sp, fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center, modifier = Modifier.weight(1f),
             )
+            if (month != java.time.YearMonth.now()) {
+                Text(
+                    "•now", fontFamily = Mono, color = accent.copy(alpha = 0.6f), fontSize = 11.sp,
+                    modifier = Modifier
+                        .clickable { month = java.time.YearMonth.now(); selected = java.time.LocalDate.now() }
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                )
+            }
             Text("▶", fontFamily = Mono, color = accent, fontSize = 16.sp, modifier = Modifier.clickable { month = month.plusMonths(1) }.padding(horizontal = 10.dp, vertical = 4.dp))
         }
         Spacer(Modifier.height(4.dp))
         Row(Modifier.fillMaxWidth()) {
             listOf("M", "T", "W", "T", "F", "S", "S").forEach { d ->
-                Text(d, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+                Text(d, fontFamily = Mono, color = accent.copy(alpha = 0.45f), fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
             }
         }
         val first = month.atDay(1)
@@ -1384,7 +1396,7 @@ private fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenSer
                                 Text(
                                     "${date.dayOfMonth}",
                                     fontFamily = Mono,
-                                    color = if (date == today) accent else MatrixGreen.copy(alpha = if (items.isEmpty()) 0.5f else 0.9f),
+                                    color = if (date == today) accent else accent.copy(alpha = if (items.isEmpty()) 0.5f else 0.9f),
                                     fontSize = 11.sp,
                                     fontWeight = if (date == today) FontWeight.Bold else FontWeight.Normal,
                                 )
@@ -1402,16 +1414,16 @@ private fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenSer
             }
         }
         Spacer(Modifier.height(6.dp))
-        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.12f))
+        HorizontalDivider(color = accent.copy(alpha = 0.12f))
         val sel = selected
         val selItems = sel?.let { map[it] }.orEmpty()
         when {
-            byDay == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
-            sel == null -> Text("pick a day", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
-            selItems.isEmpty() -> Text("nothing on ${sel.format(java.time.format.DateTimeFormatter.ofPattern("d MMM"))}", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+            byDay == null -> Text("loading…", fontFamily = Mono, color = accent.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+            sel == null -> Text("pick a day", fontFamily = Mono, color = accent.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+            selItems.isEmpty() -> Text("nothing on ${sel.format(java.time.format.DateTimeFormatter.ofPattern("d MMM"))}", fontFamily = Mono, color = accent.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
             else -> Column {
                 selItems.forEach { (cfg, ci) ->
-                    DashLineRow("${if (ci.hasFile) "✓ " else ""}${ci.title}", "${cfg.type.label}${if (ci.subtitle.isNotBlank()) " · ${ci.subtitle}" else ""}", Color(cfg.type.accent)) { onOpenService() }
+                    DashLineRow("${if (ci.hasFile) "✓ " else ""}${ci.title}", "${cfg.type.label}${if (ci.subtitle.isNotBlank()) " · ${ci.subtitle}" else ""}", Color(cfg.type.accent)) { onOpenService(cfg) }
                 }
             }
         }
@@ -1421,7 +1433,7 @@ private fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenSer
                 arrServices.forEach { svc ->
                     Box(Modifier.size(6.dp).background(Color(svc.type.accent), androidx.compose.foundation.shape.CircleShape))
                     Spacer(Modifier.width(3.dp))
-                    Text(svc.label, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 9.sp)
+                    Text(svc.label, fontFamily = Mono, color = accent.copy(alpha = 0.6f), fontSize = 9.sp)
                     Spacer(Modifier.width(10.dp))
                 }
             }
