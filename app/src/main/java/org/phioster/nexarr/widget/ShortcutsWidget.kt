@@ -52,13 +52,8 @@ class ShortcutsWidget : GlanceAppWidget() {
     @Composable
     private fun Content(entries: List<ShortcutEntry>) {
         Column(
-            modifier = GlanceModifier.fillMaxSize().background(Bg).cornerRadius(14.dp).padding(8.dp),
+            modifier = GlanceModifier.fillMaxSize().background(Bg).cornerRadius(14.dp).padding(6.dp),
         ) {
-            Text(
-                "⚡ sanctumd",
-                style = TextStyle(color = ColorProvider(Green), fontSize = 11.sp, fontWeight = FontWeight.Bold),
-            )
-            Spacer(GlanceModifier.height(4.dp))
             if (entries.isEmpty()) {
                 Text(
                     "no shortcuts — add a Shortcuts service in the app",
