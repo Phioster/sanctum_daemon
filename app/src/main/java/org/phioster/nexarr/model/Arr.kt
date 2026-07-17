@@ -13,6 +13,8 @@ data class ArrCalendarItem(
     val subtitle: String,
     val date: String,
     val hasFile: Boolean,
+    /** id of the parent library item (movie / series / artist) for opening detail. */
+    val itemId: Int = 0,
 )
 
 /** A download in a Servarr app's queue. */

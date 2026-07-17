@@ -1204,19 +1204,22 @@ suspend fun arrCalendarRange(config: ServiceConfig, start: java.time.Instant, en
                 val e = jsInt(o, "episodeNumber") ?: 0
                 val ep = jsStr(o, "title") ?: ""
                 val date = jsStr(o, "airDateUtc") ?: jsStr(o, "airDate") ?: ""
-                ArrCalendarItem(show, "S%02dE%02d%s".format(s, e, if (ep.isNotBlank()) " · $ep" else ""), date.take(10), hasFile)
+                val sid = jsInt(o, "seriesId") ?: series?.let { jsInt(it, "id") } ?: 0
+                ArrCalendarItem(show, "S%02dE%02d%s".format(s, e, if (ep.isNotBlank()) " · $ep" else ""), date.take(10), hasFile, sid)
             }
             ServiceType.LIDARR -> {
-                val artist = (o["artist"] as? JsonObject)?.let { jsStr(it, "artistName") } ?: ""
+                val artistObj = (o["artist"] as? JsonObject)
+                val artist = artistObj?.let { jsStr(it, "artistName") } ?: ""
                 val album = jsStr(o, "title") ?: "?"
                 val date = jsStr(o, "releaseDate") ?: ""
-                ArrCalendarItem(album, artist, date.take(10), hasFile)
+                val aid = jsInt(o, "artistId") ?: artistObj?.let { jsInt(it, "id") } ?: 0
+                ArrCalendarItem(album, artist, date.take(10), hasFile, aid)
             }
             else -> {
                 val title = jsStr(o, "title") ?: "?"
                 val date = jsStr(o, "digitalRelease") ?: jsStr(o, "physicalRelease") ?: jsStr(o, "inCinemas") ?: ""
                 val year = jsInt(o, "year")?.takeIf { it > 0 }?.toString() ?: ""
-                ArrCalendarItem(title, year, date.take(10), hasFile)
+                ArrCalendarItem(title, year, date.take(10), hasFile, jsInt(o, "id") ?: 0)
             }
         }
     }.filter { it.date.isNotBlank() }.sortedBy { it.date }

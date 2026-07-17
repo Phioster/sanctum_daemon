@@ -1332,6 +1332,7 @@ private fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenSer
     var month by remember { mutableStateOf(java.time.YearMonth.now()) }
     var byDay by remember { mutableStateOf<Map<java.time.LocalDate, List<Pair<ServiceConfig, org.phioster.nexarr.model.ArrCalendarItem>>>?>(null) }
     var selected by remember { mutableStateOf<java.time.LocalDate?>(java.time.LocalDate.now()) }
+    var info by remember { mutableStateOf<Pair<ServiceConfig, org.phioster.nexarr.model.ArrCalendarItem>?>(null) }
 
     LaunchedEffect(month, vm.dashRefreshTick.intValue) {
         byDay = null
@@ -1369,7 +1370,7 @@ private fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenSer
         Spacer(Modifier.height(4.dp))
         Row(Modifier.fillMaxWidth()) {
             listOf("M", "T", "W", "T", "F", "S", "S").forEach { d ->
-                Text(d, fontFamily = Mono, color = accent.copy(alpha = 0.45f), fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+                Text(d, fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
             }
         }
         val first = month.atDay(1)
@@ -1388,7 +1389,7 @@ private fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenSer
                             val isSel = date == selected
                             Column(
                                 Modifier.fillMaxSize()
-                                    .then(if (isSel) Modifier.background(accent.copy(alpha = 0.18f), RoundedCornerShape(6.dp)) else Modifier)
+                                    .then(if (isSel) Modifier.background(accent.copy(alpha = 0.22f), RoundedCornerShape(6.dp)) else Modifier)
                                     .clickable { selected = date },
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center,
@@ -1396,7 +1397,7 @@ private fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenSer
                                 Text(
                                     "${date.dayOfMonth}",
                                     fontFamily = Mono,
-                                    color = if (date == today) accent else accent.copy(alpha = if (items.isEmpty()) 0.5f else 0.9f),
+                                    color = if (date == today) accent else accent.copy(alpha = if (items.isEmpty()) 0.75f else 1f),
                                     fontSize = 11.sp,
                                     fontWeight = if (date == today) FontWeight.Bold else FontWeight.Normal,
                                 )
@@ -1414,16 +1415,16 @@ private fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenSer
             }
         }
         Spacer(Modifier.height(6.dp))
-        HorizontalDivider(color = accent.copy(alpha = 0.12f))
+        HorizontalDivider(color = accent.copy(alpha = 0.25f))
         val sel = selected
         val selItems = sel?.let { map[it] }.orEmpty()
         when {
-            byDay == null -> Text("loading…", fontFamily = Mono, color = accent.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
-            sel == null -> Text("pick a day", fontFamily = Mono, color = accent.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
-            selItems.isEmpty() -> Text("nothing on ${sel.format(java.time.format.DateTimeFormatter.ofPattern("d MMM"))}", fontFamily = Mono, color = accent.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+            byDay == null -> Text("loading…", fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+            sel == null -> Text("pick a day", fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+            selItems.isEmpty() -> Text("nothing on ${sel.format(java.time.format.DateTimeFormatter.ofPattern("d MMM"))}", fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
             else -> Column {
                 selItems.forEach { (cfg, ci) ->
-                    DashLineRow("${if (ci.hasFile) "✓ " else ""}${ci.title}", "${cfg.type.label}${if (ci.subtitle.isNotBlank()) " · ${ci.subtitle}" else ""}", Color(cfg.type.accent)) { onOpenService(cfg) }
+                    DashLineRow("${if (ci.hasFile) "✓ " else ""}${ci.title}", "${cfg.type.label}${if (ci.subtitle.isNotBlank()) " · ${ci.subtitle}" else ""}", Color(cfg.type.accent), titleColor = accent) { info = cfg to ci }
                 }
             }
         }
@@ -1433,20 +1434,90 @@ private fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenSer
                 arrServices.forEach { svc ->
                     Box(Modifier.size(6.dp).background(Color(svc.type.accent), androidx.compose.foundation.shape.CircleShape))
                     Spacer(Modifier.width(3.dp))
-                    Text(svc.label, fontFamily = Mono, color = accent.copy(alpha = 0.6f), fontSize = 9.sp)
+                    Text(svc.label, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 9.sp)
                     Spacer(Modifier.width(10.dp))
                 }
             }
         }
     }
+
+    info?.let { (cfg, ci) ->
+        CalendarItemInfoDialog(vm, cfg, ci, onOpen = { onOpenService(cfg); info = null }, onDismiss = { info = null })
+    }
+}
+
+/** Loads full arr detail for a tapped calendar entry and shows poster + facts + overview. */
+@Composable
+private fun CalendarItemInfoDialog(
+    vm: DashboardViewModel,
+    cfg: ServiceConfig,
+    ci: org.phioster.nexarr.model.ArrCalendarItem,
+    onOpen: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var detail by remember { mutableStateOf<ArrDetail?>(null) }
+    var failed by remember { mutableStateOf(false) }
+    LaunchedEffect(cfg.id, ci.itemId) {
+        if (ci.itemId > 0) {
+            detail = runCatching { vm.arrDetailOf(cfg, ci.itemId) }.getOrElse { failed = true; null }
+        } else failed = true
+    }
+    val d = detail
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surface,
+        title = { Text(d?.title ?: ci.title, fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Row {
+                    if (!d?.posterUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = d!!.posterUrl, contentDescription = null, contentScale = ContentScale.Crop,
+                            modifier = Modifier.width(96.dp).height(144.dp).clip(RoundedCornerShape(6.dp)).background(Black),
+                        )
+                        Spacer(Modifier.width(12.dp))
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "${cfg.type.label}${if (ci.subtitle.isNotBlank()) " · ${ci.subtitle}" else ""}",
+                            fontFamily = Mono, color = Color(cfg.type.accent), fontSize = 11.sp,
+                        )
+                        runCatching {
+                            java.time.LocalDate.parse(ci.date).format(java.time.format.DateTimeFormatter.ofPattern("EEE, d MMM yyyy"))
+                        }.getOrNull()?.let {
+                            Text(it, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp)
+                        }
+                        Text(
+                            if (ci.hasFile) "✓ downloaded" else "◦ not yet available",
+                            fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp,
+                        )
+                        if (!d?.genres.isNullOrBlank()) Text(d!!.genres, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 10.sp)
+                        d?.facts?.forEach { (k, v) -> Text("$k: $v", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 10.sp) }
+                    }
+                }
+                when {
+                    d != null && d.overview.isNotBlank() -> {
+                        Spacer(Modifier.height(10.dp))
+                        Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.85f), fontSize = 12.sp)
+                    }
+                    detail == null && !failed -> {
+                        Spacer(Modifier.height(10.dp))
+                        Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onOpen) { Text("Open ${cfg.type.label}", fontFamily = Mono, color = MatrixGreen) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Close", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f)) } },
+    )
 }
 
 @Composable
-private fun DashLineRow(title: String, subtitle: String, accent: Color, density: String = "", onClick: (() -> Unit)? = null) {
+private fun DashLineRow(title: String, subtitle: String, accent: Color, density: String = "", titleColor: Color = MatrixGreen, onClick: (() -> Unit)? = null) {
     val vpad = when (density) { "compact" -> 2.dp; "detail" -> 9.dp; else -> 5.dp }
     val showSub = density != "compact" && subtitle.isNotBlank()
     Column(Modifier.fillMaxWidth().let { if (onClick != null) it.clickable { onClick() } else it }.padding(vertical = vpad)) {
-        Text(title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = if (density == "detail") 2 else 1, overflow = TextOverflow.Ellipsis)
+        Text(title, fontFamily = Mono, color = titleColor, fontSize = 13.sp, maxLines = if (density == "detail") 2 else 1, overflow = TextOverflow.Ellipsis)
         if (showSub) Text(subtitle, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
