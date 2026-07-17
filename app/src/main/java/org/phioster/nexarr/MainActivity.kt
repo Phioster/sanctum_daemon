@@ -887,7 +887,17 @@ private fun DashCardView(
                     Spacer(Modifier.width(8.dp))
                 } else if (config != null && card.type != CardType.SECTION) {
                     // No custom icon chosen -> the service's brand logo.
-                    ServiceLogo(config.type, 18.dp)
+                    if (card.theme == "glass") {
+                        // Frosted chip so official logos with dark parts (e.g. Radarr's
+                        // navy ring) stay legible on the dark glass surface.
+                        Box(
+                            Modifier.size(26.dp)
+                                .background(Color.White.copy(alpha = 0.92f), RoundedCornerShape(7.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) { ServiceLogo(config.type, 18.dp) }
+                    } else {
+                        ServiceLogo(config.type, 18.dp)
+                    }
                     Spacer(Modifier.width(8.dp))
                 }
                 Column {
