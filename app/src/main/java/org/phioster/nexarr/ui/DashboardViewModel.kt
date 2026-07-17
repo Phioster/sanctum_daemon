@@ -535,6 +535,22 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         arrDelete(config, id, deleteFiles)
     suspend fun arrHistoryList(config: ServiceConfig): List<ArrHistoryItem> = arrHistory(config)
     suspend fun arrCalendarList(config: ServiceConfig): List<org.phioster.nexarr.model.ArrCalendarItem> = arrCalendar(config)
+
+    /** Merged upcoming releases across every Radarr/Sonarr/Lidarr service, tagged with
+     *  the owning config, sorted by date (used by the unified calendar screen). */
+    suspend fun unifiedCalendar(): List<Pair<ServiceConfig, org.phioster.nexarr.model.ArrCalendarItem>> =
+        kotlinx.coroutines.coroutineScope {
+            _services.value
+                .filter {
+                    it.type == org.phioster.nexarr.model.ServiceType.RADARR ||
+                        it.type == org.phioster.nexarr.model.ServiceType.SONARR ||
+                        it.type == org.phioster.nexarr.model.ServiceType.LIDARR
+                }
+                .map { svc -> async { runCatching { arrCalendar(svc) }.getOrDefault(emptyList()).map { svc to it } } }
+                .map { it.await() }
+                .flatten()
+                .sortedBy { it.second.date }
+        }
     suspend fun arrSearchAllItems(config: ServiceConfig, cutoff: Boolean): String = arrSearchAll(config, cutoff)
     suspend fun arrRssSyncNow(config: ServiceConfig): String = org.phioster.nexarr.net.arrRssSync(config)
     suspend fun arrSystemInfo(config: ServiceConfig): org.phioster.nexarr.model.ArrSystemInfo = arrSystem(config)

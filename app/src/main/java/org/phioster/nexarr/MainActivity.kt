@@ -44,6 +44,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -312,6 +313,7 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
     var searchOpen by remember { mutableStateOf(false) }
     var searchTerm by remember { mutableStateOf("") }
     var notifOpen by remember { mutableStateOf(false) }
+    var calendarOpen by remember { mutableStateOf(false) }
     var detailFromSearch by remember { mutableStateOf(false) } // service opened from search results
     var searchDeepLink by remember { mutableStateOf<SearchDeepLink?>(null) }
 
@@ -322,11 +324,12 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
         if (detailFromSearch) { detailFromSearch = false; searchOpen = true }
     }
     val editorOpen = addOpen || editing != null
-    BackHandler(enabled = editorOpen || detail != null || searchOpen || notifOpen) {
+    BackHandler(enabled = editorOpen || detail != null || searchOpen || notifOpen || calendarOpen) {
         when {
             editorOpen -> { addOpen = false; editing = null }
             detail != null -> closeDetail()
             notifOpen -> notifOpen = false
+            calendarOpen -> calendarOpen = false
             else -> searchOpen = false
         }
     }
@@ -387,6 +390,11 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
             onTermChange = { searchTerm = it },
         )
         notifOpen -> SettingsScreen(vm = vm, onBack = { notifOpen = false })
+        calendarOpen -> CalendarScreen(
+            vm = vm,
+            onBack = { calendarOpen = false },
+            onOpenService = { cfg -> calendarOpen = false; detail = cfg },
+        )
         else -> HomeShell(
             vm = vm,
             onAdd = { addOpen = true },
@@ -394,6 +402,7 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
             onEdit = { editing = it },
             onSearch = { term -> searchTerm = term; searchOpen = true },
             onNotifications = { notifOpen = true },
+            onCalendar = { calendarOpen = true },
         )
     }
 
@@ -525,6 +534,7 @@ private fun HomeShell(
     onEdit: (ServiceConfig) -> Unit,
     onSearch: (String) -> Unit,
     onNotifications: () -> Unit,
+    onCalendar: () -> Unit,
 ) {
     val tabs by vm.tabs.collectAsState()
     val services by vm.services.collectAsState()
@@ -578,6 +588,7 @@ private fun HomeShell(
                     onEdit = { cfg -> vm.reopenDrawer = true; onEdit(cfg) },
                     onAdd = { vm.reopenDrawer = true; onAdd() },
                     onNotifications = { vm.reopenDrawer = true; onNotifications() },
+                    onCalendar = { vm.reopenDrawer = true; onCalendar() },
                     onSearch = { term -> vm.reopenDrawer = true; onSearch(term) },
                     onClose = { scope.launch { drawerState.close() } },
                 )
@@ -709,6 +720,7 @@ private fun ServicesDrawer(
     onEdit: (ServiceConfig) -> Unit,
     onAdd: () -> Unit,
     onNotifications: () -> Unit,
+    onCalendar: () -> Unit,
     onSearch: (String) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -721,6 +733,7 @@ private fun ServicesDrawer(
                 navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close", tint = MatrixGreen) } },
                 actions = {
                     IconButton(onClick = { onSearch("") }) { Icon(Icons.Filled.Search, contentDescription = "Search", tint = MatrixGreen) }
+                    IconButton(onClick = onCalendar) { Icon(Icons.Filled.CalendarMonth, contentDescription = "Calendar", tint = MatrixGreen) }
                     IconButton(onClick = onNotifications) { Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MatrixGreen) }
                     // Refresh removed — pull-to-refresh on the list covers it now.
                 },
@@ -1848,6 +1861,87 @@ private fun shareConfig(context: android.content.Context, bytes: ByteArray) {
         context.startActivity(Intent.createChooser(send, "Share config"))
     }.onFailure {
         android.widget.Toast.makeText(context, "share failed", android.widget.Toast.LENGTH_SHORT).show()
+    }
+}
+
+/** Unified calendar: upcoming releases merged across all Radarr/Sonarr/Lidarr, by date. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CalendarScreen(vm: DashboardViewModel, onBack: () -> Unit, onOpenService: (ServiceConfig) -> Unit) {
+    val scope = rememberCoroutineScope()
+    var items by remember { mutableStateOf<List<Pair<ServiceConfig, org.phioster.nexarr.model.ArrCalendarItem>>?>(null) }
+    var refreshing by remember { mutableStateOf(false) }
+    suspend fun load() { items = runCatching { vm.unifiedCalendar() }.getOrDefault(emptyList()) }
+    LaunchedEffect(Unit) { load() }
+
+    Scaffold(
+        containerColor = Black,
+        topBar = {
+            TopAppBar(
+                title = { Text("> calendar", fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
+            )
+        },
+    ) { padding ->
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = { scope.launch { refreshing = true; load(); refreshing = false } },
+            modifier = Modifier.fillMaxSize().padding(padding),
+        ) {
+            val list = items
+            when {
+                list == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f))
+                }
+                list.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("no upcoming releases in the next 30 days", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp)
+                }
+                else -> {
+                    val today = java.time.LocalDate.now()
+                    fun label(d: String): String = runCatching {
+                        val ld = java.time.LocalDate.parse(d)
+                        when (ld) {
+                            today -> "today"
+                            today.plusDays(1) -> "tomorrow"
+                            else -> ld.format(java.time.format.DateTimeFormatter.ofPattern("EEE · d MMM"))
+                        }
+                    }.getOrDefault(d)
+                    val grouped = list.groupBy { it.second.date }
+                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                        grouped.forEach { (date, entries) ->
+                            item {
+                                Spacer(Modifier.height(12.dp))
+                                Text(label(date), fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f), modifier = Modifier.padding(top = 4.dp))
+                            }
+                            items(entries) { (cfg, ci) ->
+                                Row(
+                                    Modifier.fillMaxWidth().clickable { onOpenService(cfg) }.padding(vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    ServiceLogo(cfg.type, 18.dp)
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(ci.title, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        if (ci.subtitle.isNotBlank()) {
+                                            Text(ci.subtitle, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        }
+                                    }
+                                    Text(
+                                        if (ci.hasFile) "✓" else "○",
+                                        fontFamily = Mono,
+                                        color = if (ci.hasFile) MatrixGreen else MatrixGreen.copy(alpha = 0.4f),
+                                        fontSize = 14.sp,
+                                    )
+                                }
+                            }
+                        }
+                        item { Spacer(Modifier.height(24.dp)) }
+                    }
+                }
+            }
+        }
     }
 }
 
