@@ -906,12 +906,17 @@ private fun DashCardView(
     var nzbHistory by remember { mutableStateOf<List<org.phioster.nexarr.model.NzbHistoryEntry>?>(null) }
     var discover by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrDiscoverItem>?>(null) }
     var sysHealth by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
+    var uniCal by remember { mutableStateOf<List<Pair<ServiceConfig, org.phioster.nexarr.model.ArrCalendarItem>>?>(null) }
     var detail by remember { mutableStateOf<MediaDetail?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(card.id, config?.id, vm.dashRefreshTick.intValue) {
+        if (card.type == CardType.UNIFIED_CALENDAR) { // serviceless but merges all *arr calendars
+            uniCal = runCatching { vm.unifiedCalendar() }.getOrNull()
+            return@LaunchedEffect
+        }
         if (serviceless) return@LaunchedEffect // Section / Quick Buttons need no data
         if (config == null) { error = "service not found"; return@LaunchedEffect }
         // Retry a couple of times: on a cold start the Jellyfin token may not be ready yet.
@@ -920,7 +925,7 @@ private fun DashCardView(
             error = null
             try {
                 when (card.type) {
-                    CardType.SECTION, CardType.QUICKBUTTONS, CardType.SHORTCUTS -> {}
+                    CardType.SECTION, CardType.QUICKBUTTONS, CardType.SHORTCUTS, CardType.UNIFIED_CALENDAR -> {}
                     CardType.JELLYFIN_SESSIONS -> sessions = vm.jellyfinSessionList(config)
                     CardType.JELLYFIN_RECENT -> items = vm.jellyfinRecent(config, null)
                     CardType.JELLYFIN_RESUME -> items = vm.jellyfinContinue(config)
@@ -1128,6 +1133,22 @@ private fun DashCardView(
                     c == null -> loading()
                     c.isEmpty() -> empty("nothing upcoming")
                     else -> Column { c.take(card.count).forEach { DashLineRow("${if (it.hasFile) "✓ " else ""}${it.title}", "${it.date}${if (it.subtitle.isNotBlank()) " · ${it.subtitle}" else ""}", accent, card.density) { onOpenService() } } }
+                }
+            }
+            card.type == CardType.UNIFIED_CALENDAR -> {
+                val c = uniCal
+                when {
+                    c == null -> loading()
+                    c.isEmpty() -> empty("nothing upcoming")
+                    else -> Column {
+                        c.take(card.count).forEach { (cfg, ci) ->
+                            DashLineRow(
+                                "${if (ci.hasFile) "✓ " else ""}${ci.title}",
+                                "${cfg.type.label} · ${ci.date}${if (ci.subtitle.isNotBlank()) " · ${ci.subtitle}" else ""}",
+                                accent, card.density,
+                            ) { onOpenService() }
+                        }
+                    }
                 }
             }
             card.type == CardType.RADARR_HISTORY || card.type == CardType.SONARR_HISTORY || card.type == CardType.LIDARR_HISTORY -> {

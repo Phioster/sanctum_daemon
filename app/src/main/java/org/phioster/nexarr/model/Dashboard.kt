@@ -10,6 +10,7 @@ import kotlinx.serialization.Serializable
 enum class CardType(val label: String, val service: ServiceType?) {
     SECTION("Section", null),
     QUICKBUTTONS("Quick Buttons", null),
+    UNIFIED_CALENDAR("Upcoming (all)", null),
     JELLYFIN_SESSIONS("Active Sessions", ServiceType.JELLYFIN),
     JELLYFIN_RECENT("Recently Added", ServiceType.JELLYFIN),
     JELLYFIN_RESUME("Continue Watching", ServiceType.JELLYFIN),
