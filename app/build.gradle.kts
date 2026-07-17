@@ -13,8 +13,8 @@ android {
         applicationId = "org.phioster.nexarr"
         minSdk = 26
         targetSdk = 35
-        versionCode = 99
-        versionName = "0.62.8"
+        versionCode = 100
+        versionName = "0.63.0"
     }
 
     signingConfigs {
@@ -77,4 +77,7 @@ dependencies {
 
     // Image loading (posters, cast photos)
     implementation("io.coil-kt:coil-compose:2.7.0")
+
+    // Homescreen widgets (Compose-style)
+    implementation("androidx.glance:glance-appwidget:1.1.1")
 }

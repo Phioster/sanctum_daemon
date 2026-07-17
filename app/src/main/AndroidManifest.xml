@@ -57,6 +57,19 @@
             </intent-filter>
         </receiver>
 
+        <!-- Homescreen widget: one-tap HTTP shortcut buttons. -->
+        <receiver
+            android:name=".widget.ShortcutsWidgetReceiver"
+            android:label="Sanctumd Shortcuts"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/shortcuts_widget_info" />
+        </receiver>
+
         <!-- Shares the encrypted config export from the cache dir. -->
         <provider
             android:name="androidx.core.content.FileProvider"
