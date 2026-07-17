@@ -181,10 +181,13 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         lifecycleScope.launch {
             val s = org.phioster.nexarr.data.NotifyStore(this@MainActivity).currentSettings()
             if (s.enabled) org.phioster.nexarr.notify.Notifications.schedule(this@MainActivity, s.intervalMin)
-            val hasNtfyService = runCatching {
+            val services = runCatching {
                 org.phioster.nexarr.data.ServiceStore(this@MainActivity).services.first()
-                    .any { it.type == ServiceType.NTFY && it.topics.isNotEmpty() }
-            }.getOrDefault(false)
+            }.getOrDefault(emptyList())
+            // Publish launcher shortcuts on cold start too, so they exist before the app
+            // is ever unlocked (NexarrApp keeps them in sync afterwards on any change).
+            updateShortcuts(this@MainActivity, services)
+            val hasNtfyService = services.any { it.type == ServiceType.NTFY && it.topics.isNotEmpty() }
             if ((s.live && s.ntfyServer.isNotBlank() && s.ntfyTopic.isNotBlank()) || hasNtfyService) {
                 org.phioster.nexarr.notify.NtfyStreamService.start(this@MainActivity)
             }
