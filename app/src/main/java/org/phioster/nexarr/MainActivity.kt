@@ -244,7 +244,7 @@ private fun AppLockGate(vm: DashboardViewModel, activity: androidx.fragment.app.
     ) {
         Icon(Icons.Filled.Lock, contentDescription = "Locked", tint = MatrixGreen, modifier = Modifier.size(56.dp))
         Spacer(Modifier.height(16.dp))
-        Text("nexarr locked", fontFamily = Mono, color = MatrixGreen, fontSize = 16.sp)
+        Text("sanctumd locked", fontFamily = Mono, color = MatrixGreen, fontSize = 16.sp)
         Spacer(Modifier.height(24.dp))
         OutlinedButton(onClick = { showUnlockPrompt(activity) { unlocked = true } }) {
             Text("unlock", fontFamily = Mono, color = MatrixGreen)
@@ -654,7 +654,7 @@ private fun ServicesDrawer(
         containerColor = Black,
         topBar = {
             TopAppBar(
-                title = { Text("> nexarr_", fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen) },
+                title = { Text("> sanctumd_", fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
                 navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close", tint = MatrixGreen) } },
                 actions = {
@@ -1612,11 +1612,11 @@ private fun AboutSection() {
     val version = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
     }
-    Text("> nexarr_", fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
+    Text("> sanctumd_", fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
     Text("v$version", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 13.sp)
     Spacer(Modifier.height(12.dp))
     Text(
-        "Unified dashboard for Jellyfin and the *arr stack.\nGPL-3.0 · github.com/Phioster/nexarr",
+        "Unified dashboard for Jellyfin and the *arr stack.\nGPL-3.0 · github.com/Phioster/sanctum_daemon",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 11.sp,
     )
 }
