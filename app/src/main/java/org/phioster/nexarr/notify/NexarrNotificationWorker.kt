@@ -91,7 +91,7 @@ class NexarrNotificationWorker(ctx: Context, params: WorkerParameters) : Corouti
         }
         val n = NotificationCompat.Builder(ctx, channel)
             .setSmallIcon(org.phioster.nexarr.R.drawable.ic_notify)
-            .setColor(android.graphics.Color.parseColor("#00FF41"))
+            .setColor(android.graphics.Color.parseColor("#14532D"))
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
