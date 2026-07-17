@@ -13,8 +13,8 @@ android {
         applicationId = "org.phioster.nexarr"
         minSdk = 26
         targetSdk = 35
-        versionCode = 93
-        versionName = "0.62.2"
+        versionCode = 94
+        versionName = "0.62.3"
     }
 
     signingConfigs {
