@@ -13,8 +13,6 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
-import androidx.glance.appwidget.lazy.LazyColumn
-import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
@@ -24,8 +22,8 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
-import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
+import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import kotlinx.coroutines.flow.first
@@ -53,37 +51,34 @@ class ShortcutsWidget : GlanceAppWidget() {
     private fun Content(entries: List<ShortcutEntry>) {
         Column(
             modifier = GlanceModifier.fillMaxSize().background(Bg).cornerRadius(14.dp).padding(6.dp),
+            verticalAlignment = Alignment.Vertical.CenterVertically,
+            horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
         ) {
             if (entries.isEmpty()) {
                 Text(
                     "no shortcuts — add a Shortcuts service in the app",
-                    style = TextStyle(color = ColorProvider(Dim), fontSize = 12.sp),
+                    style = TextStyle(color = ColorProvider(Dim), fontSize = 12.sp, textAlign = TextAlign.Center),
                 )
             } else {
-                LazyColumn {
-                    items(entries.size) { i ->
-                        val e = entries[i]
-                        Column {
-                            Text(
-                                "▸ ${e.shortcut.name}",
-                                style = TextStyle(color = ColorProvider(Green), fontSize = 14.sp),
-                                modifier = GlanceModifier
-                                    .fillMaxWidth()
-                                    .background(Chip)
-                                    .cornerRadius(10.dp)
-                                    .padding(horizontal = 10.dp, vertical = 8.dp)
-                                    .clickable(
-                                        actionRunCallback<RunShortcutAction>(
-                                            actionParametersOf(
-                                                RunShortcutAction.serviceIdKey to e.serviceId,
-                                                RunShortcutAction.shortcutNameKey to e.shortcut.name,
-                                            ),
-                                        ),
+                entries.forEachIndexed { i, e ->
+                    if (i > 0) Spacer(GlanceModifier.height(6.dp))
+                    Text(
+                        "▸ ${e.shortcut.name}",
+                        style = TextStyle(color = ColorProvider(Green), fontSize = 14.sp, textAlign = TextAlign.Center),
+                        modifier = GlanceModifier
+                            .fillMaxWidth()
+                            .background(Chip)
+                            .cornerRadius(10.dp)
+                            .padding(horizontal = 10.dp, vertical = 8.dp)
+                            .clickable(
+                                actionRunCallback<RunShortcutAction>(
+                                    actionParametersOf(
+                                        RunShortcutAction.serviceIdKey to e.serviceId,
+                                        RunShortcutAction.shortcutNameKey to e.shortcut.name,
                                     ),
-                            )
-                            Spacer(GlanceModifier.height(6.dp))
-                        }
-                    }
+                                ),
+                            ),
+                    )
                 }
             }
         }
