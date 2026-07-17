@@ -1185,11 +1185,14 @@ suspend fun arrMissing(config: ServiceConfig): List<ArrMissingItem> = withContex
     }
 }
 
-suspend fun arrCalendar(config: ServiceConfig): List<ArrCalendarItem> = withContext(Dispatchers.IO) {
-    val base = arrBase(config.type)
+suspend fun arrCalendar(config: ServiceConfig): List<ArrCalendarItem> {
     val now = java.time.Instant.now()
-    val start = now.toString()
-    val end = now.plus(java.time.Duration.ofDays(30)).toString()
+    return arrCalendarRange(config, now, now.plus(java.time.Duration.ofDays(30))).take(30)
+}
+
+/** arr calendar for an arbitrary date range (used by the unified month calendar). */
+suspend fun arrCalendarRange(config: ServiceConfig, start: java.time.Instant, end: java.time.Instant): List<ArrCalendarItem> = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
     val url = "$base/calendar?start=$start&end=$end&includeSeries=true&includeArtist=true&unmonitored=false"
     apiFor<ArrApi>(config, apiKeyHeader(config)).calendar(url).mapNotNull { o ->
         val hasFile = jsBool(o, "hasFile") ?: false
@@ -1216,7 +1219,7 @@ suspend fun arrCalendar(config: ServiceConfig): List<ArrCalendarItem> = withCont
                 ArrCalendarItem(title, year, date.take(10), hasFile)
             }
         }
-    }.filter { it.date.isNotBlank() }.sortedBy { it.date }.take(30)
+    }.filter { it.date.isNotBlank() }.sortedBy { it.date }
 }
 
 suspend fun arrQueue(config: ServiceConfig): List<ArrQueueItem> = withContext(Dispatchers.IO) {

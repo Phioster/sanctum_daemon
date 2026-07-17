@@ -551,6 +551,25 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                 .flatten()
                 .sortedBy { it.second.date }
         }
+
+    /** Merged releases across all *arr for an arbitrary [from]..[to] date range (month calendar). */
+    suspend fun unifiedCalendarRange(
+        from: java.time.LocalDate,
+        to: java.time.LocalDate,
+    ): List<Pair<ServiceConfig, org.phioster.nexarr.model.ArrCalendarItem>> = kotlinx.coroutines.coroutineScope {
+        val startI = from.atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
+        val endI = to.plusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
+        _services.value
+            .filter {
+                it.type == org.phioster.nexarr.model.ServiceType.RADARR ||
+                    it.type == org.phioster.nexarr.model.ServiceType.SONARR ||
+                    it.type == org.phioster.nexarr.model.ServiceType.LIDARR
+            }
+            .map { svc -> async { runCatching { org.phioster.nexarr.net.arrCalendarRange(svc, startI, endI) }.getOrDefault(emptyList()).map { svc to it } } }
+            .map { it.await() }
+            .flatten()
+    }
+
     suspend fun arrSearchAllItems(config: ServiceConfig, cutoff: Boolean): String = arrSearchAll(config, cutoff)
     suspend fun arrRssSyncNow(config: ServiceConfig): String = org.phioster.nexarr.net.arrRssSync(config)
     suspend fun arrSystemInfo(config: ServiceConfig): org.phioster.nexarr.model.ArrSystemInfo = arrSystem(config)

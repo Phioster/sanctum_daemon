@@ -44,7 +44,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -313,7 +312,6 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
     var searchOpen by remember { mutableStateOf(false) }
     var searchTerm by remember { mutableStateOf("") }
     var notifOpen by remember { mutableStateOf(false) }
-    var calendarOpen by remember { mutableStateOf(false) }
     var detailFromSearch by remember { mutableStateOf(false) } // service opened from search results
     var searchDeepLink by remember { mutableStateOf<SearchDeepLink?>(null) }
 
@@ -324,12 +322,11 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
         if (detailFromSearch) { detailFromSearch = false; searchOpen = true }
     }
     val editorOpen = addOpen || editing != null
-    BackHandler(enabled = editorOpen || detail != null || searchOpen || notifOpen || calendarOpen) {
+    BackHandler(enabled = editorOpen || detail != null || searchOpen || notifOpen) {
         when {
             editorOpen -> { addOpen = false; editing = null }
             detail != null -> closeDetail()
             notifOpen -> notifOpen = false
-            calendarOpen -> calendarOpen = false
             else -> searchOpen = false
         }
     }
@@ -390,11 +387,6 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
             onTermChange = { searchTerm = it },
         )
         notifOpen -> SettingsScreen(vm = vm, onBack = { notifOpen = false })
-        calendarOpen -> CalendarScreen(
-            vm = vm,
-            onBack = { calendarOpen = false },
-            onOpenService = { cfg -> calendarOpen = false; detail = cfg },
-        )
         else -> HomeShell(
             vm = vm,
             onAdd = { addOpen = true },
@@ -402,7 +394,6 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
             onEdit = { editing = it },
             onSearch = { term -> searchTerm = term; searchOpen = true },
             onNotifications = { notifOpen = true },
-            onCalendar = { calendarOpen = true },
         )
     }
 
@@ -534,7 +525,6 @@ private fun HomeShell(
     onEdit: (ServiceConfig) -> Unit,
     onSearch: (String) -> Unit,
     onNotifications: () -> Unit,
-    onCalendar: () -> Unit,
 ) {
     val tabs by vm.tabs.collectAsState()
     val services by vm.services.collectAsState()
@@ -588,7 +578,6 @@ private fun HomeShell(
                     onEdit = { cfg -> vm.reopenDrawer = true; onEdit(cfg) },
                     onAdd = { vm.reopenDrawer = true; onAdd() },
                     onNotifications = { vm.reopenDrawer = true; onNotifications() },
-                    onCalendar = { vm.reopenDrawer = true; onCalendar() },
                     onSearch = { term -> vm.reopenDrawer = true; onSearch(term) },
                     onClose = { scope.launch { drawerState.close() } },
                 )
@@ -720,7 +709,6 @@ private fun ServicesDrawer(
     onEdit: (ServiceConfig) -> Unit,
     onAdd: () -> Unit,
     onNotifications: () -> Unit,
-    onCalendar: () -> Unit,
     onSearch: (String) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -733,7 +721,6 @@ private fun ServicesDrawer(
                 navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close", tint = MatrixGreen) } },
                 actions = {
                     IconButton(onClick = { onSearch("") }) { Icon(Icons.Filled.Search, contentDescription = "Search", tint = MatrixGreen) }
-                    IconButton(onClick = onCalendar) { Icon(Icons.Filled.CalendarMonth, contentDescription = "Calendar", tint = MatrixGreen) }
                     IconButton(onClick = onNotifications) { Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MatrixGreen) }
                     // Refresh removed — pull-to-refresh on the list covers it now.
                 },
@@ -906,18 +893,13 @@ private fun DashCardView(
     var nzbHistory by remember { mutableStateOf<List<org.phioster.nexarr.model.NzbHistoryEntry>?>(null) }
     var discover by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrDiscoverItem>?>(null) }
     var sysHealth by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
-    var uniCal by remember { mutableStateOf<List<Pair<ServiceConfig, org.phioster.nexarr.model.ArrCalendarItem>>?>(null) }
     var detail by remember { mutableStateOf<MediaDetail?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(card.id, config?.id, vm.dashRefreshTick.intValue) {
-        if (card.type == CardType.UNIFIED_CALENDAR) { // serviceless but merges all *arr calendars
-            uniCal = runCatching { vm.unifiedCalendar() }.getOrNull()
-            return@LaunchedEffect
-        }
-        if (serviceless) return@LaunchedEffect // Section / Quick Buttons need no data
+        if (serviceless) return@LaunchedEffect // Section / Quick Buttons / calendar self-load
         if (config == null) { error = "service not found"; return@LaunchedEffect }
         // Retry a couple of times: on a cold start the Jellyfin token may not be ready yet.
         var attempt = 0
@@ -1135,22 +1117,7 @@ private fun DashCardView(
                     else -> Column { c.take(card.count).forEach { DashLineRow("${if (it.hasFile) "✓ " else ""}${it.title}", "${it.date}${if (it.subtitle.isNotBlank()) " · ${it.subtitle}" else ""}", accent, card.density) { onOpenService() } } }
                 }
             }
-            card.type == CardType.UNIFIED_CALENDAR -> {
-                val c = uniCal
-                when {
-                    c == null -> loading()
-                    c.isEmpty() -> empty("nothing upcoming")
-                    else -> Column {
-                        c.take(card.count).forEach { (cfg, ci) ->
-                            DashLineRow(
-                                "${if (ci.hasFile) "✓ " else ""}${ci.title}",
-                                "${cfg.type.label} · ${ci.date}${if (ci.subtitle.isNotBlank()) " · ${ci.subtitle}" else ""}",
-                                accent, card.density,
-                            ) { onOpenService() }
-                        }
-                    }
-                }
-            }
+            card.type == CardType.UNIFIED_CALENDAR -> UnifiedCalendarCard(vm, accentColor, onOpenService)
             card.type == CardType.RADARR_HISTORY || card.type == CardType.SONARR_HISTORY || card.type == CardType.LIDARR_HISTORY -> {
                 val h = history
                 when {
@@ -1350,6 +1317,114 @@ private fun DashSessionRow(item: org.phioster.nexarr.model.JellySession, accent:
         if (playing) {
             Spacer(Modifier.height(4.dp))
             LinearProgressIndicator(progress = { item.progressPct }, modifier = Modifier.fillMaxWidth(), color = MatrixGreen, trackColor = Surface)
+        }
+    }
+}
+
+/** Dashboard card: a month calendar grid of upcoming releases merged across all *arr,
+ *  month-switchable, services marked by their accent colour; tap a day for its list. */
+@Composable
+private fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenService: () -> Unit) {
+    var month by remember { mutableStateOf(java.time.YearMonth.now()) }
+    var byDay by remember { mutableStateOf<Map<java.time.LocalDate, List<Pair<ServiceConfig, org.phioster.nexarr.model.ArrCalendarItem>>>?>(null) }
+    var selected by remember { mutableStateOf<java.time.LocalDate?>(java.time.LocalDate.now()) }
+
+    LaunchedEffect(month, vm.dashRefreshTick.intValue) {
+        byDay = null
+        val list = runCatching { vm.unifiedCalendarRange(month.atDay(1), month.atEndOfMonth()) }.getOrDefault(emptyList())
+        byDay = list.groupBy { runCatching { java.time.LocalDate.parse(it.second.date) }.getOrNull() ?: java.time.LocalDate.MIN }
+        val today = java.time.LocalDate.now()
+        selected = if (java.time.YearMonth.from(today) == month) today else null
+    }
+
+    val services by vm.services.collectAsState()
+    val arrServices = services.filter {
+        it.type == ServiceType.RADARR || it.type == ServiceType.SONARR || it.type == ServiceType.LIDARR
+    }
+    val map = byDay ?: emptyMap()
+    val today = java.time.LocalDate.now()
+
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("◀", fontFamily = Mono, color = accent, fontSize = 16.sp, modifier = Modifier.clickable { month = month.minusMonths(1) }.padding(horizontal = 10.dp, vertical = 4.dp))
+            Text(
+                month.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy")),
+                fontFamily = Mono, color = accent, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center, modifier = Modifier.weight(1f),
+            )
+            Text("▶", fontFamily = Mono, color = accent, fontSize = 16.sp, modifier = Modifier.clickable { month = month.plusMonths(1) }.padding(horizontal = 10.dp, vertical = 4.dp))
+        }
+        Spacer(Modifier.height(4.dp))
+        Row(Modifier.fillMaxWidth()) {
+            listOf("M", "T", "W", "T", "F", "S", "S").forEach { d ->
+                Text(d, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+            }
+        }
+        val first = month.atDay(1)
+        val lead = first.dayOfWeek.value - 1 // Monday = 0 leading blanks
+        val cells = buildList<java.time.LocalDate?> {
+            repeat(lead) { add(null) }
+            for (d in 1..month.lengthOfMonth()) add(month.atDay(d))
+            while (size % 7 != 0) add(null)
+        }
+        cells.chunked(7).forEach { week ->
+            Row(Modifier.fillMaxWidth()) {
+                week.forEach { date ->
+                    Box(Modifier.weight(1f).height(38.dp).padding(1.dp), contentAlignment = Alignment.Center) {
+                        if (date != null) {
+                            val items = map[date].orEmpty()
+                            val isSel = date == selected
+                            Column(
+                                Modifier.fillMaxSize()
+                                    .then(if (isSel) Modifier.background(accent.copy(alpha = 0.18f), RoundedCornerShape(6.dp)) else Modifier)
+                                    .clickable { selected = date },
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                            ) {
+                                Text(
+                                    "${date.dayOfMonth}",
+                                    fontFamily = Mono,
+                                    color = if (date == today) accent else MatrixGreen.copy(alpha = if (items.isEmpty()) 0.5f else 0.9f),
+                                    fontSize = 11.sp,
+                                    fontWeight = if (date == today) FontWeight.Bold else FontWeight.Normal,
+                                )
+                                if (items.isNotEmpty()) {
+                                    Row {
+                                        items.map { it.first.type }.distinct().take(3).forEach { t ->
+                                            Box(Modifier.padding(horizontal = 1.dp).size(4.dp).background(Color(t.accent), androidx.compose.foundation.shape.CircleShape))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.12f))
+        val sel = selected
+        val selItems = sel?.let { map[it] }.orEmpty()
+        when {
+            byDay == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+            sel == null -> Text("pick a day", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+            selItems.isEmpty() -> Text("nothing on ${sel.format(java.time.format.DateTimeFormatter.ofPattern("d MMM"))}", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+            else -> Column {
+                selItems.forEach { (cfg, ci) ->
+                    DashLineRow("${if (ci.hasFile) "✓ " else ""}${ci.title}", "${cfg.type.label}${if (ci.subtitle.isNotBlank()) " · ${ci.subtitle}" else ""}", Color(cfg.type.accent)) { onOpenService() }
+                }
+            }
+        }
+        if (arrServices.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                arrServices.forEach { svc ->
+                    Box(Modifier.size(6.dp).background(Color(svc.type.accent), androidx.compose.foundation.shape.CircleShape))
+                    Spacer(Modifier.width(3.dp))
+                    Text(svc.label, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 9.sp)
+                    Spacer(Modifier.width(10.dp))
+                }
+            }
         }
     }
 }
@@ -1882,87 +1957,6 @@ private fun shareConfig(context: android.content.Context, bytes: ByteArray) {
         context.startActivity(Intent.createChooser(send, "Share config"))
     }.onFailure {
         android.widget.Toast.makeText(context, "share failed", android.widget.Toast.LENGTH_SHORT).show()
-    }
-}
-
-/** Unified calendar: upcoming releases merged across all Radarr/Sonarr/Lidarr, by date. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CalendarScreen(vm: DashboardViewModel, onBack: () -> Unit, onOpenService: (ServiceConfig) -> Unit) {
-    val scope = rememberCoroutineScope()
-    var items by remember { mutableStateOf<List<Pair<ServiceConfig, org.phioster.nexarr.model.ArrCalendarItem>>?>(null) }
-    var refreshing by remember { mutableStateOf(false) }
-    suspend fun load() { items = runCatching { vm.unifiedCalendar() }.getOrDefault(emptyList()) }
-    LaunchedEffect(Unit) { load() }
-
-    Scaffold(
-        containerColor = Black,
-        topBar = {
-            TopAppBar(
-                title = { Text("> calendar", fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) } },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
-            )
-        },
-    ) { padding ->
-        PullToRefreshBox(
-            isRefreshing = refreshing,
-            onRefresh = { scope.launch { refreshing = true; load(); refreshing = false } },
-            modifier = Modifier.fillMaxSize().padding(padding),
-        ) {
-            val list = items
-            when {
-                list == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f))
-                }
-                list.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("no upcoming releases in the next 30 days", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp)
-                }
-                else -> {
-                    val today = java.time.LocalDate.now()
-                    fun label(d: String): String = runCatching {
-                        val ld = java.time.LocalDate.parse(d)
-                        when (ld) {
-                            today -> "today"
-                            today.plusDays(1) -> "tomorrow"
-                            else -> ld.format(java.time.format.DateTimeFormatter.ofPattern("EEE · d MMM"))
-                        }
-                    }.getOrDefault(d)
-                    val grouped = list.groupBy { it.second.date }
-                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                        grouped.forEach { (date, entries) ->
-                            item {
-                                Spacer(Modifier.height(12.dp))
-                                Text(label(date), fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f), modifier = Modifier.padding(top = 4.dp))
-                            }
-                            items(entries) { (cfg, ci) ->
-                                Row(
-                                    Modifier.fillMaxWidth().clickable { onOpenService(cfg) }.padding(vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    ServiceLogo(cfg.type, 18.dp)
-                                    Spacer(Modifier.width(10.dp))
-                                    Column(Modifier.weight(1f)) {
-                                        Text(ci.title, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        if (ci.subtitle.isNotBlank()) {
-                                            Text(ci.subtitle, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        }
-                                    }
-                                    Text(
-                                        if (ci.hasFile) "✓" else "○",
-                                        fontFamily = Mono,
-                                        color = if (ci.hasFile) MatrixGreen else MatrixGreen.copy(alpha = 0.4f),
-                                        fontSize = 14.sp,
-                                    )
-                                }
-                            }
-                        }
-                        item { Spacer(Modifier.height(24.dp)) }
-                    }
-                }
-            }
-        }
     }
 }
 
