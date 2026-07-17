@@ -722,7 +722,7 @@ private fun ServicesDrawer(
                 actions = {
                     IconButton(onClick = { onSearch("") }) { Icon(Icons.Filled.Search, contentDescription = "Search", tint = MatrixGreen) }
                     IconButton(onClick = onNotifications) { Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MatrixGreen) }
-                    IconButton(onClick = { vm.refreshAll() }) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen) }
+                    // Refresh removed — pull-to-refresh on the list covers it now.
                 },
             )
         },
