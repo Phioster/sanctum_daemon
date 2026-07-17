@@ -160,6 +160,35 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     fun setRoute(route: PendingRoute?) { _pendingRoute.value = route }
     fun consumeRoute() { _pendingRoute.value = null }
 
+    private val bundleJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
+    /** Serialize services + notify settings + dashboard layout and encrypt them with
+     *  [password] into a portable file (see [org.phioster.nexarr.security.PortableCrypto]). */
+    suspend fun exportConfig(password: String): ByteArray {
+        val bundle = org.phioster.nexarr.model.ConfigBundle(
+            services = _services.value,
+            notify = notifyStore.currentSettings(),
+            tabs = _tabs.value,
+        )
+        val plain = bundleJson.encodeToString(org.phioster.nexarr.model.ConfigBundle.serializer(), bundle)
+        return org.phioster.nexarr.security.PortableCrypto.encrypt(plain, password)
+    }
+
+    /** Decrypt + apply an exported bundle, replacing the current config. Returns the
+     *  number of services imported, or a failure (wrong password / bad file). */
+    suspend fun importConfig(data: ByteArray, password: String): Result<Int> = runCatching {
+        val plain = org.phioster.nexarr.security.PortableCrypto.decrypt(data, password)
+        val bundle = bundleJson.decodeFromString(org.phioster.nexarr.model.ConfigBundle.serializer(), plain)
+        store.save(bundle.services)
+        notifyStore.save(bundle.notify)
+        dashStore.save(bundle.tabs)
+        val ctx = getApplication<Application>()
+        if (bundle.notify.enabled) org.phioster.nexarr.notify.Notifications.schedule(ctx, bundle.notify.intervalMin)
+        else org.phioster.nexarr.notify.Notifications.cancel(ctx)
+        org.phioster.nexarr.notify.NtfyStreamService.restart(ctx)
+        bundle.services.size
+    }
+
     /** Set when navigating away from inside the Services drawer; HomeShell reopens it once on return. */
     var reopenDrawer: Boolean = false
 

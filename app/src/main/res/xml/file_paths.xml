@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- The encrypted config export lives in cacheDir/exports and is shared via FileProvider. -->
+    <cache-path name="exports" path="exports/" />
+</paths>

@@ -1584,11 +1584,13 @@ private fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                     SettingsCategoryRow("notifications", "Background polling: what to check and how often") { section = "notifications" }
                     SettingsCategoryRow("live push (ntfy)", "Instant notifications from your ntfy server") { section = "live push (ntfy)" }
                     SettingsCategoryRow("security", "Biometric app lock") { section = "security" }
+                    SettingsCategoryRow("backup / data", "Export or import your config (encrypted)") { section = "backup / data" }
                     SettingsCategoryRow("about", "Version & project info") { section = "about" }
                 }
                 "notifications" -> NotifyPollingSection(vm)
                 "live push (ntfy)" -> LivePushSection(vm)
                 "security" -> SecuritySection(vm)
+                "backup / data" -> BackupSection(vm)
                 "about" -> AboutSection()
             }
             Spacer(Modifier.height(32.dp))
@@ -1720,6 +1722,133 @@ private fun AboutSection() {
         "Unified dashboard for Jellyfin and the *arr stack.\nGPL-3.0 · github.com/Phioster/sanctum_daemon",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 11.sp,
     )
+}
+
+@Composable
+private fun BackupSection(vm: DashboardViewModel) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var showExport by remember { mutableStateOf(false) }
+    var importBytes by remember { mutableStateOf<ByteArray?>(null) } // set once a file is picked -> triggers pw dialog
+    var pendingSaveBytes by remember { mutableStateOf<ByteArray?>(null) } // bytes awaiting a save location
+
+    val saveLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/octet-stream"),
+    ) { uri: android.net.Uri? ->
+        val bytes = pendingSaveBytes
+        pendingSaveBytes = null
+        if (uri != null && bytes != null) {
+            val ok = runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) } }.isSuccess
+            android.widget.Toast.makeText(context, if (ok) "config saved" else "save failed", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+    val openLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            val bytes = runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
+            if (bytes != null) importBytes = bytes
+            else android.widget.Toast.makeText(context, "couldn't read file", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    Text(
+        "Export bundles your services, ntfy settings and dashboard layout into one encrypted file, locked with a password you choose. Import replaces the current config on this device.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 11.sp, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
+    )
+    SettingsCategoryRow("export config", "save or share an encrypted backup") { showExport = true }
+    SettingsCategoryRow("import config", "restore from an encrypted backup file") {
+        openLauncher.launch(arrayOf("application/octet-stream", "*/*"))
+    }
+    Text(
+        "⚠ the file holds your API keys and tokens — only the password protects them. keep it somewhere safe.",
+        fontFamily = Mono, color = Color(0xFFE0A030), fontSize = 10.sp, modifier = Modifier.padding(top = 12.dp),
+    )
+
+    if (showExport) {
+        var pw by remember { mutableStateOf("") }
+        var pw2 by remember { mutableStateOf("") }
+        val valid = pw.length >= 6 && pw == pw2
+        val doExport: (Boolean) -> Unit = { share ->
+            scope.launch {
+                val bytes = runCatching { vm.exportConfig(pw) }.getOrNull()
+                showExport = false
+                if (bytes == null) {
+                    android.widget.Toast.makeText(context, "export failed", android.widget.Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                if (share) shareConfig(context, bytes)
+                else { pendingSaveBytes = bytes; saveLauncher.launch("sanctumd-config.sanctum") }
+            }
+        }
+        AlertDialog(
+            onDismissRequest = { showExport = false },
+            containerColor = Surface,
+            title = { Text("export config", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    Text("Choose a password (min 6). You'll need it to import.", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp)
+                    Field("password", pw, isPassword = true) { pw = it }
+                    Field("repeat password", pw2, isPassword = true) { pw2 = it }
+                }
+            },
+            confirmButton = {
+                Row {
+                    TextButton(onClick = { doExport(false) }, enabled = valid) { Text("save file", fontFamily = Mono, color = if (valid) MatrixGreen else MatrixGreen.copy(alpha = 0.4f)) }
+                    TextButton(onClick = { doExport(true) }, enabled = valid) { Text("share", fontFamily = Mono, color = if (valid) MatrixGreen else MatrixGreen.copy(alpha = 0.4f)) }
+                }
+            },
+            dismissButton = { TextButton(onClick = { showExport = false }) { Text("cancel", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f)) } },
+        )
+    }
+
+    importBytes?.let { bytes ->
+        var pw by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { importBytes = null },
+            containerColor = Surface,
+            title = { Text("import config", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    Text("This replaces your current services, ntfy settings and dashboard. Enter the file's password.", fontFamily = Mono, color = Color(0xFFE0A030), fontSize = 12.sp)
+                    Field("password", pw, isPassword = true) { pw = it }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            val res = vm.importConfig(bytes, pw)
+                            importBytes = null
+                            res.onSuccess { n -> android.widget.Toast.makeText(context, "config imported · $n services", android.widget.Toast.LENGTH_LONG).show() }
+                                .onFailure { android.widget.Toast.makeText(context, "import failed — wrong password or bad file", android.widget.Toast.LENGTH_LONG).show() }
+                        }
+                    },
+                    enabled = pw.isNotEmpty(),
+                ) { Text("import", fontFamily = Mono, color = if (pw.isNotEmpty()) MatrixGreen else MatrixGreen.copy(alpha = 0.4f)) }
+            },
+            dismissButton = { TextButton(onClick = { importBytes = null }) { Text("cancel", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f)) } },
+        )
+    }
+}
+
+/** Writes the encrypted bytes to a cache file and opens a share sheet via FileProvider. */
+private fun shareConfig(context: android.content.Context, bytes: ByteArray) {
+    runCatching {
+        val dir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
+        val file = java.io.File(dir, "sanctumd-config.sanctum")
+        file.writeBytes(bytes)
+        val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "application/octet-stream"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(send, "Share config"))
+    }.onFailure {
+        android.widget.Toast.makeText(context, "share failed", android.widget.Toast.LENGTH_SHORT).show()
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
