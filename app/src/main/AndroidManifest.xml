@@ -106,6 +106,29 @@
             </intent-filter>
         </activity>
 
+        <!-- Homescreen widget: quick-action buttons for one chosen service. -->
+        <receiver
+            android:name=".widget.QuickActionsWidgetReceiver"
+            android:label="Sanctumd Quick Actions"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/quick_actions_widget_info" />
+        </receiver>
+
+        <!-- Picks which service the quick-actions widget controls (shown when placed). -->
+        <activity
+            android:name=".widget.QuickActionsConfigActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Nexarr">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <!-- Shares the encrypted config export from the cache dir. -->
         <provider
             android:name="androidx.core.content.FileProvider"
