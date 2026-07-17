@@ -3,6 +3,15 @@ package org.phioster.nexarr.model
 import kotlinx.serialization.Serializable
 import java.util.UUID
 
+/** A one-tap HTTP request the SHORTCUTS service can fire (webhook, WOL bridge, …). */
+@Serializable
+data class HttpShortcut(
+    val name: String,
+    val method: String = "GET", // "GET" or "POST"
+    val url: String,
+    val body: String = "", // POST payload (JSON detected by leading '{')
+)
+
 /** Which kind of service a config points at. */
 @Serializable
 enum class ServiceType(val label: String, val accent: Long) {
@@ -13,7 +22,8 @@ enum class ServiceType(val label: String, val accent: Long) {
     PROWLARR("Prowlarr", 0xFFE66000L),
     NZBGET("NZBGet", 0xFF43B02AL),
     SEERR("Seerr", 0xFF818CF8L),
-    NTFY("ntfy", 0xFF57C462L);
+    NTFY("ntfy", 0xFF57C462L),
+    SHORTCUTS("Shortcuts", 0xFF4F9BF5L);
 
     /** Services that authenticate with a Servarr/Overseerr-style X-Api-Key header. */
     val usesApiKeyHeader: Boolean
@@ -43,6 +53,7 @@ data class ServiceConfig(
     val useLogin: Boolean = false,
     val customHeaders: Map<String, String> = emptyMap(),
     val topics: List<String> = emptyList(), // NTFY: subscribed topics (history + live notifications)
+    val shortcuts: List<HttpShortcut> = emptyList(), // SHORTCUTS: one-tap HTTP requests
 ) {
     /** Retrofit needs a base URL that ends with a slash. */
     val normalizedBaseUrl: String

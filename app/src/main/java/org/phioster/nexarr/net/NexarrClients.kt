@@ -1755,6 +1755,32 @@ suspend fun ntfyHistory(config: ServiceConfig, topic: String, since: String = "4
     }
 }
 
+// ---- HTTP shortcuts ----
+
+/** Fires a one-tap shortcut; returns "HTTP 200 · <response head>" or an error line. */
+suspend fun runHttpShortcut(config: ServiceConfig, sc: org.phioster.nexarr.model.HttpShortcut): String = withContext(Dispatchers.IO) {
+    try {
+        val b = Request.Builder().url(sc.url)
+        config.customHeaders.forEach { (k, v) -> if (k.isNotBlank() && v.isNotBlank()) b.header(k, v) }
+        if (sc.method.equals("POST", ignoreCase = true)) {
+            val mediaType = (if (sc.body.trim().startsWith("{")) "application/json" else "text/plain").toMediaType()
+            b.post(okhttp3.RequestBody.create(mediaType, sc.body))
+        }
+        baseOkClient.newCall(b.build()).execute().use { r ->
+            val head = r.body?.string().orEmpty().take(120).replace('\n', ' ').trim()
+            if (r.isSuccessful) "HTTP ${r.code}${if (head.isNotBlank()) " · $head" else ""}" else "error: HTTP ${r.code}"
+        }
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+private fun shortcutsStatus(config: ServiceConfig): ServiceStatus = ServiceStatus(
+    ok = true, // nothing to health-check: targets may be WOL bridges that are offline by design
+    stats = listOf("${config.shortcuts.size}" to "SHORTCUTS"),
+    note = config.shortcuts.joinToString(", ") { it.name }.takeIf { it.isNotBlank() },
+)
+
 /** Runs the appropriate status calls for a service and maps them to a card. */
 suspend fun fetchStatus(config: ServiceConfig): ServiceStatus = withContext(Dispatchers.IO) {
     try {
@@ -1767,6 +1793,7 @@ suspend fun fetchStatus(config: ServiceConfig): ServiceStatus = withContext(Disp
             ServiceType.SEERR -> seerrStatus(config)
             ServiceType.NZBGET -> nzbgetStatus(config)
             ServiceType.NTFY -> ntfyStatus(config)
+            ServiceType.SHORTCUTS -> shortcutsStatus(config)
         }
     } catch (t: Throwable) {
         ServiceStatus(ok = false, error = t.message ?: t.javaClass.simpleName)

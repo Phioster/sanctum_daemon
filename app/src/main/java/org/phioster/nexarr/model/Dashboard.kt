@@ -34,6 +34,7 @@ enum class CardType(val label: String, val service: ServiceType?) {
     RADARR_HEALTH("Health", ServiceType.RADARR),
     SONARR_HEALTH("Health", ServiceType.SONARR),
     LIDARR_HEALTH("Health", ServiceType.LIDARR),
+    SHORTCUTS("Shortcuts", ServiceType.SHORTCUTS),
 }
 
 /** A single widget on a dashboard tab: a card type bound to one configured service. */

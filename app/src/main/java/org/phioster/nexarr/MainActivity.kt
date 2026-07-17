@@ -313,6 +313,7 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
                 ServiceType.PROWLARR -> ProwlarrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
                 ServiceType.JELLYFIN -> JellyfinScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del, initialItemId = link?.jellyItemId)
                 ServiceType.NTFY -> NtfyScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
+                ServiceType.SHORTCUTS -> ShortcutsScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
                 else -> ServiceDetailScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
             }
         }
@@ -366,6 +367,7 @@ private fun serviceLogoRes(type: ServiceType): Int = when (type) {
     ServiceType.SEERR -> R.drawable.svc_seerr
     ServiceType.NZBGET -> R.drawable.svc_nzbget
     ServiceType.NTFY -> R.drawable.svc_ntfy
+    ServiceType.SHORTCUTS -> R.drawable.svc_shortcuts
 }
 
 @Composable
@@ -818,7 +820,7 @@ private fun DashCardView(
             error = null
             try {
                 when (card.type) {
-                    CardType.SECTION, CardType.QUICKBUTTONS -> {}
+                    CardType.SECTION, CardType.QUICKBUTTONS, CardType.SHORTCUTS -> {}
                     CardType.JELLYFIN_SESSIONS -> sessions = vm.jellyfinSessionList(config)
                     CardType.JELLYFIN_RECENT -> items = vm.jellyfinRecent(config, null)
                     CardType.JELLYFIN_RESUME -> items = vm.jellyfinContinue(config)
@@ -906,6 +908,34 @@ private fun DashCardView(
         when {
             error != null -> Text("error: $error", fontFamily = Mono, color = ErrRed, fontSize = 11.sp)
             card.type == CardType.SECTION -> HorizontalDivider(color = accentColor.copy(alpha = 0.6f), thickness = 2.dp)
+            card.type == CardType.SHORTCUTS -> {
+                val scs = config?.shortcuts.orEmpty()
+                var pendingSc by remember { mutableStateOf<String?>(null) }
+                if (scs.isEmpty()) empty("no shortcuts configured")
+                else Column {
+                    scs.forEach { sc ->
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .clickable {
+                                    if (pendingSc == sc.name) {
+                                        pendingSc = null
+                                        scope.launch {
+                                            val res = runCatching { vm.runShortcut(config!!, sc) }.getOrElse { it.message ?: "failed" }
+                                            android.widget.Toast.makeText(ctx, res, android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    } else {
+                                        pendingSc = sc.name
+                                    }
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("▸ ${sc.name}", fontFamily = Mono, color = accentColor, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                            if (pendingSc == sc.name) Text("tap again", fontFamily = Mono, color = Color(0xFFFFAA00), fontSize = 10.sp)
+                        }
+                    }
+                }
+            }
             card.type == CardType.QUICKBUTTONS -> {
                 // Bound to one service when the card has a serviceId; legacy cards
                 // (serviceId "") keep the old all-services list.
@@ -5597,6 +5627,7 @@ private fun AddServiceScreen(
     var cfId by remember { mutableStateOf(existing?.customHeaders?.get("CF-Access-Client-Id") ?: "") }
     var cfSecret by remember { mutableStateOf(existing?.customHeaders?.get("CF-Access-Client-Secret") ?: "") }
     var topics by remember { mutableStateOf(existing?.topics?.joinToString(", ") ?: "") }
+    var shortcuts by remember { mutableStateOf(existing?.shortcuts ?: emptyList()) }
     var testResult by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
@@ -5620,11 +5651,15 @@ private fun AddServiceScreen(
             useLogin = type == ServiceType.JELLYFIN && jellyLogin,
             customHeaders = headers,
             topics = topics.split(',', ' ').map { it.trim() }.filter { it.isNotBlank() },
+            shortcuts = shortcuts.filter { it.name.isNotBlank() && it.url.isNotBlank() },
         )
         return if (existing != null) base.copy(id = existing.id) else base
     }
 
-    val canSave = url.isNotBlank() && when {
+    val canSave = when {
+        // Shortcuts carry their own URLs; no base URL or key needed.
+        type == ServiceType.SHORTCUTS -> shortcuts.any { it.name.isNotBlank() && it.url.isNotBlank() }
+        url.isBlank() -> false
         type == ServiceType.NZBGET -> username.isNotBlank() && password.isNotBlank()
         type == ServiceType.JELLYFIN && jellyLogin -> username.isNotBlank() && password.isNotBlank()
         type == ServiceType.NTFY -> topics.isNotBlank() // token optional (open servers exist)
@@ -5665,7 +5700,43 @@ private fun AddServiceScreen(
             }
             Spacer(Modifier.height(12.dp))
             Field("Label", label) { label = it; labelEdited = true }
-            Field("Base URL (https://…)", url) { url = it }
+            if (type != ServiceType.SHORTCUTS) {
+                Field("Base URL (https://…)", url) { url = it }
+            }
+
+            if (type == ServiceType.SHORTCUTS) {
+                Spacer(Modifier.height(8.dp))
+                Text("SHORTCUTS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                shortcuts.forEachIndexed { i, sc ->
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("#${i + 1}", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp, modifier = Modifier.weight(1f))
+                        Row {
+                            listOf("GET", "POST").forEach { m ->
+                                FilterChip(
+                                    selected = sc.method.equals(m, true),
+                                    onClick = { shortcuts = shortcuts.toMutableList().also { it[i] = sc.copy(method = m) } },
+                                    label = { Text(m, fontFamily = Mono, fontSize = 11.sp) },
+                                )
+                                Spacer(Modifier.width(6.dp))
+                            }
+                        }
+                        Text("✕", fontFamily = Mono, color = ErrRed, fontSize = 16.sp, modifier = Modifier.clickable { shortcuts = shortcuts.toMutableList().also { it.removeAt(i) } }.padding(8.dp))
+                    }
+                    Field("Name (e.g. Homelab Start)", sc.name) { v -> shortcuts = shortcuts.toMutableList().also { it[i] = sc.copy(name = v) } }
+                    Field("URL (https://…)", sc.url) { v -> shortcuts = shortcuts.toMutableList().also { it[i] = sc.copy(url = v) } }
+                    if (sc.method.equals("POST", true)) {
+                        Field("Body (optional, JSON or text)", sc.body) { v -> shortcuts = shortcuts.toMutableList().also { it[i] = sc.copy(body = v) } }
+                    }
+                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.12f))
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "+ add shortcut",
+                    fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp,
+                    modifier = Modifier.clickable { shortcuts = shortcuts + org.phioster.nexarr.model.HttpShortcut(name = "", url = "") }.padding(vertical = 8.dp),
+                )
+            }
 
             // Jellyfin can auth by API key or by login.
             if (type == ServiceType.JELLYFIN) {
@@ -5801,6 +5872,99 @@ private fun NtfyScreen(
                     item { Spacer(Modifier.height(24.dp)) }
                 }
             }
+        }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            containerColor = Surface,
+            title = { Text("Delete ${config.label}?", fontFamily = Mono, color = MatrixGreen) },
+            confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete", fontFamily = Mono, color = Color(0xFFFF5555)) } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+}
+
+/** HTTP-shortcuts service screen: fire one-tap requests (tap again to confirm). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ShortcutsScreen(
+    vm: DashboardViewModel,
+    config: ServiceConfig,
+    onBack: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val accent = Color(config.type.accent)
+    val scope = rememberCoroutineScope()
+    var barMenu by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    var pending by remember { mutableStateOf<String?>(null) } // shortcut name awaiting the confirm tap
+    var results by remember { mutableStateOf<Map<String, String>>(emptyMap()) } // name -> last result
+    var running by remember { mutableStateOf<String?>(null) }
+
+    Scaffold(
+        containerColor = Black,
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ServiceLogo(config.type, 22.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(config.label, fontFamily = Mono, color = MatrixGreen)
+                    }
+                },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) } },
+                actions = {
+                    IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "Menu", tint = MatrixGreen) }
+                    DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
+                        DropdownMenuItem(text = { Text("Edit service", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
+                        DropdownMenuItem(text = { Text("Delete service", fontFamily = Mono) }, onClick = { barMenu = false; confirmDelete = true })
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
+            )
+        },
+    ) { padding ->
+        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
+            if (config.shortcuts.isEmpty()) {
+                item { Text("no shortcuts yet — edit the service to add some", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp)) }
+            }
+            items(config.shortcuts, key = { it.name + it.url }) { sc ->
+                Column(
+                    Modifier.fillMaxWidth()
+                        .clickable(enabled = running == null) {
+                            if (pending == sc.name) {
+                                pending = null
+                                running = sc.name
+                                scope.launch {
+                                    val res = vm.runShortcut(config, sc)
+                                    results = results + (sc.name to res)
+                                    running = null
+                                }
+                            } else {
+                                pending = sc.name
+                            }
+                        }
+                        .padding(vertical = 12.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("▸ ${sc.name}", fontFamily = Mono, color = accent, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                        when {
+                            running == sc.name -> Text("running…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                            pending == sc.name -> Text("tap again to run", fontFamily = Mono, color = Color(0xFFFFAA00), fontSize = 11.sp)
+                        }
+                    }
+                    Text("${sc.method.uppercase()} ${sc.url}", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    results[sc.name]?.let {
+                        Spacer(Modifier.height(4.dp))
+                        Text(it, fontFamily = Mono, color = if (it.startsWith("error")) Color(0xFFFFAA00) else MatrixGreen, fontSize = 11.sp)
+                    }
+                }
+                HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
+            }
+            item { Spacer(Modifier.height(24.dp)) }
         }
     }
 

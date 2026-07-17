@@ -314,6 +314,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun ntfyMessages(config: ServiceConfig, topic: String): List<org.phioster.nexarr.model.NtfyMessage> =
         org.phioster.nexarr.net.ntfyHistory(config, topic)
 
+    suspend fun runShortcut(config: ServiceConfig, sc: org.phioster.nexarr.model.HttpShortcut): String =
+        org.phioster.nexarr.net.runHttpShortcut(config, sc)
+
     /** Reorder a service card. [direction] = -1 to move up, +1 to move down. */
     fun moveService(id: String, direction: Int) {
         viewModelScope.launch {
