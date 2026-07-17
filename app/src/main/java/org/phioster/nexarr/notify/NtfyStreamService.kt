@@ -143,7 +143,7 @@ class NtfyStreamService : Service() {
         val launch = packageManager.getLaunchIntentForPackage(packageName)
         val pi = launch?.let { PendingIntent.getActivity(this, id, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT) }
         val n = NotificationCompat.Builder(this, Notifications.CH_LIVE)
-            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setSmallIcon(org.phioster.nexarr.R.drawable.ic_notify)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
@@ -155,7 +155,7 @@ class NtfyStreamService : Service() {
 
     private fun ongoingNotification() =
         NotificationCompat.Builder(this, Notifications.CH_SERVICE)
-            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setSmallIcon(org.phioster.nexarr.R.drawable.ic_notify)
             .setContentTitle("Sanctumd live push")
             .setContentText("Listening for notifications")
             .setOngoing(true)

@@ -90,7 +90,7 @@ class NexarrNotificationWorker(ctx: Context, params: WorkerParameters) : Corouti
             PendingIntent.getActivity(ctx, id, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         }
         val n = NotificationCompat.Builder(ctx, channel)
-            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setSmallIcon(org.phioster.nexarr.R.drawable.ic_notify)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
