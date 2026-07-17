@@ -889,17 +889,17 @@ private fun DashCardView(
                     // No custom icon chosen -> the service's brand logo.
                     if (card.theme == "glass") {
                         // Frosted chip so official logos with dark parts (e.g. Radarr's
-                        // navy ring) stay legible on the dark glass surface — a soft
-                        // radial glow that fades out to transparent (no hard edge) inside
-                        // a rounded-rectangle footprint, so it melts into the glass.
+                        // navy ring) stay legible on the dark glass surface — a rounded
+                        // rectangle filled with a soft centre-out glow (the gradient ends
+                        // at a low alpha, not transparent, so the rectangle stays visible
+                        // instead of reading as a round blur).
                         Box(
                             Modifier.size(28.dp)
                                 .background(
                                     Brush.radialGradient(
                                         listOf(
-                                            Color.White.copy(alpha = 0.36f),
-                                            Color.White.copy(alpha = 0.10f),
-                                            Color.Transparent,
+                                            Color.White.copy(alpha = 0.30f),
+                                            Color.White.copy(alpha = 0.15f),
                                         ),
                                     ),
                                     RoundedCornerShape(8.dp),
