@@ -27,7 +27,7 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 
 private val Green = Color(0xFF00FF41)
-private val Chip = Color(0xFF13251A)
+private val Grey = Color(0xFF2C2C2E) // Nothing-widget-style neutral dark grey
 
 /**
  * A 1×1 icon widget that fires a single chosen HTTP shortcut (like the HTTP Shortcuts
@@ -40,11 +40,12 @@ class ShortcutIconWidget : GlanceAppWidget() {
             val prefs = currentState<Preferences>()
             val serviceId = prefs[serviceIdKey] ?: ""
             val name = prefs[nameKey] ?: ""
+            val emoji = prefs[emojiKey]?.takeIf { it.isNotBlank() } ?: "⚡"
             Column(
                 modifier = GlanceModifier.fillMaxSize()
-                    .background(Chip)
-                    .cornerRadius(16.dp)
-                    .padding(6.dp)
+                    .background(Grey)
+                    .cornerRadius(18.dp)
+                    .padding(4.dp)
                     .clickable(
                         actionRunCallback<RunShortcutAction>(
                             actionParametersOf(
@@ -56,12 +57,7 @@ class ShortcutIconWidget : GlanceAppWidget() {
                 verticalAlignment = Alignment.Vertical.CenterVertically,
                 horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
             ) {
-                Text("⚡", style = TextStyle(color = ColorProvider(Green), fontSize = 22.sp))
-                Text(
-                    name.ifBlank { "tap" },
-                    maxLines = 1,
-                    style = TextStyle(color = ColorProvider(Green), fontSize = 10.sp, textAlign = TextAlign.Center),
-                )
+                Text(emoji, style = TextStyle(color = ColorProvider(Green), fontSize = 30.sp, textAlign = TextAlign.Center))
             }
         }
     }
@@ -69,6 +65,7 @@ class ShortcutIconWidget : GlanceAppWidget() {
     companion object {
         val serviceIdKey = stringPreferencesKey("icon_service_id")
         val nameKey = stringPreferencesKey("icon_shortcut_name")
+        val emojiKey = stringPreferencesKey("icon_emoji")
     }
 }
 

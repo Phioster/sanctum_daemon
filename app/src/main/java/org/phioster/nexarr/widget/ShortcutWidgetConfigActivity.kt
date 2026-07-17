@@ -8,12 +8,16 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -25,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -47,7 +52,13 @@ private val Green = Color(0xFF00FF41)
 private val Chip = Color(0xFF13251A)
 private val Dim = Color(0xFF7A9A7A)
 
-/** Shown when the 1×1 icon widget is placed: pick which shortcut it fires. */
+/** Icons offered for the 1×1 shortcut widget (so it's recognisable without text). */
+private val ICONS = listOf(
+    "⚡", "🚀", "🖥️", "🏠", "🔌", "▶️", "🔄", "💡",
+    "🔋", "📡", "⚙️", "🔥", "🌙", "☀️", "✅", "🔒",
+)
+
+/** Shown when the 1×1 icon widget is placed: pick which shortcut it fires + an icon. */
 class ShortcutWidgetConfigActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,6 +77,7 @@ class ShortcutWidgetConfigActivity : ComponentActivity() {
         val ctx = LocalContext.current
         val scope = rememberCoroutineScope()
         var entries by remember { mutableStateOf<List<Pair<ServiceConfig, HttpShortcut>>?>(null) }
+        var chosen by remember { mutableStateOf<Pair<ServiceConfig, HttpShortcut>?>(null) }
 
         LaunchedEffect(Unit) {
             val services = runCatching { ServiceStore(ctx).services.first() }.getOrDefault(emptyList())
@@ -74,46 +86,72 @@ class ShortcutWidgetConfigActivity : ComponentActivity() {
                 .flatMap { svc -> svc.shortcuts.map { svc to it } }
         }
 
+        fun save(svc: ServiceConfig, sc: HttpShortcut, emoji: String) {
+            scope.launch {
+                val glanceId = GlanceAppWidgetManager(ctx).getGlanceIdBy(appWidgetId)
+                updateAppWidgetState(ctx, glanceId) { prefs ->
+                    prefs[ShortcutIconWidget.serviceIdKey] = svc.id
+                    prefs[ShortcutIconWidget.nameKey] = sc.name
+                    prefs[ShortcutIconWidget.emojiKey] = emoji
+                }
+                ShortcutIconWidget().update(ctx, glanceId)
+                setResult(Activity.RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
+                finish()
+            }
+        }
+
         Column(
             Modifier.fillMaxSize().background(Bg).padding(20.dp).verticalScroll(rememberScrollState()),
         ) {
-            Text("pick a shortcut", fontFamily = FontFamily.Monospace, color = Green, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Text("this icon will fire the one you tap", fontFamily = FontFamily.Monospace, color = Dim, fontSize = 12.sp)
-            Spacer(Modifier.height(16.dp))
-
-            val list = entries
-            when {
-                list == null -> Text("loading…", fontFamily = FontFamily.Monospace, color = Dim, fontSize = 13.sp)
-                list.isEmpty() -> Text(
-                    "no shortcuts — add a Shortcuts service in the app first",
-                    fontFamily = FontFamily.Monospace, color = Dim, fontSize = 13.sp,
-                )
-                else -> list.forEach { (svc, sc) ->
-                    Text(
-                        "▸ ${sc.name}",
-                        fontFamily = FontFamily.Monospace, color = Green, fontSize = 15.sp,
-                        modifier = Modifier.fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Chip)
-                            .clickable {
-                                scope.launch {
-                                    val glanceId = GlanceAppWidgetManager(ctx).getGlanceIdBy(appWidgetId)
-                                    updateAppWidgetState(ctx, glanceId) { prefs ->
-                                        prefs[ShortcutIconWidget.serviceIdKey] = svc.id
-                                        prefs[ShortcutIconWidget.nameKey] = sc.name
-                                    }
-                                    ShortcutIconWidget().update(ctx, glanceId)
-                                    setResult(
-                                        Activity.RESULT_OK,
-                                        Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId),
-                                    )
-                                    finish()
-                                }
-                            }
-                            .padding(horizontal = 14.dp, vertical = 14.dp),
+            val sel = chosen
+            if (sel == null) {
+                Text("pick a shortcut", fontFamily = FontFamily.Monospace, color = Green, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("choose which one this icon fires", fontFamily = FontFamily.Monospace, color = Dim, fontSize = 12.sp)
+                Spacer(Modifier.height(16.dp))
+                val list = entries
+                when {
+                    list == null -> Text("loading…", fontFamily = FontFamily.Monospace, color = Dim, fontSize = 13.sp)
+                    list.isEmpty() -> Text(
+                        "no shortcuts — add a Shortcuts service in the app first",
+                        fontFamily = FontFamily.Monospace, color = Dim, fontSize = 13.sp,
                     )
+                    else -> list.forEach { pair ->
+                        Text(
+                            "▸ ${pair.second.name}",
+                            fontFamily = FontFamily.Monospace, color = Green, fontSize = 15.sp,
+                            modifier = Modifier.fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Chip)
+                                .clickable { chosen = pair }
+                                .padding(horizontal = 14.dp, vertical = 14.dp),
+                        )
+                    }
                 }
+            } else {
+                Text("pick an icon", fontFamily = FontFamily.Monospace, color = Green, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("▸ ${sel.second.name}", fontFamily = FontFamily.Monospace, color = Dim, fontSize = 12.sp)
+                Spacer(Modifier.height(16.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    ICONS.forEach { e ->
+                        Box(
+                            Modifier.size(54.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Chip)
+                                .clickable { save(sel.first, sel.second, e) },
+                            contentAlignment = Alignment.Center,
+                        ) { Text(e, fontSize = 26.sp) }
+                    }
+                }
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    "‹ back",
+                    fontFamily = FontFamily.Monospace, color = Dim, fontSize = 14.sp,
+                    modifier = Modifier.clickable { chosen = null },
+                )
             }
         }
     }
