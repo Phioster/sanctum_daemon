@@ -6128,10 +6128,10 @@ private fun ShortcutsScreen(
 ) {
     val accent = Color(config.type.accent)
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var barMenu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<String?>(null) } // shortcut name awaiting the confirm tap
-    var results by remember { mutableStateOf<Map<String, String>>(emptyMap()) } // name -> last result
     var running by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
@@ -6170,7 +6170,7 @@ private fun ShortcutsScreen(
                                 running = sc.name
                                 scope.launch {
                                     val res = vm.runShortcut(config, sc)
-                                    results = results + (sc.name to res)
+                                    android.widget.Toast.makeText(context, res, android.widget.Toast.LENGTH_SHORT).show()
                                     running = null
                                 }
                             } else {
@@ -6187,10 +6187,6 @@ private fun ShortcutsScreen(
                         }
                     }
                     Text("${sc.method.uppercase()} ${sc.url}", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    results[sc.name]?.let {
-                        Spacer(Modifier.height(4.dp))
-                        Text(it, fontFamily = Mono, color = if (it.startsWith("error")) Color(0xFFFFAA00) else MatrixGreen, fontSize = 11.sp)
-                    }
                 }
                 HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
             }
