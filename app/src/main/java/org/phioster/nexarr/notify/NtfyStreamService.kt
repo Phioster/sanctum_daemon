@@ -39,10 +39,12 @@ class NtfyStreamService : Service() {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var job: Job? = null
-    // readTimeout is the watchdog: ntfy sends a keepalive every ~45 s, so 77 s of
-    // silence means the connection is dead and we should reconnect.
+    // readTimeout is the watchdog. The user's ntfy keepalive is 90 s (kept just under
+    // Cloudflare's fixed 100 s idle cutoff), so the watchdog must exceed 90 s — otherwise
+    // it fires between keepalives and reconnects endlessly. 110 s leaves jitter margin;
+    // a genuinely dead link is caught ~100 s anyway when Cloudflare closes the socket.
     private val client = OkHttpClient.Builder()
-        .readTimeout(77, TimeUnit.SECONDS)
+        .readTimeout(110, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
         .build()
 
