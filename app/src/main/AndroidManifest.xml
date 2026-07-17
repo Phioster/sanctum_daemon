@@ -70,6 +70,29 @@
                 android:resource="@xml/shortcuts_widget_info" />
         </receiver>
 
+        <!-- 1×1 icon widget: fires a single chosen HTTP shortcut. -->
+        <receiver
+            android:name=".widget.ShortcutIconWidgetReceiver"
+            android:label="Sanctumd Shortcut (icon)"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/shortcut_icon_widget_info" />
+        </receiver>
+
+        <!-- Picks which shortcut the 1×1 icon widget fires (shown when placed). -->
+        <activity
+            android:name=".widget.ShortcutWidgetConfigActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Nexarr">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <!-- Shares the encrypted config export from the cache dir. -->
         <provider
             android:name="androidx.core.content.FileProvider"
