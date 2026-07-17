@@ -16,6 +16,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.border
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
@@ -888,24 +890,17 @@ private fun DashCardView(
                 } else if (config != null && card.type != CardType.SECTION) {
                     // No custom icon chosen -> the service's brand logo.
                     if (card.theme == "glass") {
-                        // Frosted chip so official logos with dark parts (e.g. Radarr's
-                        // navy ring) stay legible on the dark glass surface — a rounded
-                        // rectangle filled with a soft centre-out glow (the gradient ends
-                        // at a low alpha, not transparent, so the rectangle stays visible
-                        // instead of reading as a round blur).
-                        Box(
-                            Modifier.size(28.dp)
-                                .background(
-                                    Brush.radialGradient(
-                                        listOf(
-                                            Color.White.copy(alpha = 0.30f),
-                                            Color.White.copy(alpha = 0.15f),
-                                        ),
-                                    ),
-                                    RoundedCornerShape(8.dp),
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) { ServiceLogo(config.type, 20.dp) }
+                        // Frosted chip: a rounded rectangle whose outer edge is blurred so
+                        // it feathers softly into the glass, with the logo crisp on top.
+                        // Keeps logos with dark parts (e.g. Radarr's navy ring) legible.
+                        Box(contentAlignment = Alignment.Center) {
+                            Box(
+                                Modifier.size(26.dp)
+                                    .blur(4.dp, BlurredEdgeTreatment.Unbounded)
+                                    .background(Color.White.copy(alpha = 0.26f), RoundedCornerShape(8.dp)),
+                            )
+                            ServiceLogo(config.type, 20.dp)
+                        }
                     } else {
                         ServiceLogo(config.type, 18.dp)
                     }
