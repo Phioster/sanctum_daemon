@@ -630,8 +630,14 @@ private fun HomeShell(
     val drawerState = androidx.compose.material3.rememberDrawerState(
         if (vm.reopenDrawer) androidx.compose.material3.DrawerValue.Open else androidx.compose.material3.DrawerValue.Closed,
     )
+    val startOpen = vm.reopenDrawer
     LaunchedEffect(Unit) { vm.reopenDrawer = false }
     val scope = rememberCoroutineScope()
+    // The full-width ModalNavigationDrawer draws its sheet at offset 0 (open) for the first
+    // frame before it's measured, flashing on the left edge at app open. Don't compose the
+    // drawer sheet until after that first frame (unless we're deliberately reopening it).
+    var drawerMounted by remember { mutableStateOf(startOpen) }
+    LaunchedEffect(Unit) { drawerMounted = true }
 
     // Refresh service statuses while the Services drawer is open.
     LaunchedEffect(drawerState.currentValue) {
@@ -649,14 +655,13 @@ private fun HomeShell(
     androidx.compose.material3.ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
+            if (drawerMounted) {
             androidx.compose.material3.ModalDrawerSheet(
                 modifier = Modifier.fillMaxWidth(),
                 drawerShape = androidx.compose.ui.graphics.RectangleShape,
                 drawerContainerColor = Black,
             ) {
-                // Only compose the service list while the drawer is open or opening — otherwise the
-                // full-width sheet flashes its content on the left edge for one frame on app open.
-                // (An empty black sheet over the black background stays invisible.)
+                // Only compose the service list while the drawer is open or opening.
                 if (drawerState.currentValue == androidx.compose.material3.DrawerValue.Open ||
                     drawerState.targetValue == androidx.compose.material3.DrawerValue.Open
                 ) {
@@ -671,6 +676,7 @@ private fun HomeShell(
                     onClose = { scope.launch { drawerState.close() } },
                 )
                 }
+            }
             }
         },
     ) {
@@ -6288,9 +6294,11 @@ private fun HistoryRow(item: NzbHistoryEntry, onAction: (String) -> Unit) {
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            DropdownMenuItem(text = { Text("Redownload", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryRedownload") })
             DropdownMenuItem(text = { Text("Return to queue", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryReturn") })
-            DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryDelete") })
+            DropdownMenuItem(text = { Text("Redownload", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryRedownload") })
+            DropdownMenuItem(text = { Text("Delete (hide)", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryDelete") })
+            // Fully removes the entry from NZBGet's dupe history so the same release can be grabbed again.
+            DropdownMenuItem(text = { Text("Delete + unblock (dupe)", fontFamily = Mono, color = ErrRed) }, onClick = { menu = false; onAction("HistoryFinalDelete") })
         }
     }
 }
