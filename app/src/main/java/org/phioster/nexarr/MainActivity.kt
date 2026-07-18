@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.pager.HorizontalPager
@@ -21,6 +22,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
@@ -633,11 +635,12 @@ private fun HomeShell(
     val startOpen = vm.reopenDrawer
     LaunchedEffect(Unit) { vm.reopenDrawer = false }
     val scope = rememberCoroutineScope()
-    // The full-width ModalNavigationDrawer draws its sheet at offset 0 (open) for the first
-    // frame before it's measured, flashing on the left edge at app open. Don't compose the
-    // drawer sheet until after that first frame (unless we're deliberately reopening it).
-    var drawerMounted by remember { mutableStateOf(startOpen) }
-    LaunchedEffect(Unit) { drawerMounted = true }
+    // The full-width ModalNavigationDrawer paints its sheet at offset 0 (open) for the first
+    // frame before it's measured, flashing on the left edge at app open. The sheet is kept
+    // fully composed (so its anchors are correct and it stays closed) but held invisible for
+    // the first couple of frames — hiding only the flash, not breaking the drawer.
+    var revealed by remember { mutableStateOf(startOpen) }
+    LaunchedEffect(Unit) { withFrameNanos {}; withFrameNanos {}; revealed = true }
 
     // Refresh service statuses while the Services drawer is open.
     LaunchedEffect(drawerState.currentValue) {
@@ -655,16 +658,12 @@ private fun HomeShell(
     androidx.compose.material3.ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            if (drawerMounted) {
             androidx.compose.material3.ModalDrawerSheet(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().alpha(if (revealed) 1f else 0f),
                 drawerShape = androidx.compose.ui.graphics.RectangleShape,
                 drawerContainerColor = Black,
+                drawerTonalElevation = 0.dp,
             ) {
-                // Only compose the service list while the drawer is open or opening.
-                if (drawerState.currentValue == androidx.compose.material3.DrawerValue.Open ||
-                    drawerState.targetValue == androidx.compose.material3.DrawerValue.Open
-                ) {
                 // Navigating away from inside the drawer flags it to reopen on return.
                 ServicesDrawer(
                     vm = vm,
@@ -675,8 +674,6 @@ private fun HomeShell(
                     onSearch = { term -> vm.reopenDrawer = true; onSearch(term) },
                     onClose = { scope.launch { drawerState.close() } },
                 )
-                }
-            }
             }
         },
     ) {
