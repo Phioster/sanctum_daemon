@@ -245,6 +245,17 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setHideAdult(enabled: Boolean) = viewModelScope.launch { dashStore.setHideAdult(enabled) }
 
+    /** Swipe-to-switch dashboard tabs + the vertical band (0..1) where the swipe counts. */
+    val swipeTabs: StateFlow<Boolean> =
+        dashStore.swipeTabs.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, true)
+    val swipeZoneTop: StateFlow<Float> =
+        dashStore.swipeZoneTop.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, 0f)
+    val swipeZoneBottom: StateFlow<Float> =
+        dashStore.swipeZoneBottom.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, 0.20f)
+
+    fun setSwipeTabs(enabled: Boolean) = viewModelScope.launch { dashStore.setSwipeTabs(enabled) }
+    fun setSwipeZone(top: Float, bottom: Float) = viewModelScope.launch { dashStore.setSwipeZone(top, bottom) }
+
     private val _statuses = MutableStateFlow<Map<String, ServiceStatus>>(emptyMap())
     val statuses: StateFlow<Map<String, ServiceStatus>> = _statuses.asStateFlow()
 

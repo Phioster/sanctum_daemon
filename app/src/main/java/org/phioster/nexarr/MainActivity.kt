@@ -15,6 +15,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.withFrameNanos
+import kotlin.math.roundToInt
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.horizontalDrag
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.pager.HorizontalPager
@@ -627,6 +635,9 @@ private fun HomeShell(
 
     val current = selected.coerceIn(0, (tabs.size - 1).coerceAtLeast(0))
     val currentTab = tabs.getOrNull(current)
+    val swipeTabs by vm.swipeTabs.collectAsState()
+    val swipeZoneTop by vm.swipeZoneTop.collectAsState()
+    val swipeZoneBottom by vm.swipeZoneBottom.collectAsState()
     val currentAccent = currentTab?.takeIf { it.accent != 0L }?.let { Color(it.accent) } ?: MatrixGreen
     // If the user navigated away from inside the drawer, reopen it so back returns them there.
     val drawerState = androidx.compose.material3.rememberDrawerState(
@@ -715,19 +726,52 @@ private fun HomeShell(
             if (editMode) FloatingActionButton(onClick = { showAddCard = true }, containerColor = MatrixGreen, contentColor = Black) { Icon(Icons.Filled.Add, contentDescription = "Add card") }
         },
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
-            if (currentTab != null) {
-                WidgetTabContent(
-                    vm = vm,
-                    tab = currentTab,
-                    editMode = editMode,
-                    onOpenService = onOpen,
-                    onAddTab = { newTabName = ""; newTabIcon = "home"; newTabAccent = 0L; showAddTab = true },
-                    onEditTab = { editTabName = currentTab.name; editTabIcon = currentTab.icon.ifBlank { "home" }; editTabAccent = currentTab.accent; showEditTab = true },
-                    onDeleteTab = { vm.removeTab(currentTab.id); selected = 0; editMode = false },
-                    onMoveTab = { dir -> selected = vm.moveTab(currentTab.id, dir) },
-                    onSearch = onSearch,
-                )
+        Box(
+            Modifier.fillMaxSize().padding(padding)
+                // nzb360-style: a horizontal swipe switches tabs, but only when it starts inside
+                // the configured vertical band — so horizontally-scrolling poster rows outside it
+                // keep scrolling. Only consumed when the down is in-zone; vertical drags fall through.
+                .pointerInput(swipeTabs, swipeZoneTop, swipeZoneBottom, editMode, current, tabs.size) {
+                    if (!swipeTabs || editMode || tabs.size < 2) return@pointerInput
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val topPx = swipeZoneTop * size.height
+                        val botPx = swipeZoneBottom * size.height
+                        if (down.position.y < topPx || down.position.y > botPx) return@awaitEachGesture
+                        var dx = 0f
+                        val first = awaitHorizontalTouchSlopOrCancellation(down.id) { change, over ->
+                            dx += over; change.consume()
+                        } ?: return@awaitEachGesture
+                        horizontalDrag(first.id) { change -> dx += change.positionChange().x; change.consume() }
+                        val threshold = size.width * 0.15f
+                        if (dx <= -threshold) selected = (current + 1).coerceAtMost(tabs.lastIndex)
+                        else if (dx >= threshold) selected = (current - 1).coerceAtLeast(0)
+                    }
+                },
+        ) {
+            androidx.compose.animation.AnimatedContent(
+                targetState = current,
+                transitionSpec = {
+                    val dir = if (targetState >= initialState) 1 else -1
+                    (androidx.compose.animation.slideInHorizontally { w -> dir * w } + androidx.compose.animation.fadeIn()) togetherWith
+                        (androidx.compose.animation.slideOutHorizontally { w -> -dir * w } + androidx.compose.animation.fadeOut())
+                },
+                label = "dashTab",
+            ) { page ->
+                val t = tabs.getOrNull(page)
+                if (t != null) {
+                    WidgetTabContent(
+                        vm = vm,
+                        tab = t,
+                        editMode = editMode,
+                        onOpenService = onOpen,
+                        onAddTab = { newTabName = ""; newTabIcon = "home"; newTabAccent = 0L; showAddTab = true },
+                        onEditTab = { editTabName = t.name; editTabIcon = t.icon.ifBlank { "home" }; editTabAccent = t.accent; showEditTab = true },
+                        onDeleteTab = { vm.removeTab(t.id); selected = 0; editMode = false },
+                        onMoveTab = { dir -> selected = vm.moveTab(t.id, dir) },
+                        onSearch = onSearch,
+                    )
+                }
             }
         }
     }
@@ -1902,6 +1946,7 @@ private fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowInt
                     SettingsCategoryRow("live push (ntfy)", "Instant notifications from your ntfy server") { section = "live push (ntfy)" }
                     SettingsCategoryRow("security", "Biometric app lock") { section = "security" }
                     SettingsCategoryRow("content", "Hide adult / 18+ content") { section = "content" }
+                    SettingsCategoryRow("gestures", "Swipe between dashboard tabs + swipe zone") { section = "gestures" }
                     SettingsCategoryRow("backup / data", "Export or import your config (encrypted)") { section = "backup / data" }
                     SettingsCategoryRow("about", "Version & project info") { section = "about" }
                     SettingsCategoryRow("welcome intro", "Replay the first-run walkthrough") { onShowIntro() }
@@ -1910,6 +1955,7 @@ private fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowInt
                 "live push (ntfy)" -> LivePushSection(vm)
                 "security" -> SecuritySection(vm)
                 "content" -> ContentSection(vm)
+                "gestures" -> GesturesSection(vm)
                 "backup / data" -> BackupSection(vm)
                 "about" -> AboutSection()
             }
@@ -2012,6 +2058,35 @@ private fun ContentSection(vm: DashboardViewModel) {
     Text(
         "Only real porn is hidden — XXX / X / X18+ / Adult ratings on Jellyfin and the TMDB adult flag on Seerr. Mainstream 18-rated films (horror, NC-17, R, FSK 18, R18+) stay visible. Doesn't touch Radarr/Sonarr or global search.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
+    )
+}
+
+@Composable
+private fun GesturesSection(vm: DashboardViewModel) {
+    val enabled by vm.swipeTabs.collectAsState()
+    val zoneTop by vm.swipeZoneTop.collectAsState()
+    val zoneBottom by vm.swipeZoneBottom.collectAsState()
+    NotifyToggleRow("Swipe between tabs", "Horizontal swipe on the dashboard switches tabs", enabled) { vm.setSwipeTabs(it) }
+    var range by remember(zoneTop, zoneBottom) { mutableStateOf(zoneTop..zoneBottom) }
+    Text(
+        "SWIPE ZONE  (${(range.start * 100).roundToInt()}% – ${(range.endInclusive * 100).roundToInt()}% from top)",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
+    )
+    androidx.compose.material3.RangeSlider(
+        value = range,
+        onValueChange = { range = it },
+        onValueChangeFinished = { vm.setSwipeZone(range.start, range.endInclusive) },
+        valueRange = 0f..1f,
+        enabled = enabled,
+        colors = androidx.compose.material3.SliderDefaults.colors(
+            thumbColor = MatrixGreen,
+            activeTrackColor = MatrixGreen,
+            inactiveTrackColor = MatrixGreen.copy(alpha = 0.25f),
+        ),
+    )
+    Text(
+        "Only swipes that start inside this vertical band switch tabs — so horizontally-scrolling poster rows outside it keep scrolling. A top band (e.g. 0–20%) avoids conflicts.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
     )
 }
 
