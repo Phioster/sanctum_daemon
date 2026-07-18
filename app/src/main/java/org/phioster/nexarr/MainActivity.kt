@@ -713,7 +713,7 @@ private fun HomeShell(
         drawerState = drawerState,
         // Open only via the menu icon — a full-width drawer's swipe-to-open otherwise grabs every
         // horizontal swipe across the screen, opening the drawer instead of switching dashboard tabs.
-        gesturesEnabled = true,
+        gesturesEnabled = drawerState.isOpen,
         drawerContent = {
             androidx.compose.material3.ModalDrawerSheet(
                 modifier = Modifier.fillMaxWidth().alpha(if (revealed) 1f else 0f),
@@ -797,6 +797,23 @@ private fun HomeShell(
                         onSearch = onSearch,
                     )
                 }
+            }
+            // A right-swipe in the bottom band opens the Services drawer; taps and vertical scroll
+            // pass through to the content below.
+            if (swipeDrawer && drawerBand > 0f) {
+                Box(
+                    Modifier.align(Alignment.BottomStart).fillMaxWidth().fillMaxHeight(drawerBand)
+                        .pointerInput(drawerBand, swipeDrawer) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                var dx = 0f
+                                val first = awaitHorizontalTouchSlopOrCancellation(down.id) { c, over -> dx += over; c.consume() }
+                                    ?: return@awaitEachGesture
+                                horizontalDrag(first.id) { c -> dx += c.positionChange().x; c.consume() }
+                                if (dx >= size.width * 0.15f) scope.launch { drawerState.open() }
+                            }
+                        },
+                )
             }
         }
     }
