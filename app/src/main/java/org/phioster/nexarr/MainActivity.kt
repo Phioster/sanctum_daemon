@@ -3311,7 +3311,7 @@ private fun JellyfinScreen(
                                             Modifier.fillMaxWidth()
                                                 .clip(RoundedCornerShape(12.dp))
                                                 .background(MatrixGreen.copy(alpha = 0.06f))
-                                                .border(1.dp, accent.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                                                .border(1.dp, MatrixGreen.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
                                                 .padding(14.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
@@ -4008,7 +4008,7 @@ private fun DashTile(label: String, count: Int?, icon: androidx.compose.ui.graph
         modifier
             .clip(RoundedCornerShape(12.dp))
             .background(MatrixGreen.copy(alpha = 0.06f))
-            .border(1.dp, accent.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+            .border(1.dp, MatrixGreen.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .padding(14.dp),
     ) {
