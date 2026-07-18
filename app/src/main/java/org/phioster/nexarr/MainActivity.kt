@@ -903,6 +903,7 @@ private fun DashCardView(
     var nzbHistory by remember { mutableStateOf<List<org.phioster.nexarr.model.NzbHistoryEntry>?>(null) }
     var discover by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrDiscoverItem>?>(null) }
     var sysHealth by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
+    var stat by remember { mutableStateOf<org.phioster.nexarr.model.ServiceStatus?>(null) }
     var detail by remember { mutableStateOf<MediaDetail?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val ctx = LocalContext.current
@@ -932,6 +933,8 @@ private fun DashCardView(
                     CardType.SEERR_POPULAR_MOVIES -> discover = vm.seerrDiscoverList(config, "movies")
                     CardType.SEERR_POPULAR_TV -> discover = vm.seerrDiscoverList(config, "tv")
                     CardType.RADARR_HEALTH, CardType.SONARR_HEALTH, CardType.LIDARR_HEALTH -> sysHealth = vm.arrSystemInfo(config).health
+                    CardType.JELLYFIN_STATS, CardType.RADARR_STATS, CardType.SONARR_STATS, CardType.LIDARR_STATS,
+                    CardType.PROWLARR_STATS, CardType.NZBGET_STATS, CardType.SEERR_STATS -> stat = vm.serviceStats(config)
                 }
                 break
             } catch (c: kotlinx.coroutines.CancellationException) {
@@ -1082,6 +1085,24 @@ private fun DashCardView(
                             Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
                                 Text(msg, fontFamily = Mono, color = col, fontSize = 12.sp)
                                 Text(type.uppercase(), fontFamily = Mono, color = col.copy(alpha = 0.6f), fontSize = 9.sp)
+                            }
+                        }
+                    }
+                }
+            }
+            card.type == CardType.JELLYFIN_STATS || card.type == CardType.RADARR_STATS || card.type == CardType.SONARR_STATS ||
+                card.type == CardType.LIDARR_STATS || card.type == CardType.PROWLARR_STATS || card.type == CardType.NZBGET_STATS ||
+                card.type == CardType.SEERR_STATS -> {
+                val st = stat
+                when {
+                    st == null || st.isLoading -> loading()
+                    !st.ok -> Text("offline${st.error?.let { ": $it" } ?: ""}", fontFamily = Mono, color = ErrRed, fontSize = 12.sp)
+                    st.stats.isEmpty() -> empty("no stats")
+                    else -> Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        st.stats.forEach { (k, v) ->
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(v, fontFamily = Mono, fontWeight = FontWeight.Bold, color = if (card.theme == "solid") Black else MatrixGreen, fontSize = 22.sp)
+                                Text(k.uppercase(), fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 10.sp)
                             }
                         }
                     }

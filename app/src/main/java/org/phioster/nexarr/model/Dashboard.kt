@@ -35,6 +35,13 @@ enum class CardType(val label: String, val service: ServiceType?) {
     RADARR_HEALTH("Health", ServiceType.RADARR),
     SONARR_HEALTH("Health", ServiceType.SONARR),
     LIDARR_HEALTH("Health", ServiceType.LIDARR),
+    JELLYFIN_STATS("Statistics", ServiceType.JELLYFIN),
+    RADARR_STATS("Statistics", ServiceType.RADARR),
+    SONARR_STATS("Statistics", ServiceType.SONARR),
+    LIDARR_STATS("Statistics", ServiceType.LIDARR),
+    PROWLARR_STATS("Statistics", ServiceType.PROWLARR),
+    NZBGET_STATS("Statistics", ServiceType.NZBGET),
+    SEERR_STATS("Statistics", ServiceType.SEERR),
     SHORTCUTS("Shortcuts", ServiceType.SHORTCUTS),
 }
 
