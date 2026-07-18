@@ -530,6 +530,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrCutoffList(config: ServiceConfig): List<ArrMissingItem> = arrCutoff(config)
     suspend fun arrDetailOf(config: ServiceConfig, id: Int): ArrDetail = arrDetail(config, id)
     suspend fun arrEpisodesOf(config: ServiceConfig, seriesId: Int): List<ArrEpisode> = arrEpisodes(config, seriesId)
+    suspend fun arrSetEpisodeMonitored(config: ServiceConfig, episodeId: Int, monitored: Boolean): String =
+        org.phioster.nexarr.net.arrSetEpisodeMonitored(config, episodeId, monitored)
     suspend fun arrAlbumsOf(config: ServiceConfig, artistId: Int): List<org.phioster.nexarr.model.ArrAlbum> =
         arrAlbums(config, artistId)
     suspend fun arrTracksOf(config: ServiceConfig, albumId: Int): List<org.phioster.nexarr.model.ArrTrack> =

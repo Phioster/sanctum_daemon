@@ -1006,6 +1006,7 @@ private interface ArrApi {
     @GET suspend fun profiles(@Url url: String): List<ArrProfileRecord>
     @GET suspend fun rootFolders(@Url url: String): List<ArrRootFolderRecord>
     @POST suspend fun command(@Url url: String, @Body body: JsonObject): Response<ResponseBody>
+    @PUT suspend fun putUrl(@Url url: String, @Body body: JsonObject): Response<ResponseBody>
     @POST suspend fun add(@Url url: String, @Body body: JsonObject): Response<ResponseBody>
     @POST suspend fun releasePush(@Url url: String, @Body body: JsonObject): Response<ResponseBody>
     @DELETE suspend fun deleteQueue(@Url url: String): Response<ResponseBody>
@@ -1397,6 +1398,20 @@ suspend fun arrEpisodes(config: ServiceConfig, seriesId: Int): List<ArrEpisode> 
     apiFor<ArrApi>(config, apiKeyHeader(config)).episodes("$base/episode", seriesId).map { e ->
         ArrEpisode(e.id, e.seasonNumber, e.episodeNumber, e.title, e.hasFile, e.monitored, e.airDate?.take(10) ?: "")
     }.sortedWith(compareByDescending<ArrEpisode> { it.seasonNumber }.thenByDescending { it.episodeNumber })
+}
+
+/** Sonarr: toggle monitoring for a single episode. */
+suspend fun arrSetEpisodeMonitored(config: ServiceConfig, episodeId: Int, monitored: Boolean): String = withContext(Dispatchers.IO) {
+    try {
+        val base = arrBase(config.type)
+        val body = buildJsonObject {
+            putJsonArray("episodeIds") { add(episodeId) }
+            put("monitored", monitored)
+        }
+        okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).putUrl("$base/episode/monitor", body), if (monitored) "monitoring" else "unmonitored")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
 }
 
 /** Lidarr: albums for an artist, newest first. */

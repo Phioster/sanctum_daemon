@@ -4935,6 +4935,7 @@ private fun ArrScreen(
     var missing by remember { mutableStateOf<List<ArrMissingItem>?>(null) }
     var cutoff by remember { mutableStateOf<List<ArrMissingItem>?>(null) }
     var queue by remember { mutableStateOf<List<ArrQueueItem>?>(null) }
+    var queueFilter by remember { mutableStateOf("") } // "" = all; else a status to filter the queue by
     var history by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrHistoryItem>?>(null) }
     var detailId by remember { mutableStateOf(initialDetailId) }
     val supportsDetail = config.type == ServiceType.RADARR || config.type == ServiceType.SONARR || config.type == ServiceType.LIDARR
@@ -5178,7 +5179,23 @@ private fun ArrScreen(
                                 when {
                                     q == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     q.isEmpty() -> item { Text("queue is empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(q) { qi -> ArrQueueRow(qi) { act { vm.arrRemove(config, qi.id) } } }
+                                    else -> {
+                                        val statuses = q.map { it.status }.filter { it.isNotBlank() }.distinct()
+                                        if (statuses.size > 1) {
+                                            item {
+                                                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                    FilterChip(selected = queueFilter == "", onClick = { queueFilter = "" }, label = { Text("all", fontFamily = Mono) })
+                                                    statuses.forEach { s ->
+                                                        Spacer(Modifier.width(6.dp))
+                                                        FilterChip(selected = queueFilter == s, onClick = { queueFilter = if (queueFilter == s) "" else s }, label = { Text(s, fontFamily = Mono) })
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        val shown = q.filter { queueFilter.isEmpty() || it.status == queueFilter }
+                                        if (shown.isEmpty()) item { Text("none with status “$queueFilter”", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        else items(shown) { qi -> ArrQueueRow(qi) { act { vm.arrRemove(config, qi.id) } } }
+                                    }
                                 }
                             }
                             else -> {
@@ -5652,7 +5669,15 @@ private fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, itemI
                     eps == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
                     eps.isEmpty() -> item { Text("no episodes", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
                     else -> items(eps) { ep ->
-                        ArrEpisodeRow(ep, accent) {
+                        ArrEpisodeRow(
+                            ep, accent,
+                            onToggleMonitor = {
+                                scope.launch {
+                                    vm.arrSetEpisodeMonitored(config, ep.id, !ep.monitored)
+                                    episodes = vm.arrEpisodesOf(config, itemId)
+                                }
+                            },
+                        ) {
                             openReleases(movieId = null, episodeId = ep.id, title = "S%02dE%02d %s".format(ep.seasonNumber, ep.episodeNumber, ep.title))
                         }
                     }
@@ -5775,12 +5800,22 @@ private fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, itemI
 }
 
 @Composable
-private fun ArrEpisodeRow(item: ArrEpisode, accent: Color, onSearch: () -> Unit) {
+private fun ArrEpisodeRow(item: ArrEpisode, accent: Color, onToggleMonitor: () -> Unit, onSearch: () -> Unit) {
     val c = if (item.hasFile) MatrixGreen else if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.4f)
-    Column(Modifier.fillMaxWidth().clickable { onSearch() }.padding(vertical = 8.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("S%02dE%02d  %s".format(item.seasonNumber, item.episodeNumber, item.title), fontFamily = Mono, color = c, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            Text(if (item.hasFile) "✓" else item.airDate, fontFamily = Mono, color = c, fontSize = 10.sp)
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "S%02dE%02d  %s".format(item.seasonNumber, item.episodeNumber, item.title),
+                fontFamily = Mono, color = c, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).clickable { onSearch() },
+            )
+            // Tappable monitor toggle (◉ = monitored, ○ = not).
+            Text(
+                if (item.monitored) "◉" else "○",
+                fontFamily = Mono, color = if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.4f), fontSize = 15.sp,
+                modifier = Modifier.clickable { onToggleMonitor() }.padding(horizontal = 8.dp),
+            )
+            Text(if (item.hasFile) "✓" else item.airDate, fontFamily = Mono, color = c, fontSize = 10.sp, modifier = Modifier.clickable { onSearch() })
         }
         Spacer(Modifier.height(6.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
