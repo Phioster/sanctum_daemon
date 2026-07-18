@@ -384,56 +384,73 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
     val showOnboarding = forceIntro || (onboardingDone == false && servicesLoaded && allServicesForShortcuts.isEmpty())
     BackHandler(enabled = showOnboarding) { forceIntro = false; vm.setOnboardingDone(true) }
 
-    when {
-        showOnboarding -> OnboardingScreen(onDismiss = { openAdd ->
-            forceIntro = false
-            vm.setOnboardingDone(true)
-            if (openAdd) addOpen = true
-        })
-        editorOpen -> AddServiceScreen(
-            existing = editing,
-            onCancel = { addOpen = false; editing = null },
-            onSave = {
-                vm.upsertService(it)
-                if (detail?.id == it.id) detail = it // stay on the (now updated) service
-                addOpen = false; editing = null
-            },
-            onTest = { vm.test(it) },
-        )
-        detail != null -> {
-            val cfg = detail!!
-            val link = searchDeepLink
-            val back = closeDetail
-            val edit = { editing = cfg } // keep detail so back returns to the service
-            val del = { vm.removeService(cfg.id); detail = null; detailFromSearch = false; searchDeepLink = null }
-            when (cfg.type) {
-                ServiceType.NZBGET -> NzbgetScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
-                ServiceType.RADARR, ServiceType.SONARR, ServiceType.LIDARR ->
-                    ArrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del, initialDetailId = link?.arrDetailId, initialAddTerm = link?.arrAddTerm)
-                ServiceType.SEERR -> SeerrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del, initialDetail = link?.seerrTmdb?.let { it to link.seerrMediaType })
-                ServiceType.PROWLARR -> ProwlarrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
-                ServiceType.JELLYFIN -> JellyfinScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del, initialItemId = link?.jellyItemId)
-                ServiceType.NTFY -> NtfyScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
-                ServiceType.SHORTCUTS -> ShortcutsScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
-                else -> ServiceDetailScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
+    // Fade between top-level screens. `route` decides which screen shows; the detail config +
+    // deep-link are remembered so the outgoing detail frame still has data while it fades out.
+    val route = when {
+        showOnboarding -> "onboarding"
+        editorOpen -> "editor"
+        detail != null -> "detail:${detail!!.id}"
+        searchOpen -> "search"
+        notifOpen -> "settings"
+        else -> "home"
+    }
+    val shownDetail = remember { mutableStateOf<ServiceConfig?>(null) }
+    val shownLink = remember { mutableStateOf<SearchDeepLink?>(null) }
+    if (detail != null && shownDetail.value !== detail) { shownDetail.value = detail; shownLink.value = searchDeepLink }
+    androidx.compose.animation.Crossfade(targetState = route, animationSpec = androidx.compose.animation.core.tween(200), label = "screen") { r ->
+        when {
+            r == "onboarding" -> OnboardingScreen(onDismiss = { openAdd ->
+                forceIntro = false
+                vm.setOnboardingDone(true)
+                if (openAdd) addOpen = true
+            })
+            r == "editor" -> AddServiceScreen(
+                existing = editing,
+                onCancel = { addOpen = false; editing = null },
+                onSave = {
+                    vm.upsertService(it)
+                    if (detail?.id == it.id) detail = it // stay on the (now updated) service
+                    addOpen = false; editing = null
+                },
+                onTest = { vm.test(it) },
+            )
+            r.startsWith("detail") -> {
+                val cfg = shownDetail.value
+                if (cfg != null) {
+                    val link = shownLink.value
+                    val back = closeDetail
+                    val edit = { editing = cfg } // keep detail so back returns to the service
+                    val del = { vm.removeService(cfg.id); detail = null; detailFromSearch = false; searchDeepLink = null }
+                    when (cfg.type) {
+                        ServiceType.NZBGET -> NzbgetScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
+                        ServiceType.RADARR, ServiceType.SONARR, ServiceType.LIDARR ->
+                            ArrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del, initialDetailId = link?.arrDetailId, initialAddTerm = link?.arrAddTerm)
+                        ServiceType.SEERR -> SeerrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del, initialDetail = link?.seerrTmdb?.let { it to link.seerrMediaType })
+                        ServiceType.PROWLARR -> ProwlarrScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
+                        ServiceType.JELLYFIN -> JellyfinScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del, initialItemId = link?.jellyItemId)
+                        ServiceType.NTFY -> NtfyScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
+                        ServiceType.SHORTCUTS -> ShortcutsScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
+                        else -> ServiceDetailScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)
+                    }
+                }
             }
+            r == "search" -> GlobalSearchScreen(
+                vm = vm,
+                onBack = { searchOpen = false },
+                onOpenService = { cfg, link -> searchOpen = false; detailFromSearch = true; searchDeepLink = link; detail = cfg },
+                initialTerm = searchTerm,
+                onTermChange = { searchTerm = it },
+            )
+            r == "settings" -> SettingsScreen(vm = vm, onBack = { notifOpen = false }, onShowIntro = { notifOpen = false; forceIntro = true })
+            else -> HomeShell(
+                vm = vm,
+                onAdd = { addOpen = true },
+                onOpen = { detail = it },
+                onEdit = { editing = it },
+                onSearch = { term -> searchTerm = term; searchOpen = true },
+                onNotifications = { notifOpen = true },
+            )
         }
-        searchOpen -> GlobalSearchScreen(
-            vm = vm,
-            onBack = { searchOpen = false },
-            onOpenService = { cfg, link -> searchOpen = false; detailFromSearch = true; searchDeepLink = link; detail = cfg },
-            initialTerm = searchTerm,
-            onTermChange = { searchTerm = it },
-        )
-        notifOpen -> SettingsScreen(vm = vm, onBack = { notifOpen = false }, onShowIntro = { notifOpen = false; forceIntro = true })
-        else -> HomeShell(
-            vm = vm,
-            onAdd = { addOpen = true },
-            onOpen = { detail = it },
-            onEdit = { editing = it },
-            onSearch = { term -> searchTerm = term; searchOpen = true },
-            onNotifications = { notifOpen = true },
-        )
     }
 
     // After a restore onto a new device the encrypted services blob can't be
