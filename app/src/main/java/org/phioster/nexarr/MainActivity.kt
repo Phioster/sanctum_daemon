@@ -5215,20 +5215,21 @@ private fun ArrScreen(
                                     q.isEmpty() -> item { Text("queue is empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     else -> {
                                         val statuses = q.map { it.status }.filter { it.isNotBlank() }.distinct()
+                                        // Ignore a filter whose status no longer exists in the queue (download finished etc.).
+                                        val activeFilter = if (queueFilter in statuses) queueFilter else ""
                                         if (statuses.size > 1) {
                                             item {
                                                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                    FilterChip(selected = queueFilter == "", onClick = { queueFilter = "" }, label = { Text("all", fontFamily = Mono) })
+                                                    FilterChip(selected = activeFilter == "", onClick = { queueFilter = "" }, label = { Text("all", fontFamily = Mono) })
                                                     statuses.forEach { s ->
                                                         Spacer(Modifier.width(6.dp))
-                                                        FilterChip(selected = queueFilter == s, onClick = { queueFilter = if (queueFilter == s) "" else s }, label = { Text(s, fontFamily = Mono) })
+                                                        FilterChip(selected = activeFilter == s, onClick = { queueFilter = if (activeFilter == s) "" else s }, label = { Text(s, fontFamily = Mono) })
                                                     }
                                                 }
                                             }
                                         }
-                                        val shown = q.filter { queueFilter.isEmpty() || it.status == queueFilter }
-                                        if (shown.isEmpty()) item { Text("none with status “$queueFilter”", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                        else items(shown) { qi -> ArrQueueRow(qi) { act { vm.arrRemove(config, qi.id) } } }
+                                        val shown = q.filter { activeFilter.isEmpty() || it.status == activeFilter }
+                                        items(shown) { qi -> ArrQueueRow(qi) { act { vm.arrRemove(config, qi.id) } } }
                                     }
                                 }
                             }
