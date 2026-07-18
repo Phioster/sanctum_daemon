@@ -26,11 +26,20 @@ class StatusCacheWorker(ctx: Context, params: WorkerParameters) : CoroutineWorke
                 val note = st?.note
                     ?: st?.stats?.firstOrNull()?.let { "${it.second} ${it.first}" }
                     ?: if (st?.ok == true) "ok" else (st?.error ?: "down")
-                svc.id to StatusSnap(ok = st?.ok == true, label = svc.label, note = note)
+                svc.id to StatusSnap(
+                    ok = st?.ok == true,
+                    label = svc.label,
+                    note = note,
+                    stats = st?.stats?.toMap().orEmpty(),
+                )
             }
         }.awaitAll().toMap()
         StatusSnapshotStore(applicationContext).write(snaps)
+        // Every widget that renders from this snapshot: the status list + the three 1×1 stat tiles.
         StatusWidget().updateAll(applicationContext)
+        StackHealthWidget().updateAll(applicationContext)
+        QueueTileWidget().updateAll(applicationContext)
+        SeerrTileWidget().updateAll(applicationContext)
         Result.success()
     }
 }

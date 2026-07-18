@@ -109,6 +109,45 @@
                 android:resource="@xml/calendar_widget_info" />
         </receiver>
 
+        <!-- 1×1 stat tile: online/total services at a glance. -->
+        <receiver
+            android:name=".widget.StackHealthWidgetReceiver"
+            android:label="Sanctumd Health"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/stat_tile_widget_info" />
+        </receiver>
+
+        <!-- 1×1 stat tile: NZBGet download queue size. -->
+        <receiver
+            android:name=".widget.QueueTileWidgetReceiver"
+            android:label="Sanctumd Queue"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/stat_tile_widget_info" />
+        </receiver>
+
+        <!-- 1×1 stat tile: Jellyseerr pending requests. -->
+        <receiver
+            android:name=".widget.SeerrTileWidgetReceiver"
+            android:label="Sanctumd Requests"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/stat_tile_widget_info" />
+        </receiver>
+
         <!-- Picks which shortcut the 1×1 icon widget fires (shown when placed). -->
         <activity
             android:name=".widget.ShortcutWidgetConfigActivity"

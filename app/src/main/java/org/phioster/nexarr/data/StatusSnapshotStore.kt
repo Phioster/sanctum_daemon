@@ -10,9 +10,16 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-/** One service's last-known status, as shown by the status widget. */
+/** One service's last-known status, as shown by the status widget.
+ *  [stats] carries the fetched stat pairs (e.g. "Queue"→"3", "Pending"→"5") so the
+ *  1×1 stat tiles can read a single number without a second fetch. */
 @Serializable
-data class StatusSnap(val ok: Boolean, val label: String, val note: String = "")
+data class StatusSnap(
+    val ok: Boolean,
+    val label: String,
+    val note: String = "",
+    val stats: Map<String, String> = emptyMap(),
+)
 
 private val Context.statusDataStore by preferencesDataStore(name = "nexarr_status")
 private val SNAP_KEY = stringPreferencesKey("snap_json")
