@@ -2482,7 +2482,8 @@ private fun SeerrScreen(
         } catch (c: kotlinx.coroutines.CancellationException) {
             throw c
         } catch (t: Throwable) {
-            listError = t.message
+            // No Plex link → the endpoint may 404; degrade to the friendly empty note instead of an error.
+            watchlist = emptyList()
         }
     }
     LaunchedEffect(mode, reqFilter, issueFilter, discoverKind) {
