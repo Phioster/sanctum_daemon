@@ -609,6 +609,46 @@ private fun OnboardingScreen(onDismiss: (openAdd: Boolean) -> Unit) {
     }
 }
 
+/** Wraps a set of tab pages so a horizontal swipe changes the tab, with a directional
+ *  slide+fade. A child that consumes the drag first (e.g. a poster row) still wins. */
+@Composable
+private fun SwipeTabs(
+    tab: Int,
+    count: Int,
+    onChange: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable (page: Int) -> Unit,
+) {
+    Box(
+        modifier.pointerInput(enabled, tab, count) {
+            if (!enabled || count < 2) return@pointerInput
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                var dx = 0f
+                val first = awaitHorizontalTouchSlopOrCancellation(down.id) { c, over -> dx += over; c.consume() }
+                    ?: return@awaitEachGesture
+                horizontalDrag(first.id) { c -> dx += c.positionChange().x; c.consume() }
+                val threshold = size.width * 0.15f
+                if (dx <= -threshold) onChange((tab + 1).coerceAtMost(count - 1))
+                else if (dx >= threshold) onChange((tab - 1).coerceAtLeast(0))
+            }
+        },
+    ) {
+        androidx.compose.animation.AnimatedContent(
+            targetState = tab,
+            transitionSpec = {
+                val dir = if (targetState >= initialState) 1 else -1
+                val spec = androidx.compose.animation.core.tween<androidx.compose.ui.unit.IntOffset>(220, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                val fade = androidx.compose.animation.core.tween<Float>(180)
+                (androidx.compose.animation.slideInHorizontally(spec) { w -> dir * w } + androidx.compose.animation.fadeIn(fade)) togetherWith
+                    (androidx.compose.animation.slideOutHorizontally(spec) { w -> -dir * w } + androidx.compose.animation.fadeOut(fade))
+            },
+            label = "subTab",
+        ) { page -> content(page) }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeShell(
@@ -2764,12 +2804,12 @@ private fun SeerrScreen(
                 }
             }
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
-            Box(Modifier.weight(1f).fillMaxWidth()) {
+            SwipeTabs(mode, 4, { mode = it }, Modifier.weight(1f).fillMaxWidth()) { page ->
                 if (listError != null) {
                     Text("error: $listError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
                 } else {
                     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                        when (mode) {
+                        when (page) {
                             0 -> {
                                 val r = requests
                                 when {
@@ -4897,12 +4937,12 @@ private fun ProwlarrScreen(
                 }
             }
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
-            Box(Modifier.weight(1f).fillMaxWidth()) {
+            SwipeTabs(mode, 3, { mode = it }, Modifier.weight(1f).fillMaxWidth()) { page ->
                 if (listError != null) {
                     Text("error: $listError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
                 } else {
                     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                        when (mode) {
+                        when (page) {
                             0 -> {
                                 val ix = indexers
                                 when {
@@ -5356,12 +5396,12 @@ private fun ArrScreen(
             }
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
-            Box(Modifier.weight(1f).fillMaxWidth()) {
+            SwipeTabs(tab, 5, { tab = it }, Modifier.weight(1f).fillMaxWidth()) { page ->
                 if (listError != null) {
                     Text("error: $listError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
                 } else {
                     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                        when (tab) {
+                        when (page) {
                             0 -> {
                                 val filtered = library?.filter { it.title.contains(query, ignoreCase = true) }?.let { l ->
                                     when (sortBy) {
@@ -5384,10 +5424,10 @@ private fun ArrScreen(
                                 }
                             }
                             1, 2 -> {
-                                val m = if (tab == 1) missing else cutoff
+                                val m = if (page == 1) missing else cutoff
                                 when {
                                     m == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    m.isEmpty() -> item { Text(if (tab == 1) "nothing missing" else "nothing below cutoff", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    m.isEmpty() -> item { Text(if (page == 1) "nothing missing" else "nothing below cutoff", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     else -> items(m) { mi -> ArrMissingRow(mi, accent) { act { vm.arrSearch(config, mi.id) } } }
                                 }
                             }
@@ -6228,12 +6268,12 @@ private fun NzbgetScreen(
             }
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
-            Box(Modifier.weight(1f).fillMaxWidth()) {
+            SwipeTabs(tab, 2, { tab = it }, Modifier.weight(1f).fillMaxWidth()) { page ->
                 if (listError != null) {
                     Text("error: $listError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
                 } else {
                     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                        if (tab == 0) {
+                        if (page == 0) {
                             val q = queue
                             when {
                                 q == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
