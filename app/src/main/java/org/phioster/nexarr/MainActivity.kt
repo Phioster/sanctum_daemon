@@ -636,8 +636,8 @@ private fun HomeShell(
     val current = selected.coerceIn(0, (tabs.size - 1).coerceAtLeast(0))
     val currentTab = tabs.getOrNull(current)
     val swipeTabs by vm.swipeTabs.collectAsState()
-    val swipeZoneTop by vm.swipeZoneTop.collectAsState()
-    val swipeZoneBottom by vm.swipeZoneBottom.collectAsState()
+    val swipeDrawer by vm.swipeDrawer.collectAsState()
+    val drawerBand by vm.drawerBand.collectAsState()
     val currentAccent = currentTab?.takeIf { it.accent != 0L }?.let { Color(it.accent) } ?: MatrixGreen
     // If the user navigated away from inside the drawer, reopen it so back returns them there.
     val drawerState = androidx.compose.material3.rememberDrawerState(
@@ -731,24 +731,28 @@ private fun HomeShell(
     ) { padding ->
         Box(
             Modifier.fillMaxSize().padding(padding)
-                // nzb360-style: a horizontal swipe switches tabs, but only when it starts inside
-                // the configured vertical band — so horizontally-scrolling poster rows outside it
-                // keep scrolling. Only consumed when the down is in-zone; vertical drags fall through.
-                .pointerInput(swipeTabs, swipeZoneTop, swipeZoneBottom, editMode, current, tabs.size) {
-                    if (!swipeTabs || editMode || tabs.size < 2) return@pointerInput
+                // nzb360-style dashboard gestures: a right-swipe in the bottom band opens the Services
+                // drawer; a left/right swipe above it switches tabs. A child that consumes the drag first
+                // (e.g. a horizontally-scrolling poster row) wins, so those keep scrolling.
+                .pointerInput(swipeTabs, swipeDrawer, drawerBand, editMode, current, tabs.size) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
-                        val topPx = swipeZoneTop * size.height
-                        val botPx = swipeZoneBottom * size.height
-                        if (down.position.y < topPx || down.position.y > botPx) return@awaitEachGesture
+                        val inDrawerBand = down.position.y > size.height * (1f - drawerBand)
+                        val useDrawer = inDrawerBand && swipeDrawer
+                        val useTabs = !inDrawerBand && swipeTabs && !editMode && tabs.size > 1
+                        if (!useDrawer && !useTabs) return@awaitEachGesture
                         var dx = 0f
                         val first = awaitHorizontalTouchSlopOrCancellation(down.id) { change, over ->
                             dx += over; change.consume()
                         } ?: return@awaitEachGesture
                         horizontalDrag(first.id) { change -> dx += change.positionChange().x; change.consume() }
                         val threshold = size.width * 0.15f
-                        if (dx <= -threshold) selected = (current + 1).coerceAtMost(tabs.lastIndex)
-                        else if (dx >= threshold) selected = (current - 1).coerceAtLeast(0)
+                        if (useDrawer) {
+                            if (dx >= threshold) scope.launch { drawerState.open() }
+                        } else {
+                            if (dx <= -threshold) selected = (current + 1).coerceAtMost(tabs.lastIndex)
+                            else if (dx >= threshold) selected = (current - 1).coerceAtLeast(0)
+                        }
                     }
                 },
         ) {
@@ -2068,21 +2072,22 @@ private fun ContentSection(vm: DashboardViewModel) {
 
 @Composable
 private fun GesturesSection(vm: DashboardViewModel) {
-    val enabled by vm.swipeTabs.collectAsState()
-    val zoneTop by vm.swipeZoneTop.collectAsState()
-    val zoneBottom by vm.swipeZoneBottom.collectAsState()
-    NotifyToggleRow("Swipe between tabs", "Horizontal swipe on the dashboard switches tabs", enabled) { vm.setSwipeTabs(it) }
-    var range by remember(zoneTop, zoneBottom) { mutableStateOf(zoneTop..zoneBottom) }
+    val swipeTabs by vm.swipeTabs.collectAsState()
+    val swipeDrawer by vm.swipeDrawer.collectAsState()
+    val band by vm.drawerBand.collectAsState()
+    NotifyToggleRow("Swipe between tabs", "Left/right swipe above the drawer band switches dashboard tabs", swipeTabs) { vm.setSwipeTabs(it) }
+    NotifyToggleRow("Swipe to open drawer", "Right-swipe in the bottom band opens the Services drawer", swipeDrawer) { vm.setSwipeDrawer(it) }
+    var local by remember(band) { mutableStateOf(band) }
     Text(
-        "SWIPE ZONE  (${(range.start * 100).roundToInt()}% – ${(range.endInclusive * 100).roundToInt()}% from top)",
+        "DRAWER BAND  (bottom ${(local * 100).roundToInt()}% of the screen)",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
     )
-    androidx.compose.material3.RangeSlider(
-        value = range,
-        onValueChange = { range = it },
-        onValueChangeFinished = { vm.setSwipeZone(range.start, range.endInclusive) },
-        valueRange = 0f..1f,
-        enabled = enabled,
+    androidx.compose.material3.Slider(
+        value = local,
+        onValueChange = { local = it },
+        onValueChangeFinished = { vm.setDrawerBand(local) },
+        valueRange = 0f..0.5f,
+        enabled = swipeDrawer,
         colors = androidx.compose.material3.SliderDefaults.colors(
             thumbColor = MatrixGreen,
             activeTrackColor = MatrixGreen,
@@ -2090,7 +2095,7 @@ private fun GesturesSection(vm: DashboardViewModel) {
         ),
     )
     Text(
-        "Only swipes that start inside this vertical band switch tabs — so horizontally-scrolling poster rows outside it keep scrolling. A top band (e.g. 0–20%) avoids conflicts.",
+        "How far up from the bottom edge a right-swipe opens the Services drawer (max 50%). Above this band, swipes switch tabs. Poster rows keep scrolling.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
     )
 }
