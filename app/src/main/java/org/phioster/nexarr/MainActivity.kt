@@ -3495,12 +3495,22 @@ private fun JellyfinScreen(
                 }
             }
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
-            Box(Modifier.weight(1f).fillMaxWidth()) {
+            // Chip order isn't the raw mode order, and swipe must not fight nested nav (Media browse /
+            // Dashboard section). Swipe walks the visual order; disabled while inside a sub-navigation.
+            val jfOrder = listOf(0, 3, 1, 2, 4)
+            SwipeTabs(
+                tab = jfOrder.indexOf(mode).coerceAtLeast(0),
+                count = jfOrder.size,
+                onChange = { mode = jfOrder[it] },
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                enabled = browseStack.isEmpty() && dashSection == null,
+            ) { jfPage ->
+                val pageMode = jfOrder[jfPage]
                 if (listError != null) {
                     Text("error: $listError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
                 } else {
                     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                        when (mode) {
+                        when (pageMode) {
                             0 -> {
                                 val s = sessions
                                 when {
