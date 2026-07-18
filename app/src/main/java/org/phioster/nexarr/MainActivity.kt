@@ -654,6 +654,12 @@ private fun HomeShell(
                 drawerShape = androidx.compose.ui.graphics.RectangleShape,
                 drawerContainerColor = Black,
             ) {
+                // Only compose the service list while the drawer is open or opening — otherwise the
+                // full-width sheet flashes its content on the left edge for one frame on app open.
+                // (An empty black sheet over the black background stays invisible.)
+                if (drawerState.currentValue == androidx.compose.material3.DrawerValue.Open ||
+                    drawerState.targetValue == androidx.compose.material3.DrawerValue.Open
+                ) {
                 // Navigating away from inside the drawer flags it to reopen on return.
                 ServicesDrawer(
                     vm = vm,
@@ -664,6 +670,7 @@ private fun HomeShell(
                     onSearch = { term -> vm.reopenDrawer = true; onSearch(term) },
                     onClose = { scope.launch { drawerState.close() } },
                 )
+                }
             }
         },
     ) {
