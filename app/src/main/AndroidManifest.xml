@@ -96,6 +96,19 @@
                 android:resource="@xml/status_widget_info" />
         </receiver>
 
+        <!-- Homescreen widget: upcoming releases across Radarr/Sonarr/Lidarr (agenda list). -->
+        <receiver
+            android:name=".widget.CalendarWidgetReceiver"
+            android:label="Sanctumd Upcoming"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/calendar_widget_info" />
+        </receiver>
+
         <!-- Picks which shortcut the 1×1 icon widget fires (shown when placed). -->
         <activity
             android:name=".widget.ShortcutWidgetConfigActivity"
