@@ -36,6 +36,7 @@ enum class CardType(val label: String, val service: ServiceType?) {
     SONARR_HEALTH("Health", ServiceType.SONARR),
     LIDARR_HEALTH("Health", ServiceType.LIDARR),
     JELLYFIN_STATS("Statistics", ServiceType.JELLYFIN),
+    JELLYFIN_TOP("Watch Leaderboard", ServiceType.JELLYFIN),
     RADARR_STATS("Statistics", ServiceType.RADARR),
     SONARR_STATS("Statistics", ServiceType.SONARR),
     LIDARR_STATS("Statistics", ServiceType.LIDARR),

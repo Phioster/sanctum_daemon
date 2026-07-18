@@ -45,6 +45,7 @@ import org.phioster.nexarr.model.NtfyMessage
 import org.phioster.nexarr.model.JellyActivity
 import org.phioster.nexarr.model.JellyChannel
 import org.phioster.nexarr.model.JellyDevice
+import org.phioster.nexarr.model.JellyWatchStat
 import org.phioster.nexarr.model.JellyGuideProvider
 import org.phioster.nexarr.model.JellyLiveTv
 import org.phioster.nexarr.model.JellyTuner
@@ -252,6 +253,12 @@ private data class JfCounts(
     val ServerName: String = "",
     val OperatingSystem: String = "",
 )
+@Serializable private data class JfPlaybackQueryReq(val CustomQueryString: String, val ReplaceUserId: Boolean = true)
+@Serializable private data class JfPlaybackQueryResp(
+    val colums: List<String> = emptyList(),
+    val results: List<List<String>> = emptyList(),
+    val message: String? = null,
+)
 @Serializable private data class JfTaskResult(val Status: String = "", val EndTimeUtc: String? = null)
 @Serializable private data class JfTask(
     val Id: String = "",
@@ -376,6 +383,8 @@ private interface JellyfinApi {
     @POST("System/Shutdown") suspend fun shutdownServer(): Response<ResponseBody>
     @GET("System/Logs") suspend fun logFiles(): List<JfLogFile>
     @GET("System/Logs/Log") suspend fun logContent(@Query("name") name: String): Response<ResponseBody>
+    // Playback Reporting plugin (optional on the server): run a custom SQL query over PlaybackActivity.
+    @POST("user_usage_stats/submit_custom_query") suspend fun playbackQuery(@Body body: JfPlaybackQueryReq): JfPlaybackQueryResp
     @POST("Library/VirtualFolders") suspend fun addVirtualFolder(
         @Query("name") name: String,
         @Query("collectionType") collectionType: String?,
@@ -2204,6 +2213,19 @@ suspend fun jellyfinRestart(config: ServiceConfig): String = withContext(Dispatc
         okOr(jfApi(config, token).restartServer(), "restarting")
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+/** Top watchers by total playback time (seconds). Needs the Playback Reporting plugin;
+ *  throws if it isn't installed (endpoint 404) — the caller shows a hint. */
+suspend fun jellyfinTopWatchers(config: ServiceConfig, limit: Int = 3): List<JellyWatchStat> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val q = "SELECT UserId, SUM(PlayDuration) FROM PlaybackActivity GROUP BY UserId ORDER BY SUM(PlayDuration) DESC LIMIT $limit"
+    val resp = jfApi(config, token).playbackQuery(JfPlaybackQueryReq(q, ReplaceUserId = true))
+    resp.results.mapNotNull { row ->
+        val name = row.getOrNull(0)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        val secs = row.getOrNull(1)?.toDoubleOrNull()?.toLong() ?: 0L
+        JellyWatchStat(name, secs)
     }
 }
 

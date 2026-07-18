@@ -388,6 +388,10 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     /** Live status (key stat numbers) for a Statistics card. */
     suspend fun serviceStats(config: ServiceConfig): ServiceStatus = fetchStatus(config)
 
+    /** Watch-time leaderboard (needs the Jellyfin Playback Reporting plugin). */
+    suspend fun jellyfinTopWatchers(config: ServiceConfig): List<org.phioster.nexarr.model.JellyWatchStat> =
+        org.phioster.nexarr.net.jellyfinTopWatchers(config)
+
     /** Triggers a Jellyfin library scan; returns a result line for the UI. */
     suspend fun jellyfinScan(config: ServiceConfig): String = runJellyfinScan(config)
     suspend fun jellyfinSessionList(config: ServiceConfig): List<org.phioster.nexarr.model.JellySession> = jellyfinSessions(config)

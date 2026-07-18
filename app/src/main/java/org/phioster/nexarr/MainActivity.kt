@@ -904,6 +904,7 @@ private fun DashCardView(
     var discover by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrDiscoverItem>?>(null) }
     var sysHealth by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
     var stat by remember { mutableStateOf<org.phioster.nexarr.model.ServiceStatus?>(null) }
+    var topWatchers by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyWatchStat>?>(null) }
     var detail by remember { mutableStateOf<MediaDetail?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val ctx = LocalContext.current
@@ -935,6 +936,7 @@ private fun DashCardView(
                     CardType.RADARR_HEALTH, CardType.SONARR_HEALTH, CardType.LIDARR_HEALTH -> sysHealth = vm.arrSystemInfo(config).health
                     CardType.JELLYFIN_STATS, CardType.RADARR_STATS, CardType.SONARR_STATS, CardType.LIDARR_STATS,
                     CardType.PROWLARR_STATS, CardType.NZBGET_STATS, CardType.SEERR_STATS -> stat = vm.serviceStats(config)
+                    CardType.JELLYFIN_TOP -> topWatchers = vm.jellyfinTopWatchers(config)
                 }
                 break
             } catch (c: kotlinx.coroutines.CancellationException) {
@@ -1020,6 +1022,15 @@ private fun DashCardView(
         val loading = @Composable { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp) }
         val empty = @Composable { msg: String -> Text(msg, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp) }
         when {
+            card.type == CardType.JELLYFIN_TOP -> {
+                val tw = topWatchers
+                when {
+                    error != null -> empty("no playback data — install the Jellyfin “Playback Reporting” plugin")
+                    tw == null -> loading()
+                    tw.isEmpty() -> empty("no playback data yet")
+                    else -> JellyPodium(tw, accent, card.theme == "solid")
+                }
+            }
             error != null -> Text("error: $error", fontFamily = Mono, color = ErrRed, fontSize = 11.sp)
             card.type == CardType.SECTION -> HorizontalDivider(color = accentColor.copy(alpha = 0.6f), thickness = 2.dp)
             card.type == CardType.SHORTCUTS -> {
@@ -4037,6 +4048,64 @@ private fun DashTile(label: String, count: Int?, icon: androidx.compose.ui.graph
         Spacer(Modifier.height(8.dp))
         Text(label, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         Text(count?.toString() ?: "…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+    }
+}
+
+/** Total watch time as a short "12h 34m" string. */
+private fun fmtWatch(s: Long): String {
+    val h = s / 3600; val m = (s % 3600) / 60
+    return when {
+        h >= 1 -> "${h}h ${m}m"
+        m >= 1 -> "${m}m"
+        else -> "${s}s"
+    }
+}
+
+/** Top-3 watch-time leaderboard as a little podium (2nd · 1st · 3rd, center tallest). */
+@Composable
+private fun JellyPodium(stats: List<org.phioster.nexarr.model.JellyWatchStat>, accent: Color, solid: Boolean) {
+    val top = stats.take(3)
+    data class Slot(val rank: Int, val stat: org.phioster.nexarr.model.JellyWatchStat?)
+    val slots = when (top.size) {
+        0 -> emptyList()
+        1 -> listOf(Slot(1, top[0]))
+        2 -> listOf(Slot(1, top[0]), Slot(2, top[1]))
+        else -> listOf(Slot(2, top[1]), Slot(1, top[0]), Slot(3, top[2]))
+    }
+    Row(
+        Modifier.fillMaxWidth().padding(top = 4.dp),
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        slots.forEach { slot ->
+            val barH = when (slot.rank) { 1 -> 64.dp; 2 -> 46.dp; else -> 34.dp }
+            val medal = when (slot.rank) { 1 -> "🥇"; 2 -> "🥈"; else -> "🥉" }
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(medal, fontSize = 18.sp)
+                Text(
+                    slot.stat?.name ?: "—",
+                    fontFamily = Mono, color = if (solid) Black else MatrixGreen,
+                    fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    slot.stat?.let { fmtWatch(it.seconds) } ?: "",
+                    fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 10.sp, maxLines = 1,
+                )
+                Spacer(Modifier.height(4.dp))
+                Box(
+                    Modifier.fillMaxWidth().height(barH)
+                        .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                        .background(accent.copy(alpha = if (slot.rank == 1) 0.9f else 0.5f)),
+                    contentAlignment = Alignment.TopCenter,
+                ) {
+                    Text(
+                        "#${slot.rank}",
+                        fontFamily = Mono, color = if (solid) MatrixGreen else Black,
+                        fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+        }
     }
 }
 

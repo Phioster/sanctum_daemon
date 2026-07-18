@@ -124,6 +124,12 @@ data class JellyDevice(
     val lastActivity: String,
 )
 
+/** One entry in the watch-time leaderboard (from the Playback Reporting plugin). */
+data class JellyWatchStat(
+    val name: String,
+    val seconds: Long,
+)
+
 /** A browsable media item: a library, folder (series/album/season), or a playable leaf. */
 data class JellyMediaItem(
     val id: String,
