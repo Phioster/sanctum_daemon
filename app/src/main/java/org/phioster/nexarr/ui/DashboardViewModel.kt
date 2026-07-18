@@ -604,6 +604,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         seerrCreateRequest(config, item)
     suspend fun seerrDiscoverList(config: ServiceConfig, kind: String): List<org.phioster.nexarr.model.SeerrDiscoverItem> =
         seerrDiscover(config, kind)
+    suspend fun seerrWatchlistOf(config: ServiceConfig): List<org.phioster.nexarr.model.SeerrDiscoverItem> =
+        org.phioster.nexarr.net.seerrWatchlist(config)
     suspend fun seerrMediaDetailById(config: ServiceConfig, tmdbId: Int, mediaType: String): org.phioster.nexarr.model.SeerrMediaDetail =
         seerrMediaDetail(config, tmdbId, mediaType)
     suspend fun seerrStats(config: ServiceConfig): List<Pair<String, String>> = seerrRequestStats(config)

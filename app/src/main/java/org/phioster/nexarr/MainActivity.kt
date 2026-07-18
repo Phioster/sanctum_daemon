@@ -2415,6 +2415,7 @@ private fun SeerrScreen(
     var requests by remember { mutableStateOf<List<SeerrRequestItem>?>(null) }
     var issues by remember { mutableStateOf<List<SeerrIssueItem>?>(null) }
     var discover by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrDiscoverItem>?>(null) }
+    var watchlist by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrDiscoverItem>?>(null) }
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var barMenu by remember { mutableStateOf(false) }
@@ -2474,8 +2475,18 @@ private fun SeerrScreen(
             listError = t.message
         }
     }
+    suspend fun loadWatchlist() {
+        listError = null
+        try {
+            watchlist = vm.seerrWatchlistOf(config)
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            listError = t.message
+        }
+    }
     LaunchedEffect(mode, reqFilter, issueFilter, discoverKind) {
-        when (mode) { 0 -> loadRequests(); 1 -> loadIssues(); else -> loadDiscover() }
+        when (mode) { 0 -> loadRequests(); 1 -> loadIssues(); 3 -> loadWatchlist(); else -> loadDiscover() }
     }
     fun act(action: suspend () -> String) {
         scope.launch {
@@ -2535,26 +2546,31 @@ private fun SeerrScreen(
                     Spacer(Modifier.height(10.dp))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    FilterChip(selected = mode == 0, onClick = { mode = 0 }, label = { Text("Requests", fontFamily = Mono) })
-                    Spacer(Modifier.width(6.dp))
-                    FilterChip(selected = mode == 1, onClick = { mode = 1 }, label = { Text("Issues", fontFamily = Mono) })
-                    Spacer(Modifier.width(6.dp))
-                    FilterChip(selected = mode == 2, onClick = { mode = 2 }, label = { Text("Discover", fontFamily = Mono) })
-                    Spacer(Modifier.weight(1f))
-                    Box {
-                        TextButton(onClick = { filterMenu = true }) {
-                            Text(when (mode) { 0 -> reqFilter; 1 -> issueFilter; else -> discoverKind }, fontFamily = Mono, color = MatrixGreen)
-                        }
-                        DropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }) {
-                            (when (mode) { 0 -> reqFilters; 1 -> issueFilters; else -> discoverKinds }).forEach { f ->
-                                DropdownMenuItem(text = { Text(f, fontFamily = Mono) }, onClick = {
-                                    filterMenu = false
-                                    when (mode) { 0 -> reqFilter = f; 1 -> issueFilter = f; else -> discoverKind = f }
-                                })
+                    Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                        FilterChip(selected = mode == 0, onClick = { mode = 0 }, label = { Text("Requests", fontFamily = Mono) })
+                        Spacer(Modifier.width(6.dp))
+                        FilterChip(selected = mode == 1, onClick = { mode = 1 }, label = { Text("Issues", fontFamily = Mono) })
+                        Spacer(Modifier.width(6.dp))
+                        FilterChip(selected = mode == 2, onClick = { mode = 2 }, label = { Text("Discover", fontFamily = Mono) })
+                        Spacer(Modifier.width(6.dp))
+                        FilterChip(selected = mode == 3, onClick = { mode = 3 }, label = { Text("Watchlist", fontFamily = Mono) })
+                    }
+                    if (mode != 3) {
+                        Box {
+                            TextButton(onClick = { filterMenu = true }) {
+                                Text(when (mode) { 0 -> reqFilter; 1 -> issueFilter; else -> discoverKind }, fontFamily = Mono, color = MatrixGreen)
+                            }
+                            DropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }) {
+                                (when (mode) { 0 -> reqFilters; 1 -> issueFilters; else -> discoverKinds }).forEach { f ->
+                                    DropdownMenuItem(text = { Text(f, fontFamily = Mono) }, onClick = {
+                                        filterMenu = false
+                                        when (mode) { 0 -> reqFilter = f; 1 -> issueFilter = f; else -> discoverKind = f }
+                                    })
+                                }
                             }
                         }
                     }
-                    IconButton(onClick = { scope.launch { when (mode) { 0 -> loadRequests(); 1 -> loadIssues(); else -> loadDiscover() } } }) {
+                    IconButton(onClick = { scope.launch { when (mode) { 0 -> loadRequests(); 1 -> loadIssues(); 3 -> loadWatchlist(); else -> loadDiscover() } } }) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                     }
                 }
@@ -2592,6 +2608,23 @@ private fun SeerrScreen(
                                     i.isEmpty() -> item { Text("no issues", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     else -> items(i) { iss ->
                                         SeerrIssueRow(iss, accent) { issueDetailId = iss.id; issueDetail = null; commentText = ""; scope.launch { issueDetail = runCatching { vm.seerrIssueDetailOf(config, iss.id) }.getOrNull() } }
+                                    }
+                                }
+                            }
+                            3 -> {
+                                val w = watchlist
+                                when {
+                                    w == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    w.isEmpty() -> item { Text("watchlist is empty (needs a Plex-linked account)", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    else -> items(w) { di ->
+                                        SeerrDiscoverRow(di, accent) {
+                                            mediaDetailLoading = true
+                                            scope.launch {
+                                                mediaDetail = runCatching { vm.seerrMediaDetailById(config, di.tmdbId, di.mediaType) }.getOrNull()
+                                                    ?: org.phioster.nexarr.model.SeerrMediaDetail(di.tmdbId, di.title, di.year, di.mediaType, "", di.posterUrl, emptyList(), "", di.status, emptyList())
+                                                mediaDetailLoading = false
+                                            }
+                                        }
                                     }
                                 }
                             }

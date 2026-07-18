@@ -649,6 +649,7 @@ private interface SeerrApi {
     @GET("api/v1/discover/trending") suspend fun trending(@Query("page") page: Int = 1): JsonObject
     @GET("api/v1/discover/movies") suspend fun discoverMovies(@Query("page") page: Int = 1): JsonObject
     @GET("api/v1/discover/tv") suspend fun discoverTv(@Query("page") page: Int = 1): JsonObject
+    @GET("api/v1/discover/watchlist") suspend fun watchlist(@Query("page") page: Int = 1): JsonObject
     @GET("api/v1/issue/{id}") suspend fun issueDetail(@Path("id") id: Int): JsonObject
     @POST("api/v1/issue/{id}/comment") suspend fun addComment(@Path("id") id: Int, @Body body: JsonObject): Response<ResponseBody>
     @POST("api/v1/issue/{id}/{status}") suspend fun setIssueStatus(@Path("id") id: Int, @Path("status") status: String): Response<ResponseBody>
@@ -803,6 +804,25 @@ suspend fun seerrDiscover(config: ServiceConfig, kind: String): List<SeerrDiscov
         else -> api.trending() to null
     }
     parseDiscoverItems(page, def)
+}
+
+/** The signed-in user's Plex watchlist (synced via Seerr). Items carry tmdbId + mediaType. */
+suspend fun seerrWatchlist(config: ServiceConfig): List<SeerrDiscoverItem> = withContext(Dispatchers.IO) {
+    val page = apiFor<SeerrApi>(config, apiKeyHeader(config)).watchlist()
+    val results = page["results"] as? JsonArray ?: return@withContext emptyList()
+    results.mapNotNull { it as? JsonObject }.mapNotNull { o ->
+        val tmdb = jsInt(o, "tmdbId") ?: return@mapNotNull null
+        val type = jsStr(o, "mediaType") ?: "movie"
+        val poster = jsStr(o, "posterPath")
+        SeerrDiscoverItem(
+            tmdbId = tmdb,
+            title = jsStr(o, "title") ?: "?",
+            year = "",
+            mediaType = type,
+            posterUrl = if (!poster.isNullOrBlank()) "https://image.tmdb.org/t/p/w300$poster" else "",
+            status = "",
+        )
+    }
 }
 
 /** Seasons of a TV show (seasonNumber >= 1). */
