@@ -1736,13 +1736,18 @@ private fun ntfyRequest(config: ServiceConfig, url: String): Request =
         config.customHeaders.forEach { (k, v) -> if (k.isNotBlank() && v.isNotBlank()) header(k, v) }
     }.build()
 
+/** For an unprotected ntfy topic the (random) topic name is effectively the access secret, so
+ *  never render it in full on a status card or homescreen widget — reveal only a short prefix and
+ *  hide the length. Full topic stays visible only in the service config the user manages. */
+private fun maskTopic(t: String): String = if (t.length <= 4) "•".repeat(t.length) else "${t.take(4)}••••••"
+
 private suspend fun ntfyStatus(config: ServiceConfig): ServiceStatus {
     val resp = baseOkClient.newCall(ntfyRequest(config, "${config.normalizedBaseUrl}v1/health")).execute()
     resp.use { if (!it.isSuccessful) throw java.io.IOException("HTTP ${it.code}") }
     return ServiceStatus(
         ok = true,
         stats = listOf("${config.topics.size}" to "TOPICS"),
-        note = config.topics.joinToString(", ").takeIf { it.isNotBlank() },
+        note = config.topics.joinToString(", ") { maskTopic(it) }.takeIf { it.isNotBlank() },
     )
 }
 
