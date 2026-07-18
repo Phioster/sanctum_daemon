@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import kotlin.math.roundToInt
 import androidx.compose.animation.togetherWith
@@ -38,6 +39,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -627,8 +629,9 @@ private fun OnboardingScreen(onDismiss: (openAdd: Boolean) -> Unit) {
     }
 }
 
-/** Wraps a set of tab pages so a horizontal swipe changes the tab, with a directional
- *  slide+fade. A child that consumes the drag first (e.g. a poster row) still wins. */
+/** Wraps a set of tab pages in a finger-following HorizontalPager (drags with the finger,
+ *  snaps on release), kept in sync with the caller's [tab]. Nested horizontally-scrolling
+ *  children (poster rows) still scroll via nested scroll. */
 @Composable
 private fun SwipeTabs(
     tab: Int,
@@ -638,33 +641,15 @@ private fun SwipeTabs(
     enabled: Boolean = true,
     content: @Composable (page: Int) -> Unit,
 ) {
-    Box(
-        modifier.pointerInput(enabled, tab, count) {
-            if (!enabled || count < 2) return@pointerInput
-            awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false)
-                var dx = 0f
-                val first = awaitHorizontalTouchSlopOrCancellation(down.id) { c, over -> dx += over; c.consume() }
-                    ?: return@awaitEachGesture
-                horizontalDrag(first.id) { c -> dx += c.positionChange().x; c.consume() }
-                val threshold = size.width * 0.15f
-                if (dx <= -threshold) onChange((tab + 1).coerceAtMost(count - 1))
-                else if (dx >= threshold) onChange((tab - 1).coerceAtLeast(0))
-            }
-        },
-    ) {
-        androidx.compose.animation.AnimatedContent(
-            targetState = tab,
-            transitionSpec = {
-                val dir = if (targetState >= initialState) 1 else -1
-                val spec = androidx.compose.animation.core.tween<androidx.compose.ui.unit.IntOffset>(220, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-                val fade = androidx.compose.animation.core.tween<Float>(180)
-                (androidx.compose.animation.slideInHorizontally(spec) { w -> dir * w } + androidx.compose.animation.fadeIn(fade)) togetherWith
-                    (androidx.compose.animation.slideOutHorizontally(spec) { w -> -dir * w } + androidx.compose.animation.fadeOut(fade))
-            },
-            label = "subTab",
-        ) { page -> content(page) }
-    }
+    val pager = rememberPagerState(initialPage = tab.coerceIn(0, (count - 1).coerceAtLeast(0))) { count }
+    LaunchedEffect(tab) { if (pager.currentPage != tab) pager.animateScrollToPage(tab) }
+    LaunchedEffect(pager) { snapshotFlow { pager.settledPage }.collect { if (it != tab) onChange(it) } }
+    HorizontalPager(
+        state = pager,
+        modifier = modifier,
+        userScrollEnabled = enabled,
+        pageContent = { page -> content(page) },
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -787,43 +772,16 @@ private fun HomeShell(
             if (editMode) FloatingActionButton(onClick = { showAddCard = true }, containerColor = MatrixGreen, contentColor = Black) { Icon(Icons.Filled.Add, contentDescription = "Add card") }
         },
     ) { padding ->
-        Box(
-            Modifier.fillMaxSize().padding(padding)
-                // nzb360-style dashboard gestures: a right-swipe in the bottom band opens the Services
-                // drawer; a left/right swipe above it switches tabs. A child that consumes the drag first
-                // (e.g. a horizontally-scrolling poster row) wins, so those keep scrolling.
-                .pointerInput(swipeTabs, swipeDrawer, drawerBand, editMode, current, tabs.size) {
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        val inDrawerBand = down.position.y > size.height * (1f - drawerBand)
-                        val useDrawer = inDrawerBand && swipeDrawer
-                        val useTabs = !inDrawerBand && swipeTabs && !editMode && tabs.size > 1
-                        if (!useDrawer && !useTabs) return@awaitEachGesture
-                        var dx = 0f
-                        val first = awaitHorizontalTouchSlopOrCancellation(down.id) { change, over ->
-                            dx += over; change.consume()
-                        } ?: return@awaitEachGesture
-                        horizontalDrag(first.id) { change -> dx += change.positionChange().x; change.consume() }
-                        val threshold = size.width * 0.15f
-                        if (useDrawer) {
-                            if (dx >= threshold) scope.launch { drawerState.open() }
-                        } else {
-                            if (dx <= -threshold) selected = (current + 1).coerceAtMost(tabs.lastIndex)
-                            else if (dx >= threshold) selected = (current - 1).coerceAtLeast(0)
-                        }
-                    }
-                },
-        ) {
-            androidx.compose.animation.AnimatedContent(
-                targetState = current,
-                transitionSpec = {
-                    val dir = if (targetState >= initialState) 1 else -1
-                    val spec = androidx.compose.animation.core.tween<androidx.compose.ui.unit.IntOffset>(220, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-                    val fade = androidx.compose.animation.core.tween<Float>(180)
-                    (androidx.compose.animation.slideInHorizontally(spec) { w -> dir * w } + androidx.compose.animation.fadeIn(fade)) togetherWith
-                        (androidx.compose.animation.slideOutHorizontally(spec) { w -> -dir * w } + androidx.compose.animation.fadeOut(fade))
-                },
-                label = "dashTab",
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            // Finger-following tab paging (drags with the finger, snaps on release). Nested poster
+            // rows still scroll via nested scroll.
+            val dashPager = rememberPagerState(initialPage = current) { tabs.size.coerceAtLeast(1) }
+            LaunchedEffect(current) { if (dashPager.currentPage != current) dashPager.animateScrollToPage(current) }
+            LaunchedEffect(dashPager) { snapshotFlow { dashPager.settledPage }.collect { if (it != selected) selected = it } }
+            HorizontalPager(
+                state = dashPager,
+                modifier = Modifier.fillMaxSize(),
+                userScrollEnabled = swipeTabs && !editMode && tabs.size > 1,
             ) { page ->
                 val t = tabs.getOrNull(page)
                 if (t != null) {
@@ -839,6 +797,23 @@ private fun HomeShell(
                         onSearch = onSearch,
                     )
                 }
+            }
+            // A right-swipe in the bottom band opens the Services drawer (which then closes by
+            // following the finger). Taps and vertical scroll pass through to the content below.
+            if (swipeDrawer && drawerBand > 0f) {
+                Box(
+                    Modifier.align(Alignment.BottomStart).fillMaxWidth().fillMaxHeight(drawerBand)
+                        .pointerInput(drawerBand, swipeDrawer) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                var dx = 0f
+                                val first = awaitHorizontalTouchSlopOrCancellation(down.id) { c, over -> dx += over; c.consume() }
+                                    ?: return@awaitEachGesture
+                                horizontalDrag(first.id) { c -> dx += c.positionChange().x; c.consume() }
+                                if (dx >= size.width * 0.15f) scope.launch { drawerState.open() }
+                            }
+                        },
+                )
             }
         }
     }
