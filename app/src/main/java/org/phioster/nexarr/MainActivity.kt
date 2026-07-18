@@ -84,6 +84,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -3006,6 +3007,7 @@ private fun JellyfinScreen(
     var devices by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyDevice>?>(null) }
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
+    var refreshing by remember { mutableStateOf(false) }
     var barMenu by remember { mutableStateOf(false) }
     var messageFor by remember { mutableStateOf<String?>(null) }
     var messageText by remember { mutableStateOf("") }
@@ -3090,6 +3092,8 @@ private fun JellyfinScreen(
         } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
     }
     LaunchedEffect(mode) { when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv(); else -> {} } }
+    // Action results (e.g. "restarting") shouldn't linger — clear them after a few seconds.
+    LaunchedEffect(actionMsg) { if (actionMsg != null) { kotlinx.coroutines.delay(4000); actionMsg = null } }
     LaunchedEffect(mode, browseStack) {
         if (mode == 3) { if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last()) }
     }
@@ -3159,15 +3163,25 @@ private fun JellyfinScreen(
                         Spacer(Modifier.width(6.dp))
                         FilterChip(selected = mode == 4, onClick = { mode = 4 }, label = { Text("Live TV", fontFamily = Mono) })
                     }
-                    IconButton(onClick = {
-                        scope.launch {
-                            when (mode) {
-                                0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv()
-                                else -> if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last())
+                    IconButton(
+                        enabled = !refreshing,
+                        onClick = {
+                            actionMsg = null
+                            scope.launch {
+                                refreshing = true
+                                when (mode) {
+                                    0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv()
+                                    else -> if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last())
+                                }
+                                refreshing = false
                             }
+                        },
+                    ) {
+                        if (refreshing) {
+                            CircularProgressIndicator(Modifier.size(20.dp), color = MatrixGreen, strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                         }
-                    }) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                     }
                 }
                 actionMsg?.let {
