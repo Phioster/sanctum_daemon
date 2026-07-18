@@ -50,6 +50,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -2787,14 +2788,18 @@ private fun SeerrScreen(
                     Spacer(Modifier.height(10.dp))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-                        FilterChip(selected = mode == 0, onClick = { mode = 0 }, label = { Text("Requests", fontFamily = Mono) })
-                        Spacer(Modifier.width(6.dp))
-                        FilterChip(selected = mode == 1, onClick = { mode = 1 }, label = { Text("Issues", fontFamily = Mono) })
-                        Spacer(Modifier.width(6.dp))
-                        FilterChip(selected = mode == 2, onClick = { mode = 2 }, label = { Text("Discover", fontFamily = Mono) })
-                        Spacer(Modifier.width(6.dp))
-                        FilterChip(selected = mode == 3, onClick = { mode = 3 }, label = { Text("Watchlist", fontFamily = Mono) })
+                    val seerrChips = listOf("Requests", "Issues", "Discover", "Watchlist")
+                    val seerrChipState = rememberLazyListState()
+                    LaunchedEffect(mode) { seerrChipState.animateScrollToItem(mode) }
+                    LazyRow(
+                        state = seerrChipState,
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        itemsIndexed(seerrChips) { i, label ->
+                            FilterChip(selected = mode == i, onClick = { mode = i }, label = { Text(label, fontFamily = Mono) })
+                        }
                     }
                     if (mode != 3) {
                         Box {
@@ -3474,16 +3479,18 @@ private fun JellyfinScreen(
                     Spacer(Modifier.height(10.dp))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-                        FilterChip(selected = mode == 0, onClick = { mode = 0 }, label = { Text("Now Playing", fontFamily = Mono) })
-                        Spacer(Modifier.width(6.dp))
-                        FilterChip(selected = mode == 3, onClick = { mode = 3 }, label = { Text("Media", fontFamily = Mono) })
-                        Spacer(Modifier.width(6.dp))
-                        FilterChip(selected = mode == 1, onClick = { mode = 1 }, label = { Text("Users", fontFamily = Mono) })
-                        Spacer(Modifier.width(6.dp))
-                        FilterChip(selected = mode == 2, onClick = { mode = 2 }, label = { Text("Dashboard", fontFamily = Mono) })
-                        Spacer(Modifier.width(6.dp))
-                        FilterChip(selected = mode == 4, onClick = { mode = 4 }, label = { Text("Live TV", fontFamily = Mono) })
+                    val jfChips = listOf("Now Playing" to 0, "Media" to 3, "Users" to 1, "Dashboard" to 2, "Live TV" to 4)
+                    val jfChipState = rememberLazyListState()
+                    LaunchedEffect(mode) { jfChipState.animateScrollToItem(jfChips.indexOfFirst { it.second == mode }.coerceAtLeast(0)) }
+                    LazyRow(
+                        state = jfChipState,
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        items(jfChips) { (label, m) ->
+                            FilterChip(selected = mode == m, onClick = { mode = m }, label = { Text(label, fontFamily = Mono) })
+                        }
                     }
                     IconButton(
                         enabled = !refreshing,
@@ -5391,14 +5398,17 @@ private fun ArrScreen(
                     Text(it, fontFamily = Mono, color = if (it.startsWith("error")) ErrRed else MatrixGreen, fontSize = 12.sp)
                 }
             }
-            Row(
-                Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()),
+            val arrTabs = listOf("Library", "Missing", "Cutoff", "Queue", "History")
+            val arrChipState = rememberLazyListState()
+            LaunchedEffect(tab) { arrChipState.animateScrollToItem(tab) }
+            LazyRow(
+                state = arrChipState,
+                modifier = Modifier.padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                val tabs = listOf("Library", "Missing", "Cutoff", "Queue", "History")
-                tabs.forEachIndexed { i, name ->
+                itemsIndexed(arrTabs) { i, name ->
                     FilterChip(selected = tab == i, onClick = { tab = i }, label = { Text(name, fontFamily = Mono) })
-                    if (i < tabs.lastIndex) Spacer(Modifier.width(8.dp))
                 }
             }
             if (tab == 0) {
