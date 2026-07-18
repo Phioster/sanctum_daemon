@@ -7,4 +7,5 @@
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:updatePeriodMillis="0"
+    android:previewImage="@drawable/preview_shortcuts"
     android:initialLayout="@layout/glance_default_loading_layout" />

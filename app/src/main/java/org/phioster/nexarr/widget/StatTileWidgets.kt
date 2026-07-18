@@ -158,7 +158,30 @@ class SeerrTileWidget : GlanceAppWidget() {
             StatTile(
                 value = pending ?: "—",
                 caption = "pending",
-                valueColor = if ((pending?.toIntOrNull() ?: 0) > 0) Green else Dim,
+                valueColor = Green,
+                openIntent = openIntent(ctx, svc?.id),
+            )
+        }
+    }
+}
+
+// ── Library size: Jellyfin movies + series ────────────────────────────────────
+
+/** 1×1 tile: total Jellyfin library items (movies + series). */
+class LibraryTileWidget : GlanceAppWidget() {
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val (services, snaps) = loadState(context)
+        provideContent {
+            val ctx = LocalContext.current
+            val svc = services.firstOrNull { it.type == ServiceType.JELLYFIN }
+            val snap = svc?.let { snaps[it.id] }
+            val movies = snap?.stats?.get("Movies")?.toIntOrNull()
+            val series = snap?.stats?.get("Series")?.toIntOrNull()
+            val total = if (movies == null && series == null) null else (movies ?: 0) + (series ?: 0)
+            StatTile(
+                value = total?.toString() ?: "—",
+                caption = "library",
+                valueColor = Green,
                 openIntent = openIntent(ctx, svc?.id),
             )
         }
@@ -197,6 +220,18 @@ class QueueTileWidgetReceiver : GlanceAppWidgetReceiver() {
 
 class SeerrTileWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = SeerrTileWidget()
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: android.appwidget.AppWidgetManager,
+        appWidgetIds: IntArray,
+    ) {
+        super.onUpdate(context, appWidgetManager, appWidgetIds)
+        enqueueStatusFetch(context)
+    }
+}
+
+class LibraryTileWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = LibraryTileWidget()
     override fun onUpdate(
         context: Context,
         appWidgetManager: android.appwidget.AppWidgetManager,

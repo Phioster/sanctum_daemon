@@ -7,4 +7,5 @@
     android:resizeMode="none"
     android:widgetCategory="home_screen"
     android:updatePeriodMillis="1800000"
+    android:previewImage="@drawable/preview_health"
     android:initialLayout="@layout/glance_default_loading_layout" />

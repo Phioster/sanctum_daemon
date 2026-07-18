@@ -40,6 +40,7 @@ class StatusCacheWorker(ctx: Context, params: WorkerParameters) : CoroutineWorke
         StackHealthWidget().updateAll(applicationContext)
         QueueTileWidget().updateAll(applicationContext)
         SeerrTileWidget().updateAll(applicationContext)
+        LibraryTileWidget().updateAll(applicationContext)
         Result.success()
     }
 }

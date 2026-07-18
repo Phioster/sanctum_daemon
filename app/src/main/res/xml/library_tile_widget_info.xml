@@ -6,7 +6,6 @@
     android:targetCellHeight="1"
     android:resizeMode="none"
     android:widgetCategory="home_screen"
-    android:updatePeriodMillis="0"
-    android:configure="org.phioster.nexarr.widget.ShortcutWidgetConfigActivity"
-    android:previewImage="@drawable/preview_shortcut_icon"
+    android:updatePeriodMillis="1800000"
+    android:previewImage="@drawable/preview_library"
     android:initialLayout="@layout/glance_default_loading_layout" />

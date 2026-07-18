@@ -8,4 +8,5 @@
     android:widgetCategory="home_screen"
     android:updatePeriodMillis="0"
     android:configure="org.phioster.nexarr.widget.QuickActionsConfigActivity"
+    android:previewImage="@drawable/preview_quick_actions"
     android:initialLayout="@layout/glance_default_loading_layout" />
