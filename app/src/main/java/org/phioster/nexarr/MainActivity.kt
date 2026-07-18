@@ -668,6 +668,9 @@ private fun HomeShell(
 
     androidx.compose.material3.ModalNavigationDrawer(
         drawerState = drawerState,
+        // Open only via the menu icon — a full-width drawer's swipe-to-open otherwise grabs every
+        // horizontal swipe across the screen, opening the drawer instead of switching dashboard tabs.
+        gesturesEnabled = drawerState.isOpen,
         drawerContent = {
             androidx.compose.material3.ModalDrawerSheet(
                 modifier = Modifier.fillMaxWidth().alpha(if (revealed) 1f else 0f),
@@ -753,8 +756,10 @@ private fun HomeShell(
                 targetState = current,
                 transitionSpec = {
                     val dir = if (targetState >= initialState) 1 else -1
-                    (androidx.compose.animation.slideInHorizontally { w -> dir * w } + androidx.compose.animation.fadeIn()) togetherWith
-                        (androidx.compose.animation.slideOutHorizontally { w -> -dir * w } + androidx.compose.animation.fadeOut())
+                    val spec = androidx.compose.animation.core.tween<androidx.compose.ui.unit.IntOffset>(220, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                    val fade = androidx.compose.animation.core.tween<Float>(180)
+                    (androidx.compose.animation.slideInHorizontally(spec) { w -> dir * w } + androidx.compose.animation.fadeIn(fade)) togetherWith
+                        (androidx.compose.animation.slideOutHorizontally(spec) { w -> -dir * w } + androidx.compose.animation.fadeOut(fade))
                 },
                 label = "dashTab",
             ) { page ->
