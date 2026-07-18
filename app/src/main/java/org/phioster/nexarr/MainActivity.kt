@@ -65,6 +65,13 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.Dns
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
@@ -3012,6 +3019,10 @@ private fun JellyfinScreen(
     var messageFor by remember { mutableStateOf<String?>(null) }
     var messageText by remember { mutableStateOf("") }
     var confirmRestart by remember { mutableStateOf(false) }
+    // True while a restart is being confirmed (server polled until back) — keeps its status message from auto-clearing.
+    var restartInProgress by remember { mutableStateOf(false) }
+    // Dashboard sub-section opened from the tile overview (null = show the tiles).
+    var dashSection by remember { mutableStateOf<String?>(null) }
     var libraries by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyLibrary>?>(null) }
     var editUser by remember { mutableStateOf<org.phioster.nexarr.model.JellyUser?>(null) }
     var showCreateUser by remember { mutableStateOf(false) }
@@ -3091,9 +3102,14 @@ private fun JellyfinScreen(
             mediaContents = vm.jellyfinItemList(config, parent.id, if (parent.kind == "Season") parent.number else null)
         } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
     }
-    LaunchedEffect(mode) { when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv(); else -> {} } }
-    // Action results (e.g. "restarting") shouldn't linger — clear them after a few seconds.
-    LaunchedEffect(actionMsg) { if (actionMsg != null) { kotlinx.coroutines.delay(4000); actionMsg = null } }
+    LaunchedEffect(mode) { dashSection = null; when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv(); else -> {} } }
+    // System back from an open dashboard category returns to the tile overview.
+    BackHandler(enabled = mode == 2 && dashSection != null) { dashSection = null }
+    // Action results (e.g. "restarting") shouldn't linger — clear them after a few seconds,
+    // except while a restart is polling for the server to come back.
+    LaunchedEffect(actionMsg, restartInProgress) {
+        if (actionMsg != null && !restartInProgress) { kotlinx.coroutines.delay(4000); actionMsg = null }
+    }
     LaunchedEffect(mode, browseStack) {
         if (mode == 3) { if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last()) }
     }
@@ -3286,84 +3302,131 @@ private fun JellyfinScreen(
                                 }
                             }
                             2 -> {
-                                item {
-                                    val si = dashInfo
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(si?.serverName ?: "…", fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                    Text("v${si?.version ?: "…"}${if (!si?.os.isNullOrBlank()) " · ${si!!.os}" else ""}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
-                                    Spacer(Modifier.height(12.dp))
-                                    Text("SCHEDULED TASKS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                                }
-                                val tk = tasks
-                                when {
-                                    tk == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                    else -> items(tk) { t -> JellyTaskRow(t, accent) { scope.launch { actionMsg = vm.jellyfinRunTaskById(config, t.id); loadDashboard() } } }
-                                }
-                                item {
-                                    Spacer(Modifier.height(12.dp))
-                                    Text("ACTIVITY LOG", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                                }
-                                val ac = activity
-                                when {
-                                    ac == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                    ac.isEmpty() -> item { Text("no activity", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                    else -> items(ac) { e -> JellyActivityRow(e, accent) }
-                                }
-                                item {
-                                    Spacer(Modifier.height(12.dp))
-                                    Text("LIBRARIES", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                                    Text(
-                                        "+ add library",
-                                        fontFamily = Mono, color = accent, fontSize = 13.sp,
-                                        modifier = Modifier.fillMaxWidth().clickable { showAddLibrary = true }.padding(vertical = 6.dp),
-                                    )
-                                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
-                                }
-                                val lb = libraries
-                                when {
-                                    lb == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                    lb.isEmpty() -> item { Text("no libraries", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                    else -> items(lb) { l -> JellyLibraryRow(l, accent) { editLibrary = l } }
-                                }
-                                item {
-                                    Spacer(Modifier.height(12.dp))
-                                    Text("PLUGINS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                                    Text(
-                                        "+ plugin catalog",
-                                        fontFamily = Mono, color = accent, fontSize = 13.sp,
-                                        modifier = Modifier.fillMaxWidth().clickable {
-                                            catalog = null; showCatalog = true
-                                            scope.launch { catalog = runCatching { vm.jellyfinCatalog(config) }.getOrDefault(emptyList()) }
-                                        }.padding(vertical = 6.dp),
-                                    )
-                                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
-                                }
-                                val pl = plugins
-                                when {
-                                    pl == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                    pl.isEmpty() -> item { Text("no plugins", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                    else -> items(pl) { p -> JellyPluginRow(p, accent) { pluginDetail = p } }
-                                }
-                                val lg = logFiles
-                                if (!lg.isNullOrEmpty()) {
+                                if (dashSection == null) {
+                                    // ── Overview: server card + clickable category tiles ──
                                     item {
+                                        val si = dashInfo
+                                        Spacer(Modifier.height(8.dp))
+                                        Row(
+                                            Modifier.fillMaxWidth()
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(MatrixGreen.copy(alpha = 0.06f))
+                                                .border(1.dp, accent.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                                                .padding(14.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Icon(Icons.Filled.Dns, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
+                                            Spacer(Modifier.width(10.dp))
+                                            Column {
+                                                Text(si?.serverName ?: "…", fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                                Text("v${si?.version ?: "…"}${if (!si?.os.isNullOrBlank()) " · ${si!!.os}" else ""}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
+                                            }
+                                        }
                                         Spacer(Modifier.height(12.dp))
-                                        Text("SERVER LOGS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                                    }
-                                    items(lg) { f ->
-                                        JellyLogRow(f, accent) {
-                                            logView = f.name; logText = null
-                                            scope.launch { logText = vm.jellyfinLogText(config, f.name) }
+                                        val cats = listOf(
+                                            DashCat("tasks", "Tasks", tasks?.size, Icons.Filled.Schedule),
+                                            DashCat("activity", "Activity", activity?.size, Icons.Filled.History),
+                                            DashCat("libraries", "Libraries", libraries?.size, Icons.Filled.VideoLibrary),
+                                            DashCat("plugins", "Plugins", plugins?.size, Icons.Filled.Extension),
+                                            DashCat("logs", "Logs", logFiles?.size, Icons.Filled.Description),
+                                            DashCat("devices", "Devices", devices?.size, Icons.Filled.Devices),
+                                        )
+                                        cats.chunked(2).forEach { rowCats ->
+                                            Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                                rowCats.forEach { c ->
+                                                    DashTile(c.label, c.count, c.icon, accent, Modifier.weight(1f)) { dashSection = c.key }
+                                                }
+                                                if (rowCats.size == 1) Spacer(Modifier.weight(1f))
+                                            }
                                         }
                                     }
-                                }
-                                val dv = devices
-                                if (!dv.isNullOrEmpty()) {
+                                } else {
+                                    // ── One category, opened from a tile ──
                                     item {
-                                        Spacer(Modifier.height(12.dp))
-                                        Text("DEVICES", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                        Spacer(Modifier.height(8.dp))
+                                        Row(
+                                            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { dashSection = null }.padding(vertical = 8.dp, horizontal = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = accent, modifier = Modifier.size(18.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(dashSection!!.uppercase(), fontFamily = Mono, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
                                     }
-                                    items(dv) { d -> JellyDeviceRow(d, accent) }
+                                    when (dashSection) {
+                                        "tasks" -> {
+                                            val tk = tasks
+                                            when {
+                                                tk == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                                else -> items(tk) { t -> JellyTaskRow(t, accent) { scope.launch { actionMsg = vm.jellyfinRunTaskById(config, t.id); loadDashboard() } } }
+                                            }
+                                        }
+                                        "activity" -> {
+                                            val ac = activity
+                                            when {
+                                                ac == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                                ac.isEmpty() -> item { Text("no activity", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                                else -> items(ac) { e -> JellyActivityRow(e, accent) }
+                                            }
+                                        }
+                                        "libraries" -> {
+                                            item {
+                                                Text(
+                                                    "+ add library",
+                                                    fontFamily = Mono, color = accent, fontSize = 13.sp,
+                                                    modifier = Modifier.fillMaxWidth().clickable { showAddLibrary = true }.padding(vertical = 8.dp),
+                                                )
+                                                HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+                                            }
+                                            val lb = libraries
+                                            when {
+                                                lb == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                                lb.isEmpty() -> item { Text("no libraries", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                                else -> items(lb) { l -> JellyLibraryRow(l, accent) { editLibrary = l } }
+                                            }
+                                        }
+                                        "plugins" -> {
+                                            item {
+                                                Text(
+                                                    "+ plugin catalog",
+                                                    fontFamily = Mono, color = accent, fontSize = 13.sp,
+                                                    modifier = Modifier.fillMaxWidth().clickable {
+                                                        catalog = null; showCatalog = true
+                                                        scope.launch { catalog = runCatching { vm.jellyfinCatalog(config) }.getOrDefault(emptyList()) }
+                                                    }.padding(vertical = 8.dp),
+                                                )
+                                                HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+                                            }
+                                            val pl = plugins
+                                            when {
+                                                pl == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                                pl.isEmpty() -> item { Text("no plugins", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                                else -> items(pl) { p -> JellyPluginRow(p, accent) { pluginDetail = p } }
+                                            }
+                                        }
+                                        "logs" -> {
+                                            val lg = logFiles
+                                            when {
+                                                lg == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                                lg.isEmpty() -> item { Text("no logs", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                                else -> items(lg) { f ->
+                                                    JellyLogRow(f, accent) {
+                                                        logView = f.name; logText = null
+                                                        scope.launch { logText = vm.jellyfinLogText(config, f.name) }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        "devices" -> {
+                                            val dv = devices
+                                            when {
+                                                dv == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                                dv.isEmpty() -> item { Text("no devices", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                                else -> items(dv) { d -> JellyDeviceRow(d, accent) }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                             4 -> {
@@ -3511,7 +3574,35 @@ private fun JellyfinScreen(
             title = { Text("Restart server?", fontFamily = Mono, color = MatrixGreen) },
             text = { Text("This restarts the Jellyfin server for everyone.", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 13.sp) },
             confirmButton = {
-                TextButton(onClick = { confirmRestart = false; scope.launch { actionMsg = vm.jellyfinRestartServer(config) } }) {
+                TextButton(onClick = {
+                    confirmRestart = false
+                    scope.launch {
+                        restartInProgress = true
+                        actionMsg = "restarting…"
+                        val r = vm.jellyfinRestartServer(config)
+                        if (r.startsWith("error")) {
+                            restartInProgress = false
+                            actionMsg = r
+                            return@launch
+                        }
+                        // Give the server a moment to actually go down, then poll until it answers again.
+                        kotlinx.coroutines.delay(3000)
+                        actionMsg = "restarting… waiting for server to come back"
+                        var back = false
+                        val deadline = System.currentTimeMillis() + 120_000
+                        while (System.currentTimeMillis() < deadline) {
+                            if (runCatching { vm.jellyfinInfo(config) }.getOrNull() != null) { back = true; break }
+                            kotlinx.coroutines.delay(3000)
+                        }
+                        restartInProgress = false
+                        if (back) {
+                            actionMsg = "✓ server back online"
+                            loadDashboard()
+                        } else {
+                            actionMsg = "restart sent — server hasn't responded yet"
+                        }
+                    }
+                }) {
                     Text("Restart", fontFamily = Mono, color = ErrRed)
                 }
             },
@@ -3904,6 +3995,27 @@ private fun JellyToggle(label: String, checked: Boolean, onChange: (Boolean) -> 
     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, modifier = Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+/** A category shown as a tile on the Jellyfin dashboard overview. */
+private data class DashCat(val key: String, val label: String, val count: Int?, val icon: androidx.compose.ui.graphics.vector.ImageVector)
+
+/** A clickable dashboard category tile: icon + label + item count. */
+@Composable
+private fun DashTile(label: String, count: Int?, icon: androidx.compose.ui.graphics.vector.ImageVector, accent: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Column(
+        modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(MatrixGreen.copy(alpha = 0.06f))
+            .border(1.dp, accent.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.height(8.dp))
+        Text(label, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text(count?.toString() ?: "…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
     }
 }
 
