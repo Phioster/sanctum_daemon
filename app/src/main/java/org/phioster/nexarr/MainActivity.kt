@@ -1998,9 +1998,9 @@ private fun LivePushSection(vm: DashboardViewModel) {
 @Composable
 private fun ContentSection(vm: DashboardViewModel) {
     val hide by vm.hideAdult.collectAsState()
-    NotifyToggleRow("Hide adult content (18+)", "Filters XXX-rated titles out of Jellyfin browsing and Seerr discovery", hide) { vm.setHideAdult(it) }
+    NotifyToggleRow("Hide adult content (XXX)", "Hides pornographic titles from Jellyfin browsing and Seerr discovery", hide) { vm.setHideAdult(it) }
     Text(
-        "Uses each item's age rating on Jellyfin and the TMDB adult flag on Seerr. Doesn't touch your Radarr/Sonarr libraries or global search.",
+        "Only real porn is hidden — XXX / X / X18+ / Adult ratings on Jellyfin and the TMDB adult flag on Seerr. Mainstream 18-rated films (horror, NC-17, R, FSK 18, R18+) stay visible. Doesn't touch Radarr/Sonarr or global search.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
     )
 }

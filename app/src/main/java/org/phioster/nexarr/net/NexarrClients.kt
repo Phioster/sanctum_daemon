@@ -2074,8 +2074,10 @@ private fun jfSubtitle(item: JfItem): String = when (item.Type) {
     else -> item.ProductionYear?.toString() ?: ""
 }
 
-/** Official ratings that mark porn / XXX content (mainstream 18/NC-17/R are intentionally NOT included). */
-private val ADULT_RATINGS = setOf("XXX", "X", "ADULT", "R18+", "R18", "AO", "18+ ADULT")
+/** Ratings that mark porn / XXX only. Mainstream adult ratings (18, FSK 18, NC-17, R,
+ *  TV-MA, and Australia's R18+ which covers violent/horror films) are intentionally NOT
+ *  blocked — only actual pornography. Australia's porn rating is X18+, not R18+. */
+private val ADULT_RATINGS = setOf("XXX", "X", "X18+", "ADULT", "PORN")
 fun isAdultRating(rating: String?): Boolean =
     rating != null && rating.trim().uppercase() in ADULT_RATINGS
 
