@@ -14,14 +14,19 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import kotlin.math.roundToInt
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.horizontalDrag
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.foundation.shape.CircleShape
@@ -39,6 +44,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -682,58 +688,28 @@ private fun HomeShell(
     val swipeDrawer by vm.swipeDrawer.collectAsState()
     val drawerBand by vm.drawerBand.collectAsState()
     val currentAccent = currentTab?.takeIf { it.accent != 0L }?.let { Color(it.accent) } ?: MatrixGreen
-    // If the user navigated away from inside the drawer, reopen it so back returns them there.
-    val drawerState = androidx.compose.material3.rememberDrawerState(
-        if (vm.reopenDrawer) androidx.compose.material3.DrawerValue.Open else androidx.compose.material3.DrawerValue.Closed,
-    )
+    val scope = rememberCoroutineScope()
+    // Custom full-width Services drawer, driven directly by the finger. progress: 0 = closed, 1 = open.
     val startOpen = vm.reopenDrawer
     LaunchedEffect(Unit) { vm.reopenDrawer = false }
-    val scope = rememberCoroutineScope()
-    // The full-width ModalNavigationDrawer paints its sheet at offset 0 (open) for the first
-    // frame before it's measured, flashing on the left edge at app open. The sheet is kept
-    // fully composed (so its anchors are correct and it stays closed) but held invisible for
-    // the first couple of frames — hiding only the flash, not breaking the drawer.
-    var revealed by remember { mutableStateOf(startOpen) }
-    LaunchedEffect(Unit) { withFrameNanos {}; withFrameNanos {}; revealed = true }
+    var drawerWidthPx by remember { mutableFloatStateOf(1f) }
+    val drawerProgress = remember { androidx.compose.animation.core.Animatable(if (startOpen) 1f else 0f) }
+    val drawerOpen = drawerProgress.value > 0.001f
+    val fullyOpen = drawerProgress.value > 0.99f
+    fun openDrawer() = scope.launch { drawerProgress.animateTo(1f, androidx.compose.animation.core.tween(260)) }
+    fun closeDrawer() = scope.launch { drawerProgress.animateTo(0f, androidx.compose.animation.core.tween(240)) }
 
-    // Refresh service statuses while the Services drawer is open.
-    LaunchedEffect(drawerState.currentValue) {
-        if (drawerState.currentValue == androidx.compose.material3.DrawerValue.Open) {
+    // Refresh service statuses while the drawer is fully open.
+    LaunchedEffect(fullyOpen) {
+        if (fullyOpen) {
             vm.refreshAll()
             while (true) { kotlinx.coroutines.delay(30_000); vm.refreshAll() }
         }
     }
     BackHandler(enabled = editMode) { editMode = false }
-    // Back with the drawer open closes the drawer instead of finishing the activity.
-    BackHandler(enabled = drawerState.currentValue == androidx.compose.material3.DrawerValue.Open) {
-        scope.launch { drawerState.close() }
-    }
+    BackHandler(enabled = drawerOpen) { closeDrawer() }
 
-    androidx.compose.material3.ModalNavigationDrawer(
-        drawerState = drawerState,
-        // Open only via the menu icon — a full-width drawer's swipe-to-open otherwise grabs every
-        // horizontal swipe across the screen, opening the drawer instead of switching dashboard tabs.
-        gesturesEnabled = drawerState.isOpen,
-        drawerContent = {
-            androidx.compose.material3.ModalDrawerSheet(
-                modifier = Modifier.fillMaxWidth().alpha(if (revealed) 1f else 0f),
-                drawerShape = androidx.compose.ui.graphics.RectangleShape,
-                drawerContainerColor = Black,
-                drawerTonalElevation = 0.dp,
-            ) {
-                // Navigating away from inside the drawer flags it to reopen on return.
-                ServicesDrawer(
-                    vm = vm,
-                    onOpen = { cfg -> vm.reopenDrawer = true; scope.launch { drawerState.close() }; onOpen(cfg) },
-                    onEdit = { cfg -> vm.reopenDrawer = true; onEdit(cfg) },
-                    onAdd = { vm.reopenDrawer = true; onAdd() },
-                    onNotifications = { vm.reopenDrawer = true; onNotifications() },
-                    onSearch = { term -> vm.reopenDrawer = true; onSearch(term) },
-                    onClose = { scope.launch { drawerState.close() } },
-                )
-            }
-        },
-    ) {
+    Box(Modifier.fillMaxSize().onSizeChanged { drawerWidthPx = it.width.toFloat().coerceAtLeast(1f) }) {
     Scaffold(
         containerColor = Black,
         topBar = {
@@ -741,7 +717,7 @@ private fun HomeShell(
                 title = { Text(currentTab?.name ?: "home", fontFamily = Mono, fontWeight = FontWeight.Bold, color = currentAccent) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
                 navigationIcon = {
-                    IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Filled.Menu, contentDescription = "Services", tint = MatrixGreen) }
+                    IconButton(onClick = { openDrawer() }) { Icon(Icons.Filled.Menu, contentDescription = "Services", tint = MatrixGreen) }
                 },
                 actions = {
                     // No search icon here — the tabs already carry the inline search bar.
@@ -798,25 +774,55 @@ private fun HomeShell(
                     )
                 }
             }
-            // A right-swipe in the bottom band opens the Services drawer; taps and vertical scroll
-            // pass through to the content below.
+            // Bottom band: drag right to pull the Services drawer out (follows the finger, snaps on release).
             if (swipeDrawer && drawerBand > 0f) {
                 Box(
                     Modifier.align(Alignment.BottomStart).fillMaxWidth().fillMaxHeight(drawerBand)
-                        .pointerInput(drawerBand, swipeDrawer) {
-                            awaitEachGesture {
-                                val down = awaitFirstDown(requireUnconsumed = false)
-                                var dx = 0f
-                                val first = awaitHorizontalTouchSlopOrCancellation(down.id) { c, over -> dx += over; c.consume() }
-                                    ?: return@awaitEachGesture
-                                horizontalDrag(first.id) { c -> dx += c.positionChange().x; c.consume() }
-                                if (dx >= size.width * 0.15f) scope.launch { drawerState.open() }
-                            }
-                        },
+                        .draggable(
+                            orientation = androidx.compose.foundation.gestures.Orientation.Horizontal,
+                            enabled = !editMode,
+                            state = rememberDraggableState { delta ->
+                                scope.launch { drawerProgress.snapTo((drawerProgress.value + delta / drawerWidthPx).coerceIn(0f, 1f)) }
+                            },
+                            onDragStopped = { v ->
+                                drawerProgress.animateTo(if (drawerProgress.value > 0.35f || v > 900f) 1f else 0f, androidx.compose.animation.core.tween(220))
+                            },
+                        ),
                 )
             }
         }
     }
+        // Scrim: dims the peeking content while the drawer is partially open.
+        if (drawerProgress.value > 0.001f) {
+            Box(Modifier.fillMaxSize().background(Black.copy(alpha = drawerProgress.value.coerceIn(0f, 1f) * 0.5f)))
+        }
+        // The Services drawer: full width, slid in from the left, drag left to close.
+        if (drawerOpen) {
+            Box(
+                Modifier.fillMaxSize()
+                    .offset { IntOffset((-(1f - drawerProgress.value) * drawerWidthPx).roundToInt(), 0) }
+                    .background(Black)
+                    .draggable(
+                        orientation = androidx.compose.foundation.gestures.Orientation.Horizontal,
+                        state = rememberDraggableState { delta ->
+                            scope.launch { drawerProgress.snapTo((drawerProgress.value + delta / drawerWidthPx).coerceIn(0f, 1f)) }
+                        },
+                        onDragStopped = { v ->
+                            drawerProgress.animateTo(if (drawerProgress.value > 0.6f && v > -900f) 1f else 0f, androidx.compose.animation.core.tween(220))
+                        },
+                    ),
+            ) {
+                ServicesDrawer(
+                    vm = vm,
+                    onOpen = { cfg -> vm.reopenDrawer = true; closeDrawer(); onOpen(cfg) },
+                    onEdit = { cfg -> vm.reopenDrawer = true; onEdit(cfg) },
+                    onAdd = { vm.reopenDrawer = true; onAdd() },
+                    onNotifications = { vm.reopenDrawer = true; onNotifications() },
+                    onSearch = { term -> vm.reopenDrawer = true; onSearch(term) },
+                    onClose = { closeDrawer() },
+                )
+            }
+        }
     }
 
     if (showAddCard && currentTab != null) {
