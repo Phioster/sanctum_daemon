@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -550,16 +551,17 @@ private data class OnboardPage(val icon: String, val title: String, val body: St
 @Composable
 private fun OnboardingScreen(onDismiss: (openAdd: Boolean) -> Unit) {
     val pages = listOf(
-        OnboardPage("👁", "SANCTUMD", "Your homelab in one matrix-green console — Jellyfin admin plus your *arr and download stack, unified."),
-        OnboardPage("🧩", "ADD YOUR SERVICES", "Jellyfin, Radarr / Sonarr / Lidarr, Prowlarr, NZBGet, Jellyseerr, ntfy — each with its URL and API key, stored encrypted on your device."),
-        OnboardPage("🗂", "BUILD YOUR DASHBOARD", "Make tabs and drop in cards — queues, calendars, statistics, even a watch leaderboard. Tap ✎ to edit. Homescreen widgets too."),
-        OnboardPage("🔔", "STAY NOTIFIED", "Live push straight from your ntfy topic, plus background checks for new media, finished downloads and requests."),
-        OnboardPage("🔒", "YOURS & PRIVATE", "Secrets encrypted, optional fingerprint / face lock, and password-protected config export to move to a new device."),
+        OnboardPage("👁", "WELCOME TO SANCTUMD", "One dark, matrix-green cockpit for your whole homelab — run Jellyfin and steer your *arr and download stack without app-hopping."),
+        OnboardPage("🧩", "CONNECT YOUR STACK", "Point it at Jellyfin, Radarr / Sonarr / Lidarr, Prowlarr, NZBGet, Jellyseerr and ntfy — just a URL and API key each. Your keys stay encrypted on this phone and go nowhere else."),
+        OnboardPage("🗂", "MAKE IT YOUR OWN", "Spin up tabs and drop in cards — download queues, release calendars, live stats, even a watch leaderboard. Tap ✎ to rearrange, and pin widgets to your home screen."),
+        OnboardPage("🔔", "NEVER MISS A BEAT", "Instant push comes straight from your own ntfy topic, backed by quiet background checks for fresh media, finished downloads and new requests."),
+        OnboardPage("🔒", "PRIVATE BY DESIGN", "Secrets are encrypted, the app can lock behind your fingerprint or face, and an encrypted export carries your whole setup to a new phone."),
     )
     val pager = rememberPagerState { pages.size }
     val scope = rememberCoroutineScope()
     val last = pager.currentPage == pages.lastIndex
-    Column(Modifier.fillMaxSize().background(Black).padding(24.dp)) {
+    Column(Modifier.fillMaxSize().background(Black).statusBarsPadding().padding(24.dp)) {
+        Spacer(Modifier.height(24.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = { onDismiss(false) }) { Text("skip", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f)) }
         }
@@ -1889,6 +1891,7 @@ private fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowInt
                     SettingsCategoryRow("notifications", "Background polling: what to check and how often") { section = "notifications" }
                     SettingsCategoryRow("live push (ntfy)", "Instant notifications from your ntfy server") { section = "live push (ntfy)" }
                     SettingsCategoryRow("security", "Biometric app lock") { section = "security" }
+                    SettingsCategoryRow("content", "Hide adult / 18+ content") { section = "content" }
                     SettingsCategoryRow("backup / data", "Export or import your config (encrypted)") { section = "backup / data" }
                     SettingsCategoryRow("about", "Version & project info") { section = "about" }
                     SettingsCategoryRow("welcome intro", "Replay the first-run walkthrough") { onShowIntro() }
@@ -1896,6 +1899,7 @@ private fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowInt
                 "notifications" -> NotifyPollingSection(vm)
                 "live push (ntfy)" -> LivePushSection(vm)
                 "security" -> SecuritySection(vm)
+                "content" -> ContentSection(vm)
                 "backup / data" -> BackupSection(vm)
                 "about" -> AboutSection()
             }
@@ -1989,6 +1993,16 @@ private fun LivePushSection(vm: DashboardViewModel) {
         if (on) requestPermIfNeeded()
         vm.saveNotifySettings(s.copy(live = on, ntfyServer = srv.trim().trimEnd('/'), ntfyTopic = top.trim(), ntfyToken = tok.trim()))
     }
+}
+
+@Composable
+private fun ContentSection(vm: DashboardViewModel) {
+    val hide by vm.hideAdult.collectAsState()
+    NotifyToggleRow("Hide adult content (18+)", "Filters XXX-rated titles out of Jellyfin browsing and Seerr discovery", hide) { vm.setHideAdult(it) }
+    Text(
+        "Uses each item's age rating on Jellyfin and the TMDB adult flag on Seerr. Doesn't touch your Radarr/Sonarr libraries or global search.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
+    )
 }
 
 @Composable

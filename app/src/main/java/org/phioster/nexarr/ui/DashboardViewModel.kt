@@ -239,6 +239,12 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setOnboardingDone(done: Boolean) = viewModelScope.launch { dashStore.setOnboardingDone(done) }
 
+    /** When true, adult / XXX content is filtered out of Jellyfin browsing and Seerr discovery. */
+    val hideAdult: StateFlow<Boolean> =
+        dashStore.hideAdult.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
+
+    fun setHideAdult(enabled: Boolean) = viewModelScope.launch { dashStore.setHideAdult(enabled) }
+
     private val _statuses = MutableStateFlow<Map<String, ServiceStatus>>(emptyMap())
     val statuses: StateFlow<Map<String, ServiceStatus>> = _statuses.asStateFlow()
 
@@ -437,12 +443,15 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         jellyfinSetPassword(config, userId, newPassword)
     suspend fun jellyfinViews(config: ServiceConfig): List<org.phioster.nexarr.model.JellyMediaItem> =
         jellyfinLibraryViews(config)
+    // Drop adult / XXX items when the 18+ filter is on.
+    private fun noAdult(list: List<org.phioster.nexarr.model.JellyMediaItem>) =
+        if (hideAdult.value) list.filterNot { it.adult } else list
     suspend fun jellyfinContinue(config: ServiceConfig): List<org.phioster.nexarr.model.JellyMediaItem> =
-        jellyfinResume(config)
+        noAdult(jellyfinResume(config))
     suspend fun jellyfinRecent(config: ServiceConfig, parentId: String? = null): List<org.phioster.nexarr.model.JellyMediaItem> =
-        jellyfinLatest(config, parentId)
+        noAdult(jellyfinLatest(config, parentId))
     suspend fun jellyfinItemList(config: ServiceConfig, parentId: String, seasonNumber: Int? = null): List<org.phioster.nexarr.model.JellyMediaItem> =
-        jellyfinItems(config, parentId, seasonNumber)
+        noAdult(jellyfinItems(config, parentId, seasonNumber))
     suspend fun jellyfinMediaDetail(config: ServiceConfig, itemId: String): org.phioster.nexarr.model.JellyMediaDetail =
         jellyfinItemDetail(config, itemId)
     suspend fun jellyfinScanLibrary(config: ServiceConfig, itemId: String): String =
@@ -610,11 +619,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun seerrApproveReq(config: ServiceConfig, id: Int): String = seerrApprove(config, id)
     suspend fun seerrDeclineReq(config: ServiceConfig, id: Int): String = seerrDecline(config, id)
     suspend fun seerrSearchList(config: ServiceConfig, query: String): List<SeerrSearchItem> =
-        seerrSearch(config, query)
+        seerrSearch(config, query).let { if (hideAdult.value) it.filterNot { r -> r.adult } else it }
     suspend fun seerrRequestItem(config: ServiceConfig, item: SeerrSearchItem): String =
         seerrCreateRequest(config, item)
     suspend fun seerrDiscoverList(config: ServiceConfig, kind: String): List<org.phioster.nexarr.model.SeerrDiscoverItem> =
-        seerrDiscover(config, kind)
+        seerrDiscover(config, kind).let { if (hideAdult.value) it.filterNot { d -> d.adult } else it }
     suspend fun seerrWatchlistOf(config: ServiceConfig): List<org.phioster.nexarr.model.SeerrDiscoverItem> =
         org.phioster.nexarr.net.seerrWatchlist(config)
     suspend fun seerrMediaDetailById(config: ServiceConfig, tmdbId: Int, mediaType: String): org.phioster.nexarr.model.SeerrMediaDetail =

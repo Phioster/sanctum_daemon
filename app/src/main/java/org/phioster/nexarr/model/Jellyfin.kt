@@ -140,6 +140,7 @@ data class JellyMediaItem(
     val isFolder: Boolean,
     val progressPct: Float, // 0..1, for "continue watching" rows
     val number: Int? = null, // the item's own IndexNumber (season number for a Season, episode number for an Episode)
+    val adult: Boolean = false, // official rating marks it as adult / XXX
 )
 
 /** Full detail for a single media item. */

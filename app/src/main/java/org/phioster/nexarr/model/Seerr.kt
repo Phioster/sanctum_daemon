@@ -23,6 +23,7 @@ data class SeerrSearchItem(
     val title: String,
     val year: String,
     val mediaType: String, // "movie" or "tv"
+    val adult: Boolean = false, // TMDB adult (porn) flag
 )
 
 /** A discover/trending browse item. */
@@ -33,6 +34,7 @@ data class SeerrDiscoverItem(
     val mediaType: String, // "movie" or "tv"
     val posterUrl: String,
     val status: String, // "available" / "processing" / "pending" / "" (not requested)
+    val adult: Boolean = false, // TMDB adult (porn) flag
 )
 
 /** Full media detail for a Seerr movie/show (poster, cast, status). */

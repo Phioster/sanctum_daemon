@@ -16,6 +16,7 @@ private val Context.dashboardDataStore by preferencesDataStore(name = "nexarr_da
 private val TABS_KEY = stringPreferencesKey("tabs_json")
 private val APP_LOCK_KEY = booleanPreferencesKey("app_lock")
 private val ONBOARDING_KEY = booleanPreferencesKey("onboarding_done")
+private val HIDE_ADULT_KEY = booleanPreferencesKey("hide_adult")
 private val json = Json { ignoreUnknownKeys = true }
 
 /** Persists the user's dashboard tabs (widget layout) as JSON in DataStore. */
@@ -43,5 +44,12 @@ class DashboardStore(private val context: Context) {
 
     suspend fun setOnboardingDone(done: Boolean) {
         context.dashboardDataStore.edit { it[ONBOARDING_KEY] = done }
+    }
+
+    /** Hide adult / XXX content across Jellyfin browsing and Seerr discovery. */
+    val hideAdult: Flow<Boolean> = context.dashboardDataStore.data.map { it[HIDE_ADULT_KEY] ?: false }
+
+    suspend fun setHideAdult(enabled: Boolean) {
+        context.dashboardDataStore.edit { it[HIDE_ADULT_KEY] = enabled }
     }
 }

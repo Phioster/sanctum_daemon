@@ -301,6 +301,7 @@ private data class JfCounts(
     val AlbumArtist: String? = null,
     val LocationType: String? = null, // "FileSystem"/"Remote" = present; "Virtual" = metadata only, no file
     val ImageTags: Map<String, String>? = null,
+    val OfficialRating: String? = null,
     val UserData: JfUserData? = null,
 )
 @Serializable private data class JfItemsResp(val Items: List<JfItem> = emptyList())
@@ -353,14 +354,14 @@ private interface JellyfinApi {
     @DELETE("Users/{id}") suspend fun deleteUser(@Path("id") id: String): Response<ResponseBody>
     @GET("Library/VirtualFolders") suspend fun virtualFolders(): List<JfVirtualFolder>
     @GET("Users/{uid}/Views") suspend fun views(@Path("uid") uid: String): JfItemsResp
-    @GET("Users/{uid}/Items/Latest") suspend fun latest(@Path("uid") uid: String, @Query("Limit") limit: Int = 20, @Query("ParentId") parentId: String? = null): List<JfItem>
-    @GET("Users/{uid}/Items/Resume") suspend fun resume(@Path("uid") uid: String, @Query("Limit") limit: Int = 20): JfItemsResp
+    @GET("Users/{uid}/Items/Latest") suspend fun latest(@Path("uid") uid: String, @Query("Limit") limit: Int = 20, @Query("ParentId") parentId: String? = null, @Query("Fields") fields: String = "OfficialRating"): List<JfItem>
+    @GET("Users/{uid}/Items/Resume") suspend fun resume(@Path("uid") uid: String, @Query("Limit") limit: Int = 20, @Query("Fields") fields: String = "OfficialRating"): JfItemsResp
     @GET("Users/{uid}/Items") suspend fun items(
         @Path("uid") uid: String,
         @Query("ParentId") parentId: String,
         @Query("SortBy") sortBy: String = "IsFolder,SortName",
         @Query("Limit") limit: Int = 300,
-        @Query("Fields") fields: String = "PrimaryImageAspectRatio",
+        @Query("Fields") fields: String = "PrimaryImageAspectRatio,OfficialRating",
     ): JfItemsResp
     @GET("Users/{uid}/Items/{id}") suspend fun itemDetail(@Path("uid") uid: String, @Path("id") id: String): JfItemDetail
     @GET("Users/{uid}/Items") suspend fun searchItems(
@@ -369,6 +370,7 @@ private interface JellyfinApi {
         @Query("Recursive") recursive: Boolean = true,
         @Query("IncludeItemTypes") types: String = "Movie,Series,MusicAlbum",
         @Query("Limit") limit: Int = 12,
+        @Query("Fields") fields: String = "OfficialRating",
     ): JfItemsResp
     @POST("Items/{id}/Refresh") suspend fun refreshItem(@Path("id") id: String): Response<ResponseBody>
     @POST("Sessions/{id}/Playing/{cmd}") suspend fun playCommand(@Path("id") id: String, @Path("cmd") cmd: String): Response<ResponseBody>
@@ -617,6 +619,7 @@ private interface ProwlarrApi {
     val name: String? = null,         // tv
     val releaseDate: String? = null,  // movie
     val firstAirDate: String? = null, // tv
+    val adult: Boolean = false,       // TMDB adult (porn) flag
 )
 @Serializable private data class SeerrSearchPage(val results: List<SeerrSearchResult> = emptyList())
 
@@ -748,6 +751,7 @@ suspend fun seerrSearch(config: ServiceConfig, query: String): List<SeerrSearchI
                 title = (r.title ?: r.name ?: "#${r.id}"),
                 year = date.take(4),
                 mediaType = r.mediaType,
+                adult = r.adult,
             )
         }
 }
@@ -791,6 +795,7 @@ private fun parseDiscoverItems(page: JsonObject, defaultType: String?): List<See
                 mediaType = type,
                 posterUrl = if (!poster.isNullOrBlank()) "https://image.tmdb.org/t/p/w300$poster" else "",
                 status = seerrMediaStatusText(status),
+                adult = jsBool(o, "adult") ?: false,
             )
         }
 }
@@ -2069,6 +2074,11 @@ private fun jfSubtitle(item: JfItem): String = when (item.Type) {
     else -> item.ProductionYear?.toString() ?: ""
 }
 
+/** Official ratings that mark porn / XXX content (mainstream 18/NC-17/R are intentionally NOT included). */
+private val ADULT_RATINGS = setOf("XXX", "X", "ADULT", "R18+", "R18", "AO", "18+ ADULT")
+fun isAdultRating(rating: String?): Boolean =
+    rating != null && rating.trim().uppercase() in ADULT_RATINGS
+
 private fun JfItem.toMediaItem(config: ServiceConfig, token: String) = JellyMediaItem(
     id = Id,
     name = Name,
@@ -2078,6 +2088,7 @@ private fun JfItem.toMediaItem(config: ServiceConfig, token: String) = JellyMedi
     isFolder = IsFolder,
     progressPct = ((UserData?.PlayedPercentage ?: 0.0) / 100.0).toFloat(),
     number = IndexNumber,
+    adult = isAdultRating(OfficialRating),
 )
 
 /** The user's libraries (Movies, Shows, Music, …). */
