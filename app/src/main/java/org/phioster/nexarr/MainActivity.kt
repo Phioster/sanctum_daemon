@@ -467,7 +467,7 @@ private fun tabIcon(key: String): ImageVector =
     tabIcons.firstOrNull { it.first == key }?.second ?: Icons.Filled.Home
 
 /** Accent choices shared by card and tab pickers; 0 = "use the default" (service/tab colour). */
-private val accentPalette = listOf(0L, 0xFF35D07AL, 0xFF00A4DCL, 0xFFFFC230L, 0xFFE66000L, 0xFF818CF8L, 0xFFEC4899L, 0xFF8B5CF6L, 0xFFE5534BL)
+private val accentPalette = listOf(0L, 0xFF00FF41L, 0xFF35D07AL, 0xFF00A4DCL, 0xFFFFC230L, 0xFFE66000L, 0xFF818CF8L, 0xFFEC4899L, 0xFF8B5CF6L, 0xFFE5534BL)
 
 @Composable
 private fun AccentPickerRow(selected: Long, defaultColor: Color, onPick: (Long) -> Unit) {
