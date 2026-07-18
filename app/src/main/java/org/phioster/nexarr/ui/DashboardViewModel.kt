@@ -218,6 +218,10 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     private val _services = MutableStateFlow<List<ServiceConfig>>(emptyList())
     val services: StateFlow<List<ServiceConfig>> = _services.asStateFlow()
 
+    // Becomes true after the first load from the store, so the UI can tell "empty" from "not loaded yet".
+    private val _servicesLoaded = MutableStateFlow(false)
+    val servicesLoaded: StateFlow<Boolean> = _servicesLoaded.asStateFlow()
+
     /** True after a cross-device restore: the encrypted services blob exists but its Keystore key doesn't. */
     val servicesUnreadable: StateFlow<Boolean> = store.decryptFailed
 
@@ -229,6 +233,12 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setAppLock(enabled: Boolean) = viewModelScope.launch { dashStore.setAppLock(enabled) }
 
+    /** null until loaded; then true once the first-run onboarding is completed/dismissed. */
+    val onboardingDone: StateFlow<Boolean?> =
+        dashStore.onboardingDone.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, null)
+
+    fun setOnboardingDone(done: Boolean) = viewModelScope.launch { dashStore.setOnboardingDone(done) }
+
     private val _statuses = MutableStateFlow<Map<String, ServiceStatus>>(emptyMap())
     val statuses: StateFlow<Map<String, ServiceStatus>> = _statuses.asStateFlow()
 
@@ -239,6 +249,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             store.services.collect { list ->
                 _services.value = list
+                _servicesLoaded.value = true
                 refreshAll()
             }
         }

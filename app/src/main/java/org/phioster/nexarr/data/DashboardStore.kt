@@ -15,6 +15,7 @@ import org.phioster.nexarr.model.DashTab
 private val Context.dashboardDataStore by preferencesDataStore(name = "nexarr_dashboard")
 private val TABS_KEY = stringPreferencesKey("tabs_json")
 private val APP_LOCK_KEY = booleanPreferencesKey("app_lock")
+private val ONBOARDING_KEY = booleanPreferencesKey("onboarding_done")
 private val json = Json { ignoreUnknownKeys = true }
 
 /** Persists the user's dashboard tabs (widget layout) as JSON in DataStore. */
@@ -35,5 +36,12 @@ class DashboardStore(private val context: Context) {
 
     suspend fun setAppLock(enabled: Boolean) {
         context.dashboardDataStore.edit { it[APP_LOCK_KEY] = enabled }
+    }
+
+    /** Whether the first-run onboarding has been completed/dismissed. */
+    val onboardingDone: Flow<Boolean> = context.dashboardDataStore.data.map { it[ONBOARDING_KEY] ?: false }
+
+    suspend fun setOnboardingDone(done: Boolean) {
+        context.dashboardDataStore.edit { it[ONBOARDING_KEY] = done }
     }
 }

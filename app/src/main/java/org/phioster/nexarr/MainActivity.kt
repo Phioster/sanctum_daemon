@@ -14,7 +14,10 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.BlurredEdgeTreatment
@@ -90,6 +93,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CardDefaults
@@ -358,7 +362,23 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
         vm.consumeRoute()
     }
 
+    // First-run onboarding: shown only once, when there are no services yet. Existing
+    // users (already have services) are silently marked done so they never see it.
+    val onboardingDone by vm.onboardingDone.collectAsState()
+    val servicesLoaded by vm.servicesLoaded.collectAsState()
+    var forceIntro by remember { mutableStateOf(false) }
+    LaunchedEffect(onboardingDone, servicesLoaded, allServicesForShortcuts) {
+        if (onboardingDone == false && servicesLoaded && allServicesForShortcuts.isNotEmpty()) vm.setOnboardingDone(true)
+    }
+    val showOnboarding = forceIntro || (onboardingDone == false && servicesLoaded && allServicesForShortcuts.isEmpty())
+    BackHandler(enabled = showOnboarding) { forceIntro = false; vm.setOnboardingDone(true) }
+
     when {
+        showOnboarding -> OnboardingScreen(onDismiss = { openAdd ->
+            forceIntro = false
+            vm.setOnboardingDone(true)
+            if (openAdd) addOpen = true
+        })
         editorOpen -> AddServiceScreen(
             existing = editing,
             onCancel = { addOpen = false; editing = null },
@@ -394,7 +414,7 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
             initialTerm = searchTerm,
             onTermChange = { searchTerm = it },
         )
-        notifOpen -> SettingsScreen(vm = vm, onBack = { notifOpen = false })
+        notifOpen -> SettingsScreen(vm = vm, onBack = { notifOpen = false }, onShowIntro = { notifOpen = false; forceIntro = true })
         else -> HomeShell(
             vm = vm,
             onAdd = { addOpen = true },
@@ -520,6 +540,59 @@ private fun IconPickerGrid(selected: String, onPick: (String) -> Unit) {
             ) {
                 Icon(icon, contentDescription = key, tint = if (sel) Black else MatrixGreen)
             }
+        }
+    }
+}
+
+private data class OnboardPage(val icon: String, val title: String, val body: String)
+
+/** First-run welcome flow: a few swipeable pages, then "get started" opens Add-service. */
+@Composable
+private fun OnboardingScreen(onDismiss: (openAdd: Boolean) -> Unit) {
+    val pages = listOf(
+        OnboardPage("👁", "SANCTUMD", "Your homelab in one matrix-green console — Jellyfin admin plus your *arr and download stack, unified."),
+        OnboardPage("🧩", "ADD YOUR SERVICES", "Jellyfin, Radarr / Sonarr / Lidarr, Prowlarr, NZBGet, Jellyseerr, ntfy — each with its URL and API key, stored encrypted on your device."),
+        OnboardPage("🗂", "BUILD YOUR DASHBOARD", "Make tabs and drop in cards — queues, calendars, statistics, even a watch leaderboard. Tap ✎ to edit. Homescreen widgets too."),
+        OnboardPage("🔔", "STAY NOTIFIED", "Live push straight from your ntfy topic, plus background checks for new media, finished downloads and requests."),
+        OnboardPage("🔒", "YOURS & PRIVATE", "Secrets encrypted, optional fingerprint / face lock, and password-protected config export to move to a new device."),
+    )
+    val pager = rememberPagerState { pages.size }
+    val scope = rememberCoroutineScope()
+    val last = pager.currentPage == pages.lastIndex
+    Column(Modifier.fillMaxSize().background(Black).padding(24.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = { onDismiss(false) }) { Text("skip", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f)) }
+        }
+        HorizontalPager(state = pager, modifier = Modifier.weight(1f).fillMaxWidth()) { i ->
+            val p = pages[i]
+            Column(
+                Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(p.icon, fontSize = 60.sp)
+                Spacer(Modifier.height(24.dp))
+                Text(p.title, fontFamily = Mono, color = MatrixGreen, fontSize = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                Spacer(Modifier.height(16.dp))
+                Text(p.body, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.75f), fontSize = 14.sp, textAlign = TextAlign.Center, lineHeight = 21.sp)
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.Center) {
+            repeat(pages.size) { i ->
+                Box(
+                    Modifier.padding(horizontal = 4.dp)
+                        .size(if (i == pager.currentPage) 10.dp else 7.dp)
+                        .clip(CircleShape)
+                        .background(if (i == pager.currentPage) MatrixGreen else MatrixGreen.copy(alpha = 0.3f)),
+                )
+            }
+        }
+        Button(
+            onClick = { if (last) onDismiss(true) else scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = MatrixGreen, contentColor = Black),
+        ) {
+            Text(if (last) "get started" else "next", fontFamily = Mono, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -1792,7 +1865,7 @@ private fun NotifyToggleRow(label: String, sub: String, checked: Boolean, enable
 /** Dedicated settings hub: categories on the first level, one section per screen. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
+private fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowIntro: () -> Unit = {}) {
     var section by remember { mutableStateOf<String?>(null) }
     BackHandler(enabled = section != null) { section = null }
 
@@ -1818,6 +1891,7 @@ private fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                     SettingsCategoryRow("security", "Biometric app lock") { section = "security" }
                     SettingsCategoryRow("backup / data", "Export or import your config (encrypted)") { section = "backup / data" }
                     SettingsCategoryRow("about", "Version & project info") { section = "about" }
+                    SettingsCategoryRow("welcome intro", "Replay the first-run walkthrough") { onShowIntro() }
                 }
                 "notifications" -> NotifyPollingSection(vm)
                 "live push (ntfy)" -> LivePushSection(vm)
