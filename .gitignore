@@ -8,3 +8,16 @@ local.properties
 captures/
 .externalNativeBuild/
 .cxx/
+
+# Release signing — NEVER commit a release keystore or its passwords.
+# (app/debug.keystore is the shared public debug key and is intentionally kept.)
+*.jks
+*.keystore
+!app/debug.keystore
+keystore.properties
+signing.properties
+*.p12
+
+# Other secrets
+google-services.json
+secrets.properties
