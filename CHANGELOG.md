@@ -43,7 +43,7 @@ Versioning is `major.minor.patch`; the app is in daily use and heading to 1.0.
   controls, plugins, libraries, server logs.
 - **Radarr / Sonarr / Lidarr** — full list tabs, add, interactive search &
   release picker, grab, manual import, per-episode monitoring, System & health.
-- **Jellyseerr** — requests, issues, discover, watchlist, per-season requests,
+- **Seerr** (Jellyseerr) — requests, issues, discover, watchlist, per-season requests,
   media detail, users & stats.
 - **Prowlarr** — indexers, search, history, tasks, send-to-arr.
 - **NZBGet** — queue, history, pause/resume, edit, add-URL.

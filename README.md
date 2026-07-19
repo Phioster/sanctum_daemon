@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="docs/icon.png" alt="Sanctumd" width="140">
-
 <img src="docs/banner.svg" alt="Sanctumd" width="820">
 
 <br>
@@ -45,13 +43,15 @@ visitor@homelab:~$ ./sanctumd --whoami
 
 **works with**
 
-![Jellyfin](https://img.shields.io/badge/Jellyfin-238636?style=flat-square&logo=jellyfin&logoColor=3fb950&labelColor=0d1117)
-![Radarr](https://img.shields.io/badge/Radarr-238636?style=flat-square&logo=radarr&logoColor=3fb950&labelColor=0d1117)
-![Sonarr](https://img.shields.io/badge/Sonarr-238636?style=flat-square&logo=sonarr&logoColor=3fb950&labelColor=0d1117)
-![Lidarr](https://img.shields.io/badge/Lidarr-238636?style=flat-square&logo=lidarr&logoColor=3fb950&labelColor=0d1117)
-![Prowlarr](https://img.shields.io/badge/Prowlarr-238636?style=flat-square&logo=prowlarr&logoColor=3fb950&labelColor=0d1117)
-![Jellyseerr](https://img.shields.io/badge/Jellyseerr-238636?style=flat-square&logo=jellyseerr&logoColor=3fb950&labelColor=0d1117)
-![NZBGet](https://img.shields.io/badge/NZBGet-238636?style=flat-square&labelColor=0d1117)
+<img src="docs/logos/jellyfin.png" height="46" alt="Jellyfin" title="Jellyfin">&nbsp;&nbsp;&nbsp;
+<img src="docs/logos/radarr.png"   height="46" alt="Radarr"   title="Radarr">&nbsp;&nbsp;&nbsp;
+<img src="docs/logos/sonarr.png"   height="46" alt="Sonarr"   title="Sonarr">&nbsp;&nbsp;&nbsp;
+<img src="docs/logos/lidarr.png"   height="46" alt="Lidarr"   title="Lidarr">&nbsp;&nbsp;&nbsp;
+<img src="docs/logos/prowlarr.png" height="46" alt="Prowlarr" title="Prowlarr">&nbsp;&nbsp;&nbsp;
+<img src="docs/logos/seerr.png"    height="46" alt="Seerr"    title="Seerr">&nbsp;&nbsp;&nbsp;
+<img src="docs/logos/nzbget.png"   height="46" alt="NZBGet"   title="NZBGet">
+
+<sub>Jellyfin · Radarr · Sonarr · Lidarr · Prowlarr · Seerr · NZBGet</sub>
 
 </div>
 
@@ -76,7 +76,7 @@ visitor@homelab:~$ ./sanctumd --whoami
   manual import · per-ep monitoring
   system & health
 
-[jellyseerr]
+[seerr]
   requests · issues · discover
   watchlist · per-season requests
   approve/decline · media detail
