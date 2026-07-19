@@ -1579,15 +1579,30 @@ private fun DashSessionRow(item: org.phioster.nexarr.model.JellySession, accent:
 @Composable
 private fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenService: (ServiceConfig) -> Unit) {
     var month by remember { mutableStateOf(java.time.YearMonth.now()) }
-    var byDay by remember { mutableStateOf<Map<java.time.LocalDate, List<Pair<ServiceConfig, org.phioster.nexarr.model.ArrCalendarItem>>>?>(null) }
+    // Init from the cache so a tab switch shows the month instantly (no reload flash).
+    @Suppress("UNCHECKED_CAST")
+    var byDay by remember {
+        mutableStateOf(vm.cardDataCache["unifiedCal#$month"] as? Map<java.time.LocalDate, List<Pair<ServiceConfig, org.phioster.nexarr.model.ArrCalendarItem>>>)
+    }
     var selected by remember { mutableStateOf<java.time.LocalDate?>(java.time.LocalDate.now()) }
     var info by remember { mutableStateOf<Pair<ServiceConfig, org.phioster.nexarr.model.ArrCalendarItem>?>(null) }
 
     LaunchedEffect(month, vm.dashRefreshTick.intValue) {
+        val tick = vm.dashRefreshTick.intValue
+        val key = "unifiedCal#$month"
+        @Suppress("UNCHECKED_CAST")
+        val cached = vm.cardDataCache[key] as? Map<java.time.LocalDate, List<Pair<ServiceConfig, org.phioster.nexarr.model.ArrCalendarItem>>>
+        val today = java.time.LocalDate.now()
+        if (cached != null && vm.cardDataTick[key] == tick) {
+            byDay = cached
+            selected = if (java.time.YearMonth.from(today) == month) today else null
+            return@LaunchedEffect
+        }
         byDay = null
         val list = runCatching { vm.unifiedCalendarRange(month.atDay(1), month.atEndOfMonth()) }.getOrDefault(emptyList())
         byDay = list.groupBy { runCatching { java.time.LocalDate.parse(it.second.date) }.getOrNull() ?: java.time.LocalDate.MIN }
-        val today = java.time.LocalDate.now()
+        vm.cardDataCache[key] = byDay
+        vm.cardDataTick[key] = tick
         selected = if (java.time.YearMonth.from(today) == month) today else null
     }
 
