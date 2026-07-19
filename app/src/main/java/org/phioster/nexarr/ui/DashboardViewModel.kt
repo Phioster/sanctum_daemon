@@ -154,6 +154,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
      *  load on it, so incrementing forces every card to reload. */
     val dashRefreshTick = androidx.compose.runtime.mutableIntStateOf(0)
 
+    // Per-card data cache so switching dashboard tabs doesn't refetch. Keyed by "cardId#field";
+    // invalidated per card via cardDataTick (only pull-to-refresh bumps dashRefreshTick).
+    val cardDataCache = HashMap<String, Any?>()
+    val cardDataTick = HashMap<String, Int>()
+
     /** A pending navigation from a launcher shortcut, consumed once by the UI. */
     private val _pendingRoute = MutableStateFlow<PendingRoute?>(null)
     val pendingRoute: StateFlow<PendingRoute?> = _pendingRoute.asStateFlow()

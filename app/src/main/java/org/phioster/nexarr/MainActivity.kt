@@ -1069,19 +1069,33 @@ private fun DashCardView(
     val accent = if (card.theme == "solid") Black else accentColor
     val posterWidth = when (card.posterSize) { "small" -> 84.dp; "large" -> 150.dp; else -> 120.dp }
     var showConfig by remember { mutableStateOf(false) }
-    var items by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyMediaItem>?>(null) }
-    var sessions by remember { mutableStateOf<List<org.phioster.nexarr.model.JellySession>?>(null) }
-    var requests by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrRequestItem>?>(null) }
-    var queue by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrQueueItem>?>(null) }
-    var missing by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrMissingItem>?>(null) }
-    var calendar by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrCalendarItem>?>(null) }
-    var history by remember { mutableStateOf<List<org.phioster.nexarr.model.ArrHistoryItem>?>(null) }
-    var nzbQueue by remember { mutableStateOf<List<org.phioster.nexarr.model.NzbQueueItem>?>(null) }
-    var nzbHistory by remember { mutableStateOf<List<org.phioster.nexarr.model.NzbHistoryEntry>?>(null) }
-    var discover by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrDiscoverItem>?>(null) }
-    var sysHealth by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
-    var stat by remember { mutableStateOf<org.phioster.nexarr.model.ServiceStatus?>(null) }
-    var topWatchers by remember { mutableStateOf<List<org.phioster.nexarr.model.JellyWatchStat>?>(null) }
+    // Initialise from the per-card cache so a tab switch shows the last-loaded data instantly
+    // (no refetch/flicker); the LaunchedEffect below only refetches when the refresh tick changed.
+    @Suppress("UNCHECKED_CAST")
+    var items by remember { mutableStateOf(vm.cardDataCache["${card.id}#items"] as? List<org.phioster.nexarr.model.JellyMediaItem>) }
+    @Suppress("UNCHECKED_CAST")
+    var sessions by remember { mutableStateOf(vm.cardDataCache["${card.id}#sessions"] as? List<org.phioster.nexarr.model.JellySession>) }
+    @Suppress("UNCHECKED_CAST")
+    var requests by remember { mutableStateOf(vm.cardDataCache["${card.id}#requests"] as? List<org.phioster.nexarr.model.SeerrRequestItem>) }
+    @Suppress("UNCHECKED_CAST")
+    var queue by remember { mutableStateOf(vm.cardDataCache["${card.id}#queue"] as? List<org.phioster.nexarr.model.ArrQueueItem>) }
+    @Suppress("UNCHECKED_CAST")
+    var missing by remember { mutableStateOf(vm.cardDataCache["${card.id}#missing"] as? List<org.phioster.nexarr.model.ArrMissingItem>) }
+    @Suppress("UNCHECKED_CAST")
+    var calendar by remember { mutableStateOf(vm.cardDataCache["${card.id}#calendar"] as? List<org.phioster.nexarr.model.ArrCalendarItem>) }
+    @Suppress("UNCHECKED_CAST")
+    var history by remember { mutableStateOf(vm.cardDataCache["${card.id}#history"] as? List<org.phioster.nexarr.model.ArrHistoryItem>) }
+    @Suppress("UNCHECKED_CAST")
+    var nzbQueue by remember { mutableStateOf(vm.cardDataCache["${card.id}#nzbQueue"] as? List<org.phioster.nexarr.model.NzbQueueItem>) }
+    @Suppress("UNCHECKED_CAST")
+    var nzbHistory by remember { mutableStateOf(vm.cardDataCache["${card.id}#nzbHistory"] as? List<org.phioster.nexarr.model.NzbHistoryEntry>) }
+    @Suppress("UNCHECKED_CAST")
+    var discover by remember { mutableStateOf(vm.cardDataCache["${card.id}#discover"] as? List<org.phioster.nexarr.model.SeerrDiscoverItem>) }
+    @Suppress("UNCHECKED_CAST")
+    var sysHealth by remember { mutableStateOf(vm.cardDataCache["${card.id}#sysHealth"] as? List<Pair<String, String>>) }
+    var stat by remember { mutableStateOf(vm.cardDataCache["${card.id}#stat"] as? org.phioster.nexarr.model.ServiceStatus) }
+    @Suppress("UNCHECKED_CAST")
+    var topWatchers by remember { mutableStateOf(vm.cardDataCache["${card.id}#topWatchers"] as? List<org.phioster.nexarr.model.JellyWatchStat>) }
     var detail by remember { mutableStateOf<MediaDetail?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val ctx = LocalContext.current
@@ -1090,6 +1104,9 @@ private fun DashCardView(
     LaunchedEffect(card.id, config?.id, vm.dashRefreshTick.intValue) {
         if (serviceless) return@LaunchedEffect // Section / Quick Buttons / calendar self-load
         if (config == null) { error = "service not found"; return@LaunchedEffect }
+        // Already loaded this refresh cycle? Keep the cached data (fields are init'd from it) — no refetch.
+        val tick = vm.dashRefreshTick.intValue
+        if (vm.cardDataTick[card.id] == tick) return@LaunchedEffect
         // Retry a couple of times: on a cold start the Jellyfin token may not be ready yet.
         var attempt = 0
         while (attempt < 3) {
@@ -1115,6 +1132,21 @@ private fun DashCardView(
                     CardType.PROWLARR_STATS, CardType.NZBGET_STATS, CardType.SEERR_STATS -> stat = vm.serviceStats(config)
                     CardType.JELLYFIN_TOP -> topWatchers = vm.jellyfinTopWatchers(config)
                 }
+                // Cache this card's freshly-loaded data (one field is non-null) so a tab switch reuses it.
+                vm.cardDataCache["${card.id}#items"] = items
+                vm.cardDataCache["${card.id}#sessions"] = sessions
+                vm.cardDataCache["${card.id}#requests"] = requests
+                vm.cardDataCache["${card.id}#queue"] = queue
+                vm.cardDataCache["${card.id}#missing"] = missing
+                vm.cardDataCache["${card.id}#calendar"] = calendar
+                vm.cardDataCache["${card.id}#history"] = history
+                vm.cardDataCache["${card.id}#nzbQueue"] = nzbQueue
+                vm.cardDataCache["${card.id}#nzbHistory"] = nzbHistory
+                vm.cardDataCache["${card.id}#discover"] = discover
+                vm.cardDataCache["${card.id}#sysHealth"] = sysHealth
+                vm.cardDataCache["${card.id}#stat"] = stat
+                vm.cardDataCache["${card.id}#topWatchers"] = topWatchers
+                vm.cardDataTick[card.id] = tick
                 break
             } catch (c: kotlinx.coroutines.CancellationException) {
                 throw c
