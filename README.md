@@ -1,99 +1,137 @@
-# Sanctumd
+<div align="center">
 
-> **Sanctumd** — a unified, native Android dashboard for a self-hosted homelab.
-> Jellyfin administration **and** the *arr / download stack in one app, under one
-> consistent matrix-terminal theme. *The daemon that guards your homelab.*
+<img src="docs/banner.svg" alt="Sanctumd" width="820">
 
-Think **nzb360 + Jellyfin management** rebuilt as a single Jetpack Compose app:
-add your services once, and everything — status, queues, media, requests,
-users, logs — shows up in one terminal-styled UI. Every action hits each
-service's own API directly; there is no backend and no account.
+<br>
 
-<!--
-SCREENSHOTS — placeholders. Drop censored screenshots (no tokens / server
-addresses / real usernames) into docs/screenshots/ and swap the paths below.
+![Android](https://img.shields.io/badge/Android-8.0+-00FF41?style=flat-square&labelColor=070b07&logo=android&logoColor=00FF41)
+![Kotlin](https://img.shields.io/badge/Kotlin-Compose-00FF41?style=flat-square&labelColor=070b07&logo=kotlin&logoColor=00FF41)
+![Target](https://img.shields.io/badge/SDK-35-00FF41?style=flat-square&labelColor=070b07)
+![License](https://img.shields.io/badge/License-GPL--3.0-00FF41?style=flat-square&labelColor=070b07)
+![Status](https://img.shields.io/badge/status-heading_to_1.0-00FF41?style=flat-square&labelColor=070b07)
 
-![Dashboard](docs/screenshots/dashboard.png)
-![Jellyfin admin](docs/screenshots/jellyfin.png)
-![Live push](docs/screenshots/livepush.png)
--->
+**Jellyfin admin + the \*arr / download stack — one native Android app, one matrix-terminal theme.**
 
-> 📸 *Screenshots coming soon.*
+</div>
 
-## Features
+```console
+visitor@homelab:~$ ./sanctumd --whoami
 
-### Media & requests
-- **Jellyfin admin** — server dashboard (info, scheduled tasks, activity log,
-  restart), **user management** (create, edit policy & per-library access, reset
-  password, delete), **media browsing** (Continue Watching, Recently Added,
-  library → series → season → episode, item detail with cast), **Now Playing**
-  (active sessions with pause / stop / send-message), plugins, libraries and
-  server logs.
-- **Radarr · Sonarr · Lidarr** — Library / Missing / Cutoff / Queue / History,
-  add with quality & metadata profiles, **interactive search** (release picker
-  with custom-formats, score & rejections) → grab, manual import, per-episode
-  monitoring, queue status filter, delete, System & health.
-- **Jellyseerr** — Requests, Issues, Discover & Watchlist; approve / decline,
-  per-season TV requests, issue threads, media detail with cast, users & stats.
-- **Prowlarr** — indexers, search, history, system & tasks, send-to-arr.
-- **NZBGet** — queue & history, pause / resume, edit, add-URL, server details.
-
-### The dashboard
-- **Fully customizable home** — editable category tabs plus a full-page Services
-  drawer. Per-service cards (queues, missing, coming-soon, recently-added,
-  poster rows, statistics, watch leaderboard, …).
-- **Per-card styling** — title & entry count, accent colour, header icon, poster
-  size, opt-in fan-art Ken-Burns background, and flat / solid / glass card
-  themes. Plus Section headers, Quick-Button cards and a **Universal Calendar**.
-- **Global search** across every configured service in parallel.
-- **Home-screen widgets** (Glance) — shortcuts, status, quick actions, an
-  upcoming-calendar agenda, and 1×1 stat tiles.
-
-### Notifications
-- **Live push** — subscribes directly to a topic on your **ntfy** server and
-  turns every message into a local notification, instantly. Reuses the webhook
-  topic your services already publish to; supports a secondary backup topic.
-- **Polling fallback** — an on-device worker that raises notifications for new
-  media, imports, requests and health issues even when live push is offline.
-
-### Privacy & portability
-- Service credentials stored **AES-256-GCM encrypted** in the Android Keystore.
-- Optional **biometric app-lock** (with device-credential fallback).
-- **Config export / import** — a password-protected (PBKDF2 → AES-GCM) portable
-  file for moving your whole setup to a new device.
-- Secrets excluded from cloud backup; **Cloudflare Access** custom headers
-  supported for tunnelled services.
-
-## Tech
-
-Kotlin · Jetpack Compose · Material 3 · Retrofit / OkHttp · Coil · Glance
-widgets · WorkManager · androidx.biometric · AES-256-GCM (Android Keystore).
-
-- **min SDK 26** (Android 8.0) · **target SDK 35** (Android 15)
-- No local Android SDK required to contribute — builds run in CI.
-
-## Build
-
-Every push triggers the **Build APK** GitHub Actions workflow; download the
-`sanctumd-debug-apk` artifact from the run and install it:
-
-```sh
-adb install -r sanctumd-debug.apk
+  > a single Jetpack Compose app that unifies your whole self-hosted stack.
+  > add your services once — status, queues, media, requests, users, logs
+  > all show up in one terminal-styled UI. every action hits each service's
+  > own API directly. no backend. no account. the daemon that guards it all.
 ```
 
-To build locally instead:
+<div align="center">
+  <img src="docs/screenshots/dashboard-movies.png" width="30%" alt="Movies dashboard">
+  <img src="docs/screenshots/dashboard-series.png" width="30%" alt="Series dashboard">
+  <img src="docs/screenshots/home-calendar.png"    width="30%" alt="Home · universal calendar &amp; watch leaderboard">
+  <br><br>
+  <img src="docs/screenshots/jellyfin-admin.png"   width="30%" alt="Jellyfin admin">
+  <img src="docs/screenshots/media-detail.png"     width="30%" alt="Media detail with cast">
+  <img src="docs/screenshots/live-push.png"        width="30%" alt="Live push (ntfy)">
+</div>
 
-```sh
-gradle assembleDebug
-# → app/build/outputs/apk/debug/app-debug.apk
+---
+
+## ▚▚ `./features`
+
+<details open>
+<summary><b>media &amp; requests</b></summary>
+
+```text
+[jellyfin]   admin dashboard · scheduled tasks · activity log · restart
+             user management (policy + per-library access, reset pw, delete)
+             media browsing (continue watching, library→series→season→ep, cast)
+             now playing (sessions: pause / stop / send-message) · plugins · logs
+[radarr]     library · missing · cutoff · queue · history · add
+[sonarr]     interactive search (formats · score · rejections) → grab
+[lidarr]     manual import · per-episode monitoring · queue filter · system+health
+[jellyseerr] requests · issues · discover · watchlist · per-season requests
+             approve / decline · media detail w/ cast · users & stats
+[prowlarr]   indexers · search · history · tasks · send-to-arr
+[nzbget]     queue · history · pause / resume · edit · add-url · server details
+```
+</details>
+
+<details>
+<summary><b>the dashboard</b></summary>
+
+```text
+[home]    editable category tabs + a full-page Services drawer
+[cards]   queues · missing · coming-soon · recently-added · poster rows
+          statistics · watch leaderboard · sections · quick-buttons · calendar
+[style]   per-card accent · header icon · poster size · fan-art Ken-Burns bg
+          flat / solid / glass themes · universal calendar
+[search]  global search across every configured service in parallel
+[widgets] Glance home-screen: shortcuts · status · quick actions · agenda · stat tiles
+```
+</details>
+
+<details>
+<summary><b>notifications</b></summary>
+
+```text
+[live-push] subscribes directly to a topic on your ntfy server → instant local
+            notifications. reuses the topic your services already webhook to.
+            per-server merging · offline catch-up · masked topic in the title.
+[fallback]  on-device polling worker for new media / imports / requests / health,
+            baselined so there's no backlog spam.
+```
+</details>
+
+<details>
+<summary><b>privacy &amp; portability</b></summary>
+
+```text
+[crypto]   service credentials AES-256-GCM encrypted (Android Keystore)
+[lock]     optional biometric app-lock (device-credential fallback)
+[export]   password-protected (PBKDF2 → AES-GCM) portable config file
+[network]  secrets excluded from cloud backup · Cloudflare Access headers
+```
+</details>
+
+---
+
+## ▚▚ `./stack`
+
+```text
+Kotlin · Jetpack Compose · Material 3 · Retrofit / OkHttp · Coil
+Glance widgets · WorkManager · androidx.biometric · AES-256-GCM (Keystore)
+
+min SDK 26 (Android 8.0)   ·   target SDK 35 (Android 15)
 ```
 
-## Status
+## ▚▚ `./build`
 
-Feature-complete for the current service set and in daily use; heading toward a
-**1.0** release (release-signing, a full code-review pass, then publishing).
+Every push triggers the **Build APK** GitHub Actions workflow — grab the
+`sanctumd-debug-apk` artifact and install it:
+
+```console
+$ adb install -r sanctumd-debug.apk
+```
+
+Or build locally (no local Android SDK needed for CI contributors):
+
+```console
+$ gradle assembleDebug
+  → app/build/outputs/apk/debug/app-debug.apk
+```
+
+## ▚▚ `./status`
+
+```text
+feature-complete for the current service set · in daily use
+heading toward 1.0 → release-signing · full code-review · publish
+```
+
 See [CHANGELOG.md](CHANGELOG.md) for the milestone history.
 
-## License
+---
 
-[GPL-3.0](LICENSE) — Sanctumd is free software.
+<div align="center">
+
+`GPL-3.0` — Sanctumd is free software. See [LICENSE](LICENSE).
+
+</div>
