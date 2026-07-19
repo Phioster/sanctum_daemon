@@ -132,11 +132,15 @@ class NtfyStreamService : Service() {
         val (_, recentIds) = store.ntfyCursor(cursorScope)
         if (msg.id.isNotEmpty() && msg.id in recentIds) return // duplicate at the ?since= boundary
         val base = msg.title.ifBlank { "Sanctumd" }
-        // Messages from a secondary topic carry the topic as prefix so they're tellable apart.
-        val title = if (msg.topic.isNotBlank() && msg.topic != mainTopic) "[${msg.topic}] $base" else base
+        // Messages from a secondary topic carry a MASKED topic as prefix so they're tellable apart
+        // without leaking the (often unprotected) topic name in the notification.
+        val title = if (msg.topic.isNotBlank() && msg.topic != mainTopic) "[${maskTopic(msg.topic)}] $base" else base
         postNotification(msg.id.ifEmpty { msg.text }.hashCode(), title, msg.text)
         if (msg.time > 0) store.saveNtfyCursor(msg.time, recentIds + msg.id, cursorScope)
     }
+
+    /** Reveal only the first 4 chars of a topic (hide the rest — for an unprotected topic the random suffix is effectively the access secret). */
+    private fun maskTopic(t: String): String = if (t.length <= 4) "•".repeat(t.length) else "${t.take(4)}••••••"
 
     private fun postNotification(id: Int, title: String, text: String) {
         if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) return
