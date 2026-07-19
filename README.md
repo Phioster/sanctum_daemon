@@ -41,6 +41,20 @@ visitor@homelab:~$ ./sanctumd --whoami
   <img src="docs/screenshots/live-push.png"    width="49%" alt="Live push (ntfy)">
 </div>
 
+<div align="center">
+
+**works with**
+
+![Jellyfin](https://img.shields.io/badge/Jellyfin-238636?style=flat-square&logo=jellyfin&logoColor=3fb950&labelColor=0d1117)
+![Radarr](https://img.shields.io/badge/Radarr-238636?style=flat-square&logo=radarr&logoColor=3fb950&labelColor=0d1117)
+![Sonarr](https://img.shields.io/badge/Sonarr-238636?style=flat-square&logo=sonarr&logoColor=3fb950&labelColor=0d1117)
+![Lidarr](https://img.shields.io/badge/Lidarr-238636?style=flat-square&logo=lidarr&logoColor=3fb950&labelColor=0d1117)
+![Prowlarr](https://img.shields.io/badge/Prowlarr-238636?style=flat-square&logo=prowlarr&logoColor=3fb950&labelColor=0d1117)
+![Jellyseerr](https://img.shields.io/badge/Jellyseerr-238636?style=flat-square&logo=jellyseerr&logoColor=3fb950&labelColor=0d1117)
+![NZBGet](https://img.shields.io/badge/NZBGet-238636?style=flat-square&labelColor=0d1117)
+
+</div>
+
 ---
 
 ## ▚▚ `./features`
