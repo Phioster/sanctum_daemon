@@ -29,7 +29,7 @@ visitor@homelab:~$ ./sanctumd --whoami
 ```
 
 <div align="center">
-  <img src="docs/screenshots/dashboard-movies.png" width="49%" alt="Movies dashboard">
+  <img src="docs/screenshots/services.png"         width="49%" alt="Services overview">
   <img src="docs/screenshots/dashboard-series.png" width="49%" alt="Series dashboard">
   <br>
   <img src="docs/screenshots/home-calendar.png"  width="49%" alt="Home · calendar &amp; leaderboard">
