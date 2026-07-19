@@ -2640,6 +2640,8 @@ private fun SeerrScreen(
     var watchlist by remember { mutableStateOf<List<org.phioster.nexarr.model.SeerrDiscoverItem>?>(null) }
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
+    var refreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(actionMsg) { if (actionMsg != null) { kotlinx.coroutines.delay(4000); actionMsg = null } }
     var barMenu by remember { mutableStateOf(false) }
     var showAdd by remember { mutableStateOf(false) }
     var searchTerm by remember { mutableStateOf("") }
@@ -2797,8 +2799,9 @@ private fun SeerrScreen(
                             }
                         }
                     }
-                    IconButton(onClick = { scope.launch { when (mode) { 0 -> loadRequests(); 1 -> loadIssues(); 3 -> loadWatchlist(); else -> loadDiscover() } } }) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
+                    IconButton(enabled = !refreshing, onClick = { actionMsg = null; scope.launch { refreshing = true; when (mode) { 0 -> loadRequests(); 1 -> loadIssues(); 3 -> loadWatchlist(); else -> loadDiscover() }; refreshing = false } }) {
+                        if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), color = MatrixGreen, strokeWidth = 2.dp)
+                        else Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                     }
                 }
                 actionMsg?.let {
@@ -4801,6 +4804,8 @@ private fun ProwlarrScreen(
     var history by remember { mutableStateOf<List<org.phioster.nexarr.model.ProwlarrHistoryItem>?>(null) }
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
+    var refreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(actionMsg) { if (actionMsg != null) { kotlinx.coroutines.delay(4000); actionMsg = null } }
     var barMenu by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     val categories = remember { vm.prowlarrCategoryOptions() }
@@ -4920,8 +4925,9 @@ private fun ProwlarrScreen(
                     FilterChip(selected = mode == 2, onClick = { mode = 2 }, label = { Text("History", fontFamily = Mono) })
                     Spacer(Modifier.weight(1f))
                     if (mode == 0 || mode == 2) {
-                        IconButton(onClick = { scope.launch { if (mode == 0) loadIndexers() else loadHistory() } }) {
-                            Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
+                        IconButton(enabled = !refreshing, onClick = { actionMsg = null; scope.launch { refreshing = true; if (mode == 0) loadIndexers() else loadHistory(); refreshing = false } }) {
+                            if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), color = MatrixGreen, strokeWidth = 2.dp)
+                            else Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                         }
                     }
                 }
@@ -5224,6 +5230,8 @@ private fun ArrScreen(
     var sortMenu by remember { mutableStateOf(false) }
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
+    var refreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(actionMsg) { if (actionMsg != null) { kotlinx.coroutines.delay(4000); actionMsg = null } }
     var barMenu by remember { mutableStateOf(false) }
     var showAdd by remember { mutableStateOf(initialAddTerm != null) }
     var addTerm by remember { mutableStateOf(initialAddTerm ?: "") }
@@ -5370,8 +5378,9 @@ private fun ArrScreen(
                         else -> {}
                     }
                     Spacer(Modifier.weight(1f))
-                    IconButton(onClick = { scope.launch { reload() } }) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
+                    IconButton(enabled = !refreshing, onClick = { actionMsg = null; scope.launch { refreshing = true; reload(); refreshing = false } }) {
+                        if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), color = MatrixGreen, strokeWidth = 2.dp)
+                        else Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                     }
                 }
                 actionMsg?.let {
@@ -6173,6 +6182,8 @@ private fun NzbgetScreen(
     var history by remember { mutableStateOf<List<NzbHistoryEntry>?>(null) }
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
+    var refreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(actionMsg) { if (actionMsg != null) { kotlinx.coroutines.delay(4000); actionMsg = null } }
 
     suspend fun loadQueue() {
         listError = null
@@ -6782,7 +6793,10 @@ private fun NtfyScreen(
                 },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) } },
                 actions = {
-                    IconButton(onClick = { scope.launch { load() } }) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen) }
+                    IconButton(enabled = !refreshing, onClick = { actionMsg = null; scope.launch { refreshing = true; load(); refreshing = false } }) {
+                        if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), color = MatrixGreen, strokeWidth = 2.dp)
+                        else Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
+                    }
                     IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "Menu", tint = MatrixGreen) }
                     DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
                         DropdownMenuItem(text = { Text("Edit service", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
