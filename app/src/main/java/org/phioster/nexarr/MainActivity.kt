@@ -775,12 +775,14 @@ private fun HomeShell(
                 }
             }
             // Bottom band: drag right to pull the Services drawer out (follows the finger, snaps on release).
-            if (swipeDrawer && drawerBand > 0f) {
+            // Not composed at all in edit mode — otherwise this overlay covers the bottom of the screen
+            // and swallows taps/scrolls on the lowest card's reorder controls (disabling the drag alone
+            // isn't enough; the Box still wins the hit-test in the overlap zone).
+            if (swipeDrawer && drawerBand > 0f && !editMode) {
                 Box(
                     Modifier.align(Alignment.BottomStart).fillMaxWidth().fillMaxHeight(drawerBand)
                         .draggable(
                             orientation = androidx.compose.foundation.gestures.Orientation.Horizontal,
-                            enabled = !editMode,
                             state = rememberDraggableState { delta ->
                                 scope.launch { drawerProgress.snapTo((drawerProgress.value + delta / drawerWidthPx).coerceIn(0f, 1f)) }
                             },
