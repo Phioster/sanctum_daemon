@@ -6277,8 +6277,9 @@ private fun NzbgetScreen(
                     Spacer(Modifier.width(12.dp))
                     ActionBtn("Resume all", true) { act { vm.nzbgetResume(config) } }
                     Spacer(Modifier.width(12.dp))
-                    IconButton(onClick = { scope.launch { if (tab == 0) loadQueue() else loadHistory() } }) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
+                    IconButton(enabled = !refreshing, onClick = { actionMsg = null; scope.launch { refreshing = true; if (tab == 0) loadQueue() else loadHistory(); refreshing = false } }) {
+                        if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), color = MatrixGreen, strokeWidth = 2.dp)
+                        else Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                     }
                 }
                 actionMsg?.let {
@@ -6793,10 +6794,7 @@ private fun NtfyScreen(
                 },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) } },
                 actions = {
-                    IconButton(enabled = !refreshing, onClick = { actionMsg = null; scope.launch { refreshing = true; load(); refreshing = false } }) {
-                        if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), color = MatrixGreen, strokeWidth = 2.dp)
-                        else Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
-                    }
+                    IconButton(onClick = { scope.launch { load() } }) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen) }
                     IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "Menu", tint = MatrixGreen) }
                     DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
                         DropdownMenuItem(text = { Text("Edit service", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
