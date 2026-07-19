@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/icon.png" alt="Sanctumd" width="140">
+
 <img src="docs/banner.svg" alt="Sanctumd" width="820">
 
 <br>
