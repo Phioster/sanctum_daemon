@@ -37,7 +37,12 @@ class ServiceStore(private val context: Context) {
                 _decryptFailed.value = true
                 return@let null
             }
-            runCatching { json.decodeFromString<List<ServiceConfig>>(plain) }.getOrNull()
+            // Decryptable but the JSON won't parse (corrupt / incompatible downgrade):
+            // surface it via the same recovery banner instead of a silently-empty list.
+            runCatching { json.decodeFromString<List<ServiceConfig>>(plain) }.getOrElse {
+                _decryptFailed.value = true
+                null
+            }
         } ?: emptyList()
     }
 

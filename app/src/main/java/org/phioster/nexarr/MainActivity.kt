@@ -470,10 +470,10 @@ private fun NexarrApp(vm: DashboardViewModel = viewModel()) {
         AlertDialog(
             onDismissRequest = {},
             containerColor = Surface,
-            title = { Text("restored data unreadable", fontFamily = Mono, color = MatrixGreen) },
+            title = { Text("stored data unreadable", fontFamily = Mono, color = MatrixGreen) },
             text = {
                 Text(
-                    "Your service list was restored from another device's backup. Its encryption key lives in that device's secure hardware, so it can't be read here.\n\nReset the store and add your services again.",
+                    "Your saved service list can't be read. This happens if it was restored from another device's backup (its encryption key stays on that device) or the stored file is corrupt.\n\nReset the store and add your services again.",
                     fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp,
                 )
             },

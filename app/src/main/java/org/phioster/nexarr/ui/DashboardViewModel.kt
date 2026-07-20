@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.phioster.nexarr.data.ServiceStore
 import org.phioster.nexarr.model.ServiceConfig
@@ -331,7 +332,14 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun removeCard(tabId: String, cardId: String) {
+        forgetCard(cardId)
         persistTabs(_tabs.value.map { if (it.id == tabId) it.copy(cards = it.cards.filterNot { c -> c.id == cardId }) else it })
+    }
+
+    /** Drop a card's cached data + tick so a removed card doesn't linger in the cache. */
+    private fun forgetCard(cardId: String) {
+        cardDataCache.keys.removeAll { it.startsWith("$cardId#") }
+        cardDataTick.remove(cardId)
     }
 
     fun updateCard(tabId: String, cardId: String, title: String, count: Int, accent: Long, icon: String, posterSize: String, background: Boolean, theme: String, density: String) {
@@ -661,6 +669,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         seerrDeleteIssueById(config, id)
 
     private fun setStatus(id: String, status: ServiceStatus) {
-        _statuses.value = _statuses.value.toMutableMap().apply { put(id, status) }
+        // update {} keeps the read-modify-write atomic even if this is ever called
+        // off the main thread (refreshAll fans out one coroutine per service).
+        _statuses.update { it + (id to status) }
     }
 }

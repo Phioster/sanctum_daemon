@@ -26,6 +26,7 @@ import okhttp3.Credentials
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.ResponseBody
 import retrofit2.Response
 import org.phioster.nexarr.model.ArrAlbum
@@ -1824,7 +1825,7 @@ suspend fun runHttpShortcut(config: ServiceConfig, sc: org.phioster.nexarr.model
         config.customHeaders.forEach { (k, v) -> if (k.isNotBlank() && v.isNotBlank()) b.header(k, v) }
         if (sc.method.equals("POST", ignoreCase = true)) {
             val mediaType = (if (sc.body.trim().startsWith("{")) "application/json" else "text/plain").toMediaType()
-            b.post(okhttp3.RequestBody.create(mediaType, sc.body))
+            b.post(sc.body.toRequestBody(mediaType))
         }
         baseOkClient.newCall(b.build()).execute().use { r ->
             val head = r.body?.string().orEmpty().take(120).replace('\n', ' ').trim()
