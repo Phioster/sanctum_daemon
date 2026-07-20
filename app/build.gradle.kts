@@ -5,6 +5,16 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+// Release signing is read from a gitignored `keystore.properties` (local builds) or
+// from env vars (CI secrets) — the keystore and its passwords never live in the repo.
+val keystorePropsFile = rootProject.file("keystore.properties")
+val keystoreProps = java.util.Properties().apply {
+    if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
+}
+fun releaseSigning(key: String, env: String): String? =
+    (keystoreProps.getProperty(key) ?: System.getenv(env))?.takeIf { it.isNotBlank() }
+val hasReleaseKeystore = releaseSigning("storeFile", "RELEASE_STORE_FILE") != null
+
 android {
     namespace = "org.phioster.nexarr"
     compileSdk = 35
@@ -26,11 +36,22 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        create("release") {
+            // Populated only when a keystore is configured (CI secrets / keystore.properties).
+            releaseSigning("storeFile", "RELEASE_STORE_FILE")?.let { storeFile = file(it) }
+            storePassword = releaseSigning("storePassword", "RELEASE_STORE_PASSWORD")
+            keyAlias = releaseSigning("keyAlias", "RELEASE_KEY_ALIAS")
+            keyPassword = releaseSigning("keyPassword", "RELEASE_KEY_PASSWORD")
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            // Real release key when configured; otherwise fall back to the debug key so
+            // `assembleRelease` still works for anyone building without the signing secrets.
+            signingConfig = if (hasReleaseKeystore) signingConfigs.getByName("release")
+                            else signingConfigs.getByName("debug")
         }
     }
 
