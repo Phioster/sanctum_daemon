@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -8,7 +10,7 @@ plugins {
 // Release signing is read from a gitignored `keystore.properties` (local builds) or
 // from env vars (CI secrets) — the keystore and its passwords never live in the repo.
 val keystorePropsFile = rootProject.file("keystore.properties")
-val keystoreProps = java.util.Properties().apply {
+val keystoreProps = Properties().apply {
     if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
 }
 fun releaseSigning(key: String, env: String): String? =
