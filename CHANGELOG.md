@@ -4,9 +4,15 @@ All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use and heading to 1.0.
 
 ## Unreleased — toward 1.0
+- **Security & correctness review** — no critical findings. Applied hardening:
+  atomic service-status updates; PBKDF2 raised to 210k iterations with a
+  **versioned** portable-export format (older backups still import); the
+  config store now surfaces a recovery banner for unreadable/corrupt data
+  instead of a silently-empty list; per-card dashboard cache eviction.
 - Repo prepared for release: accurate README, hardened `.gitignore`
-  (release-keystore & secret patterns), this changelog.
-- Next: release signing, a full code-review pass, then publishing.
+  (release-keystore & secret patterns), this changelog, cleaned git history,
+  `SECURITY.md` + issue templates.
+- Next: release signing, then publishing as **1.0**.
 
 ## Notifications & live push (v0.47 – v0.83)
 - **Live push** via a direct **ntfy** topic subscription — a special-use

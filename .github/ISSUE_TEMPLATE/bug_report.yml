@@ -1,0 +1,88 @@
+name: "🐛 Bug report"
+description: Something in Sanctumd doesn't work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug!
+
+        ⚠️ **Before you post:** Sanctumd handles API keys, tokens and passwords.
+        **Redact any secrets** from screenshots and logs (API keys, ntfy tokens,
+        Cloudflare headers, server hostnames you'd rather not share).
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight
+      options:
+        - label: I searched existing issues and this isn't a duplicate.
+          required: true
+        - label: I'm on the latest version and can still reproduce it.
+          required: true
+        - label: I removed all secrets (keys/tokens/passwords) from anything I paste below.
+          required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: Settings → About
+      placeholder: "e.g. 0.83.7"
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device & Android version
+      placeholder: "e.g. Nothing Phone 3 · Android 15"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: service
+    attributes:
+      label: Which area is affected?
+      multiple: true
+      options:
+        - Dashboard / widgets
+        - Jellyfin
+        - Radarr
+        - Sonarr
+        - Lidarr
+        - Prowlarr
+        - Seerr (Jellyseerr)
+        - NZBGet
+        - Notifications / ntfy live-push
+        - Onboarding / config export-import
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What went wrong, and what did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to …
+        2. Tap …
+        3. See …
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Logs / screenshots (optional)
+      description: Secrets redacted, please.
+    validations:
+      required: false
