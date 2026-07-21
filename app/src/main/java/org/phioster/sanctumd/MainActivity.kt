@@ -66,6 +66,7 @@ import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
 import org.phioster.sanctumd.ui.common.*
+import org.phioster.sanctumd.ui.search.SearchDeepLink
 
 // FragmentActivity (not ComponentActivity) because BiometricPrompt requires it.
 class MainActivity : androidx.fragment.app.FragmentActivity() {
@@ -192,15 +193,6 @@ internal fun AppLockGate(vm: DashboardViewModel, activity: androidx.fragment.app
         }
     }
 }
-
-/** What to open inside a service screen when a search hit is tapped. */
-internal data class SearchDeepLink(
-    val arrDetailId: Int? = null, // arr: open this library item's detail
-    val arrAddTerm: String? = null, // arr: open the add dialog pre-filled with this lookup term
-    val seerrTmdb: Int? = null, // Seerr: open this media detail
-    val seerrMediaType: String = "",
-    val jellyItemId: String? = null, // Jellyfin: open this item's detail
-)
 
 @Composable
 internal fun SanctumdApp(vm: DashboardViewModel = viewModel()) {

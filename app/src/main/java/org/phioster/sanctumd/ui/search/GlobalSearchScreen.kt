@@ -85,6 +85,15 @@ import org.phioster.sanctumd.ui.theme.*
 import org.phioster.sanctumd.ui.common.*
 import org.phioster.sanctumd.ServiceLogo
 
+/** What to open inside a service screen when a search hit is tapped. */
+internal data class SearchDeepLink(
+    val arrDetailId: Int? = null, // arr: open this library item's detail
+    val arrAddTerm: String? = null, // arr: open the add dialog pre-filled with this lookup term
+    val seerrTmdb: Int? = null, // Seerr: open this media detail
+    val seerrMediaType: String = "",
+    val jellyItemId: String? = null, // Jellyfin: open this item's detail
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun GlobalSearchScreen(
