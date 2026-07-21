@@ -26,6 +26,17 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
+      - name: Unit tests
+        run: gradle testDebugUnitTest --no-daemon
+
+      - name: Upload test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          retention-days: 3
+          path: app/build/reports/tests/
+
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon --stacktrace
 

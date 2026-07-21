@@ -72,6 +72,12 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    testOptions {
+        // The parsers under test are plain Kotlin; anything that does touch an Android
+        // stub should get a default rather than the usual "not mocked" exception.
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -106,4 +112,9 @@ dependencies {
 
     // Homescreen widgets (Compose-style)
     implementation("androidx.glance:glance-appwidget:1.1.1")
+
+    // Unit tests (JVM): API parsing against recorded responses, crypto, pure logic
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }

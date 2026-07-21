@@ -308,12 +308,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun moveTab(tabId: String, direction: Int): Int {
-        val list = _tabs.value.toMutableList()
-        val idx = list.indexOfFirst { it.id == tabId }
-        val target = idx + direction
-        if (idx < 0 || target < 0 || target >= list.size) return idx
-        list[idx] = list[target].also { list[target] = list[idx] }
-        persistTabs(list)
+        val (moved, target) = _tabs.value.movedTab(tabId, direction)
+            ?: return _tabs.value.indexOfFirst { it.id == tabId }
+        persistTabs(moved)
         return target
     }
 
@@ -328,12 +325,12 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     fun addCard(tabId: String, type: org.phioster.sanctumd.model.CardType, serviceId: String) {
         val card = org.phioster.sanctumd.model.DashCard(java.util.UUID.randomUUID().toString(), type, serviceId)
-        persistTabs(_tabs.value.map { if (it.id == tabId) it.copy(cards = it.cards + card) else it })
+        persistTabs(_tabs.value.withCardAdded(tabId, card))
     }
 
     fun removeCard(tabId: String, cardId: String) {
         forgetCard(cardId)
-        persistTabs(_tabs.value.map { if (it.id == tabId) it.copy(cards = it.cards.filterNot { c -> c.id == cardId }) else it })
+        persistTabs(_tabs.value.withCardRemoved(tabId, cardId))
     }
 
     /** Drop a card's cached data + tick so a removed card doesn't linger in the cache. */
@@ -343,24 +340,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun updateCard(tabId: String, cardId: String, title: String, count: Int, accent: Long, icon: String, posterSize: String, background: Boolean, theme: String, density: String) {
-        persistTabs(_tabs.value.map { tab ->
-            if (tab.id != tabId) tab
-            else tab.copy(cards = tab.cards.map {
-                if (it.id == cardId) it.copy(title = title.trim(), count = count.coerceIn(3, 20), accent = accent, icon = icon, posterSize = posterSize, background = background, theme = theme, density = density) else it
-            })
-        })
+        persistTabs(_tabs.value.withCardUpdated(tabId, cardId, title, count, accent, icon, posterSize, background, theme, density))
     }
 
     fun moveCard(tabId: String, cardId: String, direction: Int) {
-        persistTabs(_tabs.value.map { tab ->
-            if (tab.id != tabId) return@map tab
-            val cards = tab.cards.toMutableList()
-            val idx = cards.indexOfFirst { it.id == cardId }
-            val target = idx + direction
-            if (idx < 0 || target < 0 || target >= cards.size) return@map tab
-            cards[idx] = cards[target].also { cards[target] = cards[idx] }
-            tab.copy(cards = cards)
-        })
+        persistTabs(_tabs.value.movedCard(tabId, cardId, direction))
     }
 
     fun refreshAll() {

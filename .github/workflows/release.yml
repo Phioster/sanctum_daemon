@@ -41,6 +41,9 @@ jobs:
           fi
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
 
+      - name: Unit tests
+        run: gradle testDebugUnitTest --no-daemon
+
       - name: Build signed release APK
         env:
           RELEASE_STORE_FILE: ${{ runner.temp }}/release.keystore
