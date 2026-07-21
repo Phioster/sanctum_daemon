@@ -62,7 +62,7 @@ class DashLogicTest {
         assertEquals(MIN_CARD_ENTRIES, countAfter(0))
         assertEquals(MIN_CARD_ENTRIES, countAfter(-5))
         assertEquals(MAX_CARD_ENTRIES, countAfter(999))
-        assertEquals(7, countAfter(7))
+        assertEquals(6, countAfter(7)) // TEMP: proves the CI gate
     }
 
     @Test
