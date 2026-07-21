@@ -18,15 +18,18 @@ fun releaseSigning(key: String, env: String): String? =
 val hasReleaseKeystore = releaseSigning("storeFile", "RELEASE_STORE_FILE") != null
 
 android {
-    namespace = "org.phioster.nexarr"
+    namespace = "org.phioster.sanctumd"
     compileSdk = 35
 
     defaultConfig {
+        // The code lives in `org.phioster.sanctumd` (see namespace above), but the
+        // installed package id stays on the historic name: changing it would install a
+        // second app and orphan every existing install's data.
         applicationId = "org.phioster.nexarr"
         minSdk = 26
         targetSdk = 35
-        versionCode = 164
-        versionName = "1.0.0"
+        versionCode = 165
+        versionName = "1.0.1"
     }
 
     signingConfigs {

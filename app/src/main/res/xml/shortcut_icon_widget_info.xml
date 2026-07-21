@@ -7,6 +7,6 @@
     android:resizeMode="none"
     android:widgetCategory="home_screen"
     android:updatePeriodMillis="0"
-    android:configure="org.phioster.nexarr.widget.ShortcutWidgetConfigActivity"
+    android:configure="org.phioster.sanctumd.widget.ShortcutWidgetConfigActivity"
     android:previewImage="@drawable/preview_shortcut_icon"
     android:initialLayout="@layout/glance_default_loading_layout" />

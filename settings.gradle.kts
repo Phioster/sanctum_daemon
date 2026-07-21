@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Nexarr"
+rootProject.name = "Sanctumd"
 include(":app")

@@ -28,7 +28,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
-        android:theme="@style/Theme.Nexarr">
+        android:theme="@style/Theme.Sanctumd">
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -165,7 +165,7 @@
         <activity
             android:name=".widget.ShortcutWidgetConfigActivity"
             android:exported="true"
-            android:theme="@style/Theme.Nexarr">
+            android:theme="@style/Theme.Sanctumd">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
@@ -188,7 +188,7 @@
         <activity
             android:name=".widget.QuickActionsConfigActivity"
             android:exported="true"
-            android:theme="@style/Theme.Nexarr">
+            android:theme="@style/Theme.Sanctumd">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
