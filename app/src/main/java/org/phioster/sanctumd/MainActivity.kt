@@ -1909,6 +1909,8 @@ internal fun AddCardDialog(
     )
 }
 
+/** Dedicated settings hub: categories on the first level, one section per screen. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowIntro: () -> Unit = {}) {
     var section by remember { mutableStateOf<String?>(null) }

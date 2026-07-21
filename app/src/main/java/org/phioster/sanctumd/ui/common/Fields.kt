@@ -62,8 +62,6 @@ internal fun NotifyToggleRow(label: String, sub: String, checked: Boolean, enabl
     }
 }
 
-/** Dedicated settings hub: categories on the first level, one section per screen. */
-@OptIn(ExperimentalMaterial3Api::class)
 
 @Composable
 internal fun JellyToggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
