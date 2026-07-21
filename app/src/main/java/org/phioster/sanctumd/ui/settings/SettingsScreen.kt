@@ -267,6 +267,27 @@ internal fun SecuritySection(vm: DashboardViewModel) {
         "Locks on cold start and after more than 2 minutes in the background. Live push keeps running while locked.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
     )
+
+    Spacer(Modifier.height(20.dp))
+    val safeMode by vm.safeMode.collectAsState()
+    NotifyToggleRow(
+        "Safe mode",
+        "Block anything that changes your servers",
+        safeMode,
+    ) { vm.setSafeMode(it) }
+    Text(
+        "While on, deletes, grabs, imports, request decisions, restarts and shortcuts are refused " +
+            "before they reach a server — the action reports \"blocked by safe mode\" instead. " +
+            "Browsing, search and notifications are unaffected.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
+    )
+    if (safeMode && org.phioster.sanctumd.net.SafeMode.blockedCount > 0) {
+        Text(
+            "blocked so far: ${org.phioster.sanctumd.net.SafeMode.blockedCount}",
+            fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
 }
 
 @Composable

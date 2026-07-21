@@ -89,13 +89,15 @@ internal suspend fun jellyfinStatus(config: ServiceConfig): ServiceStatus {
 }
 
 /** Triggers a full library scan on Jellyfin. Returns a user-facing result line. */
-suspend fun runJellyfinScan(config: ServiceConfig): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        val resp = apiFor<JellyfinApi>(config, mapOf("X-Emby-Token" to token)).refreshLibrary()
-        if (resp.isSuccessful) "library scan started" else "error: HTTP ${resp.code()}"
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun runJellyfinScan(config: ServiceConfig): String = destructive("trigger a Jellyfin library scan") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            val resp = apiFor<JellyfinApi>(config, mapOf("X-Emby-Token" to token)).refreshLibrary()
+            if (resp.isSuccessful) "library scan started" else "error: HTTP ${resp.code()}"
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
@@ -155,25 +157,29 @@ suspend fun jellyfinLibraries(config: ServiceConfig): List<JellyLibrary> = withC
 }
 
 /** Create a user (optionally with an initial password). */
-suspend fun jellyfinCreateUser(config: ServiceConfig, name: String, password: String): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        val body = buildJsonObject {
-            put("Name", name)
-            if (password.isNotBlank()) put("Password", password)
+suspend fun jellyfinCreateUser(config: ServiceConfig, name: String, password: String): String = destructive("create Jellyfin user $name") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            val body = buildJsonObject {
+                put("Name", name)
+                if (password.isNotBlank()) put("Password", password)
+            }
+            okOr(jfApi(config, token).createUser(body), "user created")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
         }
-        okOr(jfApi(config, token).createUser(body), "user created")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
     }
 }
 
-suspend fun jellyfinDeleteUser(config: ServiceConfig, userId: String): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        okOr(jfApi(config, token).deleteUser(userId), "user deleted")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun jellyfinDeleteUser(config: ServiceConfig, userId: String): String = destructive("delete Jellyfin user $userId") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).deleteUser(userId), "user deleted")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
@@ -189,39 +195,43 @@ suspend fun jellyfinSetPolicy(
     allowDownloads: Boolean,
     enableAllFolders: Boolean,
     enabledFolders: List<String>,
-): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        val api = jfApi(config, token)
-        val current = runCatching { api.user(userId)["Policy"]?.jsonObject }.getOrNull()
-        val body = buildJsonObject {
-            current?.forEach { (k, v) -> put(k, v) }
-            put("IsAdministrator", admin)
-            put("IsDisabled", disabled)
-            put("EnableContentDownloading", allowDownloads)
-            put("EnableAllFolders", enableAllFolders)
-            putJsonArray("EnabledFolders") { enabledFolders.forEach { add(it) } }
+): String = destructive("change permissions of Jellyfin user $userId") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            val api = jfApi(config, token)
+            val current = runCatching { api.user(userId)["Policy"]?.jsonObject }.getOrNull()
+            val body = buildJsonObject {
+                current?.forEach { (k, v) -> put(k, v) }
+                put("IsAdministrator", admin)
+                put("IsDisabled", disabled)
+                put("EnableContentDownloading", allowDownloads)
+                put("EnableAllFolders", enableAllFolders)
+                putJsonArray("EnabledFolders") { enabledFolders.forEach { add(it) } }
+            }
+            okOr(api.setPolicy(userId, body), "policy saved")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
         }
-        okOr(api.setPolicy(userId, body), "policy saved")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
     }
 }
 
 /** Reset a user's password to a new value (admin reset; no current password needed). */
-suspend fun jellyfinSetPassword(config: ServiceConfig, userId: String, newPassword: String): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        val api = jfApi(config, token)
-        // First clear the existing password, then set the new one (Jellyfin admin-reset flow).
-        api.setPassword(userId, buildJsonObject { put("ResetPassword", true) })
-        val body = buildJsonObject {
-            put("NewPw", newPassword)
-            put("ResetPassword", false)
+suspend fun jellyfinSetPassword(config: ServiceConfig, userId: String, newPassword: String): String = destructive("change the password of Jellyfin user $userId") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            val api = jfApi(config, token)
+            // First clear the existing password, then set the new one (Jellyfin admin-reset flow).
+            api.setPassword(userId, buildJsonObject { put("ResetPassword", true) })
+            val body = buildJsonObject {
+                put("NewPw", newPassword)
+                put("ResetPassword", false)
+            }
+            okOr(api.setPassword(userId, body), "password reset")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
         }
-        okOr(api.setPassword(userId, body), "password reset")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
     }
 }
 
@@ -261,12 +271,14 @@ suspend fun jellyfinTasks(config: ServiceConfig): List<JellyTask> = withContext(
     }.sortedBy { it.name }
 }
 
-suspend fun jellyfinRunTask(config: ServiceConfig, taskId: String): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        okOr(jfApi(config, token).runTask(taskId), "started")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun jellyfinRunTask(config: ServiceConfig, taskId: String): String = destructive("run Jellyfin task $taskId") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).runTask(taskId), "started")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
@@ -294,12 +306,14 @@ suspend fun jellyfinDevices(config: ServiceConfig): List<JellyDevice> = withCont
     }.sortedByDescending { it.lastActivity }
 }
 
-suspend fun jellyfinRestart(config: ServiceConfig): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        okOr(jfApi(config, token).restartServer(), "restarting")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun jellyfinRestart(config: ServiceConfig): String = destructive("restart the Jellyfin server") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).restartServer(), "restarting")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
@@ -329,48 +343,58 @@ suspend fun jellyfinLogContent(config: ServiceConfig, name: String, maxLines: In
     }
 }
 
-suspend fun jellyfinAddLibrary(config: ServiceConfig, name: String, collectionType: String, path: String): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        okOr(jfApi(config, token).addVirtualFolder(name, collectionType.ifBlank { null }, listOf(path)), "library added")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun jellyfinAddLibrary(config: ServiceConfig, name: String, collectionType: String, path: String): String = destructive("add Jellyfin library $name") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).addVirtualFolder(name, collectionType.ifBlank { null }, listOf(path)), "library added")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
-suspend fun jellyfinDeleteLibrary(config: ServiceConfig, name: String): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        okOr(jfApi(config, token).deleteVirtualFolder(name), "library deleted")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun jellyfinDeleteLibrary(config: ServiceConfig, name: String): String = destructive("delete Jellyfin library $name") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).deleteVirtualFolder(name), "library deleted")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
-suspend fun jellyfinRenameLibrary(config: ServiceConfig, name: String, newName: String): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        okOr(jfApi(config, token).renameVirtualFolder(name, newName), "library renamed")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun jellyfinRenameLibrary(config: ServiceConfig, name: String, newName: String): String = destructive("rename Jellyfin library $name to $newName") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).renameVirtualFolder(name, newName), "library renamed")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
-suspend fun jellyfinAddLibraryPath(config: ServiceConfig, libraryName: String, path: String): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        okOr(jfApi(config, token).addLibraryPath(JfMediaPath(Name = libraryName, PathInfo = JfMediaPathInfo(Path = path))), "path added")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun jellyfinAddLibraryPath(config: ServiceConfig, libraryName: String, path: String): String = destructive("add path $path to Jellyfin library $libraryName") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).addLibraryPath(JfMediaPath(Name = libraryName, PathInfo = JfMediaPathInfo(Path = path))), "path added")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
-suspend fun jellyfinRemoveLibraryPath(config: ServiceConfig, libraryName: String, path: String): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        okOr(jfApi(config, token).removeLibraryPath(libraryName, path), "path removed")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun jellyfinRemoveLibraryPath(config: ServiceConfig, libraryName: String, path: String): String = destructive("remove path $path from Jellyfin library $libraryName") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).removeLibraryPath(libraryName, path), "path removed")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
@@ -388,22 +412,26 @@ suspend fun jellyfinPlugins(config: ServiceConfig): List<JellyPlugin> = withCont
     }.sortedBy { it.name.lowercase() }
 }
 
-suspend fun jellyfinSetPluginEnabled(config: ServiceConfig, id: String, version: String, enabled: Boolean): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        val api = jfApi(config, token)
-        okOr(if (enabled) api.enablePlugin(id, version) else api.disablePlugin(id, version), if (enabled) "plugin enabled (restart server to apply)" else "plugin disabled (restart server to apply)")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun jellyfinSetPluginEnabled(config: ServiceConfig, id: String, version: String, enabled: Boolean): String = destructive("toggle Jellyfin plugin $id") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            val api = jfApi(config, token)
+            okOr(if (enabled) api.enablePlugin(id, version) else api.disablePlugin(id, version), if (enabled) "plugin enabled (restart server to apply)" else "plugin disabled (restart server to apply)")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
-suspend fun jellyfinUninstallPlugin(config: ServiceConfig, id: String, version: String): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        okOr(jfApi(config, token).uninstallPlugin(id, version), "plugin uninstalled (restart server to apply)")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun jellyfinUninstallPlugin(config: ServiceConfig, id: String, version: String): String = destructive("uninstall Jellyfin plugin $id") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).uninstallPlugin(id, version), "plugin uninstalled (restart server to apply)")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
@@ -423,12 +451,14 @@ suspend fun jellyfinPackages(config: ServiceConfig): List<JellyPackage> = withCo
     }.sortedBy { it.name.lowercase() }
 }
 
-suspend fun jellyfinInstallPackage(config: ServiceConfig, name: String, guid: String): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        okOr(jfApi(config, token).installPackage(name, guid), "installing… (restart server when done)")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun jellyfinInstallPackage(config: ServiceConfig, name: String, guid: String): String = destructive("install Jellyfin plugin $name") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).installPackage(name, guid), "installing… (restart server when done)")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
@@ -470,41 +500,49 @@ suspend fun jellyfinChannels(config: ServiceConfig): List<JellyChannel> = withCo
     }
 }
 
-suspend fun jellyfinAddTuner(config: ServiceConfig, type: String, url: String): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        val body = buildJsonObject { put("Type", type); put("Url", url) }
-        okOr(jfApi(config, token).addTunerHost(body), "tuner added")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun jellyfinAddTuner(config: ServiceConfig, type: String, url: String): String = destructive("add Jellyfin tuner $url") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            val body = buildJsonObject { put("Type", type); put("Url", url) }
+            okOr(jfApi(config, token).addTunerHost(body), "tuner added")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
-suspend fun jellyfinDeleteTuner(config: ServiceConfig, id: String): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        okOr(jfApi(config, token).deleteTunerHost(id), "tuner removed")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun jellyfinDeleteTuner(config: ServiceConfig, id: String): String = destructive("delete Jellyfin tuner $id") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).deleteTunerHost(id), "tuner removed")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
 /** Adds an XMLTV guide provider (file path or URL). */
-suspend fun jellyfinAddXmltvProvider(config: ServiceConfig, path: String): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        val body = buildJsonObject { put("Type", "xmltv"); put("Path", path) }
-        okOr(jfApi(config, token).addListingProvider(body), "guide provider added")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun jellyfinAddXmltvProvider(config: ServiceConfig, path: String): String = destructive("add Jellyfin guide provider $path") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            val body = buildJsonObject { put("Type", "xmltv"); put("Path", path) }
+            okOr(jfApi(config, token).addListingProvider(body), "guide provider added")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
-suspend fun jellyfinDeleteProvider(config: ServiceConfig, id: String): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        okOr(jfApi(config, token).deleteListingProvider(id), "guide provider removed")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun jellyfinDeleteProvider(config: ServiceConfig, id: String): String = destructive("delete Jellyfin guide provider $id") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).deleteListingProvider(id), "guide provider removed")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }

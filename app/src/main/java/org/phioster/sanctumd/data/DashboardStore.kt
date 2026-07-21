@@ -23,6 +23,7 @@ private val HIDE_ADULT_KEY = booleanPreferencesKey("hide_adult")
 private val SWIPE_TABS_KEY = booleanPreferencesKey("swipe_tabs")
 private val SWIPE_DRAWER_KEY = booleanPreferencesKey("swipe_drawer")
 private val DRAWER_BAND_KEY = floatPreferencesKey("drawer_band")
+private val SAFE_MODE_KEY = booleanPreferencesKey("safe_mode")
 private val json = Json { ignoreUnknownKeys = true }
 
 /** Persists the user's dashboard tabs (widget layout) as JSON in DataStore. */
@@ -73,5 +74,12 @@ class DashboardStore(private val context: Context) {
     }
     suspend fun setDrawerBand(fraction: Float) {
         context.dashboardDataStore.edit { it[DRAWER_BAND_KEY] = fraction.coerceIn(0f, 0.5f) }
+    }
+
+    /** Safe mode: block every call that would change something on a server. */
+    val safeMode: Flow<Boolean> = context.dashboardDataStore.data.map { it[SAFE_MODE_KEY] ?: false }
+
+    suspend fun setSafeMode(enabled: Boolean) {
+        context.dashboardDataStore.edit { it[SAFE_MODE_KEY] = enabled }
     }
 }

@@ -176,21 +176,25 @@ suspend fun seerrRequests(config: ServiceConfig, filter: String): List<SeerrRequ
     }
 }
 
-suspend fun seerrApprove(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
-    try {
-        val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).approve(id)
-        if (r.isSuccessful) "approved" else "error: HTTP ${r.code()}"
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun seerrApprove(config: ServiceConfig, id: Int): String = destructive("approve Seerr request $id") {
+    withContext(Dispatchers.IO) {
+        try {
+            val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).approve(id)
+            if (r.isSuccessful) "approved" else "error: HTTP ${r.code()}"
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
-suspend fun seerrDecline(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
-    try {
-        val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).decline(id)
-        if (r.isSuccessful) "declined" else "error: HTTP ${r.code()}"
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun seerrDecline(config: ServiceConfig, id: Int): String = destructive("decline Seerr request $id") {
+    withContext(Dispatchers.IO) {
+        try {
+            val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).decline(id)
+            if (r.isSuccessful) "declined" else "error: HTTP ${r.code()}"
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
@@ -227,17 +231,19 @@ suspend fun seerrSearch(config: ServiceConfig, query: String): List<SeerrSearchI
         }
 }
 
-suspend fun seerrCreateRequest(config: ServiceConfig, item: SeerrSearchItem): String = withContext(Dispatchers.IO) {
-    try {
-        val body = buildJsonObject {
-            put("mediaType", item.mediaType)
-            put("mediaId", item.tmdbId)
-            if (item.mediaType == "tv") put("seasons", "all")
+suspend fun seerrCreateRequest(config: ServiceConfig, item: SeerrSearchItem): String = destructive("create a Seerr request") {
+    withContext(Dispatchers.IO) {
+        try {
+            val body = buildJsonObject {
+                put("mediaType", item.mediaType)
+                put("mediaId", item.tmdbId)
+                if (item.mediaType == "tv") put("seasons", "all")
+            }
+            val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).createRequest(body)
+            if (r.isSuccessful) "requested" else "error: HTTP ${r.code()}"
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
         }
-        val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).createRequest(body)
-        if (r.isSuccessful) "requested" else "error: HTTP ${r.code()}"
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
     }
 }
 
@@ -338,20 +344,22 @@ suspend fun seerrUsers(config: ServiceConfig): List<SeerrUserInfo> = withContext
 }
 
 /** Create a request; [seasons] null = movie or all seasons, else the chosen season numbers. */
-suspend fun seerrRequest(config: ServiceConfig, tmdbId: Int, mediaType: String, seasons: List<Int>?): String = withContext(Dispatchers.IO) {
-    try {
-        val body = buildJsonObject {
-            put("mediaType", mediaType)
-            put("mediaId", tmdbId)
-            if (mediaType == "tv") {
-                if (seasons.isNullOrEmpty()) put("seasons", "all")
-                else putJsonArray("seasons") { seasons.forEach { add(it) } }
+suspend fun seerrRequest(config: ServiceConfig, tmdbId: Int, mediaType: String, seasons: List<Int>?): String = destructive("create a Seerr request for tmdb $tmdbId") {
+    withContext(Dispatchers.IO) {
+        try {
+            val body = buildJsonObject {
+                put("mediaType", mediaType)
+                put("mediaId", tmdbId)
+                if (mediaType == "tv") {
+                    if (seasons.isNullOrEmpty()) put("seasons", "all")
+                    else putJsonArray("seasons") { seasons.forEach { add(it) } }
+                }
             }
+            val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).createRequest(body)
+            if (r.isSuccessful) "requested" else "error: HTTP ${r.code()}"
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
         }
-        val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).createRequest(body)
-        if (r.isSuccessful) "requested" else "error: HTTP ${r.code()}"
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
     }
 }
 
@@ -382,28 +390,34 @@ suspend fun seerrIssueDetail(config: ServiceConfig, id: Int): SeerrIssueDetail =
     )
 }
 
-suspend fun seerrAddComment(config: ServiceConfig, id: Int, message: String): String = withContext(Dispatchers.IO) {
-    try {
-        val body = buildJsonObject { put("message", message) }
-        okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).addComment(id, body), "commented")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun seerrAddComment(config: ServiceConfig, id: Int, message: String): String = destructive("comment on Seerr issue $id") {
+    withContext(Dispatchers.IO) {
+        try {
+            val body = buildJsonObject { put("message", message) }
+            okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).addComment(id, body), "commented")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
-suspend fun seerrSetIssueStatus(config: ServiceConfig, id: Int, resolved: Boolean): String = withContext(Dispatchers.IO) {
-    try {
-        okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).setIssueStatus(id, if (resolved) "resolved" else "open"), if (resolved) "resolved" else "reopened")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun seerrSetIssueStatus(config: ServiceConfig, id: Int, resolved: Boolean): String = destructive("change the status of Seerr issue $id") {
+    withContext(Dispatchers.IO) {
+        try {
+            okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).setIssueStatus(id, if (resolved) "resolved" else "open"), if (resolved) "resolved" else "reopened")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
-suspend fun seerrDeleteIssueById(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
-    try {
-        okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).deleteIssue(id), "deleted")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun seerrDeleteIssueById(config: ServiceConfig, id: Int): String = destructive("delete Seerr issue $id") {
+    withContext(Dispatchers.IO) {
+        try {
+            okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).deleteIssue(id), "deleted")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 

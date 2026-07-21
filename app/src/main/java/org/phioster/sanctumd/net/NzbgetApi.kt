@@ -107,21 +107,25 @@ internal fun rateBody(kbps: Int): JsonObject =
 
 // ---- ntfy ----
 
-suspend fun runNzbgetPause(config: ServiceConfig): String = withContext(Dispatchers.IO) {
-    try {
-        val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpc(NzbRpcReq("pausedownload"))
-        if (r.result) "paused" else "error: NZBGet did not accept pause"
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun runNzbgetPause(config: ServiceConfig): String = destructive("pause the NZBGet queue") {
+    withContext(Dispatchers.IO) {
+        try {
+            val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpc(NzbRpcReq("pausedownload"))
+            if (r.result) "paused" else "error: NZBGet did not accept pause"
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
-suspend fun runNzbgetResume(config: ServiceConfig): String = withContext(Dispatchers.IO) {
-    try {
-        val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpc(NzbRpcReq("resumedownload"))
-        if (r.result) "resumed" else "error: NZBGet did not accept resume"
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun runNzbgetResume(config: ServiceConfig): String = destructive("resume the NZBGet queue") {
+    withContext(Dispatchers.IO) {
+        try {
+            val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpc(NzbRpcReq("resumedownload"))
+            if (r.result) "resumed" else "error: NZBGet did not accept resume"
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
@@ -139,33 +143,39 @@ suspend fun nzbgetHistory(config: ServiceConfig, hidden: Boolean): List<NzbHisto
 
 /** editqueue command (GroupPause/GroupDelete/HistoryRedownload/…) on a single item. */
 suspend fun runNzbEditQueue(config: ServiceConfig, command: String, id: Int, editText: String = ""): String =
-    withContext(Dispatchers.IO) {
-        try {
-            val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpcJson(editqueueBody(command, editText, id))
-            if (r.result) "ok" else "error: NZBGet rejected $command"
-        } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+    destructive("NZBGet $command on item $id") {
+        withContext(Dispatchers.IO) {
+            try {
+                val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpcJson(editqueueBody(command, editText, id))
+                if (r.result) "ok" else "error: NZBGet rejected $command"
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
         }
     }
 
 /** Sets the global download speed limit in KB/s (0 = unlimited). */
-suspend fun runNzbRate(config: ServiceConfig, kbps: Int): String = withContext(Dispatchers.IO) {
-    try {
-        val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpcJson(rateBody(kbps))
-        if (r.result) (if (kbps == 0) "no speed limit" else "limit ${kbps / 1024} MB/s") else "error"
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun runNzbRate(config: ServiceConfig, kbps: Int): String = destructive("set the NZBGet speed limit to $kbps KB/s") {
+    withContext(Dispatchers.IO) {
+        try {
+            val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpcJson(rateBody(kbps))
+            if (r.result) (if (kbps == 0) "no speed limit" else "limit ${kbps / 1024} MB/s") else "error"
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
 /** Adds an NZB by URL (NZBGet fetches it). Optional category. */
 suspend fun runNzbAppendUrl(config: ServiceConfig, url: String, category: String): String =
-    withContext(Dispatchers.IO) {
-        try {
-            val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpcInt(appendUrlBody(url.trim(), category.trim()))
-            if (r.result > 0) "added (id ${r.result})" else "error: NZBGet rejected the URL"
-        } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+    destructive("add $url to the NZBGet queue") {
+        withContext(Dispatchers.IO) {
+            try {
+                val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpcInt(appendUrlBody(url.trim(), category.trim()))
+                if (r.result > 0) "added (id ${r.result})" else "error: NZBGet rejected the URL"
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
         }
     }
 

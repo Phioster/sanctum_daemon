@@ -25,20 +25,22 @@ import org.phioster.sanctumd.model.ServiceStatus
 import retrofit2.http.POST
 
 /** Fires a one-tap shortcut; returns "HTTP 200 · <response head>" or an error line. */
-suspend fun runHttpShortcut(config: ServiceConfig, sc: org.phioster.sanctumd.model.HttpShortcut): String = withContext(Dispatchers.IO) {
-    try {
-        val b = Request.Builder().url(sc.url)
-        config.customHeaders.forEach { (k, v) -> if (k.isNotBlank() && v.isNotBlank()) b.header(k, v) }
-        if (sc.method.equals("POST", ignoreCase = true)) {
-            val mediaType = (if (sc.body.trim().startsWith("{")) "application/json" else "text/plain").toMediaType()
-            b.post(sc.body.toRequestBody(mediaType))
+suspend fun runHttpShortcut(config: ServiceConfig, sc: org.phioster.sanctumd.model.HttpShortcut): String = destructive("run HTTP shortcut ${sc.name}") {
+    withContext(Dispatchers.IO) {
+        try {
+            val b = Request.Builder().url(sc.url)
+            config.customHeaders.forEach { (k, v) -> if (k.isNotBlank() && v.isNotBlank()) b.header(k, v) }
+            if (sc.method.equals("POST", ignoreCase = true)) {
+                val mediaType = (if (sc.body.trim().startsWith("{")) "application/json" else "text/plain").toMediaType()
+                b.post(sc.body.toRequestBody(mediaType))
+            }
+            baseOkClient.newCall(b.build()).execute().use { r ->
+                val head = r.body?.string().orEmpty().take(120).replace('\n', ' ').trim()
+                if (r.isSuccessful) "HTTP ${r.code}${if (head.isNotBlank()) " · $head" else ""}" else "error: HTTP ${r.code}"
+            }
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
         }
-        baseOkClient.newCall(b.build()).execute().use { r ->
-            val head = r.body?.string().orEmpty().take(120).replace('\n', ' ').trim()
-            if (r.isSuccessful) "HTTP ${r.code}${if (head.isNotBlank()) " · $head" else ""}" else "error: HTTP ${r.code}"
-        }
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
     }
 }
 

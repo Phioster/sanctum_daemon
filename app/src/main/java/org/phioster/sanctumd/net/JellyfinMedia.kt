@@ -134,31 +134,37 @@ suspend fun jellyfinItemDetail(config: ServiceConfig, itemId: String): JellyMedi
 }
 
 /** Trigger a metadata/library refresh for a single library or item. */
-suspend fun jellyfinScanItem(config: ServiceConfig, itemId: String): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        okOr(jfApi(config, token).refreshItem(itemId), "scan started")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun jellyfinScanItem(config: ServiceConfig, itemId: String): String = destructive("rescan Jellyfin item $itemId") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).refreshItem(itemId), "scan started")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
 /** Playback control: cmd = "Pause" | "Unpause" | "Stop" | "PlayPause". */
-suspend fun jellyfinPlayCommand(config: ServiceConfig, sessionId: String, cmd: String): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        okOr(jfApi(config, token).playCommand(sessionId, cmd), cmd.lowercase())
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun jellyfinPlayCommand(config: ServiceConfig, sessionId: String, cmd: String): String = destructive("send playback command $cmd to session $sessionId") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).playCommand(sessionId, cmd), cmd.lowercase())
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
-suspend fun jellyfinSendMessage(config: ServiceConfig, sessionId: String, text: String): String = withContext(Dispatchers.IO) {
-    try {
-        val token = jellyfinAccessToken(config)
-        okOr(jfApi(config, token).message(sessionId, JfMessageReq(text)), "message sent")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun jellyfinSendMessage(config: ServiceConfig, sessionId: String, text: String): String = destructive("send a message to Jellyfin session $sessionId") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).message(sessionId, JfMessageReq(text)), "message sent")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 

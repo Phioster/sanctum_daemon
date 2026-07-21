@@ -185,22 +185,26 @@ suspend fun prowlarrIndexers(config: ServiceConfig): List<ProwlarrIndexerItem> =
     }.sortedByDescending { it.grabs }
 }
 
-suspend fun prowlarrToggleIndexer(config: ServiceConfig, id: Int, enable: Boolean): String = withContext(Dispatchers.IO) {
-    try {
-        val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
-        val raw = api.indexerRaw(id)
-        val body = JsonObject(raw.toMutableMap().apply { put("enable", JsonPrimitive(enable)) })
-        okOr(api.updateIndexer(id, body), if (enable) "enabled" else "disabled")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun prowlarrToggleIndexer(config: ServiceConfig, id: Int, enable: Boolean): String = destructive("toggle Prowlarr indexer $id") {
+    withContext(Dispatchers.IO) {
+        try {
+            val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
+            val raw = api.indexerRaw(id)
+            val body = JsonObject(raw.toMutableMap().apply { put("enable", JsonPrimitive(enable)) })
+            okOr(api.updateIndexer(id, body), if (enable) "enabled" else "disabled")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
-suspend fun prowlarrDeleteIndexer(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
-    try {
-        okOr(apiFor<ProwlarrApi>(config, apiKeyHeader(config)).deleteIndexer(id), "deleted")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun prowlarrDeleteIndexer(config: ServiceConfig, id: Int): String = destructive("delete Prowlarr indexer $id") {
+    withContext(Dispatchers.IO) {
+        try {
+            okOr(apiFor<ProwlarrApi>(config, apiKeyHeader(config)).deleteIndexer(id), "deleted")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
@@ -264,13 +268,15 @@ suspend fun prowlarrSystem(config: ServiceConfig): ProwlarrSystemInfo = withCont
     ProwlarrSystemInfo(version = version, health = health)
 }
 
-suspend fun prowlarrGrab(config: ServiceConfig, release: ProwlarrRelease): String = withContext(Dispatchers.IO) {
-    try {
-        val r = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
-            .grab(ProwlarrGrabReq(release.guid, release.indexerId))
-        okOr(r, "grabbed")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun prowlarrGrab(config: ServiceConfig, release: ProwlarrRelease): String = destructive("grab a release via Prowlarr") {
+    withContext(Dispatchers.IO) {
+        try {
+            val r = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
+                .grab(ProwlarrGrabReq(release.guid, release.indexerId))
+            okOr(r, "grabbed")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 

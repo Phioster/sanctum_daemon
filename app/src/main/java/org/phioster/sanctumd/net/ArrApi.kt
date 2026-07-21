@@ -261,41 +261,43 @@ suspend fun arrAdd(
     rootFolderPath: String,
     monitored: Boolean,
     metadataProfileId: Int = 0,
-): String = withContext(Dispatchers.IO) {
-    try {
-        val base = arrBase(config.type)
-        val path = arrItemPath(config.type)
-        val original = json.parseToJsonElement(raw).jsonObject
-        val body = buildJsonObject {
-            original.forEach { (k, v) -> put(k, v) }
-            put("qualityProfileId", qualityProfileId)
-            put("rootFolderPath", rootFolderPath)
-            put("monitored", monitored)
-            when (config.type) {
-                ServiceType.SONARR -> {
-                    put("seasonFolder", true)
-                    putJsonObject("addOptions") {
-                        put("searchForMissingEpisodes", monitored)
-                        put("monitor", if (monitored) "all" else "none")
+): String = destructive("add ${config.type.label} item $title") {
+    withContext(Dispatchers.IO) {
+        try {
+            val base = arrBase(config.type)
+            val path = arrItemPath(config.type)
+            val original = json.parseToJsonElement(raw).jsonObject
+            val body = buildJsonObject {
+                original.forEach { (k, v) -> put(k, v) }
+                put("qualityProfileId", qualityProfileId)
+                put("rootFolderPath", rootFolderPath)
+                put("monitored", monitored)
+                when (config.type) {
+                    ServiceType.SONARR -> {
+                        put("seasonFolder", true)
+                        putJsonObject("addOptions") {
+                            put("searchForMissingEpisodes", monitored)
+                            put("monitor", if (monitored) "all" else "none")
+                        }
                     }
-                }
-                ServiceType.LIDARR -> {
-                    put("metadataProfileId", metadataProfileId)
-                    putJsonObject("addOptions") {
-                        put("monitor", if (monitored) "all" else "none")
-                        put("searchForMissingAlbums", monitored)
+                    ServiceType.LIDARR -> {
+                        put("metadataProfileId", metadataProfileId)
+                        putJsonObject("addOptions") {
+                            put("monitor", if (monitored) "all" else "none")
+                            put("searchForMissingAlbums", monitored)
+                        }
                     }
-                }
-                else -> {
-                    put("minimumAvailability", "released")
-                    putJsonObject("addOptions") { put("searchForMovie", monitored) }
+                    else -> {
+                        put("minimumAvailability", "released")
+                        putJsonObject("addOptions") { put("searchForMovie", monitored) }
+                    }
                 }
             }
+            val r = apiFor<ArrApi>(config, apiKeyHeader(config)).add("$base/$path", body)
+            if (r.isSuccessful) "added" else "error: HTTP ${r.code()}"
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
         }
-        val r = apiFor<ArrApi>(config, apiKeyHeader(config)).add("$base/$path", body)
-        if (r.isSuccessful) "added" else "error: HTTP ${r.code()}"
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
     }
 }
 
@@ -362,33 +364,37 @@ suspend fun arrQueue(config: ServiceConfig): List<ArrQueueItem> = withContext(Di
     }
 }
 
-suspend fun arrSearchItem(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
-    try {
-        val base = arrBase(config.type)
-        val (name, field) = when (config.type) {
-            ServiceType.SONARR -> "EpisodeSearch" to "episodeIds"
-            ServiceType.LIDARR -> "AlbumSearch" to "albumIds"
-            else -> "MoviesSearch" to "movieIds"
+suspend fun arrSearchItem(config: ServiceConfig, id: Int): String = destructive("search item $id on ${config.type.label}") {
+    withContext(Dispatchers.IO) {
+        try {
+            val base = arrBase(config.type)
+            val (name, field) = when (config.type) {
+                ServiceType.SONARR -> "EpisodeSearch" to "episodeIds"
+                ServiceType.LIDARR -> "AlbumSearch" to "albumIds"
+                else -> "MoviesSearch" to "movieIds"
+            }
+            val body = buildJsonObject {
+                put("name", name)
+                putJsonArray(field) { add(id) }
+            }
+            val r = apiFor<ArrApi>(config, apiKeyHeader(config)).command("$base/command", body)
+            if (r.isSuccessful) "search started" else "error: HTTP ${r.code()}"
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
         }
-        val body = buildJsonObject {
-            put("name", name)
-            putJsonArray(field) { add(id) }
-        }
-        val r = apiFor<ArrApi>(config, apiKeyHeader(config)).command("$base/command", body)
-        if (r.isSuccessful) "search started" else "error: HTTP ${r.code()}"
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
     }
 }
 
-suspend fun arrQueueRemove(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
-    try {
-        val base = arrBase(config.type)
-        val r = apiFor<ArrApi>(config, apiKeyHeader(config))
-            .deleteQueue("$base/queue/$id?removeFromClient=true&blocklist=false")
-        if (r.isSuccessful) "removed" else "error: HTTP ${r.code()}"
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun arrQueueRemove(config: ServiceConfig, id: Int): String = destructive("remove queue item $id on ${config.type.label}") {
+    withContext(Dispatchers.IO) {
+        try {
+            val base = arrBase(config.type)
+            val r = apiFor<ArrApi>(config, apiKeyHeader(config))
+                .deleteQueue("$base/queue/$id?removeFromClient=true&blocklist=false")
+            if (r.isSuccessful) "removed" else "error: HTTP ${r.code()}"
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
@@ -412,22 +418,24 @@ suspend fun arrLibrary(config: ServiceConfig): List<ArrLibraryItem> = withContex
 }
 
 /** Search at the library level (whole movie/series/artist). */
-suspend fun arrLibrarySearch(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
-    try {
-        val base = arrBase(config.type)
-        val (name, field) = when (config.type) {
-            ServiceType.SONARR -> "SeriesSearch" to "seriesIds"
-            ServiceType.LIDARR -> "ArtistSearch" to "artistIds"
-            else -> "MoviesSearch" to "movieIds"
+suspend fun arrLibrarySearch(config: ServiceConfig, id: Int): String = destructive("search library item $id on ${config.type.label}") {
+    withContext(Dispatchers.IO) {
+        try {
+            val base = arrBase(config.type)
+            val (name, field) = when (config.type) {
+                ServiceType.SONARR -> "SeriesSearch" to "seriesIds"
+                ServiceType.LIDARR -> "ArtistSearch" to "artistIds"
+                else -> "MoviesSearch" to "movieIds"
+            }
+            val body = buildJsonObject {
+                put("name", name)
+                putJsonArray(field) { add(id) }
+            }
+            val r = apiFor<ArrApi>(config, apiKeyHeader(config)).command("$base/command", body)
+            if (r.isSuccessful) "search started" else "error: HTTP ${r.code()}"
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
         }
-        val body = buildJsonObject {
-            put("name", name)
-            putJsonArray(field) { add(id) }
-        }
-        val r = apiFor<ArrApi>(config, apiKeyHeader(config)).command("$base/command", body)
-        if (r.isSuccessful) "search started" else "error: HTTP ${r.code()}"
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
     }
 }
 
@@ -638,56 +646,62 @@ suspend fun arrManualImportScan(config: ServiceConfig, folder: String): List<Arr
 }
 
 /** Executes a manual import for the given scanned items (importMode "move"). */
-suspend fun arrManualImportExecute(config: ServiceConfig, rawItems: List<String>): String = withContext(Dispatchers.IO) {
-    try {
-        val base = arrBase(config.type)
-        val files = rawItems.map { raw ->
-            val o = json.parseToJsonElement(raw).jsonObject
-            buildJsonObject {
-                jsStr(o, "path")?.let { put("path", it) }
-                jsStr(o, "folderName")?.let { put("folderName", it) }
-                o["quality"]?.let { put("quality", it) }
-                o["languages"]?.let { put("languages", it) }
-                jsStr(o, "releaseGroup")?.let { put("releaseGroup", it) }
-                if (config.type == ServiceType.SONARR) {
-                    (o["series"] as? JsonObject)?.let { s -> jsInt(s, "id")?.let { put("seriesId", it) } }
-                    (o["episodes"] as? JsonArray)?.let { eps ->
-                        putJsonArray("episodeIds") { eps.mapNotNull { (it as? JsonObject)?.let { e -> jsInt(e, "id") } }.forEach { add(it) } }
+suspend fun arrManualImportExecute(config: ServiceConfig, rawItems: List<String>): String = destructive("manually import ${rawItems.size} file(s) on ${config.type.label}") {
+    withContext(Dispatchers.IO) {
+        try {
+            val base = arrBase(config.type)
+            val files = rawItems.map { raw ->
+                val o = json.parseToJsonElement(raw).jsonObject
+                buildJsonObject {
+                    jsStr(o, "path")?.let { put("path", it) }
+                    jsStr(o, "folderName")?.let { put("folderName", it) }
+                    o["quality"]?.let { put("quality", it) }
+                    o["languages"]?.let { put("languages", it) }
+                    jsStr(o, "releaseGroup")?.let { put("releaseGroup", it) }
+                    if (config.type == ServiceType.SONARR) {
+                        (o["series"] as? JsonObject)?.let { s -> jsInt(s, "id")?.let { put("seriesId", it) } }
+                        (o["episodes"] as? JsonArray)?.let { eps ->
+                            putJsonArray("episodeIds") { eps.mapNotNull { (it as? JsonObject)?.let { e -> jsInt(e, "id") } }.forEach { add(it) } }
+                        }
+                    } else {
+                        (o["movie"] as? JsonObject)?.let { m -> jsInt(m, "id")?.let { put("movieId", it) } }
                     }
-                } else {
-                    (o["movie"] as? JsonObject)?.let { m -> jsInt(m, "id")?.let { put("movieId", it) } }
                 }
             }
+            val body = buildJsonObject {
+                put("name", "ManualImport")
+                put("importMode", "move")
+                put("files", JsonArray(files))
+            }
+            okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).command("$base/command", body), "importing ${files.size} file(s)")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
         }
-        val body = buildJsonObject {
-            put("name", "ManualImport")
-            put("importMode", "move")
-            put("files", JsonArray(files))
-        }
-        okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).command("$base/command", body), "importing ${files.size} file(s)")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
     }
 }
 
-suspend fun arrGrab(config: ServiceConfig, guid: String, indexerId: Int): String = withContext(Dispatchers.IO) {
-    try {
-        val base = arrBase(config.type)
-        okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).downloadRelease("$base/release", ArrGrabReq(guid, indexerId)), "grabbed")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun arrGrab(config: ServiceConfig, guid: String, indexerId: Int): String = destructive("grab a release on ${config.type.label}") {
+    withContext(Dispatchers.IO) {
+        try {
+            val base = arrBase(config.type)
+            okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).downloadRelease("$base/release", ArrGrabReq(guid, indexerId)), "grabbed")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
-suspend fun arrDelete(config: ServiceConfig, id: Int, deleteFiles: Boolean): String = withContext(Dispatchers.IO) {
-    try {
-        val base = arrBase(config.type)
-        val path = arrItemPath(config.type)
-        val r = apiFor<ArrApi>(config, apiKeyHeader(config))
-            .deleteItem("$base/$path/$id?deleteFiles=$deleteFiles&addImportExclusion=false")
-        if (r.isSuccessful) "deleted" else "error: HTTP ${r.code()}"
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun arrDelete(config: ServiceConfig, id: Int, deleteFiles: Boolean): String = destructive("delete ${config.type.label} item $id (files: $deleteFiles)") {
+    withContext(Dispatchers.IO) {
+        try {
+            val base = arrBase(config.type)
+            val path = arrItemPath(config.type)
+            val r = apiFor<ArrApi>(config, apiKeyHeader(config))
+                .deleteItem("$base/$path/$id?deleteFiles=$deleteFiles&addImportExclusion=false")
+            if (r.isSuccessful) "deleted" else "error: HTTP ${r.code()}"
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
@@ -706,64 +720,72 @@ suspend fun arrHistory(config: ServiceConfig): List<ArrHistoryItem> = withContex
 
 /** Search all missing or cutoff-unmet items. */
 /** Triggers an RSS sync (check all indexer feeds for new releases now). */
-suspend fun arrRssSync(config: ServiceConfig): String = withContext(Dispatchers.IO) {
-    try {
-        val body = buildJsonObject { put("name", "RssSync") }
-        okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).command("${arrBase(config.type)}/command", body), "RSS sync started")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+suspend fun arrRssSync(config: ServiceConfig): String = destructive("RSS sync on ${config.type.label}") {
+    withContext(Dispatchers.IO) {
+        try {
+            val body = buildJsonObject { put("name", "RssSync") }
+            okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).command("${arrBase(config.type)}/command", body), "RSS sync started")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
-suspend fun arrSearchAll(config: ServiceConfig, cutoff: Boolean): String = withContext(Dispatchers.IO) {
-    try {
-        val base = arrBase(config.type)
-        val name = when (config.type) {
-            ServiceType.SONARR -> if (cutoff) "CutoffUnmetEpisodeSearch" else "MissingEpisodeSearch"
-            ServiceType.LIDARR -> if (cutoff) "CutoffUnmetAlbumSearch" else "MissingAlbumSearch"
-            else -> if (cutoff) "CutoffUnmetMoviesSearch" else "MissingMoviesSearch"
+suspend fun arrSearchAll(config: ServiceConfig, cutoff: Boolean): String = destructive("search all missing on ${config.type.label}") {
+    withContext(Dispatchers.IO) {
+        try {
+            val base = arrBase(config.type)
+            val name = when (config.type) {
+                ServiceType.SONARR -> if (cutoff) "CutoffUnmetEpisodeSearch" else "MissingEpisodeSearch"
+                ServiceType.LIDARR -> if (cutoff) "CutoffUnmetAlbumSearch" else "MissingAlbumSearch"
+                else -> if (cutoff) "CutoffUnmetMoviesSearch" else "MissingMoviesSearch"
+            }
+            val body = buildJsonObject { put("name", name) }
+            okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).command("$base/command", body), "search started")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
         }
-        val body = buildJsonObject { put("name", name) }
-        okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).command("$base/command", body), "search started")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
     }
 }
 
 // ---- NZBGet (JSON-RPC over HTTP + Basic auth) ----
 
 /** Radarr/Sonarr/Lidarr: trigger a search for all missing monitored items. */
-suspend fun runSearchMissing(config: ServiceConfig): String = withContext(Dispatchers.IO) {
-    try {
-        val resp = when (config.type) {
-            ServiceType.RADARR -> apiFor<RadarrApi>(config, apiKeyHeader(config)).command(CommandReq("MissingMoviesSearch"))
-            ServiceType.SONARR -> apiFor<SonarrApi>(config, apiKeyHeader(config)).command(CommandReq("MissingEpisodeSearch"))
-            ServiceType.LIDARR -> apiFor<LidarrApi>(config, apiKeyHeader(config)).command(CommandReq("MissingAlbumSearch"))
-            else -> return@withContext "unsupported"
+suspend fun runSearchMissing(config: ServiceConfig): String = destructive("search missing on ${config.type.label}") {
+    withContext(Dispatchers.IO) {
+        try {
+            val resp = when (config.type) {
+                ServiceType.RADARR -> apiFor<RadarrApi>(config, apiKeyHeader(config)).command(CommandReq("MissingMoviesSearch"))
+                ServiceType.SONARR -> apiFor<SonarrApi>(config, apiKeyHeader(config)).command(CommandReq("MissingEpisodeSearch"))
+                ServiceType.LIDARR -> apiFor<LidarrApi>(config, apiKeyHeader(config)).command(CommandReq("MissingAlbumSearch"))
+                else -> return@withContext "unsupported"
+            }
+            okOr(resp, "search started")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
         }
-        okOr(resp, "search started")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
     }
 }
 
 /** Pushes a Prowlarr release to a Radarr/Sonarr instance via release/push. */
-suspend fun arrPushRelease(arrConfig: ServiceConfig, release: ProwlarrRelease): String = withContext(Dispatchers.IO) {
-    try {
-        val api = apiFor<ArrApi>(arrConfig, apiKeyHeader(arrConfig))
-        val url = "${arrBase(arrConfig.type)}/release/push"
-        val body = buildJsonObject {
-            put("title", release.title)
-            val dl = release.downloadUrl.ifBlank { release.magnetUrl }
-            put("downloadUrl", dl)
-            if (release.magnetUrl.isNotBlank()) put("magnetUrl", release.magnetUrl)
-            put("protocol", if (release.protocol == "torrent") "torrent" else "usenet")
-            put("publishDate", release.publishDate.ifBlank { "1970-01-01T00:00:00Z" })
-            put("size", release.sizeBytes)
-            put("indexer", release.indexer)
+suspend fun arrPushRelease(arrConfig: ServiceConfig, release: ProwlarrRelease): String = destructive("push a release to ${arrConfig.type.label}") {
+    withContext(Dispatchers.IO) {
+        try {
+            val api = apiFor<ArrApi>(arrConfig, apiKeyHeader(arrConfig))
+            val url = "${arrBase(arrConfig.type)}/release/push"
+            val body = buildJsonObject {
+                put("title", release.title)
+                val dl = release.downloadUrl.ifBlank { release.magnetUrl }
+                put("downloadUrl", dl)
+                if (release.magnetUrl.isNotBlank()) put("magnetUrl", release.magnetUrl)
+                put("protocol", if (release.protocol == "torrent") "torrent" else "usenet")
+                put("publishDate", release.publishDate.ifBlank { "1970-01-01T00:00:00Z" })
+                put("size", release.sizeBytes)
+                put("indexer", release.indexer)
+            }
+            okOr(api.releasePush(url, body), "sent to ${arrConfig.label}")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
         }
-        okOr(api.releasePush(url, body), "sent to ${arrConfig.label}")
-    } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
     }
 }

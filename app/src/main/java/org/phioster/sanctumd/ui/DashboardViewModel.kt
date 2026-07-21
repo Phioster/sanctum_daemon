@@ -239,6 +239,22 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setAppLock(enabled: Boolean) = viewModelScope.launch { dashStore.setAppLock(enabled) }
 
+    /** Safe mode. Mirrored into [org.phioster.sanctumd.net.SafeMode] because the guard sits
+     *  in plain suspend functions that have no access to a store or a scope. */
+    val safeMode: StateFlow<Boolean> =
+        dashStore.safeMode.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
+
+    init {
+        viewModelScope.launch {
+            dashStore.safeMode.collect { org.phioster.sanctumd.net.SafeMode.enabled = it }
+        }
+    }
+
+    fun setSafeMode(enabled: Boolean) = viewModelScope.launch {
+        org.phioster.sanctumd.net.SafeMode.enabled = enabled // takes effect before the write lands
+        dashStore.setSafeMode(enabled)
+    }
+
     /** null until loaded; then true once the first-run onboarding is completed/dismissed. */
     val onboardingDone: StateFlow<Boolean?> =
         dashStore.onboardingDone.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, null)
