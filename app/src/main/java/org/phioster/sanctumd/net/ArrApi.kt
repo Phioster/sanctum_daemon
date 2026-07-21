@@ -261,7 +261,7 @@ suspend fun arrAdd(
     rootFolderPath: String,
     monitored: Boolean,
     metadataProfileId: Int = 0,
-): String = destructive("add ${config.type.label} item $title") {
+): String = destructive("add an item to ${config.type.label}") {
     withContext(Dispatchers.IO) {
         try {
             val base = arrBase(config.type)
