@@ -47,8 +47,8 @@ import retrofit2.http.PUT
 import retrofit2.http.Query
 import retrofit2.http.Url
 
-@Serializable private data class RadarrMovie(val hasFile: Boolean = false, val monitored: Boolean = false)
-@Serializable private data class RadarrPage(val totalRecords: Int = 0)
+@Serializable internal data class RadarrMovie(val hasFile: Boolean = false, val monitored: Boolean = false)
+@Serializable internal data class RadarrPage(val totalRecords: Int = 0)
 
 internal interface RadarrApi {
     @GET("api/v3/movie") suspend fun movies(): List<RadarrMovie>
@@ -59,7 +59,7 @@ internal interface RadarrApi {
 
 // ---- Sonarr (api/v3) ----
 
-@Serializable private data class SonarrSeries(val monitored: Boolean = false)
+@Serializable internal data class SonarrSeries(val monitored: Boolean = false)
 
 internal interface SonarrApi {
     @GET("api/v3/series") suspend fun series(): List<SonarrSeries>
@@ -70,7 +70,7 @@ internal interface SonarrApi {
 
 // ---- Lidarr (api/v1) ----
 
-@Serializable private data class LidarrArtist(val monitored: Boolean = false)
+@Serializable internal data class LidarrArtist(val monitored: Boolean = false)
 
 internal interface LidarrApi {
     @GET("api/v1/artist") suspend fun artists(): List<LidarrArtist>
@@ -81,9 +81,9 @@ internal interface LidarrApi {
 
 // ---- Prowlarr (api/v1) ----
 
-@Serializable private data class ArrRef(val title: String = "")
-@Serializable private data class ArrArtistRef(val artistName: String = "")
-@Serializable private data class ArrMissingRecord(
+@Serializable internal data class ArrRef(val title: String = "")
+@Serializable internal data class ArrArtistRef(val artistName: String = "")
+@Serializable internal data class ArrMissingRecord(
     val id: Int = 0,
     val title: String = "",
     val year: Int = 0,
@@ -92,19 +92,19 @@ internal interface LidarrApi {
     val series: ArrRef? = null,
     val artist: ArrArtistRef? = null,
 )
-@Serializable private data class ArrMissingPage(val records: List<ArrMissingRecord> = emptyList())
+@Serializable internal data class ArrMissingPage(val records: List<ArrMissingRecord> = emptyList())
 
-@Serializable private data class ArrQueueRecord(
+@Serializable internal data class ArrQueueRecord(
     val id: Int = 0,
     val title: String = "",
     val status: String = "",
     val size: Double = 0.0,
     val sizeleft: Double = 0.0,
 )
-@Serializable private data class ArrQueuePage(val records: List<ArrQueueRecord> = emptyList())
+@Serializable internal data class ArrQueuePage(val records: List<ArrQueueRecord> = emptyList())
 
-@Serializable private data class ArrStats(val sizeOnDisk: Long = 0)
-@Serializable private data class ArrLibraryRecord(
+@Serializable internal data class ArrStats(val sizeOnDisk: Long = 0)
+@Serializable internal data class ArrLibraryRecord(
     val id: Int = 0,
     val title: String = "",
     val artistName: String = "",
@@ -116,10 +116,10 @@ internal interface LidarrApi {
     val statistics: ArrStats? = null,
 )
 
-@Serializable private data class ArrProfileRecord(val id: Int = 0, val name: String = "")
-@Serializable private data class ArrRootFolderRecord(val path: String = "")
+@Serializable internal data class ArrProfileRecord(val id: Int = 0, val name: String = "")
+@Serializable internal data class ArrRootFolderRecord(val path: String = "")
 
-@Serializable private data class ArrEpisodeRecord(
+@Serializable internal data class ArrEpisodeRecord(
     val id: Int = 0,
     val seasonNumber: Int = 0,
     val episodeNumber: Int = 0,
@@ -129,10 +129,10 @@ internal interface LidarrApi {
     val airDate: String? = null,
 )
 
-@Serializable private data class ArrQualityRef(val quality: ArrQualityName = ArrQualityName())
-@Serializable private data class ArrQualityName(val name: String = "")
-@Serializable private data class ArrCustomFormatRef(val name: String = "")
-@Serializable private data class ArrReleaseRecord(
+@Serializable internal data class ArrQualityRef(val quality: ArrQualityName = ArrQualityName())
+@Serializable internal data class ArrQualityName(val name: String = "")
+@Serializable internal data class ArrCustomFormatRef(val name: String = "")
+@Serializable internal data class ArrReleaseRecord(
     val guid: String = "",
     val indexerId: Int = 0,
     val title: String = "",
@@ -148,23 +148,23 @@ internal interface LidarrApi {
     val rejections: List<String> = emptyList(),
 )
 
-@Serializable private data class ArrDiskRecord(
+@Serializable internal data class ArrDiskRecord(
     val path: String = "",
     val freeSpace: Long = 0,
     val totalSpace: Long = 0,
 )
-@Serializable private data class ArrSystemStatusRec(val version: String = "")
-@Serializable private data class ArrHealthRecord(val type: String = "", val message: String = "")
+@Serializable internal data class ArrSystemStatusRec(val version: String = "")
+@Serializable internal data class ArrHealthRecord(val type: String = "", val message: String = "")
 
-@Serializable private data class ArrGrabReq(val guid: String, val indexerId: Int)
+@Serializable internal data class ArrGrabReq(val guid: String, val indexerId: Int)
 
-@Serializable private data class ArrHistoryRec(
+@Serializable internal data class ArrHistoryRec(
     val eventType: String = "",
     val date: String = "",
     val sourceTitle: String = "",
     val quality: ArrQualityRef = ArrQualityRef(),
 )
-@Serializable private data class ArrHistoryPage(val records: List<ArrHistoryRec> = emptyList())
+@Serializable internal data class ArrHistoryPage(val records: List<ArrHistoryRec> = emptyList())
 
 internal interface ArrApi {
     @GET suspend fun missing(@Url url: String): ArrMissingPage

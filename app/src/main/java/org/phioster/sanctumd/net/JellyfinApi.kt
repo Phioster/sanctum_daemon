@@ -46,7 +46,7 @@ internal data class JfCounts(
     val SongCount: Int = 0,
 )
 
-@Serializable private data class JfSession(
+@Serializable internal data class JfSession(
     val Id: String = "",
     val UserName: String? = null,
     val Client: String? = null,
@@ -56,35 +56,35 @@ internal data class JfCounts(
     val NowPlayingItem: JfNowPlaying? = null,
     val PlayState: JfPlayState? = null,
 )
-@Serializable private data class JfNowPlaying(
+@Serializable internal data class JfNowPlaying(
     val Name: String? = null,
     val Type: String? = null,
     val SeriesName: String? = null,
     val ProductionYear: Int? = null,
     val RunTimeTicks: Long? = null,
 )
-@Serializable private data class JfPlayState(
+@Serializable internal data class JfPlayState(
     val PositionTicks: Long? = null,
     val IsPaused: Boolean = false,
 )
-@Serializable private data class JfUserFull(
+@Serializable internal data class JfUserFull(
     val Id: String = "",
     val Name: String = "",
     val LastActivityDate: String? = null,
     val Policy: JfPolicy = JfPolicy(),
 )
-@Serializable private data class JfVirtualFolder(
+@Serializable internal data class JfVirtualFolder(
     val Name: String = "",
     val ItemId: String = "",
     val CollectionType: String? = null,
     val Locations: List<String> = emptyList(),
 )
-@Serializable private data class JfLogFile(
+@Serializable internal data class JfLogFile(
     val Name: String = "",
     val DateModified: String = "",
     val Size: Long = 0,
 )
-@Serializable private data class JfPlugin(
+@Serializable internal data class JfPlugin(
     val Id: String = "",
     val Version: String = "",
     val Name: String = "",
@@ -92,93 +92,93 @@ internal data class JfCounts(
     val Status: String = "",
     val CanUninstall: Boolean = true,
 )
-@Serializable private data class JfPackageVersion(val version: String = "")
-@Serializable private data class JfPackage(
+@Serializable internal data class JfPackageVersion(val version: String = "")
+@Serializable internal data class JfPackage(
     val name: String = "",
     val guid: String = "",
     val description: String = "",
     val overview: String = "",
     val versions: List<JfPackageVersion> = emptyList(),
 )
-@Serializable private data class JfMediaPathInfo(val Path: String = "")
-@Serializable private data class JfMediaPath(val Name: String = "", val PathInfo: JfMediaPathInfo = JfMediaPathInfo())
-@Serializable private data class JfLiveTvServiceInfo(
+@Serializable internal data class JfMediaPathInfo(val Path: String = "")
+@Serializable internal data class JfMediaPath(val Name: String = "", val PathInfo: JfMediaPathInfo = JfMediaPathInfo())
+@Serializable internal data class JfLiveTvServiceInfo(
     val Name: String = "",
     val Status: String = "",
     val StatusMessage: String? = null,
     val Tuners: List<String> = emptyList(),
 )
-@Serializable private data class JfLiveTvInfo(
+@Serializable internal data class JfLiveTvInfo(
     val IsEnabled: Boolean = false,
     val Services: List<JfLiveTvServiceInfo> = emptyList(),
 )
-@Serializable private data class JfTunerHost(
+@Serializable internal data class JfTunerHost(
     val Id: String = "",
     val Url: String = "",
     val Type: String = "",
     val FriendlyName: String? = null,
 )
-@Serializable private data class JfListingProvider(
+@Serializable internal data class JfListingProvider(
     val Id: String = "",
     val Type: String = "",
     val Path: String? = null,
     val ListingsId: String? = null,
 )
-@Serializable private data class JfLiveTvOptions(
+@Serializable internal data class JfLiveTvOptions(
     val TunerHosts: List<JfTunerHost> = emptyList(),
     val ListingProviders: List<JfListingProvider> = emptyList(),
 )
-@Serializable private data class JfChannelProgram(val Name: String = "")
-@Serializable private data class JfChannel(
+@Serializable internal data class JfChannelProgram(val Name: String = "")
+@Serializable internal data class JfChannel(
     val Id: String = "",
     val Name: String = "",
     val ChannelNumber: String? = null,
     val CurrentProgram: JfChannelProgram? = null,
 )
-@Serializable private data class JfChannelsResp(val Items: List<JfChannel> = emptyList())
-@Serializable private data class JfMessageReq(val Text: String, val Header: String = "Sanctumd", val TimeoutMs: Long = 5000)
+@Serializable internal data class JfChannelsResp(val Items: List<JfChannel> = emptyList())
+@Serializable internal data class JfMessageReq(val Text: String, val Header: String = "Sanctumd", val TimeoutMs: Long = 5000)
 
-@Serializable private data class JfSystemInfo(
+@Serializable internal data class JfSystemInfo(
     val Version: String = "",
     val ServerName: String = "",
     val OperatingSystem: String = "",
 )
-@Serializable private data class JfPlaybackQueryReq(val CustomQueryString: String, val ReplaceUserId: Boolean = true)
-@Serializable private data class JfPlaybackQueryResp(
+@Serializable internal data class JfPlaybackQueryReq(val CustomQueryString: String, val ReplaceUserId: Boolean = true)
+@Serializable internal data class JfPlaybackQueryResp(
     val colums: List<String> = emptyList(),
     val results: List<List<String>> = emptyList(),
     val message: String? = null,
 )
-@Serializable private data class JfTaskResult(val Status: String = "", val EndTimeUtc: String? = null)
-@Serializable private data class JfTask(
+@Serializable internal data class JfTaskResult(val Status: String = "", val EndTimeUtc: String? = null)
+@Serializable internal data class JfTask(
     val Id: String = "",
     val Name: String = "",
     val State: String = "",
     val CurrentProgressPercentage: Double? = null,
     val LastExecutionResult: JfTaskResult? = null,
 )
-@Serializable private data class JfActivityEntry(
+@Serializable internal data class JfActivityEntry(
     val Name: String = "",
     val Type: String = "",
     val Date: String = "",
     val Severity: String = "",
     val ShortOverview: String? = null,
 )
-@Serializable private data class JfActivityPage(val Items: List<JfActivityEntry> = emptyList())
+@Serializable internal data class JfActivityPage(val Items: List<JfActivityEntry> = emptyList())
 
-@Serializable private data class JfDevice(
+@Serializable internal data class JfDevice(
     val Name: String = "",
     val AppName: String = "",
     val LastUserName: String? = null,
     val DateLastActivity: String? = null,
 )
-@Serializable private data class JfDevicePage(val Items: List<JfDevice> = emptyList())
+@Serializable internal data class JfDevicePage(val Items: List<JfDevice> = emptyList())
 
-@Serializable private data class JfUserData(
+@Serializable internal data class JfUserData(
     val PlayedPercentage: Double? = null,
     val Played: Boolean = false,
 )
-@Serializable private data class JfItem(
+@Serializable internal data class JfItem(
     val Id: String = "",
     val Name: String = "",
     val Type: String = "",
@@ -194,16 +194,16 @@ internal data class JfCounts(
     val OfficialRating: String? = null,
     val UserData: JfUserData? = null,
 )
-@Serializable private data class JfItemsResp(val Items: List<JfItem> = emptyList())
-@Serializable private data class JfPerson(
+@Serializable internal data class JfItemsResp(val Items: List<JfItem> = emptyList())
+@Serializable internal data class JfPerson(
     val Id: String = "",
     val Name: String = "",
     val Role: String? = null,
     val Type: String? = null,
     val PrimaryImageTag: String? = null,
 )
-@Serializable private data class JfStudio(val Name: String = "")
-@Serializable private data class JfItemDetail(
+@Serializable internal data class JfStudio(val Name: String = "")
+@Serializable internal data class JfItemDetail(
     val Id: String = "",
     val Name: String = "",
     val Overview: String? = null,
@@ -218,10 +218,10 @@ internal data class JfCounts(
     val ImageTags: Map<String, String>? = null,
 )
 
-@Serializable private data class JfAuthReq(val Username: String, val Pw: String)
-@Serializable private data class JfAuthResp(val AccessToken: String = "", val User: JfUser = JfUser())
-@Serializable private data class JfUser(val Name: String = "", val Policy: JfPolicy = JfPolicy())
-@Serializable private data class JfPolicy(
+@Serializable internal data class JfAuthReq(val Username: String, val Pw: String)
+@Serializable internal data class JfAuthResp(val AccessToken: String = "", val User: JfUser = JfUser())
+@Serializable internal data class JfUser(val Name: String = "", val Policy: JfPolicy = JfPolicy())
+@Serializable internal data class JfPolicy(
     val IsAdministrator: Boolean = false,
     val IsDisabled: Boolean = false,
     val EnableContentDownloading: Boolean = false,

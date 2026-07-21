@@ -35,15 +35,15 @@ import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
-@Serializable private data class ProwlarrIndexerStat(
+@Serializable internal data class ProwlarrIndexerStat(
     val numberOfQueries: Int = 0,
     val numberOfGrabs: Int = 0,
 )
 
-@Serializable private data class ProwlarrStats(val indexers: List<ProwlarrIndexerStat> = emptyList())
+@Serializable internal data class ProwlarrStats(val indexers: List<ProwlarrIndexerStat> = emptyList())
 
 // per-indexer stat rows (indexerstats has both a summary and per-indexer array)
-@Serializable private data class ProwlarrIndexerStatRow(
+@Serializable internal data class ProwlarrIndexerStatRow(
     val indexerId: Int = 0,
     val indexerName: String = "",
     val numberOfQueries: Int = 0,
@@ -51,11 +51,11 @@ import retrofit2.http.Query
     val numberOfFailedQueries: Int = 0,
     val numberOfFailedGrabs: Int = 0,
 )
-@Serializable private data class ProwlarrStatsFull(
+@Serializable internal data class ProwlarrStatsFull(
     val indexers: List<ProwlarrIndexerStatRow> = emptyList(),
 )
 
-@Serializable private data class ProwlarrIndexerRecord(
+@Serializable internal data class ProwlarrIndexerRecord(
     val id: Int = 0,
     val name: String = "",
     val protocol: String = "",
@@ -64,16 +64,16 @@ import retrofit2.http.Query
     val privacy: String = "",
 )
 
-@Serializable private data class ProwlarrIndexerStatusRecord(
+@Serializable internal data class ProwlarrIndexerStatusRecord(
     val indexerId: Int = 0,
     val disabledTill: String? = null,
 )
 
-@Serializable private data class ProwlarrCategoryRef(
+@Serializable internal data class ProwlarrCategoryRef(
     val id: Int = 0,
     val name: String = "",
 )
-@Serializable private data class ProwlarrReleaseRecord(
+@Serializable internal data class ProwlarrReleaseRecord(
     val guid: String = "",
     val indexerId: Int = 0,
     val indexer: String = "",
@@ -88,25 +88,25 @@ import retrofit2.http.Query
     val publishDate: String = "",
 )
 
-@Serializable private data class ProwlarrGrabReq(val guid: String, val indexerId: Int)
+@Serializable internal data class ProwlarrGrabReq(val guid: String, val indexerId: Int)
 
-@Serializable private data class ProwlarrHistoryRec(
+@Serializable internal data class ProwlarrHistoryRec(
     val eventType: String = "",
     val date: String = "",
     val indexer: String = "",
     val data: ProwlarrHistoryData = ProwlarrHistoryData(),
 )
-@Serializable private data class ProwlarrHistoryData(val query: String? = null, val title: String? = null)
-@Serializable private data class ProwlarrHistoryPage(val records: List<ProwlarrHistoryRec> = emptyList())
+@Serializable internal data class ProwlarrHistoryData(val query: String? = null, val title: String? = null)
+@Serializable internal data class ProwlarrHistoryPage(val records: List<ProwlarrHistoryRec> = emptyList())
 
-@Serializable private data class ProwlarrTaskRec(
+@Serializable internal data class ProwlarrTaskRec(
     val name: String = "",
     val lastExecution: String? = null,
     val nextExecution: String? = null,
 )
 
-@Serializable private data class ProwlarrSystemStatusRec(val version: String = "")
-@Serializable private data class ProwlarrHealthRec(val type: String = "", val message: String = "")
+@Serializable internal data class ProwlarrSystemStatusRec(val version: String = "")
+@Serializable internal data class ProwlarrHealthRec(val type: String = "", val message: String = "")
 
 internal interface ProwlarrApi {
     @GET("api/v1/indexerstats") suspend fun stats(): ProwlarrStats

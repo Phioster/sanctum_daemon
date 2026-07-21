@@ -58,6 +58,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sanctumd-release-apk
+          retention-days: 3
           path: out/*.apk
           if-no-files-found: error
 

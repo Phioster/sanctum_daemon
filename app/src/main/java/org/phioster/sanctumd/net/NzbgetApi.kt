@@ -26,8 +26,8 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 
-@Serializable private data class NzbStatusResp(val result: NzbStatus = NzbStatus())
-@Serializable private data class NzbStatus(
+@Serializable internal data class NzbStatusResp(val result: NzbStatus = NzbStatus())
+@Serializable internal data class NzbStatus(
     val DownloadRate: Long = 0,
     val RemainingSizeMB: Long = 0,
     val DownloadPaused: Boolean = false,
@@ -38,11 +38,11 @@ import retrofit2.http.POST
     val ThreadCount: Int = 0,
 )
 
-@Serializable private data class NzbStringResp(val result: String = "")
-@Serializable private data class NzbIntResp(val result: Int = 0)
+@Serializable internal data class NzbStringResp(val result: String = "")
+@Serializable internal data class NzbIntResp(val result: Int = 0)
 
-@Serializable private data class NzbGroupsResp(val result: List<NzbGroup> = emptyList())
-@Serializable private data class NzbGroup(
+@Serializable internal data class NzbGroupsResp(val result: List<NzbGroup> = emptyList())
+@Serializable internal data class NzbGroup(
     val NZBID: Int = 0,
     val NZBName: String = "",
     val Status: String = "",
@@ -50,12 +50,12 @@ import retrofit2.http.POST
     val RemainingSizeMB: Long = 0,
 )
 
-@Serializable private data class NzbRpcReq(val method: String, val params: List<String> = emptyList(), val id: Int = 1)
-@Serializable private data class NzbBoolResp(val result: Boolean = false)
+@Serializable internal data class NzbRpcReq(val method: String, val params: List<String> = emptyList(), val id: Int = 1)
+@Serializable internal data class NzbBoolResp(val result: Boolean = false)
 
-@Serializable private data class NzbHistoryReq(val params: List<Boolean>, val method: String = "history", val id: Int = 1)
-@Serializable private data class NzbHistoryResp(val result: List<NzbHistoryItem> = emptyList())
-@Serializable private data class NzbHistoryItem(
+@Serializable internal data class NzbHistoryReq(val params: List<Boolean>, val method: String = "history", val id: Int = 1)
+@Serializable internal data class NzbHistoryResp(val result: List<NzbHistoryItem> = emptyList())
+@Serializable internal data class NzbHistoryItem(
     val NZBID: Int = 0,
     val Name: String = "",
     val Status: String = "",

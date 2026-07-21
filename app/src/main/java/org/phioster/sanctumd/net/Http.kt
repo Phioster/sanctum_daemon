@@ -64,7 +64,7 @@ internal fun apiKeyHeader(config: ServiceConfig) = mapOf("X-Api-Key" to config.a
 internal fun basicHeader(config: ServiceConfig) =
     mapOf("Authorization" to Credentials.basic(config.username, config.password))
 
-@Serializable private data class CommandReq(val name: String)
+@Serializable internal data class CommandReq(val name: String)
 
 // ---- Jellyfin ----
 

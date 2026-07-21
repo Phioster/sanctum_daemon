@@ -43,7 +43,7 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 
-@Serializable private data class SeerrCounts(
+@Serializable internal data class SeerrCounts(
     val total: Int = 0,
     val movie: Int = 0,
     val tv: Int = 0,
@@ -53,37 +53,37 @@ import retrofit2.http.Query
     val available: Int = 0,
     val declined: Int = 0,
 )
-@Serializable private data class SeerrUserRec(
+@Serializable internal data class SeerrUserRec(
     val id: Int = 0,
     val displayName: String = "",
     val username: String? = null,
     val email: String? = null,
     val requestCount: Int = 0,
 )
-@Serializable private data class SeerrUserPage(val results: List<SeerrUserRec> = emptyList())
+@Serializable internal data class SeerrUserPage(val results: List<SeerrUserRec> = emptyList())
 
-@Serializable private data class SeerrMedia(val tmdbId: Int = 0, val mediaType: String = "")
-@Serializable private data class SeerrUser(val displayName: String = "")
-@Serializable private data class SeerrRequest(
+@Serializable internal data class SeerrMedia(val tmdbId: Int = 0, val mediaType: String = "")
+@Serializable internal data class SeerrUser(val displayName: String = "")
+@Serializable internal data class SeerrRequest(
     val id: Int = 0,
     val status: Int = 0,
     val type: String = "",
     val media: SeerrMedia = SeerrMedia(),
     val requestedBy: SeerrUser = SeerrUser(),
 )
-@Serializable private data class SeerrRequestPage(val results: List<SeerrRequest> = emptyList())
-@Serializable private data class SeerrMeta(val title: String? = null, val name: String? = null)
+@Serializable internal data class SeerrRequestPage(val results: List<SeerrRequest> = emptyList())
+@Serializable internal data class SeerrMeta(val title: String? = null, val name: String? = null)
 
-@Serializable private data class SeerrIssue(
+@Serializable internal data class SeerrIssue(
     val id: Int = 0,
     val issueType: Int = 0,
     val status: Int = 0,
     val media: SeerrMedia = SeerrMedia(),
     val createdBy: SeerrUser = SeerrUser(),
 )
-@Serializable private data class SeerrIssuePage(val results: List<SeerrIssue> = emptyList())
+@Serializable internal data class SeerrIssuePage(val results: List<SeerrIssue> = emptyList())
 
-@Serializable private data class SeerrSearchResult(
+@Serializable internal data class SeerrSearchResult(
     val id: Int = 0,
     val mediaType: String = "",
     val title: String? = null,        // movie
@@ -92,7 +92,7 @@ import retrofit2.http.Query
     val firstAirDate: String? = null, // tv
     val adult: Boolean = false,       // TMDB adult (porn) flag
 )
-@Serializable private data class SeerrSearchPage(val results: List<SeerrSearchResult> = emptyList())
+@Serializable internal data class SeerrSearchPage(val results: List<SeerrSearchResult> = emptyList())
 
 internal interface SeerrApi {
     @GET("api/v1/request/count") suspend fun counts(): SeerrCounts
