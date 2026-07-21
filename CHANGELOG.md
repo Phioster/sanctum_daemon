@@ -3,6 +3,32 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 1.0.
 
+## 1.1.0 — 2026-07-21
+A structural round: no new features, but the codebase is now one you can change
+safely.
+
+- **Renamed to Sanctumd throughout** — code, package and theme moved to
+  `org.phioster.sanctumd`. The installed package id, the DataStore names and the
+  Keystore alias deliberately keep their historic name; changing those would
+  orphan existing installs' data. Placed home-screen widgets have to be added
+  again once after this update.
+- **Split the two files everything lived in.** `MainActivity.kt` (7030 lines) and
+  the network layer (2827 lines) became 30 files along the boundaries that were
+  already there: one package per screen, one file per service API. The largest
+  file left is under 1000 lines; MainActivity is 350.
+- **A test layer, and CI gates on it.** JVM unit tests cover the config export
+  (round trip, wrong password, legacy format), the ntfy stream parser, the API
+  response mapping and auth headers against recorded responses, and the dashboard
+  edit rules. A red test now blocks the APK.
+- **Safe mode.** Every call that changes something on a server — deletes, grabs,
+  imports, request decisions, restarts, shortcuts — runs through one guard. Turn
+  safe mode on (settings → security) and those calls are refused before they
+  reach the network, which makes testing against a live homelab a mechanism
+  rather than a matter of care.
+- **One service registry.** Logos and quick actions are described once per
+  service instead of in five places, with a test that fails when a new service
+  type is left undescribed. See `docs/adding-a-service.md`.
+
 ## 1.0.0 — 2026-07-20
 First tagged release. Sanctumd was in daily use throughout the 0.x line; 1.0
 marks the reviewed, release-signed milestone.
