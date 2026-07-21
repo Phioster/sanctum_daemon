@@ -44,6 +44,7 @@ import org.phioster.sanctumd.R
 import org.phioster.sanctumd.data.CalendarSnap
 import org.phioster.sanctumd.data.CalendarSnapshotStore
 import org.phioster.sanctumd.model.ServiceType
+import org.phioster.sanctumd.service.ServiceRegistry
 
 private val Bg = Color(0xFF0A0F0A)
 private val Green = Color(0xFF00FF41)
@@ -51,17 +52,7 @@ private val Dim = Color(0xFF7A9A7A)
 
 private fun typeOf(name: String): ServiceType? = runCatching { ServiceType.valueOf(name) }.getOrNull()
 
-private fun logoRes(type: ServiceType): Int = when (type) {
-    ServiceType.JELLYFIN -> R.drawable.svc_jellyfin
-    ServiceType.RADARR -> R.drawable.svc_radarr
-    ServiceType.SONARR -> R.drawable.svc_sonarr
-    ServiceType.LIDARR -> R.drawable.svc_lidarr
-    ServiceType.PROWLARR -> R.drawable.svc_prowlarr
-    ServiceType.NZBGET -> R.drawable.svc_nzbget
-    ServiceType.SEERR -> R.drawable.svc_seerr
-    ServiceType.NTFY -> R.drawable.svc_ntfy
-    ServiceType.SHORTCUTS -> R.drawable.svc_shortcuts
-}
+private fun logoRes(type: ServiceType): Int = ServiceRegistry.logoRes(type)
 
 /** One rendered line in the agenda: a day header, or a release row. */
 private sealed interface Line {

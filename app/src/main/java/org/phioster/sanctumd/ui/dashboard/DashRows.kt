@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import org.phioster.sanctumd.model.ArrQueueItem
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
+import org.phioster.sanctumd.service.ServiceRegistry
 import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.MatrixGreen
@@ -188,22 +189,10 @@ internal fun MediaDetailDialog(d: MediaDetail, config: ServiceConfig, onDismiss:
 /** A one-tap action a Quick Buttons card can run against a service. */
 internal class QuickAction(val label: String, val run: suspend (DashboardViewModel, ServiceConfig) -> String)
 
-internal fun quickActionsFor(svc: ServiceConfig): List<QuickAction> = when (svc.type) {
-    ServiceType.JELLYFIN -> listOf(
-        QuickAction("Scan libraries") { vm, s -> vm.jellyfinScan(s) },
-        QuickAction("Restart server") { vm, s -> vm.jellyfinRestartServer(s) },
-    )
-    ServiceType.RADARR, ServiceType.SONARR, ServiceType.LIDARR -> listOf(
-        QuickAction("Search all missing") { vm, s -> vm.arrSearchAllItems(s, false) },
-        QuickAction("RSS sync") { vm, s -> vm.arrRssSyncNow(s) },
-    )
-    ServiceType.PROWLARR -> listOf(QuickAction("Test all indexers") { vm, s -> vm.prowlarrTestAll(s) })
-    ServiceType.NZBGET -> listOf(
-        QuickAction("Pause queue") { vm, s -> vm.nzbgetPause(s) },
-        QuickAction("Resume queue") { vm, s -> vm.nzbgetResume(s) },
-    )
-    else -> emptyList()
-}
+internal fun quickActionsFor(svc: ServiceConfig): List<QuickAction> =
+    ServiceRegistry.actions(svc.type).map { action ->
+        QuickAction(action.label) { _, config -> action.run(config) }
+    }
 
 @Composable
 internal fun BoxScope.KenBurnsBackground(url: String, config: ServiceConfig) {

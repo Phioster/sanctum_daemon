@@ -46,23 +46,14 @@ import org.phioster.sanctumd.data.StatusSnap
 import org.phioster.sanctumd.data.StatusSnapshotStore
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
+import org.phioster.sanctumd.service.ServiceRegistry
 
 private val Bg = Color(0xFF0A0F0A)
 private val Green = Color(0xFF00FF41)
 private val Red = Color(0xFFFF5555)
 private val Dim = Color(0xFF7A9A7A)
 
-private fun logoRes(type: ServiceType): Int = when (type) {
-    ServiceType.JELLYFIN -> R.drawable.svc_jellyfin
-    ServiceType.RADARR -> R.drawable.svc_radarr
-    ServiceType.SONARR -> R.drawable.svc_sonarr
-    ServiceType.LIDARR -> R.drawable.svc_lidarr
-    ServiceType.PROWLARR -> R.drawable.svc_prowlarr
-    ServiceType.NZBGET -> R.drawable.svc_nzbget
-    ServiceType.SEERR -> R.drawable.svc_seerr
-    ServiceType.NTFY -> R.drawable.svc_ntfy
-    ServiceType.SHORTCUTS -> R.drawable.svc_shortcuts
-}
+private fun logoRes(type: ServiceType): Int = ServiceRegistry.logoRes(type)
 
 /** Homescreen widget: every service at a glance ([ok]/down), tap opens it. Renders from
  *  a cached snapshot ([StatusSnapshotStore]); [StatusCacheWorker] refreshes it. */

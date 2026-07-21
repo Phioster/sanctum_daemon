@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
+import org.phioster.sanctumd.service.ServiceRegistry
 import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.MatrixGreen
@@ -343,17 +344,7 @@ internal fun SanctumdApp(vm: DashboardViewModel = viewModel()) {
 }
 
 /** Real brand logo for a service type (colored PNG in drawable-nodpi). */
-internal fun serviceLogoRes(type: ServiceType): Int = when (type) {
-    ServiceType.JELLYFIN -> R.drawable.svc_jellyfin
-    ServiceType.RADARR -> R.drawable.svc_radarr
-    ServiceType.SONARR -> R.drawable.svc_sonarr
-    ServiceType.LIDARR -> R.drawable.svc_lidarr
-    ServiceType.PROWLARR -> R.drawable.svc_prowlarr
-    ServiceType.SEERR -> R.drawable.svc_seerr
-    ServiceType.NZBGET -> R.drawable.svc_nzbget
-    ServiceType.NTFY -> R.drawable.svc_ntfy
-    ServiceType.SHORTCUTS -> R.drawable.svc_shortcuts
-}
+internal fun serviceLogoRes(type: ServiceType): Int = ServiceRegistry.logoRes(type)
 
 @Composable
 internal fun ServiceLogo(type: ServiceType, size: androidx.compose.ui.unit.Dp = 24.dp, modifier: Modifier = Modifier) {
