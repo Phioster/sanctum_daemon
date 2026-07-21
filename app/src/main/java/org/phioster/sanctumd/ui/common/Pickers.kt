@@ -47,6 +47,8 @@ import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 /** Selectable tab icons; the stored key maps back to a Material icon. */
 internal val tabIcons: List<Pair<String, ImageVector>> = listOf(
