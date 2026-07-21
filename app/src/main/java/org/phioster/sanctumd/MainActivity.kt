@@ -182,24 +182,13 @@ import org.phioster.sanctumd.model.ServiceStatus
 import org.phioster.sanctumd.model.ServiceType
 import org.phioster.sanctumd.model.CardType
 import org.phioster.sanctumd.ui.DashboardViewModel
-
-private val MatrixGreen = Color(0xFF00FF41)
-private val Black = Color(0xFF000000)
-private val Surface = Color(0xFF0A0A0A)
-private val ErrRed = Color(0xFFFF5555)
-private val Mono = FontFamily.Monospace
-
-private val SanctumdColors = darkColorScheme(
-    primary = MatrixGreen,
-    onPrimary = Black,
-    background = Black,
-    onBackground = MatrixGreen,
-    surface = Surface,
-    onSurface = MatrixGreen,
-    surfaceVariant = Surface,
-    onSurfaceVariant = MatrixGreen,
-    outline = MatrixGreen.copy(alpha = 0.4f),
-)
+import org.phioster.sanctumd.ui.theme.Black
+import org.phioster.sanctumd.ui.theme.ErrRed
+import org.phioster.sanctumd.ui.theme.MatrixGreen
+import org.phioster.sanctumd.ui.theme.Mono
+import org.phioster.sanctumd.ui.theme.Surface
+import org.phioster.sanctumd.ui.theme.SanctumdColors
+import org.phioster.sanctumd.ui.common.*
 
 // FragmentActivity (not ComponentActivity) because BiometricPrompt requires it.
 class MainActivity : androidx.fragment.app.FragmentActivity() {
@@ -259,7 +248,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 
 /** (Re)publishes the launcher long-press shortcuts: Search + Settings always, plus
  *  Seerr / Jellyfin when such a service is configured (opens that service directly). */
-private fun updateShortcuts(context: android.content.Context, services: List<ServiceConfig>) {
+internal fun updateShortcuts(context: android.content.Context, services: List<ServiceConfig>) {
     fun make(id: String, label: String, longLabel: String, iconRes: Int, extras: Map<String, String>): androidx.core.content.pm.ShortcutInfoCompat {
         val intent = android.content.Intent(context, MainActivity::class.java).setAction(android.content.Intent.ACTION_VIEW)
         extras.forEach { (k, v) -> intent.putExtra(k, v) }
@@ -283,7 +272,7 @@ private fun updateShortcuts(context: android.content.Context, services: List<Ser
 }
 
 /** Fires the system biometric/credential prompt; [onSuccess] runs on the main executor. */
-private fun showUnlockPrompt(activity: androidx.fragment.app.FragmentActivity, onSuccess: () -> Unit) {
+internal fun showUnlockPrompt(activity: androidx.fragment.app.FragmentActivity, onSuccess: () -> Unit) {
     val prompt = androidx.biometric.BiometricPrompt(
         activity,
         androidx.core.content.ContextCompat.getMainExecutor(activity),
@@ -304,7 +293,7 @@ private fun showUnlockPrompt(activity: androidx.fragment.app.FragmentActivity, o
 
 /** Shows a lock screen (and the system prompt) until unlocked, when the app lock is enabled. */
 @Composable
-private fun AppLockGate(vm: DashboardViewModel, activity: androidx.fragment.app.FragmentActivity, content: @Composable () -> Unit) {
+internal fun AppLockGate(vm: DashboardViewModel, activity: androidx.fragment.app.FragmentActivity, content: @Composable () -> Unit) {
     val appLock by vm.appLock.collectAsState()
     var unlocked by vm.unlocked
     if (!appLock || unlocked) {
@@ -328,7 +317,7 @@ private fun AppLockGate(vm: DashboardViewModel, activity: androidx.fragment.app.
 }
 
 /** What to open inside a service screen when a search hit is tapped. */
-private data class SearchDeepLink(
+internal data class SearchDeepLink(
     val arrDetailId: Int? = null, // arr: open this library item's detail
     val arrAddTerm: String? = null, // arr: open the add dialog pre-filled with this lookup term
     val seerrTmdb: Int? = null, // Seerr: open this media detail
@@ -337,7 +326,7 @@ private data class SearchDeepLink(
 )
 
 @Composable
-private fun SanctumdApp(vm: DashboardViewModel = viewModel()) {
+internal fun SanctumdApp(vm: DashboardViewModel = viewModel()) {
     var addOpen by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<ServiceConfig?>(null) }
     var detail by remember { mutableStateOf<ServiceConfig?>(null) }
@@ -485,7 +474,7 @@ private fun SanctumdApp(vm: DashboardViewModel = viewModel()) {
 }
 
 /** Real brand logo for a service type (colored PNG in drawable-nodpi). */
-private fun serviceLogoRes(type: ServiceType): Int = when (type) {
+internal fun serviceLogoRes(type: ServiceType): Int = when (type) {
     ServiceType.JELLYFIN -> R.drawable.svc_jellyfin
     ServiceType.RADARR -> R.drawable.svc_radarr
     ServiceType.SONARR -> R.drawable.svc_sonarr
@@ -498,7 +487,7 @@ private fun serviceLogoRes(type: ServiceType): Int = when (type) {
 }
 
 @Composable
-private fun ServiceLogo(type: ServiceType, size: androidx.compose.ui.unit.Dp = 24.dp, modifier: Modifier = Modifier) {
+internal fun ServiceLogo(type: ServiceType, size: androidx.compose.ui.unit.Dp = 24.dp, modifier: Modifier = Modifier) {
     androidx.compose.foundation.Image(
         painter = androidx.compose.ui.res.painterResource(serviceLogoRes(type)),
         contentDescription = "${type.label} logo",
@@ -506,86 +495,8 @@ private fun ServiceLogo(type: ServiceType, size: androidx.compose.ui.unit.Dp = 2
     )
 }
 
-/** Selectable tab icons; the stored key maps back to a Material icon. */
-private val tabIcons: List<Pair<String, ImageVector>> = listOf(
-    "home" to Icons.Filled.Home,
-    "movie" to Icons.Filled.Movie,
-    "tv" to Icons.Filled.Tv,
-    "livetv" to Icons.Filled.LiveTv,
-    "music" to Icons.Filled.MusicNote,
-    "download" to Icons.Filled.Download,
-    "book" to Icons.Filled.MenuBook,
-    "star" to Icons.Filled.Star,
-    "favorite" to Icons.Filled.Favorite,
-    "folder" to Icons.Filled.Folder,
-)
-
-private fun tabIcon(key: String): ImageVector =
-    tabIcons.firstOrNull { it.first == key }?.second ?: Icons.Filled.Home
-
-/** Accent choices shared by card and tab pickers; 0 = "use the default" (service/tab colour). */
-private val accentPalette = listOf(0L, 0xFF00FF41L, 0xFF35D07AL, 0xFF00A4DCL, 0xFFFFC230L, 0xFFE66000L, 0xFF818CF8L, 0xFFEC4899L, 0xFF8B5CF6L, 0xFFE5534BL)
-
 @Composable
-private fun AccentPickerRow(selected: Long, defaultColor: Color, onPick: (Long) -> Unit) {
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-        accentPalette.forEach { c ->
-            val col = if (c == 0L) defaultColor else Color(c)
-            val sel = selected == c
-            Box(
-                Modifier.padding(end = 10.dp).size(34.dp).clip(RoundedCornerShape(50))
-                    .background(col).border(if (sel) 3.dp else 0.dp, MatrixGreen, RoundedCornerShape(50))
-                    .clickable { onPick(c) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun InlineSearchBar(onSearch: (String) -> Unit) {
-    var term by remember { mutableStateOf("") }
-    OutlinedTextField(
-        value = term,
-        onValueChange = { term = it },
-        placeholder = { Text("search all services…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.4f)) },
-        singleLine = true,
-        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = MatrixGreen.copy(alpha = 0.6f)) },
-        textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = Mono, color = MatrixGreen),
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { if (term.isNotBlank()) onSearch(term.trim()) }),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MatrixGreen, unfocusedBorderColor = MatrixGreen.copy(alpha = 0.3f), cursorColor = MatrixGreen,
-        ),
-        modifier = Modifier.fillMaxWidth(),
-    )
-}
-
-@Composable
-private fun IconPickerGrid(selected: String, onPick: (String) -> Unit) {
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-        tabIcons.forEach { (key, icon) ->
-            val sel = key == selected
-            Box(
-                Modifier
-                    .padding(end = 8.dp)
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (sel) MatrixGreen else Surface)
-                    .border(1.dp, if (sel) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                    .clickable { onPick(key) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(icon, contentDescription = key, tint = if (sel) Black else MatrixGreen)
-            }
-        }
-    }
-}
-
-private data class OnboardPage(val icon: String, val title: String, val body: String)
-
-/** First-run welcome flow: a few swipeable pages, then "get started" opens Add-service. */
-@Composable
-private fun OnboardingScreen(onDismiss: (openAdd: Boolean) -> Unit) {
+internal fun OnboardingScreen(onDismiss: (openAdd: Boolean) -> Unit) {
     val pages = listOf(
         OnboardPage("👁", "WELCOME TO SANCTUMD", "One dark, matrix-green cockpit for your whole homelab — run Jellyfin and steer your *arr and download stack without app-hopping."),
         OnboardPage("🧩", "CONNECT YOUR STACK", "Point it at Jellyfin, Radarr / Sonarr / Lidarr, Prowlarr, NZBGet, Jellyseerr and ntfy — just a URL and API key each. Your keys stay encrypted on this phone and go nowhere else."),
@@ -639,7 +550,7 @@ private fun OnboardingScreen(onDismiss: (openAdd: Boolean) -> Unit) {
  *  snaps on release), kept in sync with the caller's [tab]. Nested horizontally-scrolling
  *  children (poster rows) still scroll via nested scroll. */
 @Composable
-private fun SwipeTabs(
+internal fun SwipeTabs(
     tab: Int,
     count: Int,
     onChange: (Int) -> Unit,
@@ -660,7 +571,7 @@ private fun SwipeTabs(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HomeShell(
+internal fun HomeShell(
     vm: DashboardViewModel,
     onAdd: () -> Unit,
     onOpen: (ServiceConfig) -> Unit,
@@ -890,7 +801,7 @@ private fun HomeShell(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ServicesDrawer(
+internal fun ServicesDrawer(
     vm: DashboardViewModel,
     onOpen: (ServiceConfig) -> Unit,
     onEdit: (ServiceConfig) -> Unit,
@@ -925,7 +836,7 @@ private fun ServicesDrawer(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ServicesContent(
+internal fun ServicesContent(
     vm: DashboardViewModel,
     onOpen: (ServiceConfig) -> Unit,
     onEdit: (ServiceConfig) -> Unit,
@@ -964,7 +875,7 @@ private fun ServicesContent(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun WidgetTabContent(
+internal fun WidgetTabContent(
     vm: DashboardViewModel,
     tab: org.phioster.sanctumd.model.DashTab,
     editMode: Boolean,
@@ -1050,7 +961,7 @@ private fun WidgetTabContent(
 }
 
 @Composable
-private fun DashCardView(
+internal fun DashCardView(
     vm: DashboardViewModel,
     card: org.phioster.sanctumd.model.DashCard,
     config: ServiceConfig?,
@@ -1563,7 +1474,7 @@ private fun DashCardView(
 }
 
 @Composable
-private fun DashSessionRow(item: org.phioster.sanctumd.model.JellySession, accent: Color, density: String = "") {
+internal fun DashSessionRow(item: org.phioster.sanctumd.model.JellySession, accent: Color, density: String = "") {
     val playing = item.nowPlaying.isNotEmpty()
     val vpad = when (density) { "compact" -> 2.dp; "detail" -> 9.dp; else -> 6.dp }
     Column(Modifier.fillMaxWidth().padding(vertical = vpad)) {
@@ -1579,7 +1490,7 @@ private fun DashSessionRow(item: org.phioster.sanctumd.model.JellySession, accen
 /** Dashboard card: a month calendar grid of upcoming releases merged across all *arr,
  *  month-switchable, services marked by their accent colour; tap a day for its list. */
 @Composable
-private fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenService: (ServiceConfig) -> Unit) {
+internal fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenService: (ServiceConfig) -> Unit) {
     var month by remember { mutableStateOf(java.time.YearMonth.now()) }
     // Init from the cache so a tab switch shows the month instantly (no reload flash).
     @Suppress("UNCHECKED_CAST")
@@ -1714,7 +1625,7 @@ private fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenSer
 
 /** Loads full arr detail for a tapped calendar entry and shows poster + facts + overview. */
 @Composable
-private fun CalendarItemInfoDialog(
+internal fun CalendarItemInfoDialog(
     vm: DashboardViewModel,
     cfg: ServiceConfig,
     ci: org.phioster.sanctumd.model.ArrCalendarItem,
@@ -1779,7 +1690,7 @@ private fun CalendarItemInfoDialog(
 }
 
 @Composable
-private fun DashLineRow(title: String, subtitle: String, accent: Color, density: String = "", titleColor: Color = MatrixGreen, onClick: (() -> Unit)? = null) {
+internal fun DashLineRow(title: String, subtitle: String, accent: Color, density: String = "", titleColor: Color = MatrixGreen, onClick: (() -> Unit)? = null) {
     val vpad = when (density) { "compact" -> 2.dp; "detail" -> 9.dp; else -> 5.dp }
     val showSub = density != "compact" && subtitle.isNotBlank()
     Column(Modifier.fillMaxWidth().let { if (onClick != null) it.clickable { onClick() } else it }.padding(vertical = vpad)) {
@@ -1789,11 +1700,11 @@ private fun DashLineRow(title: String, subtitle: String, accent: Color, density:
 }
 
 @Composable
-private fun DashQueueRow(item: org.phioster.sanctumd.model.ArrQueueItem, accent: Color, density: String = "") =
+internal fun DashQueueRow(item: org.phioster.sanctumd.model.ArrQueueItem, accent: Color, density: String = "") =
     DashNzbRow(item.title, item.status, item.progress, accent, density)
 
 @Composable
-private fun DashNzbRow(title: String, status: String, progress: Float, accent: Color, density: String = "") {
+internal fun DashNzbRow(title: String, status: String, progress: Float, accent: Color, density: String = "") {
     val vpad = when (density) { "compact" -> 2.dp; "detail" -> 9.dp; else -> 6.dp }
     Column(Modifier.fillMaxWidth().padding(vertical = vpad)) {
         Text(title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = if (density == "detail") 2 else 1, overflow = TextOverflow.Ellipsis)
@@ -1804,7 +1715,7 @@ private fun DashNzbRow(title: String, status: String, progress: Float, accent: C
 }
 
 @Composable
-private fun DashDiscoverPoster(item: org.phioster.sanctumd.model.SeerrDiscoverItem, width: androidx.compose.ui.unit.Dp = 96.dp, caption: Boolean = true, onClick: () -> Unit) {
+internal fun DashDiscoverPoster(item: org.phioster.sanctumd.model.SeerrDiscoverItem, width: androidx.compose.ui.unit.Dp = 96.dp, caption: Boolean = true, onClick: () -> Unit) {
     val h = width * 1.5f
     Column(Modifier.width(width).padding(end = 10.dp).clickable { onClick() }) {
         if (item.posterUrl.isNotBlank()) {
@@ -1825,20 +1736,20 @@ private fun DashDiscoverPoster(item: org.phioster.sanctumd.model.SeerrDiscoverIt
 }
 
 /** Unified detail shown when a dashboard poster is tapped (from Jellyfin or Seerr). */
-private class MediaDetail(
+internal class MediaDetail(
     val title: String, val subtitle: String, val posterUrl: String,
     val genres: String, val facts: List<Pair<String, String>>, val overview: String,
     val cast: List<org.phioster.sanctumd.model.ArrCastMember>,
 )
 
-private fun org.phioster.sanctumd.model.JellyMediaDetail.toMediaDetail() =
+internal fun org.phioster.sanctumd.model.JellyMediaDetail.toMediaDetail() =
     MediaDetail(name, "", posterUrl, genres, facts, overview, cast)
 
-private fun org.phioster.sanctumd.model.SeerrMediaDetail.toMediaDetail() =
+internal fun org.phioster.sanctumd.model.SeerrMediaDetail.toMediaDetail() =
     MediaDetail(title, listOfNotNull(year.ifBlank { null }, if (mediaType == "tv") "series" else "movie").joinToString(" · "), posterUrl, genres, facts, overview, cast)
 
 @Composable
-private fun MediaDetailDialog(d: MediaDetail, config: ServiceConfig, onDismiss: () -> Unit) {
+internal fun MediaDetailDialog(d: MediaDetail, config: ServiceConfig, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Surface,
@@ -1882,9 +1793,9 @@ private fun MediaDetailDialog(d: MediaDetail, config: ServiceConfig, onDismiss: 
 }
 
 /** A one-tap action a Quick Buttons card can run against a service. */
-private class QuickAction(val label: String, val run: suspend (DashboardViewModel, ServiceConfig) -> String)
+internal class QuickAction(val label: String, val run: suspend (DashboardViewModel, ServiceConfig) -> String)
 
-private fun quickActionsFor(svc: ServiceConfig): List<QuickAction> = when (svc.type) {
+internal fun quickActionsFor(svc: ServiceConfig): List<QuickAction> = when (svc.type) {
     ServiceType.JELLYFIN -> listOf(
         QuickAction("Scan libraries") { vm, s -> vm.jellyfinScan(s) },
         QuickAction("Restart server") { vm, s -> vm.jellyfinRestartServer(s) },
@@ -1902,7 +1813,7 @@ private fun quickActionsFor(svc: ServiceConfig): List<QuickAction> = when (svc.t
 }
 
 @Composable
-private fun BoxScope.KenBurnsBackground(url: String, config: ServiceConfig) {
+internal fun BoxScope.KenBurnsBackground(url: String, config: ServiceConfig) {
     val t = rememberInfiniteTransition(label = "kb")
     val scale by t.animateFloat(1.08f, 1.28f, infiniteRepeatable(tween(19000, easing = LinearEasing), RepeatMode.Reverse), label = "s")
     val dx by t.animateFloat(-18f, 18f, infiniteRepeatable(tween(23000, easing = LinearEasing), RepeatMode.Reverse), label = "x")
@@ -1917,7 +1828,7 @@ private fun BoxScope.KenBurnsBackground(url: String, config: ServiceConfig) {
 }
 
 @Composable
-private fun AddCardDialog(
+internal fun AddCardDialog(
     services: List<ServiceConfig>,
     onDismiss: () -> Unit,
     onAdd: (org.phioster.sanctumd.model.CardType, String) -> Unit,
@@ -1999,26 +1910,7 @@ private fun AddCardDialog(
 }
 
 @Composable
-private fun NotifyToggleRow(label: String, sub: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clickable(enabled = enabled) { onChange(!checked) }.padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(label, fontFamily = Mono, color = if (enabled) MatrixGreen else MatrixGreen.copy(alpha = 0.4f), fontSize = 14.sp)
-            if (sub.isNotBlank()) Text(sub, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp)
-        }
-        Switch(
-            checked = checked, onCheckedChange = onChange, enabled = enabled,
-            colors = SwitchDefaults.colors(checkedThumbColor = Black, checkedTrackColor = MatrixGreen, uncheckedThumbColor = MatrixGreen.copy(alpha = 0.6f), uncheckedTrackColor = Surface, uncheckedBorderColor = MatrixGreen.copy(alpha = 0.4f)),
-        )
-    }
-}
-
-/** Dedicated settings hub: categories on the first level, one section per screen. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowIntro: () -> Unit = {}) {
+internal fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowIntro: () -> Unit = {}) {
     var section by remember { mutableStateOf<String?>(null) }
     BackHandler(enabled = section != null) { section = null }
 
@@ -2062,7 +1954,7 @@ private fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowInt
 }
 
 @Composable
-private fun SettingsCategoryRow(title: String, sub: String, onClick: () -> Unit) {
+internal fun SettingsCategoryRow(title: String, sub: String, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp)
@@ -2075,7 +1967,7 @@ private fun SettingsCategoryRow(title: String, sub: String, onClick: () -> Unit)
 
 /** Asks for POST_NOTIFICATIONS on API 33+ when a notification feature is switched on. */
 @Composable
-private fun rememberNotifPermissionRequester(): () -> Unit {
+internal fun rememberNotifPermissionRequester(): () -> Unit {
     val context = LocalContext.current
     val permLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
@@ -2090,7 +1982,7 @@ private fun rememberNotifPermissionRequester(): () -> Unit {
 }
 
 @Composable
-private fun NotifyPollingSection(vm: DashboardViewModel) {
+internal fun NotifyPollingSection(vm: DashboardViewModel) {
     val s by vm.notifySettings.collectAsState()
     val requestPermIfNeeded = rememberNotifPermissionRequester()
     NotifyToggleRow("Enable notifications", "Background check every ${s.intervalMin} min", s.enabled) { on ->
@@ -2125,7 +2017,7 @@ private fun NotifyPollingSection(vm: DashboardViewModel) {
 }
 
 @Composable
-private fun LivePushSection(vm: DashboardViewModel) {
+internal fun LivePushSection(vm: DashboardViewModel) {
     val s by vm.notifySettings.collectAsState()
     val requestPermIfNeeded = rememberNotifPermissionRequester()
     Text(
@@ -2149,7 +2041,7 @@ private fun LivePushSection(vm: DashboardViewModel) {
 }
 
 @Composable
-private fun ContentSection(vm: DashboardViewModel) {
+internal fun ContentSection(vm: DashboardViewModel) {
     val hide by vm.hideAdult.collectAsState()
     NotifyToggleRow("Hide adult content (XXX)", "Hides pornographic titles from Jellyfin browsing and Seerr discovery", hide) { vm.setHideAdult(it) }
     Text(
@@ -2159,7 +2051,7 @@ private fun ContentSection(vm: DashboardViewModel) {
 }
 
 @Composable
-private fun GesturesSection(vm: DashboardViewModel) {
+internal fun GesturesSection(vm: DashboardViewModel) {
     val swipeTabs by vm.swipeTabs.collectAsState()
     val swipeDrawer by vm.swipeDrawer.collectAsState()
     val band by vm.drawerBand.collectAsState()
@@ -2189,7 +2081,7 @@ private fun GesturesSection(vm: DashboardViewModel) {
 }
 
 @Composable
-private fun SecuritySection(vm: DashboardViewModel) {
+internal fun SecuritySection(vm: DashboardViewModel) {
     val context = LocalContext.current
     val appLock by vm.appLock.collectAsState()
     NotifyToggleRow("App lock", "Require fingerprint/face or device PIN on open", appLock) { on ->
@@ -2213,7 +2105,7 @@ private fun SecuritySection(vm: DashboardViewModel) {
 }
 
 @Composable
-private fun AboutSection() {
+internal fun AboutSection() {
     val context = LocalContext.current
     val version = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
@@ -2228,7 +2120,7 @@ private fun AboutSection() {
 }
 
 @Composable
-private fun BackupSection(vm: DashboardViewModel) {
+internal fun BackupSection(vm: DashboardViewModel) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -2337,7 +2229,7 @@ private fun BackupSection(vm: DashboardViewModel) {
 }
 
 /** Writes the encrypted bytes to a cache file and opens a share sheet via FileProvider. */
-private fun shareConfig(context: android.content.Context, bytes: ByteArray) {
+internal fun shareConfig(context: android.content.Context, bytes: ByteArray) {
     runCatching {
         val dir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
         val file = java.io.File(dir, "sanctumd-config.sanctum")
@@ -2356,7 +2248,7 @@ private fun shareConfig(context: android.content.Context, bytes: ByteArray) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun GlobalSearchScreen(
+internal fun GlobalSearchScreen(
     vm: DashboardViewModel,
     onBack: () -> Unit,
     onOpenService: (ServiceConfig, SearchDeepLink?) -> Unit,
@@ -2563,7 +2455,7 @@ private fun GlobalSearchScreen(
 
 /** Coil model for a search-hit poster; Jellyfin posters need auth headers. */
 @Composable
-private fun searchPosterModel(hit: org.phioster.sanctumd.model.SearchResult, config: ServiceConfig?): Any {
+internal fun searchPosterModel(hit: org.phioster.sanctumd.model.SearchResult, config: ServiceConfig?): Any {
     if (hit.serviceType != ServiceType.JELLYFIN || config == null) return hit.posterUrl
     val ctx = LocalContext.current
     return ImageRequest.Builder(ctx).data(hit.posterUrl).apply {
@@ -2573,7 +2465,7 @@ private fun searchPosterModel(hit: org.phioster.sanctumd.model.SearchResult, con
 }
 
 @Composable
-private fun SearchResultRow(hit: org.phioster.sanctumd.model.SearchResult, config: ServiceConfig?, onClick: () -> Unit) {
+internal fun SearchResultRow(hit: org.phioster.sanctumd.model.SearchResult, config: ServiceConfig?, onClick: () -> Unit) {
     val accent = Color(hit.serviceType.accent)
     Row(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         if (hit.posterUrl.isNotBlank()) {
@@ -2598,7 +2490,7 @@ private fun SearchResultRow(hit: org.phioster.sanctumd.model.SearchResult, confi
 }
 
 @Composable
-private fun ServiceCard(
+internal fun ServiceCard(
     config: ServiceConfig,
     status: ServiceStatus?,
     isFirst: Boolean,
@@ -2665,7 +2557,7 @@ private fun ServiceCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SeerrScreen(
+internal fun SeerrScreen(
     vm: DashboardViewModel,
     config: ServiceConfig,
     onBack: () -> Unit,
@@ -3254,7 +3146,7 @@ private fun SeerrScreen(
 }
 
 @Composable
-private fun SeerrRequestRow(item: SeerrRequestItem, accent: Color, onApprove: () -> Unit, onDecline: () -> Unit) {
+internal fun SeerrRequestRow(item: SeerrRequestItem, accent: Color, onApprove: () -> Unit, onDecline: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     val statusColor = when (item.status) {
         "approved" -> MatrixGreen
@@ -3286,7 +3178,7 @@ private fun SeerrRequestRow(item: SeerrRequestItem, accent: Color, onApprove: ()
 }
 
 @Composable
-private fun SeerrIssueRow(item: SeerrIssueItem, accent: Color, onClick: () -> Unit) {
+internal fun SeerrIssueRow(item: SeerrIssueItem, accent: Color, onClick: () -> Unit) {
     val statusColor = if (item.status == "open") Color(0xFFFFAA00) else MatrixGreen
     Column(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 10.dp)) {
         Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -3301,7 +3193,7 @@ private fun SeerrIssueRow(item: SeerrIssueItem, accent: Color, onClick: () -> Un
 }
 
 @Composable
-private fun SeerrDiscoverRow(item: org.phioster.sanctumd.model.SeerrDiscoverItem, accent: Color, onRequest: () -> Unit) {
+internal fun SeerrDiscoverRow(item: org.phioster.sanctumd.model.SeerrDiscoverItem, accent: Color, onRequest: () -> Unit) {
     val statusColor = when (item.status) {
         "available" -> MatrixGreen
         "processing", "pending", "partial" -> Color(0xFFFFAA00)
@@ -3336,7 +3228,7 @@ private fun SeerrDiscoverRow(item: org.phioster.sanctumd.model.SeerrDiscoverItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun JellyfinScreen(
+internal fun JellyfinScreen(
     vm: DashboardViewModel,
     config: ServiceConfig,
     onBack: () -> Unit,
@@ -4207,7 +4099,7 @@ private fun JellyfinScreen(
 }
 
 @Composable
-private fun JellyPoster(url: String, config: ServiceConfig, modifier: Modifier, shape: androidx.compose.ui.graphics.Shape, scale: ContentScale) {
+internal fun JellyPoster(url: String, config: ServiceConfig, modifier: Modifier, shape: androidx.compose.ui.graphics.Shape, scale: ContentScale) {
     val ctx = LocalContext.current
     val model = ImageRequest.Builder(ctx).data(url).apply {
         config.customHeaders.forEach { (k, v) -> addHeader(k, v) }
@@ -4222,7 +4114,7 @@ private fun JellyPoster(url: String, config: ServiceConfig, modifier: Modifier, 
 }
 
 @Composable
-private fun JellyPosterCard(item: org.phioster.sanctumd.model.JellyMediaItem, config: ServiceConfig, accent: Color, width: androidx.compose.ui.unit.Dp = 120.dp, caption: Boolean = true, onClick: () -> Unit) {
+internal fun JellyPosterCard(item: org.phioster.sanctumd.model.JellyMediaItem, config: ServiceConfig, accent: Color, width: androidx.compose.ui.unit.Dp = 120.dp, caption: Boolean = true, onClick: () -> Unit) {
     val h = width * 1.5f
     Column(Modifier.width(width).padding(end = 10.dp).clickable { onClick() }) {
         Box {
@@ -4250,7 +4142,7 @@ private fun JellyPosterCard(item: org.phioster.sanctumd.model.JellyMediaItem, co
 }
 
 @Composable
-private fun JellyMediaRow(item: org.phioster.sanctumd.model.JellyMediaItem, config: ServiceConfig, accent: Color, onClick: () -> Unit) {
+internal fun JellyMediaRow(item: org.phioster.sanctumd.model.JellyMediaItem, config: ServiceConfig, accent: Color, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         if (item.posterUrl.isNotBlank()) {
             JellyPoster(item.posterUrl, config, Modifier.width(46.dp).height(68.dp), RoundedCornerShape(4.dp), ContentScale.Crop)
@@ -4269,7 +4161,7 @@ private fun JellyMediaRow(item: org.phioster.sanctumd.model.JellyMediaItem, conf
 }
 
 @Composable
-private fun JellyUserDialog(
+internal fun JellyUserDialog(
     user: org.phioster.sanctumd.model.JellyUser,
     libraries: List<org.phioster.sanctumd.model.JellyLibrary>?,
     onDismiss: () -> Unit,
@@ -4347,47 +4239,7 @@ private fun JellyUserDialog(
 }
 
 @Composable
-private fun JellyToggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onChange)
-    }
-}
-
-/** A category shown as a tile on the Jellyfin dashboard overview. */
-private data class DashCat(val key: String, val label: String, val count: Int?, val icon: androidx.compose.ui.graphics.vector.ImageVector)
-
-/** A clickable dashboard category tile: icon + label + item count. */
-@Composable
-private fun DashTile(label: String, count: Int?, icon: androidx.compose.ui.graphics.vector.ImageVector, accent: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Column(
-        modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(MatrixGreen.copy(alpha = 0.06f))
-            .border(1.dp, MatrixGreen.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(14.dp),
-    ) {
-        Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.height(8.dp))
-        Text(label, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-        Text(count?.toString() ?: "…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-    }
-}
-
-/** Total watch time as a short "12h 34m" string. */
-private fun fmtWatch(s: Long): String {
-    val h = s / 3600; val m = (s % 3600) / 60
-    return when {
-        h >= 1 -> "${h}h ${m}m"
-        m >= 1 -> "${m}m"
-        else -> "${s}s"
-    }
-}
-
-/** Top-3 watch-time leaderboard as a little podium (2nd · 1st · 3rd, center tallest). */
-@Composable
-private fun JellyPodium(stats: List<org.phioster.sanctumd.model.JellyWatchStat>, accent: Color, solid: Boolean) {
+internal fun JellyPodium(stats: List<org.phioster.sanctumd.model.JellyWatchStat>, accent: Color, solid: Boolean) {
     val top = stats.take(3)
     data class Slot(val rank: Int, val stat: org.phioster.sanctumd.model.JellyWatchStat?)
     val slots = when (top.size) {
@@ -4434,7 +4286,7 @@ private fun JellyPodium(stats: List<org.phioster.sanctumd.model.JellyWatchStat>,
 }
 
 @Composable
-private fun JellyTaskRow(item: org.phioster.sanctumd.model.JellyTask, accent: Color, onRun: () -> Unit) {
+internal fun JellyTaskRow(item: org.phioster.sanctumd.model.JellyTask, accent: Color, onRun: () -> Unit) {
     val running = item.state.equals("Running", true)
     Column(Modifier.fillMaxWidth().clickable(enabled = !running) { onRun() }.padding(vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -4464,7 +4316,7 @@ private fun JellyTaskRow(item: org.phioster.sanctumd.model.JellyTask, accent: Co
 }
 
 @Composable
-private fun JellyActivityRow(item: org.phioster.sanctumd.model.JellyActivity, accent: Color) {
+internal fun JellyActivityRow(item: org.phioster.sanctumd.model.JellyActivity, accent: Color) {
     val sevColor = when (item.severity.lowercase()) {
         "error", "fatal" -> ErrRed
         "warn", "warning" -> Color(0xFFFFAA00)
@@ -4480,7 +4332,7 @@ private fun JellyActivityRow(item: org.phioster.sanctumd.model.JellyActivity, ac
 }
 
 @Composable
-private fun JellyDeviceRow(item: org.phioster.sanctumd.model.JellyDevice, accent: Color) {
+internal fun JellyDeviceRow(item: org.phioster.sanctumd.model.JellyDevice, accent: Color) {
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
@@ -4500,7 +4352,7 @@ private fun JellyDeviceRow(item: org.phioster.sanctumd.model.JellyDevice, accent
 }
 
 @Composable
-private fun JellyLibraryRow(item: org.phioster.sanctumd.model.JellyLibrary, accent: Color, onClick: () -> Unit) {
+internal fun JellyLibraryRow(item: org.phioster.sanctumd.model.JellyLibrary, accent: Color, onClick: () -> Unit) {
     Column(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
@@ -4517,7 +4369,7 @@ private fun JellyLibraryRow(item: org.phioster.sanctumd.model.JellyLibrary, acce
 }
 
 @Composable
-private fun JellyPluginRow(item: org.phioster.sanctumd.model.JellyPlugin, accent: Color, onClick: () -> Unit) {
+internal fun JellyPluginRow(item: org.phioster.sanctumd.model.JellyPlugin, accent: Color, onClick: () -> Unit) {
     val statusColor = when (item.status.lowercase()) {
         "active" -> MatrixGreen
         "disabled" -> MatrixGreen.copy(alpha = 0.4f)
@@ -4537,7 +4389,7 @@ private fun JellyPluginRow(item: org.phioster.sanctumd.model.JellyPlugin, accent
 }
 
 @Composable
-private fun JellyLogRow(item: org.phioster.sanctumd.model.JellyLogFile, accent: Color, onClick: () -> Unit) {
+internal fun JellyLogRow(item: org.phioster.sanctumd.model.JellyLogFile, accent: Color, onClick: () -> Unit) {
     Column(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
@@ -4551,7 +4403,7 @@ private fun JellyLogRow(item: org.phioster.sanctumd.model.JellyLogFile, accent: 
 }
 
 @Composable
-private fun JellyChannelRow(item: org.phioster.sanctumd.model.JellyChannel, accent: Color) {
+internal fun JellyChannelRow(item: org.phioster.sanctumd.model.JellyChannel, accent: Color) {
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(
@@ -4572,7 +4424,7 @@ private fun JellyChannelRow(item: org.phioster.sanctumd.model.JellyChannel, acce
 }
 
 @Composable
-private fun JellyAddLibraryDialog(
+internal fun JellyAddLibraryDialog(
     accent: Color,
     onDismiss: () -> Unit,
     onCreate: (name: String, type: String, path: String) -> Unit,
@@ -4612,7 +4464,7 @@ private fun JellyAddLibraryDialog(
 }
 
 @Composable
-private fun JellyLibraryDialog(
+internal fun JellyLibraryDialog(
     library: org.phioster.sanctumd.model.JellyLibrary,
     accent: Color,
     onDismiss: () -> Unit,
@@ -4670,7 +4522,7 @@ private fun JellyLibraryDialog(
 }
 
 @Composable
-private fun JellyPluginDialog(
+internal fun JellyPluginDialog(
     plugin: org.phioster.sanctumd.model.JellyPlugin,
     accent: Color,
     onDismiss: () -> Unit,
@@ -4710,7 +4562,7 @@ private fun JellyPluginDialog(
 }
 
 @Composable
-private fun JellyCatalogDialog(
+internal fun JellyCatalogDialog(
     catalog: List<org.phioster.sanctumd.model.JellyPackage>?,
     accent: Color,
     onDismiss: () -> Unit,
@@ -4770,7 +4622,7 @@ private fun JellyCatalogDialog(
 }
 
 @Composable
-private fun JellySessionRow(
+internal fun JellySessionRow(
     item: org.phioster.sanctumd.model.JellySession,
     accent: Color,
     onPlayPause: () -> Unit,
@@ -4818,7 +4670,7 @@ private fun JellySessionRow(
 }
 
 @Composable
-private fun JellyUserRow(item: org.phioster.sanctumd.model.JellyUser, accent: Color, onClick: () -> Unit) {
+internal fun JellyUserRow(item: org.phioster.sanctumd.model.JellyUser, accent: Color, onClick: () -> Unit) {
     Column(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(item.name, fontFamily = Mono, color = if (item.disabled) MatrixGreen.copy(alpha = 0.4f) else MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
@@ -4836,7 +4688,7 @@ private fun JellyUserRow(item: org.phioster.sanctumd.model.JellyUser, accent: Co
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProwlarrScreen(
+internal fun ProwlarrScreen(
     vm: DashboardViewModel,
     config: ServiceConfig,
     onBack: () -> Unit,
@@ -5141,7 +4993,7 @@ private fun ProwlarrScreen(
 }
 
 @Composable
-private fun ProwlarrHistoryRow(item: org.phioster.sanctumd.model.ProwlarrHistoryItem, accent: Color) {
+internal fun ProwlarrHistoryRow(item: org.phioster.sanctumd.model.ProwlarrHistoryItem, accent: Color) {
     val evColor = when (item.eventType) {
         "releaseGrabbed" -> MatrixGreen
         "indexerQuery" -> accent.copy(alpha = 0.8f)
@@ -5160,7 +5012,7 @@ private fun ProwlarrHistoryRow(item: org.phioster.sanctumd.model.ProwlarrHistory
 }
 
 @Composable
-private fun ProwlarrIndexerRow(item: ProwlarrIndexerItem, accent: Color, onTest: () -> Unit, onToggle: () -> Unit, onDelete: () -> Unit) {
+internal fun ProwlarrIndexerRow(item: ProwlarrIndexerItem, accent: Color, onTest: () -> Unit, onToggle: () -> Unit, onDelete: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     val stateColor = when {
         item.failing -> ErrRed
@@ -5202,7 +5054,7 @@ private fun ProwlarrIndexerRow(item: ProwlarrIndexerItem, accent: Color, onTest:
 }
 
 @Composable
-private fun ProwlarrReleaseRow(
+internal fun ProwlarrReleaseRow(
     item: ProwlarrRelease,
     accent: Color,
     arrTargets: List<ServiceConfig>,
@@ -5244,7 +5096,7 @@ private fun ProwlarrReleaseRow(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ArrScreen(
+internal fun ArrScreen(
     vm: DashboardViewModel,
     config: ServiceConfig,
     onBack: () -> Unit,
@@ -5740,22 +5592,7 @@ private fun ArrScreen(
 }
 
 @Composable
-private fun DropdownField(label: String, value: String, options: List<String>, onSelect: (Int) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth()) {
-            Text("$label: $value", fontFamily = Mono, color = MatrixGreen)
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            options.forEachIndexed { i, o ->
-                DropdownMenuItem(text = { Text(o, fontFamily = Mono) }, onClick = { open = false; onSelect(i) })
-            }
-        }
-    }
-}
-
-@Composable
-private fun ArrLibraryRow(item: ArrLibraryItem, accent: Color, onOpen: (() -> Unit)?, onSearch: () -> Unit) {
+internal fun ArrLibraryRow(item: ArrLibraryItem, accent: Color, onOpen: (() -> Unit)?, onSearch: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Box {
         Column(Modifier.fillMaxWidth().clickable { if (onOpen != null) onOpen() else menu = true }.padding(vertical = 10.dp)) {
@@ -5775,7 +5612,7 @@ private fun ArrLibraryRow(item: ArrLibraryItem, accent: Color, onOpen: (() -> Un
 }
 
 @Composable
-private fun ArrMissingRow(item: ArrMissingItem, accent: Color, onSearch: () -> Unit) {
+internal fun ArrMissingRow(item: ArrMissingItem, accent: Color, onSearch: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Box {
         Column(Modifier.fillMaxWidth().clickable { menu = true }.padding(vertical = 10.dp)) {
@@ -5794,7 +5631,7 @@ private fun ArrMissingRow(item: ArrMissingItem, accent: Color, onSearch: () -> U
 }
 
 @Composable
-private fun ArrQueueRow(item: ArrQueueItem, onRemove: () -> Unit) {
+internal fun ArrQueueRow(item: ArrQueueItem, onRemove: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Box {
         Column(Modifier.fillMaxWidth().clickable { menu = true }.padding(vertical = 8.dp)) {
@@ -5813,7 +5650,7 @@ private fun ArrQueueRow(item: ArrQueueItem, onRemove: () -> Unit) {
 }
 
 @Composable
-private fun ArrHistoryRow(item: ArrHistoryItem, accent: Color) {
+internal fun ArrHistoryRow(item: ArrHistoryItem, accent: Color) {
     val evColor = when (item.eventType) {
         "grabbed" -> MatrixGreen
         "downloadFolderImported" -> accent.copy(alpha = 0.9f)
@@ -5834,7 +5671,7 @@ private fun ArrHistoryRow(item: ArrHistoryItem, accent: Color) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, itemId: Int, onBack: () -> Unit) {
+internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, itemId: Int, onBack: () -> Unit) {
     val accent = Color(config.type.accent)
     val scope = rememberCoroutineScope()
     val isSonarr = config.type == ServiceType.SONARR
@@ -6134,7 +5971,7 @@ private fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, itemI
 }
 
 @Composable
-private fun ArrEpisodeRow(item: ArrEpisode, accent: Color, onToggleMonitor: () -> Unit, onSearch: () -> Unit) {
+internal fun ArrEpisodeRow(item: ArrEpisode, accent: Color, onToggleMonitor: () -> Unit, onSearch: () -> Unit) {
     val c = if (item.hasFile) MatrixGreen else if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.4f)
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -6157,7 +5994,7 @@ private fun ArrEpisodeRow(item: ArrEpisode, accent: Color, onToggleMonitor: () -
 }
 
 @Composable
-private fun ArrAlbumRow(item: org.phioster.sanctumd.model.ArrAlbum, accent: Color, onSearch: () -> Unit) {
+internal fun ArrAlbumRow(item: org.phioster.sanctumd.model.ArrAlbum, accent: Color, onSearch: () -> Unit) {
     val complete = item.trackCount > 0 && item.trackFileCount >= item.trackCount
     val c = if (complete) MatrixGreen else if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.4f)
     Column(Modifier.fillMaxWidth().clickable { onSearch() }.padding(vertical = 8.dp)) {
@@ -6171,7 +6008,7 @@ private fun ArrAlbumRow(item: org.phioster.sanctumd.model.ArrAlbum, accent: Colo
 }
 
 @Composable
-private fun ArrReleaseRow(item: ArrRelease, accent: Color, onGrab: () -> Unit) {
+internal fun ArrReleaseRow(item: ArrRelease, accent: Color, onGrab: () -> Unit) {
     val meta = buildString {
         append(item.indexer)
         append(" · ")
@@ -6214,7 +6051,7 @@ private fun ArrReleaseRow(item: ArrRelease, accent: Color, onGrab: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NzbgetScreen(
+internal fun NzbgetScreen(
     vm: DashboardViewModel,
     config: ServiceConfig,
     onBack: () -> Unit,
@@ -6441,7 +6278,7 @@ private fun NzbgetScreen(
 }
 
 @Composable
-private fun QueueRow(item: NzbQueueItem, onAction: (String, String) -> Unit, onCategory: () -> Unit) {
+internal fun QueueRow(item: NzbQueueItem, onAction: (String, String) -> Unit, onCategory: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Box {
         Column(Modifier.fillMaxWidth().clickable { menu = true }.padding(vertical = 8.dp)) {
@@ -6476,7 +6313,7 @@ private fun QueueRow(item: NzbQueueItem, onAction: (String, String) -> Unit, onC
 }
 
 @Composable
-private fun HistoryRow(item: NzbHistoryEntry, onAction: (String) -> Unit) {
+internal fun HistoryRow(item: NzbHistoryEntry, onAction: (String) -> Unit) {
     var menu by remember { mutableStateOf(false) }
     val statusColor = when {
         item.status.contains("SUCCESS", true) -> MatrixGreen
@@ -6506,7 +6343,7 @@ private fun HistoryRow(item: NzbHistoryEntry, onAction: (String) -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ServiceDetailScreen(
+internal fun ServiceDetailScreen(
     vm: DashboardViewModel,
     config: ServiceConfig,
     onBack: () -> Unit,
@@ -6622,7 +6459,7 @@ private fun ServiceDetailScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddServiceScreen(
+internal fun AddServiceScreen(
     existing: ServiceConfig? = null,
     onCancel: () -> Unit,
     onSave: (ServiceConfig) -> Unit,
@@ -6802,7 +6639,7 @@ private fun AddServiceScreen(
 /** ntfy service screen: per-topic message history (read-only; live pushes come via the stream service). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NtfyScreen(
+internal fun NtfyScreen(
     vm: DashboardViewModel,
     config: ServiceConfig,
     onBack: () -> Unit,
@@ -6901,7 +6738,7 @@ private fun NtfyScreen(
 /** HTTP-shortcuts service screen: fire one-tap requests (tap again to confirm). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ShortcutsScreen(
+internal fun ShortcutsScreen(
     vm: DashboardViewModel,
     config: ServiceConfig,
     onBack: () -> Unit,
@@ -6985,46 +6822,4 @@ private fun ShortcutsScreen(
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
-}
-
-/** Known Android app packages that can display a Jellyfin server. */
-private val jellyfinAppPackages = listOf("org.jellyfin.mobile", "dev.jdtech.jellyfin")
-
-/** Known Android app packages for Overseerr/Jellyseerr. */
-private val seerrAppPackages = listOf("dev.seerr.mobileapp")
-
-/**
- * Open [webUrl] in the first installed app from [packages]; otherwise hand the URL to the
- * system, which routes it to an installed PWA (e.g. Seerr added to the home screen) or the
- * browser.
- */
-private fun openExternal(context: android.content.Context, packages: List<String>, webUrl: String) {
-    for (pkg in packages) {
-        val launch = context.packageManager.getLaunchIntentForPackage(pkg)
-        if (launch != null) { runCatching { context.startActivity(launch) }; return }
-    }
-    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))) }
-}
-
-@Composable
-private fun Field(
-    label: String,
-    value: String,
-    isPassword: Boolean = false,
-    onChange: (String) -> Unit,
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { Text(label, fontFamily = Mono) },
-        singleLine = true,
-        visualTransformation = if (isPassword) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-        textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = Mono),
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-    )
-}
-
-@Composable
-private fun ActionBtn(label: String, enabled: Boolean, onClick: () -> Unit) {
-    Button(onClick = onClick, enabled = enabled) { Text(label, fontFamily = Mono) }
 }
