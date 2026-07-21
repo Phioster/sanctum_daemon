@@ -1,0 +1,411 @@
+package org.phioster.sanctumd.ui.settings
+
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Row
+import kotlin.math.roundToInt
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import org.phioster.sanctumd.ui.DashboardViewModel
+import org.phioster.sanctumd.ui.theme.Black
+import org.phioster.sanctumd.ui.theme.MatrixGreen
+import org.phioster.sanctumd.ui.theme.Mono
+import org.phioster.sanctumd.ui.theme.Surface
+import org.phioster.sanctumd.ui.common.*
+import org.phioster.sanctumd.ui.arr.*
+import org.phioster.sanctumd.ui.dashboard.*
+import org.phioster.sanctumd.ui.home.*
+import org.phioster.sanctumd.ui.jellyfin.*
+import org.phioster.sanctumd.ui.ntfy.*
+import org.phioster.sanctumd.ui.nzbget.*
+import org.phioster.sanctumd.ui.onboarding.*
+import org.phioster.sanctumd.ui.prowlarr.*
+import org.phioster.sanctumd.ui.search.*
+import org.phioster.sanctumd.ui.seerr.*
+import org.phioster.sanctumd.ui.services.*
+import org.phioster.sanctumd.ui.shortcuts.*
+import org.phioster.sanctumd.ui.theme.*
+import org.phioster.sanctumd.ui.common.*
+
+/** Dedicated settings hub: categories on the first level, one section per screen. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowIntro: () -> Unit = {}) {
+    var section by remember { mutableStateOf<String?>(null) }
+    BackHandler(enabled = section != null) { section = null }
+
+    Scaffold(
+        containerColor = Black,
+        topBar = {
+            TopAppBar(
+                title = { Text(section ?: "settings", fontFamily = Mono, color = MatrixGreen) },
+                navigationIcon = {
+                    IconButton(onClick = { if (section != null) section = null else onBack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
+            )
+        },
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+            when (section) {
+                null -> {
+                    SettingsCategoryRow("notifications", "Background polling: what to check and how often") { section = "notifications" }
+                    SettingsCategoryRow("live push (ntfy)", "Instant notifications from your ntfy server") { section = "live push (ntfy)" }
+                    SettingsCategoryRow("security", "Biometric app lock") { section = "security" }
+                    SettingsCategoryRow("content", "Hide adult / 18+ content") { section = "content" }
+                    SettingsCategoryRow("gestures", "Swipe between dashboard tabs + swipe zone") { section = "gestures" }
+                    SettingsCategoryRow("backup / data", "Export or import your config (encrypted)") { section = "backup / data" }
+                    SettingsCategoryRow("about", "Version & project info") { section = "about" }
+                    SettingsCategoryRow("welcome intro", "Replay the first-run walkthrough") { onShowIntro() }
+                }
+                "notifications" -> NotifyPollingSection(vm)
+                "live push (ntfy)" -> LivePushSection(vm)
+                "security" -> SecuritySection(vm)
+                "content" -> ContentSection(vm)
+                "gestures" -> GesturesSection(vm)
+                "backup / data" -> BackupSection(vm)
+                "about" -> AboutSection()
+            }
+            Spacer(Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+internal fun SettingsCategoryRow(title: String, sub: String, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp)
+            Text(sub, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 11.sp)
+        }
+        Text("›", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 18.sp)
+    }
+    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.12f))
+}
+
+/** Asks for POST_NOTIFICATIONS on API 33+ when a notification feature is switched on. */
+@Composable
+internal fun rememberNotifPermissionRequester(): () -> Unit {
+    val context = LocalContext.current
+    val permLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    ) { }
+    return {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            permLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+}
+
+@Composable
+internal fun NotifyPollingSection(vm: DashboardViewModel) {
+    val s by vm.notifySettings.collectAsState()
+    val requestPermIfNeeded = rememberNotifPermissionRequester()
+    NotifyToggleRow("Enable notifications", "Background check every ${s.intervalMin} min", s.enabled) { on ->
+        if (on) requestPermIfNeeded()
+        vm.saveNotifySettings(s.copy(enabled = on))
+    }
+    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
+    Text("NOTIFY ME ABOUT", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
+    NotifyToggleRow("New media", "Newly added movies/episodes in Jellyfin", s.newMedia, s.enabled) { vm.saveNotifySettings(s.copy(newMedia = it)) }
+    NotifyToggleRow("Downloads imported", "Radarr / Sonarr / Lidarr finished importing", s.imports, s.enabled) { vm.saveNotifySettings(s.copy(imports = it)) }
+    NotifyToggleRow("New requests", "New pending requests in Seerr", s.requests, s.enabled) { vm.saveNotifySettings(s.copy(requests = it)) }
+    NotifyToggleRow("Health issues", "New Radarr / Sonarr / Lidarr warnings & errors", s.health, s.enabled) { vm.saveNotifySettings(s.copy(health = it)) }
+    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
+    Text("CHECK INTERVAL", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
+    Row {
+        listOf(15, 30, 60).forEach { m ->
+            val sel = s.intervalMin == m
+            Box(
+                Modifier.padding(end = 8.dp).size(width = 72.dp, height = 40.dp).clip(RoundedCornerShape(8.dp))
+                    .background(if (sel) MatrixGreen else Surface)
+                    .border(1.dp, if (sel) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                    .clickable(enabled = s.enabled) { vm.saveNotifySettings(s.copy(intervalMin = m)) },
+                contentAlignment = Alignment.Center,
+            ) { Text("${m}m", fontFamily = Mono, color = if (sel) Black else MatrixGreen, fontSize = 14.sp) }
+        }
+    }
+    Spacer(Modifier.height(16.dp))
+    Text(
+        "Android runs background checks at most every 15 minutes and may delay them to save battery. The first check just records the current state, so you only get notified about things that happen afterwards.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp,
+    )
+}
+
+@Composable
+internal fun LivePushSection(vm: DashboardViewModel) {
+    val s by vm.notifySettings.collectAsState()
+    val requestPermIfNeeded = rememberNotifPermissionRequester()
+    Text(
+        "Instant — no 15-minute wait. Sanctumd subscribes directly to a topic on your ntfy server and shows every message posted to it (your existing service webhooks already do this). Keeps a small background connection open. Topics of configured ntfy services are subscribed too.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 12.dp),
+    )
+    Spacer(Modifier.height(10.dp))
+    var srv by remember { mutableStateOf(s.ntfyServer) }
+    var top by remember { mutableStateOf(s.ntfyTopic) }
+    var tok by remember { mutableStateOf(s.ntfyToken) }
+    Field("Server URL (https://ntfy…)", srv) { srv = it }
+    Spacer(Modifier.height(8.dp))
+    Field("Topic (e.g. Homelab)", top) { top = it }
+    Spacer(Modifier.height(8.dp))
+    Field("Access token (optional)", tok) { tok = it }
+    Spacer(Modifier.height(4.dp))
+    NotifyToggleRow("Live push", if (s.live) "Connected to ${s.ntfyServer.ifBlank { "?" }}/${s.ntfyTopic.ifBlank { "?" }}" else "Off", s.live, srv.isNotBlank() && top.isNotBlank()) { on ->
+        if (on) requestPermIfNeeded()
+        vm.saveNotifySettings(s.copy(live = on, ntfyServer = srv.trim().trimEnd('/'), ntfyTopic = top.trim(), ntfyToken = tok.trim()))
+    }
+}
+
+@Composable
+internal fun ContentSection(vm: DashboardViewModel) {
+    val hide by vm.hideAdult.collectAsState()
+    NotifyToggleRow("Hide adult content (XXX)", "Hides pornographic titles from Jellyfin browsing and Seerr discovery", hide) { vm.setHideAdult(it) }
+    Text(
+        "Only real porn is hidden — XXX / X / X18+ / Adult ratings on Jellyfin and the TMDB adult flag on Seerr. Mainstream 18-rated films (horror, NC-17, R, FSK 18, R18+) stay visible. Doesn't touch Radarr/Sonarr or global search.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
+    )
+}
+
+@Composable
+internal fun GesturesSection(vm: DashboardViewModel) {
+    val swipeTabs by vm.swipeTabs.collectAsState()
+    val swipeDrawer by vm.swipeDrawer.collectAsState()
+    val band by vm.drawerBand.collectAsState()
+    NotifyToggleRow("Swipe between tabs", "Left/right swipe above the drawer band switches dashboard tabs", swipeTabs) { vm.setSwipeTabs(it) }
+    NotifyToggleRow("Swipe to open drawer", "Right-swipe in the bottom band opens the Services drawer", swipeDrawer) { vm.setSwipeDrawer(it) }
+    var local by remember(band) { mutableStateOf(band) }
+    Text(
+        "DRAWER BAND  (bottom ${(local * 100).roundToInt()}% of the screen)",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
+    )
+    androidx.compose.material3.Slider(
+        value = local,
+        onValueChange = { local = it },
+        onValueChangeFinished = { vm.setDrawerBand(local) },
+        valueRange = 0f..0.5f,
+        enabled = swipeDrawer,
+        colors = androidx.compose.material3.SliderDefaults.colors(
+            thumbColor = MatrixGreen,
+            activeTrackColor = MatrixGreen,
+            inactiveTrackColor = MatrixGreen.copy(alpha = 0.25f),
+        ),
+    )
+    Text(
+        "How far up from the bottom edge a right-swipe opens the Services drawer (max 50%). Above this band, swipes switch tabs. Poster rows keep scrolling.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
+    )
+}
+
+@Composable
+internal fun SecuritySection(vm: DashboardViewModel) {
+    val context = LocalContext.current
+    val appLock by vm.appLock.collectAsState()
+    NotifyToggleRow("App lock", "Require fingerprint/face or device PIN on open", appLock) { on ->
+        if (!on) { vm.setAppLock(false); return@NotifyToggleRow }
+        val bm = androidx.biometric.BiometricManager.from(context)
+        val authenticators = androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK or
+            androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        if (bm.canAuthenticate(authenticators) != androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS) {
+            android.widget.Toast.makeText(context, "no biometrics or device PIN set up", android.widget.Toast.LENGTH_LONG).show()
+            return@NotifyToggleRow
+        }
+        // Require one successful unlock before enabling, so nobody locks themselves out.
+        (context as? androidx.fragment.app.FragmentActivity)?.let { act ->
+            showUnlockPrompt(act) { vm.setAppLock(true); vm.unlocked.value = true }
+        }
+    }
+    Text(
+        "Locks on cold start and after more than 2 minutes in the background. Live push keeps running while locked.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
+    )
+}
+
+@Composable
+internal fun AboutSection() {
+    val context = LocalContext.current
+    val version = remember {
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
+    }
+    Text("> sanctumd_", fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
+    Text("v$version", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 13.sp)
+    Spacer(Modifier.height(12.dp))
+    Text(
+        "Unified dashboard for Jellyfin and the *arr stack.\nGPL-3.0 · github.com/Phioster/sanctum_daemon",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 11.sp,
+    )
+}
+
+@Composable
+internal fun BackupSection(vm: DashboardViewModel) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var showExport by remember { mutableStateOf(false) }
+    var importBytes by remember { mutableStateOf<ByteArray?>(null) } // set once a file is picked -> triggers pw dialog
+    var pendingSaveBytes by remember { mutableStateOf<ByteArray?>(null) } // bytes awaiting a save location
+
+    val saveLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/octet-stream"),
+    ) { uri: android.net.Uri? ->
+        val bytes = pendingSaveBytes
+        pendingSaveBytes = null
+        if (uri != null && bytes != null) {
+            val ok = runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) } }.isSuccess
+            android.widget.Toast.makeText(context, if (ok) "config saved" else "save failed", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+    val openLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            val bytes = runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
+            if (bytes != null) importBytes = bytes
+            else android.widget.Toast.makeText(context, "couldn't read file", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    Text(
+        "Export bundles your services, ntfy settings and dashboard layout into one encrypted file, locked with a password you choose. Import replaces the current config on this device.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 11.sp, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
+    )
+    SettingsCategoryRow("export config", "save or share an encrypted backup") { showExport = true }
+    SettingsCategoryRow("import config", "restore from an encrypted backup file") {
+        openLauncher.launch(arrayOf("application/octet-stream", "*/*"))
+    }
+    Text(
+        "⚠ the file holds your API keys and tokens — only the password protects them. keep it somewhere safe.",
+        fontFamily = Mono, color = Color(0xFFE0A030), fontSize = 10.sp, modifier = Modifier.padding(top = 12.dp),
+    )
+
+    if (showExport) {
+        var pw by remember { mutableStateOf("") }
+        var pw2 by remember { mutableStateOf("") }
+        val valid = pw.length >= 6 && pw == pw2
+        val doExport: (Boolean) -> Unit = { share ->
+            scope.launch {
+                val bytes = runCatching { vm.exportConfig(pw) }.getOrNull()
+                showExport = false
+                if (bytes == null) {
+                    android.widget.Toast.makeText(context, "export failed", android.widget.Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                if (share) shareConfig(context, bytes)
+                else { pendingSaveBytes = bytes; saveLauncher.launch("sanctumd-config.sanctum") }
+            }
+        }
+        AlertDialog(
+            onDismissRequest = { showExport = false },
+            containerColor = Surface,
+            title = { Text("export config", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    Text("Choose a password (min 6). You'll need it to import.", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp)
+                    Field("password", pw, isPassword = true) { pw = it }
+                    Field("repeat password", pw2, isPassword = true) { pw2 = it }
+                }
+            },
+            confirmButton = {
+                Row {
+                    TextButton(onClick = { doExport(false) }, enabled = valid) { Text("save file", fontFamily = Mono, color = if (valid) MatrixGreen else MatrixGreen.copy(alpha = 0.4f)) }
+                    TextButton(onClick = { doExport(true) }, enabled = valid) { Text("share", fontFamily = Mono, color = if (valid) MatrixGreen else MatrixGreen.copy(alpha = 0.4f)) }
+                }
+            },
+            dismissButton = { TextButton(onClick = { showExport = false }) { Text("cancel", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f)) } },
+        )
+    }
+
+    importBytes?.let { bytes ->
+        var pw by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { importBytes = null },
+            containerColor = Surface,
+            title = { Text("import config", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    Text("This replaces your current services, ntfy settings and dashboard. Enter the file's password.", fontFamily = Mono, color = Color(0xFFE0A030), fontSize = 12.sp)
+                    Field("password", pw, isPassword = true) { pw = it }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            val res = vm.importConfig(bytes, pw)
+                            importBytes = null
+                            res.onSuccess { n -> android.widget.Toast.makeText(context, "config imported · $n services", android.widget.Toast.LENGTH_LONG).show() }
+                                .onFailure { android.widget.Toast.makeText(context, "import failed — wrong password or bad file", android.widget.Toast.LENGTH_LONG).show() }
+                        }
+                    },
+                    enabled = pw.isNotEmpty(),
+                ) { Text("import", fontFamily = Mono, color = if (pw.isNotEmpty()) MatrixGreen else MatrixGreen.copy(alpha = 0.4f)) }
+            },
+            dismissButton = { TextButton(onClick = { importBytes = null }) { Text("cancel", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f)) } },
+        )
+    }
+}
+
+/** Writes the encrypted bytes to a cache file and opens a share sheet via FileProvider. */
+internal fun shareConfig(context: android.content.Context, bytes: ByteArray) {
+    runCatching {
+        val dir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
+        val file = java.io.File(dir, "sanctumd-config.sanctum")
+        file.writeBytes(bytes)
+        val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "application/octet-stream"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(send, "Share config"))
+    }.onFailure {
+        android.widget.Toast.makeText(context, "share failed", android.widget.Toast.LENGTH_SHORT).show()
+    }
+}

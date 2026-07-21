@@ -39,7 +39,6 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import kotlinx.coroutines.flow.first
 import org.phioster.sanctumd.MainActivity
 import org.phioster.sanctumd.R
 import org.phioster.sanctumd.data.CalendarSnap

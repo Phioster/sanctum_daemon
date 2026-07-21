@@ -3,7 +3,6 @@ package org.phioster.sanctumd.widget
 import android.content.Context
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.GlanceId
@@ -24,10 +23,6 @@ import androidx.glance.layout.Column
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
-import androidx.glance.text.Text
-import androidx.glance.text.TextAlign
-import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
 import org.phioster.sanctumd.R
 
 private val Grey = Color(0xFF2C2C2E) // Nothing-widget-style neutral dark grey
