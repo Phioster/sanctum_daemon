@@ -37,6 +37,23 @@ jobs:
           retention-days: 3
           path: app/build/reports/tests/
 
+      - name: Static analysis (detekt)
+        run: gradle detekt --no-daemon --stacktrace
+
+      - name: Android Lint
+        run: gradle lintDebug --no-daemon --stacktrace
+
+      - name: Upload analysis reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-reports
+          retention-days: 5
+          path: |
+            app/build/reports/detekt/
+            app/build/reports/lint-results-*.*
+          if-no-files-found: warn
+
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon --stacktrace
 

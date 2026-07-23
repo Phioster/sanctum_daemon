@@ -1,0 +1,22 @@
+# Curated detekt config for sanctumd.
+#
+# buildUponDefaultConfig = true, so anything not mentioned here keeps detekt's default.
+# We deliberately silence the *style/opinion* rule sets and keep the *correctness /
+# bug-prone* ones active, so the report stays high-signal instead of drowning in
+# formatting nits. `ignoreFailures` in build.gradle.kts keeps this report-only for now.
+
+config:
+  validation: false
+
+# --- kept ACTIVE at defaults (bug-prone): potential-bugs, exceptions, coroutines,
+#     empty-blocks, performance ---
+
+# --- silenced (style / opinion, not bugs) ---
+comments:
+  active: false
+complexity:
+  active: false
+naming:
+  active: false
+style:
+  active: false

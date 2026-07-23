@@ -1,0 +1,9 @@
+# Launch smoke test — runs anywhere (fresh install OR a configured device).
+# Proves the app process starts, the first frame renders and nothing crashes on boot.
+# The regex matches either the onboarding screen (fresh install) or the home shell.
+appId: org.phioster.nexarr
+name: Launch smoke
+---
+- launchApp
+- assertVisible: "get started|next|Services|home|Sanctumd|unlock"
+- takeScreenshot: 01_launch

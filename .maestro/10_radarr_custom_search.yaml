@@ -1,0 +1,16 @@
+# Feature flow for the "Custom search" entry we added to the Missing tab.
+# REQUIRES: a configured Radarr service that has at least one missing movie.
+# Adjust "Radarr" below to your service's label if you named it differently.
+appId: org.phioster.nexarr
+name: Radarr Missing -> Custom search
+---
+- launchApp
+- tapOn: "Services"          # open the drawer
+- tapOn: "Radarr"            # open the Radarr service screen (edit to your label)
+- tapOn: "Missing"           # the Missing filter chip
+# Tap the first missing row to open its action menu, then confirm both entries exist.
+- tapOn:
+    point: "50%,45%"
+- assertVisible: "Automatic search"
+- assertVisible: "Custom search"
+- takeScreenshot: 10_custom_search_menu

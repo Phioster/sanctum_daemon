@@ -1,0 +1,14 @@
+# Home shell interaction — needs an app that is PAST onboarding (i.e. run on your
+# configured device, or after completing onboarding once). No backend required:
+# toggling Edit mode reveals the "Add card" FAB purely from local UI state.
+appId: org.phioster.nexarr
+name: Home edit mode -> Add card
+---
+- launchApp
+# Edit action in the top bar (contentDescription "Edit").
+- tapOn: "Edit"
+- assertVisible: "Add card"
+- takeScreenshot: 02_edit_mode
+# Open the drawer (nav icon contentDescription "Services") to confirm the service list.
+- tapOn: "Services"
+- takeScreenshot: 02_drawer

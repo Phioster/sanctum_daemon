@@ -1,10 +1,12 @@
 import java.util.Properties
+import io.gitlab.arturbosch.detekt.Detekt
 
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("io.gitlab.arturbosch.detekt")
 }
 
 // Release signing is read from a gitignored `keystore.properties` (local builds) or
@@ -77,6 +79,34 @@ android {
         // The parsers under test are plain Kotlin; anything that does touch an Android
         // stub should get a default rather than the usual "not mocked" exception.
         unitTests.isReturnDefaultValues = true
+    }
+
+    lint {
+        // Report-only gate: Lint runs in CI and uploads its report, but a warning/error
+        // never blocks a build. Tighten (e.g. warningsAsErrors) once the report is clean.
+        abortOnError = false
+        checkReleaseBuilds = false
+        warningsAsErrors = false
+        htmlReport = true
+        sarifReport = true
+    }
+}
+
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom(files("$rootDir/config/detekt/detekt.yml"))
+    // Report-only for now: findings surface as a CI artifact without breaking the
+    // release pipeline. Flip to false once the reported issues are triaged.
+    ignoreFailures = true
+    parallel = true
+}
+
+tasks.withType<Detekt>().configureEach {
+    jvmTarget = "17"
+    reports {
+        html.required.set(true)
+        sarif.required.set(true)
+        txt.required.set(true)
     }
 }
 
