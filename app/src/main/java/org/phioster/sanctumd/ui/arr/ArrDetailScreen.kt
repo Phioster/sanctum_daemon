@@ -125,10 +125,10 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
             loadError = t.message
         }
     }
-    fun openReleases(movieId: Int?, episodeId: Int?, title: String, albumId: Int? = null) {
+    fun openReleases(movieId: Int?, episodeId: Int?, title: String, albumId: Int? = null, seriesId: Int? = null, seasonNumber: Int? = null) {
         pickerTitle = title; releases = null; pickerOpen = true
         scope.launch {
-            releases = runCatching { vm.arrReleasesFor(config, movieId, episodeId, albumId) }.getOrElse {
+            releases = runCatching { vm.arrReleasesFor(config, movieId, episodeId, albumId, seriesId, seasonNumber) }.getOrElse {
                 actionMsg = "error: ${it.message}"; pickerOpen = false; emptyList()
             }
         }
@@ -255,17 +255,34 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                 when {
                     eps == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
                     eps.isEmpty() -> item { Text("no episodes", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
-                    else -> items(eps) { ep ->
-                        ArrEpisodeRow(
-                            ep, accent,
-                            onToggleMonitor = {
-                                scope.launch {
-                                    vm.arrSetEpisodeMonitored(config, ep.id, !ep.monitored)
-                                    episodes = vm.arrEpisodesOf(config, itemId)
-                                }
-                            },
-                        ) {
-                            openReleases(movieId = null, episodeId = ep.id, title = "S%02dE%02d %s".format(ep.seasonNumber, ep.episodeNumber, ep.title))
+                    else -> eps.groupBy { it.seasonNumber }.forEach { (season, seasonEps) ->
+                        item(key = "season_$season") {
+                            SonarrSeasonHeader(
+                                season = season,
+                                episodeCount = seasonEps.size,
+                                haveCount = seasonEps.count { it.hasFile },
+                                accent = accent,
+                                onSearch = {
+                                    openReleases(
+                                        movieId = null, episodeId = null,
+                                        seriesId = itemId, seasonNumber = season,
+                                        title = if (season == 0) "Specials" else "Season $season",
+                                    )
+                                },
+                            )
+                        }
+                        items(seasonEps, key = { it.id }) { ep ->
+                            ArrEpisodeRow(
+                                ep, accent,
+                                onToggleMonitor = {
+                                    scope.launch {
+                                        vm.arrSetEpisodeMonitored(config, ep.id, !ep.monitored)
+                                        episodes = vm.arrEpisodesOf(config, itemId)
+                                    }
+                                },
+                            ) {
+                                openReleases(movieId = null, episodeId = ep.id, title = "S%02dE%02d %s".format(ep.seasonNumber, ep.episodeNumber, ep.title))
+                            }
                         }
                     }
                 }
@@ -384,6 +401,26 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
             dismissButton = { TextButton(onClick = { confirmGrab = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
+}
+
+@Composable
+internal fun SonarrSeasonHeader(season: Int, episodeCount: Int, haveCount: Int, accent: Color, onSearch: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            if (season == 0) "SPECIALS" else "SEASON $season",
+            fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+        )
+        Spacer(Modifier.width(8.dp))
+        Text("$haveCount/$episodeCount", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, modifier = Modifier.weight(1f))
+        // Interactive search for the whole season (season packs + episodes).
+        IconButton(onClick = onSearch, modifier = Modifier.size(28.dp)) {
+            Icon(Icons.Filled.Search, contentDescription = "Search season", tint = MatrixGreen)
+        }
+    }
+    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
 }
 
 @Composable

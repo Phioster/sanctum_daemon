@@ -71,6 +71,7 @@ import kotlinx.coroutines.launch
 import org.phioster.sanctumd.model.ArrLibraryItem
 import org.phioster.sanctumd.model.ArrLookupItem
 import org.phioster.sanctumd.model.ArrMissingItem
+import org.phioster.sanctumd.model.ArrRelease
 import org.phioster.sanctumd.model.ArrProfile
 import org.phioster.sanctumd.model.ArrQueueItem
 import org.phioster.sanctumd.model.ArrHistoryItem
@@ -131,6 +132,10 @@ internal fun ArrScreen(
     var importItems by remember { mutableStateOf<List<org.phioster.sanctumd.model.ArrImportItem>?>(null) }
     var importScanning by remember { mutableStateOf(false) }
     var importSelected by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    // Assigning a target movie to an unmatched manual-import row (Radarr).
+    var assignRow by remember { mutableStateOf<Int?>(null) }
+    var assignLibrary by remember { mutableStateOf<List<ArrLibraryItem>?>(null) }
+    var assignQuery by remember { mutableStateOf("") }
     var query by remember { mutableStateOf("") }
     var sortBy by remember { mutableStateOf(0) } // 0=Title, 1=Year, 2=Size
     var sortMenu by remember { mutableStateOf(false) }
@@ -156,6 +161,11 @@ internal fun ArrScreen(
     var metaProfiles by remember { mutableStateOf<List<ArrProfile>>(emptyList()) }
     var chosenMeta by remember { mutableStateOf<ArrProfile?>(null) }
     var monitored by remember { mutableStateOf(true) }
+    // Interactive "custom search" release picker for a missing/cutoff row.
+    var pickerOpen by remember { mutableStateOf(false) }
+    var pickerReleases by remember { mutableStateOf<List<ArrRelease>?>(null) }
+    var pickerTitle by remember { mutableStateOf("") }
+    var confirmGrab by remember { mutableStateOf<ArrRelease?>(null) }
 
     suspend fun loadLibrary() {
         listError = null
@@ -216,6 +226,19 @@ internal fun ArrScreen(
             actionMsg = action()
             reload()
             vm.refreshAll()
+        }
+    }
+    // Open the interactive release list for a wanted item (movie/episode/album by type).
+    fun openCustomSearch(item: ArrMissingItem) {
+        pickerTitle = item.title; pickerReleases = null; pickerOpen = true
+        scope.launch {
+            pickerReleases = runCatching {
+                when (config.type) {
+                    ServiceType.SONARR -> vm.arrReleasesFor(config, movieId = null, episodeId = item.id)
+                    ServiceType.LIDARR -> vm.arrReleasesFor(config, movieId = null, episodeId = null, albumId = item.id)
+                    else -> vm.arrReleasesFor(config, movieId = item.id, episodeId = null)
+                }
+            }.getOrElse { actionMsg = "error: ${it.message}"; pickerOpen = false; emptyList() }
         }
     }
 
@@ -361,7 +384,14 @@ internal fun ArrScreen(
                                 when {
                                     m == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     m.isEmpty() -> item { Text(if (page == 1) "nothing missing" else "nothing below cutoff", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(m) { mi -> ArrMissingRow(mi, accent) { act { vm.arrSearch(config, mi.id) } } }
+                                    else -> items(m) { mi ->
+                                        ArrMissingRow(
+                                            item = mi,
+                                            accent = accent,
+                                            onSearch = { act { vm.arrSearch(config, mi.id) } },
+                                            onCustomSearch = { openCustomSearch(mi) },
+                                        )
+                                    }
                                 }
                             }
                             3 -> {
@@ -560,6 +590,7 @@ internal fun ArrScreen(
                             items.isEmpty() -> Text("no importable files", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                             else -> items.forEachIndexed { i, it ->
                                 val checked = i in importSelected
+                                val unmatched = !it.importable && config.type == ServiceType.RADARR
                                 Row(
                                     Modifier.fillMaxWidth().clickable {
                                         importSelected = if (checked) importSelected - i else importSelected + i
@@ -571,6 +602,20 @@ internal fun ArrScreen(
                                         Text(it.relativePath, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         Text("→ ${it.matchedTitle}${if (it.quality.isNotBlank()) " · ${it.quality}" else ""}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         if (it.rejection.isNotBlank()) Text(it.rejection, fontFamily = Mono, color = Color(0xFFFFAA00), fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    }
+                                    if (unmatched) {
+                                        Text(
+                                            "assign",
+                                            fontFamily = Mono, color = accent, fontSize = 11.sp,
+                                            modifier = Modifier
+                                                .clickable {
+                                                    assignRow = i; assignQuery = ""
+                                                    if (assignLibrary == null) scope.launch {
+                                                        assignLibrary = runCatching { vm.arrLibraryList(config) }.getOrDefault(emptyList())
+                                                    }
+                                                }
+                                                .padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
+                                        )
                                     }
                                 }
                             }
@@ -592,6 +637,91 @@ internal fun ArrScreen(
                 ) { Text("Import (${importSelected.size})", fontFamily = Mono, color = MatrixGreen) }
             },
             dismissButton = { TextButton(onClick = { showImport = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    assignRow?.let { rowIdx ->
+        AlertDialog(
+            onDismissRequest = { assignRow = null },
+            containerColor = Surface,
+            title = { Text("Assign to movie", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column(Modifier.heightIn(max = 460.dp)) {
+                    Field("Filter", assignQuery) { assignQuery = it }
+                    Spacer(Modifier.height(8.dp))
+                    val lib = assignLibrary
+                    when {
+                        lib == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        else -> {
+                            val filtered = lib.filter { it.title.contains(assignQuery, ignoreCase = true) }.sortedBy { it.title.lowercase() }
+                            if (filtered.isEmpty()) Text("no match", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                            else Column(Modifier.verticalScroll(rememberScrollState())) {
+                                filtered.forEach { mv ->
+                                    Text(
+                                        "${mv.title}${if (mv.year > 0) " (${mv.year})" else ""}",
+                                        fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                val current = importItems
+                                                if (current != null) {
+                                                    val patched = vm.arrAssignImportMovie(current[rowIdx].rawJson, mv.id, mv.title)
+                                                    importItems = current.toMutableList().also { l ->
+                                                        l[rowIdx] = l[rowIdx].copy(rawJson = patched, importable = true, matchedTitle = mv.title, rejection = "")
+                                                    }
+                                                    importSelected = importSelected + rowIdx
+                                                }
+                                                assignRow = null
+                                            }
+                                            .padding(vertical = 8.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { assignRow = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    if (pickerOpen) {
+        AlertDialog(
+            onDismissRequest = { pickerOpen = false },
+            containerColor = Surface,
+            title = { Text("Releases", fontFamily = Mono, color = MatrixGreen, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            text = {
+                val rs = pickerReleases
+                Column(Modifier.heightIn(max = 460.dp)) {
+                    Text(pickerTitle, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.height(8.dp))
+                    when {
+                        rs == null -> Text("searching…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        rs.isEmpty() -> Text("no releases", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        else -> Column(Modifier.verticalScroll(rememberScrollState())) {
+                            rs.forEach { rel -> ArrReleaseRow(rel, accent) { confirmGrab = rel } }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { pickerOpen = false }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    confirmGrab?.let { rel ->
+        AlertDialog(
+            onDismissRequest = { confirmGrab = null },
+            containerColor = Surface,
+            title = { Text("Grab release", fontFamily = Mono, color = MatrixGreen) },
+            text = { Text(rel.title, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp) },
+            confirmButton = {
+                TextButton(onClick = {
+                    val r = rel
+                    confirmGrab = null; pickerOpen = false
+                    scope.launch { actionMsg = vm.arrGrabRelease(config, r.guid, r.indexerId); reload() }
+                }) { Text("Grab", fontFamily = Mono, color = MatrixGreen) }
+            },
+            dismissButton = { TextButton(onClick = { confirmGrab = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
 }
@@ -617,7 +747,7 @@ internal fun ArrLibraryRow(item: ArrLibraryItem, accent: Color, onOpen: (() -> U
 }
 
 @Composable
-internal fun ArrMissingRow(item: ArrMissingItem, accent: Color, onSearch: () -> Unit) {
+internal fun ArrMissingRow(item: ArrMissingItem, accent: Color, onSearch: () -> Unit, onCustomSearch: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Box {
         Column(Modifier.fillMaxWidth().clickable { menu = true }.padding(vertical = 10.dp)) {
@@ -630,7 +760,8 @@ internal fun ArrMissingRow(item: ArrMissingItem, accent: Color, onSearch: () -> 
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            DropdownMenuItem(text = { Text("Search", fontFamily = Mono) }, onClick = { menu = false; onSearch() })
+            DropdownMenuItem(text = { Text("Automatic search", fontFamily = Mono) }, onClick = { menu = false; onSearch() })
+            DropdownMenuItem(text = { Text("Custom search", fontFamily = Mono) }, onClick = { menu = false; onCustomSearch() })
         }
     }
 }

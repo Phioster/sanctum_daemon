@@ -567,12 +567,24 @@ suspend fun arrTracks(config: ServiceConfig, albumId: Int): List<ArrTrack> = wit
     }
 }
 
-/** Interactive search. [movieId] for Radarr, [episodeId] for Sonarr, [albumId] for Lidarr. */
-suspend fun arrReleases(config: ServiceConfig, movieId: Int?, episodeId: Int?, albumId: Int? = null): List<ArrRelease> = withContext(Dispatchers.IO) {
+/**
+ * Interactive search. [movieId] for Radarr, [episodeId] for a single Sonarr episode,
+ * [seriesId]+[seasonNumber] for a whole Sonarr season (season packs + episodes),
+ * [albumId] for Lidarr.
+ */
+suspend fun arrReleases(
+    config: ServiceConfig,
+    movieId: Int?,
+    episodeId: Int?,
+    albumId: Int? = null,
+    seriesId: Int? = null,
+    seasonNumber: Int? = null,
+): List<ArrRelease> = withContext(Dispatchers.IO) {
     val base = arrBase(config.type)
     val q = when {
         episodeId != null -> "episodeId=$episodeId"
         albumId != null -> "albumId=$albumId"
+        seriesId != null && seasonNumber != null -> "seriesId=$seriesId&seasonNumber=$seasonNumber"
         movieId != null -> "movieId=$movieId"
         else -> ""
     }
@@ -680,6 +692,20 @@ suspend fun arrManualImportExecute(config: ServiceConfig, rawItems: List<String>
     }
 }
 
+/**
+ * Patches a scanned Radarr manual-import row so an unmatched file is imported against
+ * [movieId]. Radarr's scan leaves no `movie` object when it can't identify the file from the
+ * name; injecting one (and clearing rejections) makes [arrManualImportExecute] send a movieId.
+ */
+fun arrImportAssignMovie(rawJson: String, movieId: Int, title: String): String {
+    val o = json.parseToJsonElement(rawJson).jsonObject
+    return json.encodeToString(JsonObject.serializer(), buildJsonObject {
+        o.forEach { (k, v) -> if (k != "movie" && k != "rejections") put(k, v) }
+        putJsonObject("movie") { put("id", movieId); put("title", title) }
+        putJsonArray("rejections") {}
+    })
+}
+
 suspend fun arrGrab(config: ServiceConfig, guid: String, indexerId: Int): String = destructive("grab a release on ${config.type.label}") {
     withContext(Dispatchers.IO) {
         try {
@@ -767,15 +793,24 @@ suspend fun runSearchMissing(config: ServiceConfig): String = destructive("searc
     }
 }
 
-/** Pushes a Prowlarr release to a Radarr/Sonarr instance via release/push. */
+/**
+ * Pushes a Prowlarr release to a Radarr/Sonarr instance via release/push.
+ *
+ * release/push only grabs when the target already tracks the movie/series: the arr parses
+ * the release title and, if it maps to a monitored item, hands it to the download client.
+ * For an item that isn't in the library yet it returns HTTP 200 with a *rejected* result and
+ * grabs nothing — so we must inspect the response body, not just the status code, or we'd
+ * report a false "sent". See [reportArrPush].
+ */
 suspend fun arrPushRelease(arrConfig: ServiceConfig, release: ProwlarrRelease): String = destructive("push a release to ${arrConfig.type.label}") {
     withContext(Dispatchers.IO) {
         try {
+            val dl = release.downloadUrl.ifBlank { release.magnetUrl }
+            if (dl.isBlank()) return@withContext "error: release has no download URL"
             val api = apiFor<ArrApi>(arrConfig, apiKeyHeader(arrConfig))
             val url = "${arrBase(arrConfig.type)}/release/push"
             val body = buildJsonObject {
                 put("title", release.title)
-                val dl = release.downloadUrl.ifBlank { release.magnetUrl }
                 put("downloadUrl", dl)
                 if (release.magnetUrl.isNotBlank()) put("magnetUrl", release.magnetUrl)
                 put("protocol", if (release.protocol == "torrent") "torrent" else "usenet")
@@ -783,9 +818,38 @@ suspend fun arrPushRelease(arrConfig: ServiceConfig, release: ProwlarrRelease): 
                 put("size", release.sizeBytes)
                 put("indexer", release.indexer)
             }
-            okOr(api.releasePush(url, body), "sent to ${arrConfig.label}")
+            val resp = api.releasePush(url, body)
+            reportArrPush(resp, arrConfig.label)
         } catch (t: Throwable) {
             "error: ${t.message ?: t.javaClass.simpleName}"
         }
+    }
+}
+
+/**
+ * Turns a release/push response into an honest message. The arr answers with a release
+ * resource (object, or a single-element array); `approved:false` / a non-empty `rejections`
+ * list means it did NOT grab — most often because the movie/series isn't in the library.
+ * If the body can't be parsed we fall back to the plain status code.
+ */
+internal fun reportArrPush(resp: Response<ResponseBody>, label: String): String {
+    if (!resp.isSuccessful) return "error: HTTP ${resp.code()}"
+    val raw = runCatching { resp.body()?.string() }.getOrNull().orEmpty()
+    val el = runCatching { json.parseToJsonElement(raw) }.getOrNull()
+    val obj = when {
+        el is JsonObject -> el
+        el is JsonArray -> el.firstOrNull() as? JsonObject
+        else -> null
+    } ?: return "sent to $label"
+    val approved = jsBool(obj, "approved")
+    val rejected = jsBool(obj, "rejected")
+    val rejections = (obj["rejections"] as? JsonArray)
+        ?.mapNotNull { r -> (r as? JsonPrimitive)?.content ?: (r as? JsonObject)?.let { jsStr(it, "reason") } }
+        .orEmpty()
+    return when {
+        rejected == true || approved == false || rejections.isNotEmpty() ->
+            "not added: ${rejections.firstOrNull() ?: "$label doesn't track this — add it there first"}"
+        approved == true -> "grabbed by $label"
+        else -> "sent to $label"
     }
 }

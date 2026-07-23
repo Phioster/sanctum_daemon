@@ -581,8 +581,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         arrAlbums(config, artistId)
     suspend fun arrTracksOf(config: ServiceConfig, albumId: Int): List<org.phioster.sanctumd.model.ArrTrack> =
         arrTracks(config, albumId)
-    suspend fun arrReleasesFor(config: ServiceConfig, movieId: Int?, episodeId: Int?, albumId: Int? = null): List<ArrRelease> =
-        arrReleases(config, movieId, episodeId, albumId)
+    suspend fun arrReleasesFor(config: ServiceConfig, movieId: Int?, episodeId: Int?, albumId: Int? = null, seriesId: Int? = null, seasonNumber: Int? = null): List<ArrRelease> =
+        arrReleases(config, movieId, episodeId, albumId, seriesId, seasonNumber)
     suspend fun arrGrabRelease(config: ServiceConfig, guid: String, indexerId: Int): String =
         arrGrab(config, guid, indexerId)
     suspend fun arrDeleteItem(config: ServiceConfig, id: Int, deleteFiles: Boolean): String =
@@ -631,6 +631,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         arrManualImportScan(config, folder)
     suspend fun arrManualImport(config: ServiceConfig, rawItems: List<String>): String =
         arrManualImportExecute(config, rawItems)
+    /** Patches a scanned manual-import row to target [movieId] (Radarr, unmatched files). */
+    fun arrAssignImportMovie(rawJson: String, movieId: Int, title: String): String =
+        org.phioster.sanctumd.net.arrImportAssignMovie(rawJson, movieId, title)
     suspend fun arrCast(tmdbId: Int, isTv: Boolean): List<org.phioster.sanctumd.model.ArrCastMember> {
         val seerr = _services.value.firstOrNull { it.type == ServiceType.SEERR } ?: return emptyList()
         return seerrCast(seerr, tmdbId, isTv)
