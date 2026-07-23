@@ -14,7 +14,9 @@ on:
 jobs:
   smoke:
     name: Launch smoke on emulator
-    runs-on: ubuntu-latest
+    # Pinned to 22.04: the emulator fails to boot on the newer ubuntu-latest image
+    # ("Timeout waiting for emulator to boot"). 22.04 boots the AVD reliably.
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -54,8 +56,13 @@ jobs:
           arch: x86_64
           target: google_apis
           profile: pixel_5
+          cores: 2
+          ram-size: 4096M
           disable-animations: true
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none
           script: |
+            adb wait-for-device
             adb install -r app/build/outputs/apk/debug/*.apk
             maestro test .maestro/01_launch_smoke.yaml
 
