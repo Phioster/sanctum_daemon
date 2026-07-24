@@ -30,8 +30,12 @@ android {
         applicationId = "org.phioster.nexarr"
         minSdk = 26
         targetSdk = 35
-        versionCode = 184
-        versionName = "1.6.2"
+        versionCode = 185
+        versionName = "1.7.0"
+
+        // libmpv ships native libs for several ABIs; the target device is arm64, so bundle only that
+        // to keep the APK small (drop this filter to support 32-bit / x86 devices).
+        ndk { abiFilters += "arm64-v8a" }
     }
 
     signingConfigs {
@@ -146,6 +150,10 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:1.5.1") // Jellyfin transcode fallback
     implementation("androidx.media3:media3-ui:1.5.1")
     implementation("androidx.media3:media3-session:1.5.1") // background music: MediaSession + notification
+
+    // libmpv — "plays everything" video engine (PGS/ASS subs, any codec, no server transcode).
+    // Prebuilt AAR (native .so + MPVLib wrapper); sits behind MediaPlayerEngine with ExoPlayer fallback.
+    implementation("dev.jdtech.mpv:libmpv:1.0.0")
 
     // Homescreen widgets (Compose-style)
     implementation("androidx.glance:glance-appwidget:1.1.1")

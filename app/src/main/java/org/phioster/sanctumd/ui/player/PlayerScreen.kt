@@ -113,7 +113,11 @@ internal fun PlayerScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val engine = remember { ExoPlayerEngine(context) }
+    // libmpv plays everything (any codec, PGS/ASS subs, no server transcode); if its native lib can't
+    // load, fall back to ExoPlayer so playback still works.
+    val engine: MediaPlayerEngine = remember {
+        runCatching { MpvPlayerEngine(context) }.getOrElse { ExoPlayerEngine(context) }
+    }
     val activity = remember(context) { findActivity(context) }
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val maxVol = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1) }
@@ -400,7 +404,7 @@ internal fun PlayerScreen(
 @UnstableApi
 @Composable
 private fun SettingsPanel(
-    engine: ExoPlayerEngine,
+    engine: MediaPlayerEngine,
     currentSpeed: Float,
     currentQuality: String,
     onSpeed: (Float) -> Unit,
