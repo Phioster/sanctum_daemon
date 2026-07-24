@@ -77,6 +77,23 @@ import org.phioster.sanctumd.ui.theme.*
 import org.phioster.sanctumd.ui.common.*
 import org.phioster.sanctumd.ServiceLogo
 
+/** Compact, tidy status error for the service cards — the raw DNS/connection exception is verbose and
+ *  ugly (and the [err] badge already flags the failure), so collapse the common ones to a one-liner. */
+internal fun friendlyStatusError(raw: String?): String {
+    val e = raw?.trim().orEmpty()
+    return when {
+        e.isEmpty() -> "error"
+        e.contains("Unable to resolve host", true) || e.contains("No address associated", true) ||
+            e.contains("UnknownHost", true) -> "offline · server not reachable"
+        e.contains("timeout", true) || e.contains("timed out", true) -> "timed out"
+        e.contains("Failed to connect", true) || e.contains("ConnectException", true) ||
+            e.contains("Connection refused", true) || e.contains("ECONNREFUSED", true) -> "connection refused"
+        e.contains("trust anchor", true) || e.contains("CertPath", true) || e.contains("SSLHandshake", true) -> "TLS / certificate error"
+        e.contains("HTTP 401", true) || e.contains("HTTP 403", true) -> "unauthorized · check API key"
+        else -> e.take(80)
+    }
+}
+
 @Composable
 internal fun ServiceCard(
     config: ServiceConfig,
@@ -133,7 +150,7 @@ internal fun ServiceCard(
                         }
                     }
                 }
-                else -> Text(status.error ?: "error", fontFamily = Mono, color = ErrRed, fontSize = 12.sp)
+                else -> Text(friendlyStatusError(status.error), fontFamily = Mono, color = ErrRed, fontSize = 12.sp)
             }
             status?.note?.let {
                 Spacer(Modifier.height(8.dp))
@@ -211,7 +228,7 @@ internal fun ServiceDetailScreen(
                     }
                 }
                 status == null || status.isLoading -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp)
-                else -> Text(status.error ?: "error", fontFamily = Mono, color = ErrRed, fontSize = 13.sp)
+                else -> Text(friendlyStatusError(status.error), fontFamily = Mono, color = ErrRed, fontSize = 13.sp)
             }
             status?.note?.let {
                 Spacer(Modifier.height(6.dp))
