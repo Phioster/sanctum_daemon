@@ -761,6 +761,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         arrAlbums(config, artistId)
     suspend fun arrTracksOf(config: ServiceConfig, albumId: Int): List<org.phioster.sanctumd.model.ArrTrack> =
         arrTracks(config, albumId)
+    suspend fun arrSetAlbumMonitored(config: ServiceConfig, albumId: Int, monitored: Boolean): String =
+        org.phioster.sanctumd.net.arrSetAlbumMonitored(config, listOf(albumId), monitored)
     suspend fun arrReleasesFor(config: ServiceConfig, movieId: Int?, episodeId: Int?, albumId: Int? = null, seriesId: Int? = null, seasonNumber: Int? = null): List<ArrRelease> =
         arrReleases(config, movieId, episodeId, albumId, seriesId, seasonNumber)
     suspend fun arrGrabRelease(config: ServiceConfig, guid: String, indexerId: Int): String =

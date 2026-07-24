@@ -834,18 +834,18 @@ private fun SeerrGenreSection(
 
 @Composable
 private fun SeerrGenrePoster(item: org.phioster.sanctumd.model.SeerrDiscoverItem, onOpen: (org.phioster.sanctumd.model.SeerrDiscoverItem) -> Unit) {
-    Column(Modifier.width(100.dp).clickable { onOpen(item) }) {
+    Column(Modifier.width(128.dp).clickable { onOpen(item) }) {
         if (item.posterUrl.isNotBlank()) {
             AsyncImage(
                 model = item.posterUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.width(100.dp).height(150.dp).clip(RoundedCornerShape(6.dp)).background(Surface),
+                modifier = Modifier.width(128.dp).height(192.dp).clip(RoundedCornerShape(6.dp)).background(Surface),
             )
         } else {
-            Box(Modifier.width(100.dp).height(150.dp).clip(RoundedCornerShape(6.dp)).background(Surface))
+            Box(Modifier.width(128.dp).height(192.dp).clip(RoundedCornerShape(6.dp)).background(Surface))
         }
         Spacer(Modifier.height(4.dp))
-        Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

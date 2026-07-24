@@ -552,6 +552,20 @@ suspend fun arrAlbums(config: ServiceConfig, artistId: Int): List<ArrAlbum> = wi
     }.sortedByDescending { it.year }
 }
 
+/** Lidarr: set the monitored flag on one or more albums (PUT album/monitor, Servarr-standard body). */
+suspend fun arrSetAlbumMonitored(config: ServiceConfig, albumIds: List<Int>, monitored: Boolean): String = withContext(Dispatchers.IO) {
+    try {
+        val base = arrBase(config.type)
+        val body = buildJsonObject {
+            putJsonArray("albumIds") { albumIds.forEach { add(it) } }
+            put("monitored", monitored)
+        }
+        okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).putUrl("$base/album/monitor", body), if (monitored) "monitoring" else "unmonitored")
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
 /** Lidarr: the track list of an album. */
 suspend fun arrTracks(config: ServiceConfig, albumId: Int): List<ArrTrack> = withContext(Dispatchers.IO) {
     val base = arrBase(config.type)

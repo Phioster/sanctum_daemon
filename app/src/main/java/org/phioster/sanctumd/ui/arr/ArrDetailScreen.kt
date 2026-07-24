@@ -292,11 +292,21 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                 when {
                     als == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
                     als.isEmpty() -> item { Text("no albums", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
-                    else -> items(als) { al ->
-                        ArrAlbumRow(al, accent) {
-                            trackAlbum = al; tracks = null
-                            scope.launch { tracks = runCatching { vm.arrTracksOf(config, al.id) }.getOrDefault(emptyList()) }
-                        }
+                    else -> items(als, key = { it.id }) { al ->
+                        ArrAlbumRow(
+                            al, accent,
+                            onToggleMonitor = {
+                                scope.launch {
+                                    actionMsg = vm.arrSetAlbumMonitored(config, al.id, !al.monitored)
+                                    albums = runCatching { vm.arrAlbumsOf(config, itemId) }.getOrNull() ?: albums
+                                }
+                            },
+                            onQuickSearch = { scope.launch { actionMsg = vm.arrSearch(config, al.id) } },
+                            onOpen = {
+                                trackAlbum = al; tracks = null
+                                scope.launch { tracks = runCatching { vm.arrTracksOf(config, al.id) }.getOrDefault(emptyList()) }
+                            },
+                        )
                     }
                 }
             }
@@ -447,13 +457,30 @@ internal fun ArrEpisodeRow(item: ArrEpisode, accent: Color, onToggleMonitor: () 
 }
 
 @Composable
-internal fun ArrAlbumRow(item: org.phioster.sanctumd.model.ArrAlbum, accent: Color, onSearch: () -> Unit) {
+internal fun ArrAlbumRow(
+    item: org.phioster.sanctumd.model.ArrAlbum,
+    accent: Color,
+    onToggleMonitor: () -> Unit,
+    onQuickSearch: () -> Unit,
+    onOpen: () -> Unit,
+) {
     val complete = item.trackCount > 0 && item.trackFileCount >= item.trackCount
     val c = if (complete) MatrixGreen else if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.4f)
-    Column(Modifier.fillMaxWidth().clickable { onSearch() }.padding(vertical = 8.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("${item.title}${if (item.year.isNotBlank()) " (${item.year})" else ""}", fontFamily = Mono, color = c, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "${item.title}${if (item.year.isNotBlank()) " (${item.year})" else ""}",
+                fontFamily = Mono, color = c, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).clickable { onOpen() },
+            )
             Text("${item.trackFileCount}/${item.trackCount}", fontFamily = Mono, color = c, fontSize = 10.sp)
+            // Tappable monitor toggle (◉ = monitored, ○ = not).
+            Text(
+                if (item.monitored) "◉" else "○",
+                fontFamily = Mono, color = if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.4f), fontSize = 15.sp,
+                modifier = Modifier.clickable { onToggleMonitor() }.padding(horizontal = 8.dp),
+            )
+            Text("⌕", fontFamily = Mono, color = accent, fontSize = 15.sp, modifier = Modifier.clickable { onQuickSearch() }.padding(start = 2.dp))
         }
         Spacer(Modifier.height(6.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
