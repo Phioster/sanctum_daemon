@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.VideoLibrary
@@ -393,11 +394,23 @@ internal fun JellyfinScreen(
                                         .sortedByDescending { it.addedAt }
                                     if (myDownloads.isNotEmpty()) {
                                         item {
-                                            Spacer(Modifier.height(8.dp))
+                                            Spacer(Modifier.height(6.dp))
                                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                                 Text("DOWNLOADS  ·  offline", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
                                                 Spacer(Modifier.weight(1f))
-                                                Text("manage ›", fontFamily = Mono, color = accent, fontSize = 11.sp, modifier = Modifier.clickable { downloadsManagerOpen = true })
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(accent.copy(alpha = 0.18f))
+                                                        .border(1.dp, accent.copy(alpha = 0.7f), RoundedCornerShape(6.dp))
+                                                        .clickable { downloadsManagerOpen = true }
+                                                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                                                ) {
+                                                    Icon(Icons.Filled.Settings, contentDescription = null, tint = accent, modifier = Modifier.size(14.dp))
+                                                    Spacer(Modifier.width(5.dp))
+                                                    Text("manage", fontFamily = Mono, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                }
                                             }
                                             Spacer(Modifier.height(6.dp))
                                             Row(Modifier.horizontalScroll(rememberScrollState())) {
@@ -1116,9 +1129,9 @@ private fun DownloadCard(
     onPlay: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Column(Modifier.width(120.dp).padding(end = 10.dp)) {
+    Column(Modifier.width(104.dp).padding(end = 10.dp)) {
         Box(
-            Modifier.width(120.dp).height(170.dp).clip(RoundedCornerShape(8.dp)).background(Surface)
+            Modifier.width(104.dp).height(148.dp).clip(RoundedCornerShape(8.dp)).background(Surface)
                 .clickable { onPlay() },
         ) {
             if (entry.posterFile.startsWith("/")) {
