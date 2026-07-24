@@ -13,17 +13,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -407,58 +406,73 @@ private fun SettingsPanel(
     Column(
         modifier
             .fillMaxHeight()
-            .widthIn(min = 240.dp, max = 320.dp)
+            .width(300.dp)
             .background(Color(0xF0000000))
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        SettingsHeader(Icons.Filled.Speed, "speed")
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-            PLAYBACK_SPEEDS.forEach { s ->
-                val on = kotlin.math.abs(s - currentSpeed) < 0.01f
-                Text(
-                    "${s}x",
-                    fontFamily = Mono, fontSize = 12.sp,
-                    color = if (on) Black else MatrixGreen,
-                    modifier = Modifier
-                        .background(if (on) MatrixGreen else Color.Transparent, RoundedCornerShape(6.dp))
-                        .clickable { onSpeed(s) }
-                        .padding(horizontal = 8.dp, vertical = 5.dp),
-                )
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-        SettingsHeader(Icons.Filled.HighQuality, "quality")
-        QUALITY_OPTIONS.forEach { (label, cap) ->
-            SettingsRow(label, selected = label == currentQuality) { onQuality(label, cap) }
-        }
-
-        Spacer(Modifier.height(12.dp))
-        SettingsHeader(Icons.Filled.Audiotrack, "audio")
-        if (audioTracks.isEmpty()) {
-            SettingsPlaceholder()
-        } else {
-            audioTracks.forEach { t ->
-                SettingsRow(t.label, selected = t.id == audioSel) {
-                    audioSel = t.id; engine.selectTrack(TrackKind.AUDIO, t.id)
+        // Speed — chips scroll horizontally so none get clipped.
+        SettingsSection(Icons.Filled.Speed, "speed") {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                PLAYBACK_SPEEDS.forEach { s ->
+                    val on = kotlin.math.abs(s - currentSpeed) < 0.01f
+                    Text(
+                        "${s}x",
+                        fontFamily = Mono, fontSize = 12.sp,
+                        color = if (on) Black else MatrixGreen,
+                        modifier = Modifier
+                            .background(if (on) MatrixGreen else Color.Transparent, RoundedCornerShape(6.dp))
+                            .clickable { onSpeed(s) }
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                    )
                 }
             }
         }
 
-        Spacer(Modifier.height(12.dp))
-        SettingsHeader(Icons.Filled.Subtitles, "subtitles")
-        SettingsRow("off", selected = subSel == null) { subSel = null; engine.selectTrack(TrackKind.SUBTITLE, null) }
-        subtitleTracks.forEach { t ->
-            SettingsRow(t.label, selected = t.id == subSel) {
-                subSel = t.id; engine.selectTrack(TrackKind.SUBTITLE, t.id)
+        SettingsSection(Icons.Filled.HighQuality, "quality") {
+            QUALITY_OPTIONS.forEach { (label, cap) ->
+                SettingsRow(label, selected = label == currentQuality) { onQuality(label, cap) }
             }
         }
-        if (subtitleTracks.isEmpty()) SettingsPlaceholder()
 
-        Spacer(Modifier.height(16.dp))
+        SettingsSection(Icons.Filled.Audiotrack, "audio") {
+            if (audioTracks.isEmpty()) {
+                SettingsPlaceholder()
+            } else {
+                audioTracks.forEach { t ->
+                    SettingsRow(t.label, selected = t.id == audioSel) {
+                        audioSel = t.id; engine.selectTrack(TrackKind.AUDIO, t.id)
+                    }
+                }
+            }
+        }
+
+        SettingsSection(Icons.Filled.Subtitles, "subtitles") {
+            SettingsRow("off", selected = subSel == null) { subSel = null; engine.selectTrack(TrackKind.SUBTITLE, null) }
+            subtitleTracks.forEach { t ->
+                SettingsRow(t.label, selected = t.id == subSel) {
+                    subSel = t.id; engine.selectTrack(TrackKind.SUBTITLE, t.id)
+                }
+            }
+            if (subtitleTracks.isEmpty()) SettingsPlaceholder()
+        }
+
         Text("close", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp,
             modifier = Modifier.clickable { onClose() }.padding(vertical = 6.dp))
+    }
+}
+
+/** A settings category: header + its rows, tightly packed. Spacing between sections comes from the
+ *  parent Column's arrangement, so it stays uniform. */
+@Composable
+private fun SettingsSection(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        SettingsHeader(icon, label)
+        content()
     }
 }
 
