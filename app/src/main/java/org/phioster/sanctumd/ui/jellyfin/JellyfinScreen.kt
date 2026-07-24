@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -1306,7 +1307,10 @@ private fun DownloadsManager(
     val free = remember { runCatching { android.os.StatFs(context.filesDir.path).availableBytes }.getOrDefault(0L) }
     val doneCount = entries.count { it.done }
 
-    Box(Modifier.fillMaxSize().background(Black)) {
+    Box(
+        Modifier.fillMaxSize().background(Black)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+    ) {
         // The app is edge-to-edge (enableEdgeToEdge); this full-screen overlay must pad for the
         // status/nav bars itself, or the header sits under the status bar.
         Column(Modifier.fillMaxSize().systemBarsPadding().padding(16.dp)) {
@@ -1420,7 +1424,12 @@ private fun NowPlayingScreen(
             delay(500)
         }
     }
-    Box(Modifier.fillMaxSize().background(Black).systemBarsPadding()) {
+    Box(
+        Modifier.fillMaxSize().background(Black)
+            // Swallow taps so nothing reaches the media list behind this overlay.
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+            .systemBarsPadding(),
+    ) {
         Column(Modifier.fillMaxSize().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close", tint = MatrixGreen) }
