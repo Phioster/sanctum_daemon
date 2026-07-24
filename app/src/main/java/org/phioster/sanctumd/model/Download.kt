@@ -15,6 +15,7 @@ data class DownloadEntry(
     val sizeBytes: Long = 0,
     val downloadedBytes: Long = 0,
     val runTimeTicks: Long = 0,
+    val mediaType: String = "Video", // "Video" | "Audio" — decides offline playback path
     val state: String = STATE_QUEUED,
     val error: String = "",
     val addedAt: Long = 0,

@@ -29,6 +29,7 @@ import org.phioster.sanctumd.data.DashboardStore
 import org.phioster.sanctumd.data.DownloadStore
 import org.phioster.sanctumd.data.ServiceStore
 import org.phioster.sanctumd.model.DownloadEntry
+import org.phioster.sanctumd.net.jellyfinAudioDownloadPlan
 import org.phioster.sanctumd.net.jellyfinDownloadPlan
 import org.phioster.sanctumd.net.jellyfinImageHeaders
 import org.phioster.sanctumd.notify.Notifications
@@ -172,7 +173,7 @@ class DownloadService : Service() {
 
         val dir = File(filesDir, "downloads").apply { mkdirs() }
         try {
-            val plan = jellyfinDownloadPlan(config, id)
+            val plan = if (entry.mediaType == "Audio") jellyfinAudioDownloadPlan(config, id) else jellyfinDownloadPlan(config, id)
             val file = File(dir, "$id.${plan.container}")
             val reqB = Request.Builder().url(plan.url)
             plan.headers.forEach { (k, v) -> if (v.isNotBlank()) reqB.header(k, v) }
@@ -325,10 +326,10 @@ class DownloadService : Service() {
         private val downloadJson = Json { ignoreUnknownKeys = true }
 
         /** Queue a download. [posterUrl] is remote here; the service caches it locally. */
-        fun enqueue(context: Context, serverId: String, itemId: String, name: String, subtitle: String, posterUrl: String, runTimeTicks: Long) {
+        fun enqueue(context: Context, serverId: String, itemId: String, name: String, subtitle: String, posterUrl: String, runTimeTicks: Long, mediaType: String = "Video") {
             val entry = DownloadEntry(
                 itemId = itemId, serverId = serverId, name = name, subtitle = subtitle,
-                posterFile = posterUrl, runTimeTicks = runTimeTicks,
+                posterFile = posterUrl, runTimeTicks = runTimeTicks, mediaType = mediaType,
             )
             val i = Intent(context, DownloadService::class.java).apply {
                 action = ACTION_ENQUEUE

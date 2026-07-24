@@ -15,6 +15,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.phioster.sanctumd.net.MusicTrack
 import org.phioster.sanctumd.service.MusicService
 
+/** One entry in the playback queue (for the now-playing track list). */
+data class QueueTrack(val title: String, val artist: String)
+
 /** Snapshot of the music player for the now-playing UI. */
 data class MusicState(
     val hasMedia: Boolean = false,
@@ -24,6 +27,8 @@ data class MusicState(
     val isPlaying: Boolean = false,
     val hasNext: Boolean = false,
     val hasPrev: Boolean = false,
+    val queue: List<QueueTrack> = emptyList(),
+    val currentIndex: Int = 0,
 )
 
 /**
@@ -89,6 +94,7 @@ object MusicController {
     fun playPause() { controller?.let { if (it.isPlaying) it.pause() else it.play() } }
     fun next() { controller?.seekToNextMediaItem() }
     fun prev() { controller?.seekToPreviousMediaItem() }
+    fun seekToIndex(index: Int) { controller?.seekTo(index, 0L) }
     fun seekTo(ms: Long) { controller?.seekTo(ms.coerceAtLeast(0)) }
     fun stop() { controller?.run { stop(); clearMediaItems() } }
     fun positionMs(): Long = controller?.currentPosition?.coerceAtLeast(0) ?: 0
@@ -101,6 +107,10 @@ object MusicController {
         val c = controller
         if (c == null) { _state.value = MusicState(); return }
         val md = c.currentMediaItem?.mediaMetadata
+        val queue = (0 until c.mediaItemCount).map { i ->
+            val m = c.getMediaItemAt(i).mediaMetadata
+            QueueTrack(m.title?.toString().orEmpty(), m.artist?.toString().orEmpty())
+        }
         _state.value = MusicState(
             hasMedia = c.currentMediaItem != null,
             title = md?.title?.toString().orEmpty(),
@@ -109,6 +119,8 @@ object MusicController {
             isPlaying = c.isPlaying,
             hasNext = c.hasNextMediaItem(),
             hasPrev = c.hasPreviousMediaItem(),
+            queue = queue,
+            currentIndex = c.currentMediaItemIndex,
         )
     }
 }

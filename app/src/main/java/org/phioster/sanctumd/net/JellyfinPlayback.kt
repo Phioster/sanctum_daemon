@@ -201,6 +201,22 @@ suspend fun jellyfinDownloadPlan(config: ServiceConfig, itemId: String): Downloa
     )
 }
 
+/** Download plan for an audio item — the original file via the Audio endpoint. */
+suspend fun jellyfinAudioDownloadPlan(config: ServiceConfig, itemId: String): DownloadPlan = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val api = jfPlaybackApi(config, token)
+    val uid = jellyfinResolveUserId(config, jfApi(config, token))
+    val info = api.playbackInfo(itemId, uid, playbackInfoBody(uid, null))
+    val ms = info.MediaSources.firstOrNull()
+    val base = config.normalizedBaseUrl
+    DownloadPlan(
+        url = "${base}Audio/$itemId/stream?static=true",
+        headers = mapOf("X-Emby-Token" to token) + config.customHeaders,
+        container = ms?.Container?.substringBefore(',')?.takeIf { it.isNotBlank() } ?: "mp3",
+        sizeBytes = ms?.Size ?: 0L,
+    )
+}
+
 private fun playStateBody(src: PlaybackSource, positionMs: Long, isPaused: Boolean? = null): JsonObject =
     buildJsonObject {
         put("ItemId", src.itemId)

@@ -131,11 +131,15 @@ suspend fun jellyfinItemDetail(config: ServiceConfig, itemId: String): JellyMedi
         genres = d.Genres.joinToString(" · "),
         cast = cast,
         kind = d.Type,
-        subtitle = if (d.Type == "Episode") buildString {
-            d.SeriesName?.let { append(it) }
-            val s = d.ParentIndexNumber; val e = d.IndexNumber
-            if (s != null && e != null) { if (isNotEmpty()) append(" · "); append("S%02dE%02d".format(s, e)) }
-        } else "",
+        subtitle = when (d.Type) {
+            "Episode" -> buildString {
+                d.SeriesName?.let { append(it) }
+                val s = d.ParentIndexNumber; val e = d.IndexNumber
+                if (s != null && e != null) { if (isNotEmpty()) append(" · "); append("S%02dE%02d".format(s, e)) }
+            }
+            "Audio" -> d.AlbumArtist.orEmpty()
+            else -> ""
+        },
     )
 }
 

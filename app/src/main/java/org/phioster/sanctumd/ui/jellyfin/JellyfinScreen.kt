@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -250,6 +251,18 @@ internal fun JellyfinScreen(
         if (it.isFolder) browseStack = browseStack + it
         else scope.launch { mediaDetail = runCatching { vm.jellyfinMediaDetail(config, it.id) }.getOrElse { null } }
     }
+    // Play a completed download offline: audio via the background music player, video via the overlay.
+    fun playDownload(e: org.phioster.sanctumd.model.DownloadEntry) {
+        if (e.filePath.isBlank()) return
+        val fileUri = android.net.Uri.fromFile(java.io.File(e.filePath)).toString()
+        if (e.mediaType == "Audio") {
+            val art = if (e.posterFile.startsWith("/")) android.net.Uri.fromFile(java.io.File(e.posterFile)).toString() else ""
+            val track = org.phioster.sanctumd.net.MusicTrack(e.itemId, e.name, e.subtitle, "", fileUri, art)
+            org.phioster.sanctumd.ui.player.MusicController.play(context, listOf(track), 0, emptyMap())
+        } else {
+            playRequest = org.phioster.sanctumd.ui.player.PlayRequest(e.itemId, e.name, localFileUri = fileUri)
+        }
+    }
     fun act(action: suspend () -> String) {
         scope.launch { actionMsg = action(); loadSessions() }
     }
@@ -436,14 +449,7 @@ internal fun JellyfinScreen(
                                                 myDownloads.forEach { e ->
                                                     DownloadCard(
                                                         entry = e, accent = accent,
-                                                        onPlay = {
-                                                            if (e.done && e.filePath.isNotBlank()) {
-                                                                playRequest = org.phioster.sanctumd.ui.player.PlayRequest(
-                                                                    e.itemId, e.name,
-                                                                    localFileUri = android.net.Uri.fromFile(java.io.File(e.filePath)).toString(),
-                                                                )
-                                                            }
-                                                        },
+                                                        onPlay = { if (e.done) playDownload(e) },
                                                         onDelete = { org.phioster.sanctumd.service.DownloadService.delete(context, e.itemId) },
                                                     )
                                                 }
@@ -509,7 +515,7 @@ internal fun JellyfinScreen(
                                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                             Text("‹ back", fontFamily = Mono, color = accent, fontSize = 13.sp, modifier = Modifier.clickable { browseStack = browseStack.dropLast(1) })
                                             Spacer(Modifier.weight(1f))
-                                            // Play a whole album in the background music player.
+                                            // Play / download a whole album.
                                             if (here.kind == "MusicAlbum") {
                                                 Text("▶ play album", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, modifier = Modifier.clickable {
                                                     scope.launch {
@@ -517,6 +523,14 @@ internal fun JellyfinScreen(
                                                         if (tracks.isNotEmpty()) org.phioster.sanctumd.ui.player.MusicController.play(context, tracks, 0, config.customHeaders)
                                                     }
                                                 }.padding(end = 14.dp))
+                                                val trackItems = mediaContents.orEmpty().filter { !it.isFolder && it.kind == "Audio" }
+                                                val toGetAudio = trackItems.filter { downloads[it.id]?.done != true }
+                                                if (toGetAudio.isNotEmpty()) {
+                                                    Text("⬇ album (${toGetAudio.size})", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, modifier = Modifier.clickable {
+                                                        toGetAudio.forEach { t -> org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, t.id, t.name, t.subtitle, t.posterUrl, 0L, "Audio") }
+                                                        actionMsg = "queued ${toGetAudio.size} downloads"
+                                                    }.padding(end = 14.dp))
+                                                }
                                             }
                                             // Batch-download every episode in this folder that isn't downloaded yet.
                                             val episodes = mediaContents.orEmpty().filter { !it.isFolder && it.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS }
@@ -1082,6 +1096,22 @@ internal fun JellyfinScreen(
                             },
                             modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.6f), RoundedCornerShape(6.dp)),
                         ) { Text("▶  play", fontFamily = Mono, color = MatrixGreen, fontWeight = FontWeight.Bold) }
+                        Spacer(Modifier.height(8.dp))
+                        val adl = downloads[d.id]
+                        when (adl?.state) {
+                            org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
+                                Text("✓  downloaded", fontFamily = Mono, color = accent, fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp))
+                            org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING, org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED ->
+                                TextButton(
+                                    onClick = { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) },
+                                    modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.4f), RoundedCornerShape(6.dp)),
+                                ) { Text("⬇  ${(adl.progress * 100).toInt()}%  ·  cancel", fontFamily = Mono, color = MatrixGreen) }
+                            else ->
+                                TextButton(
+                                    onClick = { org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L, "Audio") },
+                                    modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.6f), RoundedCornerShape(6.dp)),
+                                ) { Text("⬇  download", fontFamily = Mono, color = MatrixGreen, fontWeight = FontWeight.Bold) }
+                        }
                         Spacer(Modifier.height(10.dp))
                     }
                     if (d.facts.isNotEmpty()) {
@@ -1170,12 +1200,7 @@ internal fun JellyfinScreen(
             accent = accent,
             wifiOnly = wifiOnly,
             onWifiOnly = { vm.setDownloadsWifiOnly(it) },
-            onPlay = { e ->
-                downloadsManagerOpen = false
-                playRequest = org.phioster.sanctumd.ui.player.PlayRequest(
-                    e.itemId, e.name, localFileUri = android.net.Uri.fromFile(java.io.File(e.filePath)).toString(),
-                )
-            },
+            onPlay = { e -> downloadsManagerOpen = false; playDownload(e) },
             onDelete = { id -> org.phioster.sanctumd.service.DownloadService.delete(context, id) },
             onClearCompleted = { org.phioster.sanctumd.service.DownloadService.clearCompleted(context) },
             onClearAll = { org.phioster.sanctumd.service.DownloadService.clearAll(context); downloadsManagerOpen = false },
@@ -1437,6 +1462,26 @@ private fun NowPlayingScreen(
                 }
                 IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.next() }, enabled = state.hasNext) {
                     Icon(Icons.Filled.SkipNext, contentDescription = "Next", tint = if (state.hasNext) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), modifier = Modifier.size(36.dp))
+                }
+            }
+            // Queue / album track list fills the space below the controls.
+            if (state.queue.size > 1) {
+                Spacer(Modifier.height(18.dp))
+                Text("UP NEXT", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(4.dp))
+                HorizontalDivider(color = MatrixGreen.copy(alpha = 0.12f))
+                LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                    itemsIndexed(state.queue) { i, t ->
+                        val current = i == state.currentIndex
+                        Row(
+                            Modifier.fillMaxWidth().clickable { org.phioster.sanctumd.ui.player.MusicController.seekToIndex(i) }.padding(vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("${i + 1}", fontFamily = Mono, color = if (current) accent else MatrixGreen.copy(alpha = 0.4f), fontSize = 11.sp, modifier = Modifier.width(26.dp))
+                            Text(t.title, fontFamily = Mono, color = if (current) accent else MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            if (current) Text(if (state.isPlaying) "❚❚" else "▶", fontFamily = Mono, color = accent, fontSize = 12.sp)
+                        }
+                    }
                 }
             }
         }

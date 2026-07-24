@@ -4,6 +4,7 @@ import android.content.Intent
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.exoplayer.ExoPlayer
@@ -26,7 +27,9 @@ class MusicService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
-        val resolving = ResolvingDataSource.Factory(http) { spec ->
+        // DefaultDataSource handles local files (offline downloads) + content, delegating http to `http`.
+        val base = DefaultDataSource.Factory(this, http)
+        val resolving = ResolvingDataSource.Factory(base) { spec ->
             if (authHeaders.isEmpty()) spec else spec.withRequestHeaders(authHeaders)
         }
         val player = ExoPlayer.Builder(this)
