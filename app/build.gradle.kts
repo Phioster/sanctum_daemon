@@ -21,7 +21,7 @@ val hasReleaseKeystore = releaseSigning("storeFile", "RELEASE_STORE_FILE") != nu
 
 android {
     namespace = "org.phioster.sanctumd"
-    compileSdk = 35
+    compileSdk = 36 // required by dev.jdtech.mpv:libmpv 1.0.0
 
     defaultConfig {
         // The code lives in `org.phioster.sanctumd` (see namespace above), but the
