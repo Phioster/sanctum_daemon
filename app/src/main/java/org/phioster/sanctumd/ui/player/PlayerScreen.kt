@@ -257,7 +257,9 @@ internal fun PlayerScreen(
                     if (settingsOpen) settingsOpen = false else controlsVisible = !controlsVisible
                 })
             }
-            .pointerInput(Unit) {
+            // Brightness/volume swipes only while the overlay is hidden, so they never fight the controls.
+            .pointerInput(controlsVisible, settingsOpen) {
+                if (controlsVisible || settingsOpen) return@pointerInput
                 var onLeft = true
                 detectVerticalDragGestures(
                     onDragStart = { offset -> onLeft = offset.x < size.width / 2f },
@@ -432,9 +434,11 @@ private fun SettingsPanel(
             SettingsRow(label, selected = label == currentQuality) { onQuality(label, cap) }
         }
 
-        if (audioTracks.size > 1) {
-            Spacer(Modifier.height(12.dp))
-            SettingsHeader(Icons.Filled.Audiotrack, "audio")
+        Spacer(Modifier.height(12.dp))
+        SettingsHeader(Icons.Filled.Audiotrack, "audio")
+        if (audioTracks.isEmpty()) {
+            SettingsPlaceholder()
+        } else {
             audioTracks.forEach { t ->
                 SettingsRow(t.label, selected = t.id == audioSel) {
                     audioSel = t.id; engine.selectTrack(TrackKind.AUDIO, t.id)
@@ -450,6 +454,7 @@ private fun SettingsPanel(
                 subSel = t.id; engine.selectTrack(TrackKind.SUBTITLE, t.id)
             }
         }
+        if (subtitleTracks.isEmpty()) SettingsPlaceholder()
 
         Spacer(Modifier.height(16.dp))
         Text("close", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp,
@@ -463,6 +468,12 @@ private fun SettingsHeader(icon: androidx.compose.ui.graphics.vector.ImageVector
         Icon(icon, contentDescription = null, tint = MatrixGreen.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
         Text(label.uppercase(), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
     }
+}
+
+@Composable
+private fun SettingsPlaceholder() {
+    Text("none available", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.4f), fontSize = 12.sp,
+        modifier = Modifier.padding(vertical = 7.dp))
 }
 
 @Composable

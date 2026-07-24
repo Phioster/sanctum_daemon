@@ -111,12 +111,18 @@ private fun deviceProfile(maxBitrate: Int?): JsonObject = buildJsonObject {
     putJsonArray("CodecProfiles") {}
 }
 
-/** The PlaybackInfoDto POST body: wraps the device profile so the server actually honours our
- *  direct-play/transcode capabilities (a bare profile at top level is ignored). */
+/**
+ * The PlaybackInfoDto POST body. For **Auto** quality ([maxBitrate] null) we deliberately send NO
+ * device profile: the server then defaults to direct-play whenever it can (matches what actually
+ * plays here — a restrictive profile made it needlessly transcode). Only when a quality cap is
+ * chosen do we send a profile whose bitrate + HLS transcode target force the server down.
+ */
 private fun playbackInfoBody(userId: String, maxBitrate: Int?): JsonObject = buildJsonObject {
     put("UserId", userId)
-    put("DeviceProfile", deviceProfile(maxBitrate))
-    if (maxBitrate != null) put("MaxStreamingBitrate", maxBitrate)
+    if (maxBitrate != null) {
+        put("DeviceProfile", deviceProfile(maxBitrate))
+        put("MaxStreamingBitrate", maxBitrate)
+    }
     put("EnableDirectPlay", true)
     put("EnableDirectStream", true)
     put("EnableTranscoding", true)
@@ -143,14 +149,14 @@ suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String, maxBit
     val psid = info.PlaySessionId ?: ""
     val base = config.normalizedBaseUrl // ends with '/'
 
+    // Prefer sending the original file (direct play/stream) — only fall back to a transcode when the
+    // server can't do either, so a playable file never needlessly goes through ffmpeg.
     val transcode = ms.TranscodingUrl
     val (url, isHls) = when {
-        ms.SupportsDirectPlay ->
+        ms.SupportsDirectPlay || ms.SupportsDirectStream ->
             "${base}Videos/$itemId/stream?static=true&mediaSourceId=${ms.Id}&playSessionId=$psid" to false
         !transcode.isNullOrBlank() ->
             base.trimEnd('/') + transcode to true
-        ms.SupportsDirectStream ->
-            "${base}Videos/$itemId/stream?static=true&mediaSourceId=${ms.Id}&playSessionId=$psid" to false
         else -> error("item $itemId is not playable")
     }
 
