@@ -394,7 +394,7 @@ internal fun JellyfinScreen(
                                         .sortedByDescending { it.addedAt }
                                     if (myDownloads.isNotEmpty()) {
                                         item {
-                                            Spacer(Modifier.height(6.dp))
+                                            Spacer(Modifier.height(8.dp))
                                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                                 Text("DOWNLOADS  ·  offline", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
                                                 Spacer(Modifier.weight(1f))
@@ -1129,9 +1129,9 @@ private fun DownloadCard(
     onPlay: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Column(Modifier.width(104.dp).padding(end = 10.dp)) {
+    Column(Modifier.width(120.dp).padding(end = 10.dp)) {
         Box(
-            Modifier.width(104.dp).height(148.dp).clip(RoundedCornerShape(8.dp)).background(Surface)
+            Modifier.width(120.dp).height(170.dp).clip(RoundedCornerShape(8.dp)).background(Surface)
                 .clickable { onPlay() },
         ) {
             if (entry.posterFile.startsWith("/")) {

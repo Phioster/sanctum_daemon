@@ -62,7 +62,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.util.UnstableApi
@@ -155,7 +154,10 @@ internal fun PlayerScreen(
         val prevOrientation = activity?.requestedOrientation
         if (window != null) {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            WindowCompat.setDecorFitsSystemWindows(window, false)
+            // NB: don't touch decorFitsSystemWindows — the app runs edge-to-edge (enableEdgeToEdge),
+            // so the Scaffolds pad for the status bar themselves. Flipping it here (and back to true
+            // on dispose) made the decor consume the insets → 0 status-bar inset → the top bar slid
+            // up under the status bar after leaving the player. Only hide/show the bars.
             val controller = WindowInsetsControllerCompat(window, window.decorView)
             controller.hide(WindowInsetsCompat.Type.systemBars())
             controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -164,7 +166,6 @@ internal fun PlayerScreen(
         onDispose {
             if (window != null) {
                 window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                WindowCompat.setDecorFitsSystemWindows(window, true)
                 WindowInsetsControllerCompat(window, window.decorView).show(WindowInsetsCompat.Type.systemBars())
                 // Release our brightness override back to the system.
                 val lp = window.attributes
