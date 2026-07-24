@@ -94,8 +94,12 @@ import retrofit2.http.Query
 )
 @Serializable internal data class SeerrSearchPage(val results: List<SeerrSearchResult> = emptyList())
 
+@Serializable internal data class SeerrGenreDto(val id: Int = 0, val name: String = "")
+
 internal interface SeerrApi {
     @GET("api/v1/request/count") suspend fun counts(): SeerrCounts
+    @GET("api/v1/genres/movie") suspend fun genresMovie(): List<SeerrGenreDto>
+    @GET("api/v1/genres/tv") suspend fun genresTv(): List<SeerrGenreDto>
     @GET("api/v1/user") suspend fun users(@Query("take") take: Int = 100, @Query("sort") sort: String = "requests"): SeerrUserPage
 
     @GET("api/v1/request") suspend fun requests(
@@ -121,8 +125,8 @@ internal interface SeerrApi {
     @GET("api/v1/search") suspend fun searchRaw(@Query("query") query: String): JsonObject
     @POST("api/v1/request") suspend fun createRequest(@Body body: JsonObject): Response<ResponseBody>
     @GET("api/v1/discover/trending") suspend fun trending(@Query("page") page: Int = 1): JsonObject
-    @GET("api/v1/discover/movies") suspend fun discoverMovies(@Query("page") page: Int = 1): JsonObject
-    @GET("api/v1/discover/tv") suspend fun discoverTv(@Query("page") page: Int = 1): JsonObject
+    @GET("api/v1/discover/movies") suspend fun discoverMovies(@Query("page") page: Int = 1, @Query("genre") genre: Int? = null): JsonObject
+    @GET("api/v1/discover/tv") suspend fun discoverTv(@Query("page") page: Int = 1, @Query("genre") genre: Int? = null): JsonObject
     @GET("api/v1/discover/watchlist") suspend fun watchlist(@Query("page") page: Int = 1): JsonObject
     @GET("api/v1/issue/{id}") suspend fun issueDetail(@Path("id") id: Int): JsonObject
     @POST("api/v1/issue/{id}/comment") suspend fun addComment(@Path("id") id: Int, @Body body: JsonObject): Response<ResponseBody>
@@ -285,6 +289,20 @@ suspend fun seerrDiscover(config: ServiceConfig, kind: String): List<SeerrDiscov
         "tv" -> api.discoverTv() to "tv"
         else -> api.trending() to null
     }
+    parseDiscoverItems(page, def)
+}
+
+/** Genre list for [kind] = "movies" | "tv" (id + name), for the discover genre rows. */
+suspend fun seerrGenres(config: ServiceConfig, kind: String): List<Pair<Int, String>> = withContext(Dispatchers.IO) {
+    val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
+    val genres = if (kind == "tv") api.genresTv() else api.genresMovie()
+    genres.filter { it.id > 0 && it.name.isNotBlank() }.map { it.id to it.name }
+}
+
+/** Discover [kind] = "movies" | "tv" filtered to one [genreId]. */
+suspend fun seerrDiscoverGenre(config: ServiceConfig, kind: String, genreId: Int): List<SeerrDiscoverItem> = withContext(Dispatchers.IO) {
+    val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
+    val (page, def) = if (kind == "tv") api.discoverTv(genre = genreId) to "tv" else api.discoverMovies(genre = genreId) to "movie"
     parseDiscoverItems(page, def)
 }
 

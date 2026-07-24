@@ -26,6 +26,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -120,6 +123,9 @@ internal fun SeerrScreen(
     var issues by remember { mutableStateOf<List<SeerrIssueItem>?>(null) }
     var discover by remember { mutableStateOf<List<org.phioster.sanctumd.model.SeerrDiscoverItem>?>(null) }
     var watchlist by remember { mutableStateOf<List<org.phioster.sanctumd.model.SeerrDiscoverItem>?>(null) }
+    var genres by remember { mutableStateOf<List<Pair<Int, String>>?>(null) }
+    var genreItems by remember { mutableStateOf<Map<Int, List<org.phioster.sanctumd.model.SeerrDiscoverItem>>>(emptyMap()) }
+    var genreType by remember { mutableStateOf("movies") } // "movies" | "tv" — which genre catalog the rows use
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var refreshing by remember { mutableStateOf(false) }
@@ -149,7 +155,7 @@ internal fun SeerrScreen(
 
     val reqFilters = listOf("all", "pending", "approved", "processing", "failed", "available", "unavailable")
     val issueFilters = listOf("open", "resolved", "all")
-    val discoverKinds = listOf("trending", "movies", "tv")
+    val discoverKinds = listOf("trending", "movies", "tv", "genres")
 
     suspend fun loadRequests() {
         listError = null
@@ -192,8 +198,40 @@ internal fun SeerrScreen(
             watchlist = emptyList()
         }
     }
-    LaunchedEffect(mode, reqFilter, issueFilter, discoverKind) {
-        when (mode) { 0 -> loadRequests(); 1 -> loadIssues(); 3 -> loadWatchlist(); else -> loadDiscover() }
+    // Discover-by-genre: load the genre catalogue, then each genre's first page in parallel.
+    suspend fun loadGenreRows() {
+        listError = null
+        try {
+            genres = null
+            genreItems = emptyMap()
+            val gs = vm.seerrGenresOf(config, genreType).take(14)
+            genres = gs
+            coroutineScope {
+                genreItems = gs.map { (id, _) ->
+                    async { id to runCatching { vm.seerrDiscoverGenreOf(config, genreType, id) }.getOrDefault(emptyList()) }
+                }.awaitAll().toMap()
+            }
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            listError = t.message
+        }
+    }
+    fun openDiscoverDetail(di: org.phioster.sanctumd.model.SeerrDiscoverItem) {
+        mediaDetailLoading = true
+        scope.launch {
+            mediaDetail = runCatching { vm.seerrMediaDetailById(config, di.tmdbId, di.mediaType) }.getOrNull()
+                ?: org.phioster.sanctumd.model.SeerrMediaDetail(di.tmdbId, di.title, di.year, di.mediaType, "", di.posterUrl, emptyList(), "", di.status, emptyList())
+            mediaDetailLoading = false
+        }
+    }
+    LaunchedEffect(mode, reqFilter, issueFilter, discoverKind, genreType) {
+        when (mode) {
+            0 -> loadRequests()
+            1 -> loadIssues()
+            3 -> loadWatchlist()
+            else -> if (discoverKind == "genres") loadGenreRows() else loadDiscover()
+        }
     }
     fun act(action: suspend () -> String) {
         scope.launch {
@@ -281,7 +319,7 @@ internal fun SeerrScreen(
                             }
                         }
                     }
-                    IconButton(enabled = !refreshing, onClick = { actionMsg = null; scope.launch { refreshing = true; when (mode) { 0 -> loadRequests(); 1 -> loadIssues(); 3 -> loadWatchlist(); else -> loadDiscover() }; refreshing = false } }) {
+                    IconButton(enabled = !refreshing, onClick = { actionMsg = null; scope.launch { refreshing = true; when (mode) { 0 -> loadRequests(); 1 -> loadIssues(); 3 -> loadWatchlist(); else -> if (discoverKind == "genres") loadGenreRows() else loadDiscover() }; refreshing = false } }) {
                         if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), color = MatrixGreen, strokeWidth = 2.dp)
                         else Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                     }
@@ -328,33 +366,43 @@ internal fun SeerrScreen(
                                 when {
                                     w == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     w.isEmpty() -> item { Text("watchlist is empty (needs a Plex-linked account)", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(w) { di ->
-                                        SeerrDiscoverRow(di, accent) {
-                                            mediaDetailLoading = true
-                                            scope.launch {
-                                                mediaDetail = runCatching { vm.seerrMediaDetailById(config, di.tmdbId, di.mediaType) }.getOrNull()
-                                                    ?: org.phioster.sanctumd.model.SeerrMediaDetail(di.tmdbId, di.title, di.year, di.mediaType, "", di.posterUrl, emptyList(), "", di.status, emptyList())
-                                                mediaDetailLoading = false
-                                            }
+                                    else -> items(w) { di -> SeerrDiscoverRow(di, accent) { openDiscoverDetail(di) } }
+                                }
+                            }
+                            else -> if (discoverKind == "genres") {
+                                // media-type toggle for which genre catalogue to browse
+                                item {
+                                    Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        listOf("movies" to "movies", "tv" to "series").forEach { (key, label) ->
+                                            val sel = genreType == key
+                                            Text(
+                                                label, fontFamily = Mono, fontSize = 12.sp,
+                                                color = if (sel) Black else MatrixGreen,
+                                                modifier = Modifier.clip(RoundedCornerShape(6.dp))
+                                                    .background(if (sel) MatrixGreen else Surface)
+                                                    .clickable { genreType = key }
+                                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                            )
                                         }
                                     }
                                 }
-                            }
-                            else -> {
+                                val gs = genres
+                                when {
+                                    gs == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    gs.isEmpty() -> item { Text("no genres", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    else -> gs.forEach { (id, name) ->
+                                        val its = genreItems[id]
+                                        if (!its.isNullOrEmpty()) {
+                                            item(key = "genre-$id") { SeerrGenreSection(name, its, accent) { di -> openDiscoverDetail(di) } }
+                                        }
+                                    }
+                                }
+                            } else {
                                 val d = discover
                                 when {
                                     d == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     d.isEmpty() -> item { Text("nothing to show", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(d) { di ->
-                                        SeerrDiscoverRow(di, accent) {
-                                            mediaDetailLoading = true
-                                            scope.launch {
-                                                mediaDetail = runCatching { vm.seerrMediaDetailById(config, di.tmdbId, di.mediaType) }.getOrNull()
-                                                    ?: org.phioster.sanctumd.model.SeerrMediaDetail(di.tmdbId, di.title, di.year, di.mediaType, "", di.posterUrl, emptyList(), "", di.status, emptyList())
-                                                mediaDetailLoading = false
-                                            }
-                                        }
-                                    }
+                                    else -> items(d) { di -> SeerrDiscoverRow(di, accent) { openDiscoverDetail(di) } }
                                 }
                             }
                         }
@@ -764,5 +812,40 @@ internal fun SeerrDiscoverRow(item: org.phioster.sanctumd.model.SeerrDiscoverIte
             )
         }
         Text(item.status.ifBlank { "request" }, fontFamily = Mono, color = statusColor, fontSize = 11.sp)
+    }
+}
+
+/** One genre's horizontal poster row in the Discover "genres" view. */
+@Composable
+private fun SeerrGenreSection(
+    name: String,
+    items: List<org.phioster.sanctumd.model.SeerrDiscoverItem>,
+    accent: Color,
+    onOpen: (org.phioster.sanctumd.model.SeerrDiscoverItem) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Text(name.uppercase(), fontFamily = Mono, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(items, key = { it.tmdbId }) { di -> SeerrGenrePoster(di, onOpen) }
+        }
+    }
+}
+
+@Composable
+private fun SeerrGenrePoster(item: org.phioster.sanctumd.model.SeerrDiscoverItem, onOpen: (org.phioster.sanctumd.model.SeerrDiscoverItem) -> Unit) {
+    Column(Modifier.width(100.dp).clickable { onOpen(item) }) {
+        if (item.posterUrl.isNotBlank()) {
+            AsyncImage(
+                model = item.posterUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.width(100.dp).height(150.dp).clip(RoundedCornerShape(6.dp)).background(Surface),
+            )
+        } else {
+            Box(Modifier.width(100.dp).height(150.dp).clip(RoundedCornerShape(6.dp)).background(Surface))
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
