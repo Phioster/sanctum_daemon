@@ -150,6 +150,7 @@ class DownloadService : Service() {
             store.update(id) {
                 it.copy(state = DownloadEntry.STATE_DONE, filePath = file.absolutePath, downloadedBytes = it.sizeBytes.coerceAtLeast(file.length()), posterFile = poster)
             }
+            notifyDone(id, "✓  ${entry.name}", "Download complete")
         } catch (c: CancellationException) {
             throw c // real coroutine cancellation (service destroyed) — don't swallow
         } catch (d: DownloadCancelled) {
@@ -157,6 +158,7 @@ class DownloadService : Service() {
             cancelled -= id
         } catch (t: Throwable) {
             store.update(id) { it.copy(state = DownloadEntry.STATE_FAILED, error = t.message ?: t.javaClass.simpleName) }
+            notifyDone(id, "⚠  ${entry.name}", "Download failed")
         }
     }
 
@@ -194,6 +196,27 @@ class DownloadService : Service() {
         if (NotificationManagerCompat.from(this).areNotificationsEnabled()) {
             runCatching { NotificationManagerCompat.from(this).notify(FGS_ID, n) }
         }
+    }
+
+    /** A dismissible completion/failure notification, separate from the ongoing FGS one so it
+     *  survives after the service stops — the way a downloader flips "downloading" to "done". */
+    private fun notifyDone(itemId: String, text: String, title: String) {
+        if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) return
+        val open = PendingIntent.getActivity(
+            this, "dl:$itemId".hashCode(), Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val n = NotificationCompat.Builder(this, Notifications.CH_DOWNLOADS)
+            .setSmallIcon(R.drawable.ic_notify)
+            .setColor(android.graphics.Color.parseColor("#14532D"))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setAutoCancel(true)
+            .setContentIntent(open)
+            .build()
+        // Unique id (never FGS_ID) so it isn't cleared when the foreground notification is removed.
+        runCatching { NotificationManagerCompat.from(this).notify("dl:$itemId".hashCode(), n) }
     }
 
     private fun stopNow() {
