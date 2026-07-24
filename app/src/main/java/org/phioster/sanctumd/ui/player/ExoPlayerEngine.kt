@@ -137,14 +137,14 @@ class ExoPlayerEngine(private val context: Context) : MediaPlayerEngine {
                 if (!isGerman) continue
                 val forced = (f.selectionFlags and C.SELECTION_FLAG_FORCED) != 0 ||
                     label.contains("forced") || label.contains("erzwungen")
-                matches += Triple(g.mediaTrackGroup, i, forced)
+                matches += Triple(g, i, forced)
             }
         }
         // Prefer a forced German track; otherwise the first normal German track.
         val pick = matches.firstOrNull { it.third } ?: matches.firstOrNull() ?: return false
         exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-            .setOverrideForType(TrackSelectionOverride(pick.first, pick.second))
+            .setOverrideForType(TrackSelectionOverride(pick.first.mediaTrackGroup, pick.second))
             .build()
         return true
     }
