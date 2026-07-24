@@ -342,7 +342,8 @@ internal fun JellyfinScreen(
                 enabled = browseStack.isEmpty() && dashSection == null,
             ) { jfPage ->
                 val pageMode = jfOrder[jfPage]
-                if (listError != null) {
+                // The media tab still renders when offline — downloads are local and must stay reachable.
+                if (listError != null && pageMode != 3) {
                     Text("error: $listError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
                 } else {
                     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
@@ -408,37 +409,51 @@ internal fun JellyfinScreen(
                                             }
                                         }
                                     }
-                                    val res = resumeItems
-                                    if (!res.isNullOrEmpty()) {
-                                        item {
-                                            Spacer(Modifier.height(8.dp))
-                                            Text("CONTINUE WATCHING", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                                            Spacer(Modifier.height(6.dp))
-                                            Row(Modifier.horizontalScroll(rememberScrollState())) {
-                                                res.forEach { m -> JellyPosterCard(m, config, accent) { openMedia(m) } }
+                                    if (listError != null) {
+                                        // Offline / server unreachable: downloads above still play; the rest needs the server.
+                                        if (myDownloads.isEmpty()) {
+                                            item {
+                                                Spacer(Modifier.height(24.dp))
+                                                Text("nothing downloaded for offline use", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                                             }
                                         }
-                                    }
-                                    val lat = latestItems
-                                    if (!lat.isNullOrEmpty()) {
+                                        item {
+                                            Spacer(Modifier.height(16.dp))
+                                            Text("server unreachable — showing downloads only", fontFamily = Mono, color = ErrRed.copy(alpha = 0.8f), fontSize = 11.sp)
+                                        }
+                                    } else {
+                                        val res = resumeItems
+                                        if (!res.isNullOrEmpty()) {
+                                            item {
+                                                Spacer(Modifier.height(8.dp))
+                                                Text("CONTINUE WATCHING", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                                Spacer(Modifier.height(6.dp))
+                                                Row(Modifier.horizontalScroll(rememberScrollState())) {
+                                                    res.forEach { m -> JellyPosterCard(m, config, accent) { openMedia(m) } }
+                                                }
+                                            }
+                                        }
+                                        val lat = latestItems
+                                        if (!lat.isNullOrEmpty()) {
+                                            item {
+                                                Spacer(Modifier.height(12.dp))
+                                                Text("RECENTLY ADDED", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                                Spacer(Modifier.height(6.dp))
+                                                Row(Modifier.horizontalScroll(rememberScrollState())) {
+                                                    lat.forEach { m -> JellyPosterCard(m, config, accent) { openMedia(m) } }
+                                                }
+                                            }
+                                        }
                                         item {
                                             Spacer(Modifier.height(12.dp))
-                                            Text("RECENTLY ADDED", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                                            Spacer(Modifier.height(6.dp))
-                                            Row(Modifier.horizontalScroll(rememberScrollState())) {
-                                                lat.forEach { m -> JellyPosterCard(m, config, accent) { openMedia(m) } }
-                                            }
+                                            Text("LIBRARIES", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
                                         }
-                                    }
-                                    item {
-                                        Spacer(Modifier.height(12.dp))
-                                        Text("LIBRARIES", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                                    }
-                                    val v = mediaViews
-                                    when {
-                                        v == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                        v.isEmpty() -> item { Text("no libraries", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                        else -> items(v) { m -> JellyMediaRow(m, config, accent) { openMedia(m) } }
+                                        val v = mediaViews
+                                        when {
+                                            v == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                            v.isEmpty() -> item { Text("no libraries", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                            else -> items(v) { m -> JellyMediaRow(m, config, accent) { openMedia(m) } }
+                                        }
                                     }
                                 } else {
                                     val here = browseStack.last()
