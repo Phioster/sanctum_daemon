@@ -132,6 +132,14 @@ class NtfyStreamService : Service() {
         val (_, recentIds) = store.ntfyCursor(cursorScope)
         if (msg.id.isNotEmpty() && msg.id in recentIds) return // duplicate at the ?since= boundary
         val base = msg.title.ifBlank { "Sanctumd" }
+        // Process-wide dedup across ALL streams (the persisted cursor is per-server only): the same
+        // message can arrive twice when the live-push topic and an NTFY service point at the same
+        // server, or when a reconnect re-delivers past the trimmed recent-id list. Also collapses a
+        // repeated payload with a fresh id (e.g. Jellyfin's double Playback-Stop) within a short window.
+        if (isDuplicate(msg.id, base, msg.text)) {
+            if (msg.time > 0) store.saveNtfyCursor(msg.time, recentIds + msg.id, cursorScope)
+            return
+        }
         // Messages from a secondary topic carry a MASKED topic as prefix so they're tellable apart
         // without leaking the (often unprotected) topic name in the notification.
         val title = if (msg.topic.isNotBlank() && msg.topic != mainTopic) "[${maskTopic(msg.topic)}] $base" else base
@@ -170,6 +178,23 @@ class NtfyStreamService : Service() {
 
     companion object {
         private const val FGS_ID = 4711
+
+        // Process-wide dedup so the same push never notifies twice across streams/reconnects.
+        private val seenIds = java.util.concurrent.ConcurrentHashMap<String, Long>()
+        private val seenContent = java.util.concurrent.ConcurrentHashMap<String, Long>()
+        private const val ID_WINDOW_MS = 300_000L      // 5 min: same id re-delivered on a reconnect
+        private const val CONTENT_WINDOW_MS = 20_000L  // 20 s: same payload with a fresh id (double webhook)
+
+        /** True if this push was already shown recently (by id, or by identical title+text). */
+        private fun isDuplicate(id: String, title: String, text: String): Boolean {
+            val now = System.currentTimeMillis()
+            seenIds.entries.removeAll { now - it.value > ID_WINDOW_MS }
+            seenContent.entries.removeAll { now - it.value > CONTENT_WINDOW_MS }
+            var dup = false
+            if (id.isNotEmpty() && seenIds.putIfAbsent(id, now) != null) dup = true
+            if (seenContent.putIfAbsent("$title $text", now) != null) dup = true
+            return dup
+        }
 
         /** Cursor scope per server; the empty scope keeps the pre-multi-topic cursor keys. */
         fun cursorScopeFor(server: String): String =

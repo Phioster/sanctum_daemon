@@ -71,7 +71,7 @@ class NotifyStore(private val context: Context) {
     suspend fun saveNtfyCursor(time: Long, recentIds: List<String>, scope: String = "") {
         context.notifyDataStore.edit {
             it[timeKey(scope)] = time
-            it[idsKey(scope)] = json.encodeToString(recentIds.takeLast(20))
+            it[idsKey(scope)] = json.encodeToString(recentIds.takeLast(50))
         }
     }
 }
