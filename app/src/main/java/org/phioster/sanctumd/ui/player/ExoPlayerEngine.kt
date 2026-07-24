@@ -4,9 +4,12 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
@@ -75,6 +78,51 @@ class ExoPlayerEngine(private val context: Context) : MediaPlayerEngine {
         )
         return lastState
     }
+
+    // Remembers, per kind, which media track group + index each exposed TrackOption id maps to,
+    // so selectTrack() can build the right override.
+    private val lookup = mutableMapOf<String, Pair<Tracks.Group, Int>>()
+
+    private fun c(kind: TrackKind) = if (kind == TrackKind.AUDIO) C.TRACK_TYPE_AUDIO else C.TRACK_TYPE_TEXT
+
+    override fun tracks(kind: TrackKind): List<TrackOption> {
+        if (released) return emptyList()
+        val type = c(kind)
+        val out = mutableListOf<TrackOption>()
+        var n = 0
+        exo.currentTracks.groups.forEach { group ->
+            if (group.type == type) {
+                for (i in 0 until group.length) {
+                    if (!group.isTrackSupported(i)) continue
+                    val f = group.getTrackFormat(i)
+                    val id = "$type:$n"; n++
+                    lookup[id] = group to i
+                    val label = f.label
+                        ?: f.language?.let { java.util.Locale(it).displayLanguage.ifBlank { it } }
+                        ?: "track ${out.size + 1}"
+                    out += TrackOption(id, label, group.isTrackSelected(i))
+                }
+            }
+        }
+        return out
+    }
+
+    override fun selectTrack(kind: TrackKind, id: String?) {
+        if (released) return
+        val type = c(kind)
+        val builder = exo.trackSelectionParameters.buildUpon()
+        if (id == null) {
+            builder.setTrackTypeDisabled(type, true)
+        } else {
+            val (group, index) = lookup[id] ?: return
+            builder.setTrackTypeDisabled(type, false)
+                .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, index))
+        }
+        exo.trackSelectionParameters = builder.build()
+    }
+
+    override fun setSpeed(speed: Float) { exo.setPlaybackSpeed(speed) }
+    override fun currentSpeed(): Float = exo.playbackParameters.speed
 
     override fun release() {
         if (released) return

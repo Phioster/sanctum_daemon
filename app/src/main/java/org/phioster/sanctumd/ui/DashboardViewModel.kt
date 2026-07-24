@@ -480,8 +480,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun jellyfinMediaDetail(config: ServiceConfig, itemId: String): org.phioster.sanctumd.model.JellyMediaDetail =
         jellyfinItemDetail(config, itemId)
     // ---- Playback (streaming + progress reporting) ----
-    suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String): org.phioster.sanctumd.net.PlaybackSource =
-        org.phioster.sanctumd.net.jellyfinPlaybackSource(config, itemId)
+    suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String, maxBitrate: Int? = null): org.phioster.sanctumd.net.PlaybackSource =
+        org.phioster.sanctumd.net.jellyfinPlaybackSource(config, itemId, maxBitrate)
     suspend fun jellyfinReportStart(config: ServiceConfig, src: org.phioster.sanctumd.net.PlaybackSource, positionMs: Long) =
         org.phioster.sanctumd.net.jellyfinReportStart(config, src, positionMs)
     suspend fun jellyfinReportProgress(config: ServiceConfig, src: org.phioster.sanctumd.net.PlaybackSource, positionMs: Long, isPaused: Boolean) =

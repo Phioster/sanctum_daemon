@@ -75,11 +75,13 @@ private const val TICKS_PER_MS = 10_000L
 /**
  * A compact device profile: ExoPlayer direct-plays common containers/codecs; anything else the
  * server transcodes to an HLS/ts h264+aac stream (handled by media3-exoplayer-hls). Kept lean —
- * the server only needs to know what we can decode vs. what to transcode.
+ * the server only needs to know what we can decode vs. what to transcode. [maxBitrate] (bps), when
+ * set, caps streaming and forces a transcode for anything above it (the quality selector).
  */
-private fun deviceProfile(): JsonObject = buildJsonObject {
-    put("MaxStreamingBitrate", 120_000_000)
-    put("MaxStaticBitrate", 120_000_000)
+private fun deviceProfile(maxBitrate: Int?): JsonObject = buildJsonObject {
+    val cap = maxBitrate ?: 120_000_000
+    put("MaxStreamingBitrate", cap)
+    put("MaxStaticBitrate", cap)
     putJsonArray("DirectPlayProfiles") {
         addJsonObject {
             put("Container", "mp4,m4v,mkv,webm,mov")
@@ -109,20 +111,33 @@ private fun deviceProfile(): JsonObject = buildJsonObject {
     putJsonArray("CodecProfiles") {}
 }
 
+/** The PlaybackInfoDto POST body: wraps the device profile so the server actually honours our
+ *  direct-play/transcode capabilities (a bare profile at top level is ignored). */
+private fun playbackInfoBody(userId: String, maxBitrate: Int?): JsonObject = buildJsonObject {
+    put("UserId", userId)
+    put("DeviceProfile", deviceProfile(maxBitrate))
+    if (maxBitrate != null) put("MaxStreamingBitrate", maxBitrate)
+    put("EnableDirectPlay", true)
+    put("EnableDirectStream", true)
+    put("EnableTranscoding", true)
+    put("AllowVideoStreamCopy", true)
+    put("AllowAudioStreamCopy", true)
+}
+
 /**
  * Resolves a playable stream for [itemId]. Asks the server (PlaybackInfo + our device profile)
  * whether the file can be sent as-is (static stream) or must be transcoded (HLS), and recovers the
  * saved resume position. The access token travels in a header, never in the URL — consistent with
  * [jellyfinImageHeaders] so it stays out of any cache.
  */
-suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String): PlaybackSource = withContext(Dispatchers.IO) {
+suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String, maxBitrate: Int? = null): PlaybackSource = withContext(Dispatchers.IO) {
     val token = jellyfinAccessToken(config)
     val api = jfPlaybackApi(config, token)
     val jfApiClient = jfApi(config, token)
     val uid = jellyfinResolveUserId(config, jfApiClient)
 
     val resumeTicks = runCatching { api.playItem(uid, itemId).UserData?.PlaybackPositionTicks }.getOrNull() ?: 0L
-    val info = api.playbackInfo(itemId, uid, deviceProfile())
+    val info = api.playbackInfo(itemId, uid, playbackInfoBody(uid, maxBitrate))
     val ms = info.MediaSources.firstOrNull()
         ?: error("no media sources for item $itemId")
     val psid = info.PlaySessionId ?: ""

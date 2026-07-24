@@ -6,6 +6,14 @@ import androidx.compose.ui.Modifier
 /** What the player overlay should play: a Jellyfin item (streamed) or a downloaded local file. */
 internal data class PlayRequest(val itemId: String, val title: String, val localFileUri: String? = null)
 
+/** A selectable audio or subtitle track. [id] is opaque (engine-specific); [selected] is the current pick. */
+data class TrackOption(val id: String, val label: String, val selected: Boolean)
+
+enum class TrackKind { AUDIO, SUBTITLE }
+
+/** Playback speeds offered in the settings menu. */
+val PLAYBACK_SPEEDS = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+
 /** Video item kinds that offer in-app playback (audio is deliberately excluded for now). */
 internal val PLAYABLE_VIDEO_KINDS = setOf("Movie", "Episode", "Video", "MusicVideo")
 
@@ -35,6 +43,14 @@ interface MediaPlayerEngine {
     fun seekTo(positionMs: Long)
     fun seekBy(deltaMs: Long)
     fun snapshot(): PlaybackState
+
+    /** Available audio/subtitle tracks (subtitles include an implicit "off" handled by the UI). */
+    fun tracks(kind: TrackKind): List<TrackOption>
+    /** Select a track by its [TrackOption.id]; null disables the kind (used to turn subtitles off). */
+    fun selectTrack(kind: TrackKind, id: String?)
+    fun setSpeed(speed: Float)
+    fun currentSpeed(): Float
+
     fun release()
 
     /** Renders the video output. Engine-specific (ExoPlayer PlayerView here; an mpv SurfaceView later). */
