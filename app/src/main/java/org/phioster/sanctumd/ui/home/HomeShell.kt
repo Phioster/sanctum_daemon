@@ -59,6 +59,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -110,7 +111,11 @@ internal fun SwipeTabs(
 ) {
     val pager = rememberPagerState(initialPage = tab.coerceIn(0, (count - 1).coerceAtLeast(0))) { count }
     LaunchedEffect(tab) { if (pager.currentPage != tab) pager.animateScrollToPage(tab) }
-    LaunchedEffect(pager) { snapshotFlow { pager.settledPage }.collect { if (it != tab) onChange(it) } }
+    // Read the latest tab inside the long-running collector — capturing the param directly would
+    // freeze it at its initial value, so returning to page 0 (the initial value) never notified and
+    // the tab bar stuck on the previous tab.
+    val latestTab = rememberUpdatedState(tab)
+    LaunchedEffect(pager) { snapshotFlow { pager.settledPage }.collect { if (it != latestTab.value) onChange(it) } }
     HorizontalPager(
         state = pager,
         modifier = modifier,
