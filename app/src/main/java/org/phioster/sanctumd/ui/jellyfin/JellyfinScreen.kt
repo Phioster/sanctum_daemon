@@ -1013,7 +1013,7 @@ internal fun JellyfinScreen(
                         val dl = downloads[d.id]
                         val startDownload = {
                             org.phioster.sanctumd.service.DownloadService.enqueue(
-                                context, config.id, d.id, d.name, d.genres, d.posterUrl, 0L,
+                                context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L,
                             )
                         }
                         when (dl?.state) {

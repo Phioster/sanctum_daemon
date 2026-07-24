@@ -160,6 +160,8 @@ class DownloadService : Service() {
 
     private suspend fun downloadOne(entry: DownloadEntry) {
         val id = entry.itemId
+        // For episodes the subtitle holds "SeriesName · S01E02" — prefix it so the notification names the show.
+        val display = if (entry.subtitle.isNotBlank()) "${entry.subtitle} · ${entry.name}" else entry.name
         if (id in cancelled) { cancelled -= id; return }
         val config = runCatching { ServiceStore(this).services.first().firstOrNull { it.id == entry.serverId } }.getOrNull()
         if (config == null) {
@@ -195,7 +197,7 @@ class DownloadService : Service() {
                                 lastUi = now
                                 store.update(id) { it.copy(downloadedBytes = got) }
                                 val pct = if (total > 0) (got * 100 / total).toInt() else 0
-                                val label = if (total > 0) "$pct%  ·  ${entry.name}" else "↓  ${entry.name}"
+                                val label = if (total > 0) "$pct%  ·  $display" else "↓  $display"
                                 notify(buildNotification(label, pct, 100, total <= 0))
                             }
                         }
@@ -206,7 +208,7 @@ class DownloadService : Service() {
             store.update(id) {
                 it.copy(state = DownloadEntry.STATE_DONE, filePath = file.absolutePath, downloadedBytes = it.sizeBytes.coerceAtLeast(file.length()), posterFile = poster)
             }
-            notifyDone(id, "✓  ${entry.name}", "Download complete")
+            notifyDone(id, "✓  $display", "Download complete")
         } catch (c: CancellationException) {
             throw c // real coroutine cancellation (service destroyed) — don't swallow
         } catch (d: DownloadCancelled) {
@@ -214,7 +216,7 @@ class DownloadService : Service() {
             cancelled -= id
         } catch (t: Throwable) {
             store.update(id) { it.copy(state = DownloadEntry.STATE_FAILED, error = t.message ?: t.javaClass.simpleName) }
-            notifyDone(id, "⚠  ${entry.name}", "Download failed")
+            notifyDone(id, "⚠  $display", "Download failed")
         }
     }
 

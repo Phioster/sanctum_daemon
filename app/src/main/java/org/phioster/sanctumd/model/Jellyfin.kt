@@ -153,4 +153,5 @@ data class JellyMediaDetail(
     val genres: String,
     val cast: List<ArrCastMember>,
     val kind: String = "", // "Movie"/"Episode"/"Video"/"Audio"/… — decides whether playback is offered
+    val subtitle: String = "", // episodes: "SeriesName · S01E02" (used for downloads/notifications)
 )
