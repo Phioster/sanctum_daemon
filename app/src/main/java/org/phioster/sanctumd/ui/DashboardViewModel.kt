@@ -496,6 +496,76 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.net.jellyfinAlbumTracks(config, albumId, albumName)
     suspend fun jellyfinTrack(config: ServiceConfig, itemId: String): org.phioster.sanctumd.net.MusicTrack =
         org.phioster.sanctumd.net.jellyfinTrack(config, itemId)
+
+    // ---- Stats screen: aggregate numbers + bar charts across every configured service ----
+    suspend fun loadStats(): org.phioster.sanctumd.model.StatsData = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val svcs = services.value
+        val parts = kotlinx.coroutines.coroutineScope {
+            svcs.map { svc -> kotlinx.coroutines.async { runCatching { statsForService(svc) }.getOrNull() } }
+                .let { kotlinx.coroutines.awaitAll(*it.toTypedArray()) }
+        }.filterNotNull()
+        org.phioster.sanctumd.model.StatsData(
+            tiles = parts.flatMap { it.first },
+            charts = parts.flatMap { it.second },
+        )
+    }
+
+    private fun statBar(label: String, value: Int) =
+        org.phioster.sanctumd.model.StatBar(label, value.toFloat(), value.toString())
+    private fun freeGb(bytes: Long) = "%.0f GB".format(bytes / 1_000_000_000.0)
+
+    private suspend fun statsForService(svc: ServiceConfig): Pair<List<org.phioster.sanctumd.model.StatTile>, List<org.phioster.sanctumd.model.StatChart>> {
+        val accent = svc.type.accent
+        val tiles = mutableListOf<org.phioster.sanctumd.model.StatTile>()
+        val charts = mutableListOf<org.phioster.sanctumd.model.StatChart>()
+        when (svc.type) {
+            ServiceType.JELLYFIN -> {
+                val c = org.phioster.sanctumd.net.jellyfinCounts(svc)
+                tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · movies", c.movies.toString(), accent)
+                tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · episodes", c.episodes.toString(), accent)
+                charts += org.phioster.sanctumd.model.StatChart(
+                    "${svc.label} · library",
+                    listOf(statBar("Movies", c.movies), statBar("Series", c.series), statBar("Episodes", c.episodes), statBar("Songs", c.songs)),
+                    accent,
+                )
+            }
+            ServiceType.RADARR, ServiceType.SONARR, ServiceType.LIDARR -> {
+                val total = org.phioster.sanctumd.net.arrLibraryCount(svc)
+                val missing = runCatching { org.phioster.sanctumd.net.arrMissing(svc).size }.getOrDefault(0)
+                tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · items", total.toString(), accent)
+                tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · missing", missing.toString(), accent)
+                val disks = runCatching { org.phioster.sanctumd.net.arrDiskSpace(svc) }.getOrDefault(emptyList())
+                if (disks.isNotEmpty()) {
+                    charts += org.phioster.sanctumd.model.StatChart(
+                        "${svc.label} · disk used",
+                        disks.map { d ->
+                            val usedFrac = if (d.totalBytes > 0) (d.totalBytes - d.freeBytes).toFloat() / d.totalBytes else 0f
+                            org.phioster.sanctumd.model.StatBar(
+                                d.path.takeLast(22), usedFrac * 100f,
+                                "${(usedFrac * 100).toInt()}% · ${freeGb(d.freeBytes)} free",
+                            )
+                        },
+                        accent,
+                    )
+                }
+            }
+            ServiceType.PROWLARR -> {
+                val grabs = org.phioster.sanctumd.net.prowlarrIndexerGrabs(svc).sortedByDescending { it.second }.take(12)
+                tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · grabs", grabs.sumOf { it.second }.toString(), accent)
+                if (grabs.any { it.second > 0 }) {
+                    charts += org.phioster.sanctumd.model.StatChart("${svc.label} · grabs per indexer", grabs.map { statBar(it.first, it.second) }, accent)
+                }
+            }
+            ServiceType.SEERR -> {
+                val rs = org.phioster.sanctumd.net.seerrRequestStats(svc)
+                val bars = rs.mapNotNull { (k, v) -> v.toIntOrNull()?.let { org.phioster.sanctumd.model.StatBar(k, it.toFloat(), v) } }
+                rs.firstOrNull { it.first.equals("pending", true) }?.let { tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · pending", it.second, accent) }
+                if (bars.any { it.value > 0 }) charts += org.phioster.sanctumd.model.StatChart("${svc.label} · requests", bars, accent)
+            }
+            else -> {}
+        }
+        return tiles to charts
+    }
     suspend fun jellyfinReportStart(config: ServiceConfig, src: org.phioster.sanctumd.net.PlaybackSource, positionMs: Long) =
         org.phioster.sanctumd.net.jellyfinReportStart(config, src, positionMs)
     suspend fun jellyfinReportProgress(config: ServiceConfig, src: org.phioster.sanctumd.net.PlaybackSource, positionMs: Long, isPaused: Boolean) =

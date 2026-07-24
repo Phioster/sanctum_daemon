@@ -203,6 +203,7 @@ internal fun SanctumdApp(vm: DashboardViewModel = viewModel()) {
     var searchOpen by remember { mutableStateOf(false) }
     var searchTerm by remember { mutableStateOf("") }
     var notifOpen by remember { mutableStateOf(false) }
+    var statsOpen by remember { mutableStateOf(false) }
     var detailFromSearch by remember { mutableStateOf(false) } // service opened from search results
     var searchDeepLink by remember { mutableStateOf<SearchDeepLink?>(null) }
 
@@ -213,11 +214,12 @@ internal fun SanctumdApp(vm: DashboardViewModel = viewModel()) {
         if (detailFromSearch) { detailFromSearch = false; searchOpen = true }
     }
     val editorOpen = addOpen || editing != null
-    BackHandler(enabled = editorOpen || detail != null || searchOpen || notifOpen) {
+    BackHandler(enabled = editorOpen || detail != null || searchOpen || notifOpen || statsOpen) {
         when {
             editorOpen -> { addOpen = false; editing = null }
             detail != null -> closeDetail()
             notifOpen -> notifOpen = false
+            statsOpen -> statsOpen = false
             else -> searchOpen = false
         }
     }
@@ -260,6 +262,7 @@ internal fun SanctumdApp(vm: DashboardViewModel = viewModel()) {
         detail != null -> "detail:${detail!!.id}"
         searchOpen -> "search"
         notifOpen -> "settings"
+        statsOpen -> "stats"
         else -> "home"
     }
     val shownDetail = remember { mutableStateOf<ServiceConfig?>(null) }
@@ -310,6 +313,7 @@ internal fun SanctumdApp(vm: DashboardViewModel = viewModel()) {
                 onTermChange = { searchTerm = it },
             )
             r == "settings" -> SettingsScreen(vm = vm, onBack = { notifOpen = false }, onShowIntro = { notifOpen = false; forceIntro = true })
+            r == "stats" -> org.phioster.sanctumd.ui.stats.StatsScreen(vm = vm, onBack = { statsOpen = false })
             else -> HomeShell(
                 vm = vm,
                 onAdd = { addOpen = true },
@@ -317,6 +321,7 @@ internal fun SanctumdApp(vm: DashboardViewModel = viewModel()) {
                 onEdit = { editing = it },
                 onSearch = { term -> searchTerm = term; searchOpen = true },
                 onNotifications = { notifOpen = true },
+                onStats = { statsOpen = true },
             )
         }
     }

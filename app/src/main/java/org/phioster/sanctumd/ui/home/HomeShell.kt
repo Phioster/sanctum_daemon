@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.animation.core.tween
@@ -133,6 +134,7 @@ internal fun HomeShell(
     onEdit: (ServiceConfig) -> Unit,
     onSearch: (String) -> Unit,
     onNotifications: () -> Unit,
+    onStats: () -> Unit = {},
 ) {
     val tabs by vm.tabs.collectAsState()
     val services by vm.services.collectAsState()
@@ -287,6 +289,7 @@ internal fun HomeShell(
                     onAdd = { vm.reopenDrawer = true; onAdd() },
                     onNotifications = { vm.reopenDrawer = true; onNotifications() },
                     onSearch = { term -> vm.reopenDrawer = true; onSearch(term) },
+                    onStats = { vm.reopenDrawer = true; onStats() },
                     onClose = { closeDrawer() },
                 )
             }
@@ -363,6 +366,7 @@ internal fun ServicesDrawer(
     onAdd: () -> Unit,
     onNotifications: () -> Unit,
     onSearch: (String) -> Unit,
+    onStats: () -> Unit = {},
     onClose: () -> Unit,
 ) {
     Scaffold(
@@ -374,6 +378,7 @@ internal fun ServicesDrawer(
                 navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close", tint = MatrixGreen) } },
                 actions = {
                     IconButton(onClick = { onSearch("") }) { Icon(Icons.Filled.Search, contentDescription = "Search", tint = MatrixGreen) }
+                    IconButton(onClick = onStats) { Icon(Icons.Filled.BarChart, contentDescription = "Stats", tint = MatrixGreen) }
                     IconButton(onClick = onNotifications) { Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MatrixGreen) }
                     // Refresh removed — pull-to-refresh on the list covers it now.
                 },
