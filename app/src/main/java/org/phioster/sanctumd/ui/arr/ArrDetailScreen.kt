@@ -27,8 +27,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -436,22 +438,26 @@ internal fun SonarrSeasonHeader(season: Int, episodeCount: Int, haveCount: Int, 
 @Composable
 internal fun ArrEpisodeRow(item: ArrEpisode, accent: Color, onToggleMonitor: () -> Unit, onSearch: () -> Unit) {
     val c = if (item.hasFile) MatrixGreen else if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.4f)
-    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "S%02dE%02d  %s".format(item.seasonNumber, item.episodeNumber, item.title),
-                fontFamily = Mono, color = c, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f).clickable { onSearch() },
-            )
-            // Tappable monitor toggle (◉ = monitored, ○ = not).
-            Text(
-                if (item.monitored) "◉" else "○",
-                fontFamily = Mono, color = if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.4f), fontSize = 15.sp,
-                modifier = Modifier.clickable { onToggleMonitor() }.padding(horizontal = 8.dp),
-            )
-            Text(if (item.hasFile) "✓" else item.airDate, fontFamily = Mono, color = c, fontSize = 10.sp, modifier = Modifier.clickable { onSearch() })
+            Column(Modifier.weight(1f).clickable { onSearch() }.padding(vertical = 6.dp)) {
+                Text(
+                    "S%02dE%02d  %s".format(item.seasonNumber, item.episodeNumber, item.title),
+                    fontFamily = Mono, color = c, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                Text(if (item.hasFile) "✓ downloaded" else item.airDate, fontFamily = Mono, color = c.copy(alpha = 0.7f), fontSize = 10.sp)
+            }
+            IconButton(onClick = onToggleMonitor) {
+                Icon(
+                    if (item.monitored) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                    contentDescription = if (item.monitored) "Unmonitor" else "Monitor",
+                    tint = if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.5f),
+                )
+            }
+            IconButton(onClick = onSearch) {
+                Icon(Icons.Filled.Search, contentDescription = "Search episode", tint = accent)
+            }
         }
-        Spacer(Modifier.height(6.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
     }
 }
@@ -466,23 +472,27 @@ internal fun ArrAlbumRow(
 ) {
     val complete = item.trackCount > 0 && item.trackFileCount >= item.trackCount
     val c = if (complete) MatrixGreen else if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.4f)
-    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "${item.title}${if (item.year.isNotBlank()) " (${item.year})" else ""}",
-                fontFamily = Mono, color = c, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f).clickable { onOpen() },
-            )
-            Text("${item.trackFileCount}/${item.trackCount}", fontFamily = Mono, color = c, fontSize = 10.sp)
-            // Tappable monitor toggle (◉ = monitored, ○ = not).
-            Text(
-                if (item.monitored) "◉" else "○",
-                fontFamily = Mono, color = if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.4f), fontSize = 15.sp,
-                modifier = Modifier.clickable { onToggleMonitor() }.padding(horizontal = 8.dp),
-            )
-            Text("⌕", fontFamily = Mono, color = accent, fontSize = 15.sp, modifier = Modifier.clickable { onQuickSearch() }.padding(start = 2.dp))
+            Column(Modifier.weight(1f).clickable { onOpen() }.padding(vertical = 6.dp)) {
+                Text(
+                    "${item.title}${if (item.year.isNotBlank()) " (${item.year})" else ""}",
+                    fontFamily = Mono, color = c, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                Text("${item.trackFileCount}/${item.trackCount} tracks", fontFamily = Mono, color = c.copy(alpha = 0.7f), fontSize = 10.sp)
+            }
+            // Proper 48dp touch targets for monitor + search.
+            IconButton(onClick = onToggleMonitor) {
+                Icon(
+                    if (item.monitored) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                    contentDescription = if (item.monitored) "Unmonitor" else "Monitor",
+                    tint = if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.5f),
+                )
+            }
+            IconButton(onClick = onQuickSearch) {
+                Icon(Icons.Filled.Search, contentDescription = "Search album", tint = accent)
+            }
         }
-        Spacer(Modifier.height(6.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
     }
 }
