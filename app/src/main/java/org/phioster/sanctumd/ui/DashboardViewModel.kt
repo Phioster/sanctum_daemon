@@ -498,12 +498,12 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.net.jellyfinTrack(config, itemId)
 
     // ---- Stats screen: aggregate numbers + bar charts across every configured service ----
-    suspend fun loadStats(): org.phioster.sanctumd.model.StatsData = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    suspend fun loadStats(): org.phioster.sanctumd.model.StatsData = kotlinx.coroutines.coroutineScope {
         val svcs = services.value
-        val parts = kotlinx.coroutines.coroutineScope {
-            svcs.map { svc -> kotlinx.coroutines.async { runCatching { statsForService(svc) }.getOrNull() } }
-                .let { kotlinx.coroutines.awaitAll(*it.toTypedArray()) }
-        }.filterNotNull()
+        val parts = svcs
+            .map { svc -> async(kotlinx.coroutines.Dispatchers.IO) { runCatching { statsForService(svc) }.getOrNull() } }
+            .awaitAll()
+            .filterNotNull()
         org.phioster.sanctumd.model.StatsData(
             tiles = parts.flatMap { it.first },
             charts = parts.flatMap { it.second },
