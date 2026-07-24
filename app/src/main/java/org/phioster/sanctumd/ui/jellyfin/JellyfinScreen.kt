@@ -344,7 +344,7 @@ internal fun JellyfinScreen(
                 val pageMode = jfOrder[jfPage]
                 // The media tab still renders when offline — downloads are local and must stay reachable.
                 if (listError != null && pageMode != 3) {
-                    Text("error: $listError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
+                    Text(org.phioster.sanctumd.ui.services.friendlyStatusError(listError), fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
                 } else {
                     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
                         when (pageMode) {

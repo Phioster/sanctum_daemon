@@ -273,7 +273,7 @@ internal fun DashCardView(
                     else -> JellyPodium(tw, accent, card.theme == "solid")
                 }
             }
-            error != null -> Text("error: $error", fontFamily = Mono, color = ErrRed, fontSize = 11.sp)
+            error != null -> Text(org.phioster.sanctumd.ui.services.friendlyStatusError(error), fontFamily = Mono, color = ErrRed, fontSize = 11.sp)
             card.type == CardType.SECTION -> HorizontalDivider(color = accentColor.copy(alpha = 0.6f), thickness = 2.dp)
             card.type == CardType.SHORTCUTS -> {
                 val scs = config?.shortcuts.orEmpty()
@@ -349,7 +349,7 @@ internal fun DashCardView(
                 val st = stat
                 when {
                     st == null || st.isLoading -> loading()
-                    !st.ok -> Text("offline${st.error?.let { ": $it" } ?: ""}", fontFamily = Mono, color = ErrRed, fontSize = 12.sp)
+                    !st.ok -> Text(st.error?.let { org.phioster.sanctumd.ui.services.friendlyStatusError(it) } ?: "offline", fontFamily = Mono, color = ErrRed, fontSize = 12.sp)
                     st.stats.isEmpty() -> empty("no stats")
                     else -> Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                         st.stats.forEach { (k, v) ->

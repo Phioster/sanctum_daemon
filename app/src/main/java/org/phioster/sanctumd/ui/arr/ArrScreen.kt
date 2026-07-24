@@ -354,7 +354,7 @@ internal fun ArrScreen(
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
             SwipeTabs(tab, 5, { tab = it }, Modifier.weight(1f).fillMaxWidth()) { page ->
                 if (listError != null) {
-                    Text("error: $listError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
+                    Text(org.phioster.sanctumd.ui.services.friendlyStatusError(listError), fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
                 } else {
                     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
                         when (page) {

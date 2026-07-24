@@ -163,7 +163,7 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
         },
     ) { padding ->
         if (loadError != null) {
-            Text("error: $loadError", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(padding).padding(16.dp))
+            Text(org.phioster.sanctumd.ui.services.friendlyStatusError(loadError), fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(padding).padding(16.dp))
             return@Scaffold
         }
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {

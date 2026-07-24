@@ -25,7 +25,7 @@ class StatusCacheWorker(ctx: Context, params: WorkerParameters) : CoroutineWorke
                 val st = runCatching { fetchStatus(svc) }.getOrNull()
                 val note = st?.note
                     ?: st?.stats?.firstOrNull()?.let { "${it.second} ${it.first}" }
-                    ?: if (st?.ok == true) "ok" else (st?.error ?: "down")
+                    ?: if (st?.ok == true) "ok" else (st?.error?.let { org.phioster.sanctumd.ui.services.friendlyStatusError(it) } ?: "down")
                 svc.id to StatusSnap(
                     ok = st?.ok == true,
                     label = svc.label,
