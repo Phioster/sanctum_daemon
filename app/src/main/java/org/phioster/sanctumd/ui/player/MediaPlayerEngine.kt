@@ -28,6 +28,19 @@ data class PlaybackState(
     val error: String? = null,
 )
 
+/** Live technical playback metrics for the player's info panel ("stats for nerds"). Fields are 0/blank
+ *  when the engine can't report them. [bufferedPercent] is the cache/buffer fill 0..100. */
+data class PlaybackStats(
+    val width: Int = 0,
+    val height: Int = 0,
+    val videoCodec: String = "",
+    val audioCodec: String = "",
+    val bitrateKbps: Int = 0,
+    val fps: Float = 0f,
+    val bufferedPercent: Int = 0,
+    val hwDecode: String = "",
+)
+
 /**
  * The playback engine, kept behind this interface so the streaming/download/reporting/UI layers stay
  * engine-agnostic. Phase 1 ships [ExoPlayerEngine]; a libmpv engine can drop in later (max codec
@@ -43,6 +56,9 @@ interface MediaPlayerEngine {
     fun seekTo(positionMs: Long)
     fun seekBy(deltaMs: Long)
     fun snapshot(): PlaybackState
+
+    /** Live technical metrics for the info panel; may be all-default while nothing is decoding yet. */
+    fun stats(): PlaybackStats
 
     /** Available audio/subtitle tracks (subtitles include an implicit "off" handled by the UI). */
     fun tracks(kind: TrackKind): List<TrackOption>

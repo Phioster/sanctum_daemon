@@ -111,6 +111,20 @@ class MpvPlayerEngine(context: Context) : MediaPlayerEngine {
         error = lastError,
     )
 
+    override fun stats(): PlaybackStats {
+        if (released) return PlaybackStats()
+        return PlaybackStats(
+            width = mpv.getPropertyInt("video-params/w") ?: mpv.getPropertyInt("dwidth") ?: 0,
+            height = mpv.getPropertyInt("video-params/h") ?: mpv.getPropertyInt("dheight") ?: 0,
+            videoCodec = (mpv.getPropertyString("video-format") ?: "").lowercase(),
+            audioCodec = (mpv.getPropertyString("audio-codec-name") ?: "").lowercase(),
+            bitrateKbps = ((mpv.getPropertyDouble("video-bitrate") ?: 0.0) / 1000).toInt().coerceAtLeast(0),
+            fps = (mpv.getPropertyDouble("estimated-vf-fps") ?: mpv.getPropertyDouble("container-fps") ?: 0.0).toFloat(),
+            bufferedPercent = (mpv.getPropertyInt("cache-buffering-state") ?: 0).coerceIn(0, 100),
+            hwDecode = (mpv.getPropertyString("hwdec-current") ?: "").takeUnless { it == "no" }.orEmpty(),
+        )
+    }
+
     private fun typeName(kind: TrackKind) = if (kind == TrackKind.AUDIO) "audio" else "sub"
 
     override fun tracks(kind: TrackKind): List<TrackOption> {

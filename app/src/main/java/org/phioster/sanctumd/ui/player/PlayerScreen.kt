@@ -15,10 +15,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
@@ -31,6 +34,7 @@ import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.HighQuality
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
@@ -129,6 +133,7 @@ internal fun PlayerScreen(
     var scrubbing by remember { mutableStateOf(false) }
     var scrubPos by remember { mutableStateOf(0f) }
     var settingsOpen by remember { mutableStateOf(false) }
+    var infoOpen by remember { mutableStateOf(false) }
     var speed by remember { mutableStateOf(1f) }
     var qualityLabel by remember { mutableStateOf("Auto") }
 
@@ -334,6 +339,9 @@ internal fun PlayerScreen(
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close", tint = MatrixGreen)
                 }
                 Text(title, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                IconButton(onClick = { infoOpen = true; controlsVisible = true }) {
+                    Icon(Icons.Filled.Info, contentDescription = "Info", tint = MatrixGreen)
+                }
                 if (localFileUri == null) {
                     IconButton(onClick = { settingsOpen = true; controlsVisible = true }) {
                         Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MatrixGreen)
@@ -397,6 +405,113 @@ internal fun PlayerScreen(
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
         }
+
+        if (infoOpen) {
+            val playMethod = when {
+                localFileUri != null -> "local file"
+                source?.isHls == true -> "transcode (HLS)"
+                source != null -> "direct play"
+                else -> "…"
+            }
+            InfoPanel(
+                vm = vm,
+                config = config,
+                itemId = itemId,
+                title = title,
+                engine = engine,
+                isLocal = localFileUri != null,
+                playMethod = playMethod,
+                onClose = { infoOpen = false },
+                modifier = Modifier.align(Alignment.CenterStart),
+            )
+        }
+    }
+}
+
+/** Left-side info panel: media details (overview / facts / genres) + live playback metrics
+ *  (resolution, codec, bitrate, buffer fill, decode). Opened from the ⓘ button in the top bar. */
+@Composable
+private fun InfoPanel(
+    vm: DashboardViewModel,
+    config: ServiceConfig,
+    itemId: String,
+    title: String,
+    engine: MediaPlayerEngine,
+    isLocal: Boolean,
+    playMethod: String,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var detail by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
+    var stats by remember { mutableStateOf(engine.stats()) }
+    LaunchedEffect(itemId, isLocal) {
+        if (!isLocal) detail = runCatching { vm.jellyfinMediaDetail(config, itemId) }.getOrNull()
+    }
+    // Poll live metrics ~1×/s while the panel is open.
+    LaunchedEffect(Unit) {
+        while (true) { stats = engine.stats(); delay(1000) }
+    }
+
+    Column(
+        modifier
+            .fillMaxHeight()
+            .width(300.dp)
+            .background(Color(0xE6000000))
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+            // Swallow taps so they don't reach the video underneath (toggle controls / seek).
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("info", fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            IconButton(onClick = onClose) { Icon(Icons.Filled.Check, contentDescription = "Close", tint = MatrixGreen) }
+        }
+
+        val d = detail
+        Text(d?.name ?: title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        if (d != null && d.subtitle.isNotBlank()) {
+            Text(d.subtitle, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp)
+        }
+        if (d != null) {
+            val facts = listOfNotNull(
+                d.facts.firstOrNull { it.first.equals("year", true) }?.second,
+                d.facts.firstOrNull { it.first.equals("runtime", true) }?.second,
+                d.facts.firstOrNull { it.first.equals("rating", true) || it.first.equals("community rating", true) }?.second,
+            )
+            if (facts.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text(facts.joinToString(" · "), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.75f), fontSize = 11.sp)
+            }
+            if (d.genres.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(d.genres, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+            }
+            if (d.overview.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.85f), fontSize = 11.sp, lineHeight = 15.sp)
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        Text("PLAYBACK", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        val res = if (stats.width > 0 && stats.height > 0) "${stats.width}×${stats.height}" else "—"
+        val video = listOfNotNull(stats.videoCodec.ifBlank { null }, if (stats.fps > 0) "%.0f fps".format(stats.fps) else null).joinToString(" · ").ifBlank { "—" }
+        InfoStat("method", playMethod)
+        InfoStat("resolution", res)
+        InfoStat("video", video)
+        InfoStat("audio", stats.audioCodec.ifBlank { "—" })
+        InfoStat("bitrate", if (stats.bitrateKbps > 0) "${stats.bitrateKbps} kbps" else "—")
+        InfoStat("buffer", "${stats.bufferedPercent}%")
+        if (stats.hwDecode.isNotBlank()) InfoStat("decode", "hw · ${stats.hwDecode}")
+    }
+}
+
+@Composable
+private fun InfoStat(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+        Text(value, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
     }
 }
 

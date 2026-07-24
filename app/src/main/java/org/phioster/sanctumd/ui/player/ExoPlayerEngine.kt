@@ -79,6 +79,32 @@ class ExoPlayerEngine(private val context: Context) : MediaPlayerEngine {
         return lastState
     }
 
+    override fun stats(): PlaybackStats {
+        if (released) return PlaybackStats()
+        val v = exo.videoFormat
+        val a = exo.audioFormat
+        val bitrate = listOf(v?.bitrate ?: androidx.media3.common.Format.NO_VALUE, v?.averageBitrate ?: androidx.media3.common.Format.NO_VALUE)
+            .firstOrNull { it > 0 } ?: 0
+        return PlaybackStats(
+            width = v?.width?.takeIf { it > 0 } ?: 0,
+            height = v?.height?.takeIf { it > 0 } ?: 0,
+            videoCodec = codecName(v?.sampleMimeType),
+            audioCodec = codecName(a?.sampleMimeType),
+            bitrateKbps = if (bitrate > 0) bitrate / 1000 else 0,
+            fps = v?.frameRate?.takeIf { it > 0 } ?: 0f,
+            bufferedPercent = exo.bufferedPercentage.coerceIn(0, 100),
+            hwDecode = "", // ExoPlayer doesn't expose the decoder name simply
+        )
+    }
+
+    // "video/avc" -> "avc"/"h264", strips the type prefix and normalises the common names.
+    private fun codecName(mime: String?): String = when (val c = mime?.substringAfter('/')?.lowercase()) {
+        null -> ""
+        "avc" -> "h264"
+        "hevc" -> "h265"
+        else -> c
+    }
+
     // Remembers, per kind, which media track group + index each exposed TrackOption id maps to,
     // so selectTrack() can build the right override.
     private val lookup = mutableMapOf<String, Pair<Tracks.Group, Int>>()
