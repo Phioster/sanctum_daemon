@@ -247,6 +247,21 @@ internal fun JellyfinScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
                 },
                 actions = {
+                    // Live download indicator — visible from any Jellyfin tab while something downloads.
+                    val activeDl = downloads.values.filter {
+                        it.serverId == config.id &&
+                            (it.state == org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING ||
+                                it.state == org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED)
+                    }
+                    if (activeDl.isNotEmpty()) {
+                        val label = if (activeDl.size == 1) "⬇ ${(activeDl.first().progress * 100).toInt()}%" else "⬇ ${activeDl.size}"
+                        Text(
+                            label, fontFamily = Mono, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .clickable { mode = 3; browseStack = emptyList() }
+                                .padding(horizontal = 8.dp),
+                        )
+                    }
                     Box {
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {

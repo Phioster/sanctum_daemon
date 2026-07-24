@@ -139,7 +139,8 @@ class DownloadService : Service() {
                                 lastUi = now
                                 store.update(id) { it.copy(downloadedBytes = got) }
                                 val pct = if (total > 0) (got * 100 / total).toInt() else 0
-                                notify(buildNotification("↓ ${entry.name}", pct, 100, total <= 0))
+                                val label = if (total > 0) "$pct%  ·  ${entry.name}" else "↓  ${entry.name}"
+                                notify(buildNotification(label, pct, 100, total <= 0))
                             }
                         }
                     }
@@ -216,7 +217,12 @@ class DownloadService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
-            .apply { if (max > 0) setProgress(max, progress, indeterminate) }
+            .apply {
+                if (max > 0) {
+                    setProgress(max, progress, indeterminate)
+                    if (!indeterminate) setSubText("$progress%") // percent in the notification header
+                }
+            }
             .build()
     }
 

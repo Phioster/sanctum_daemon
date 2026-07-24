@@ -117,7 +117,9 @@ internal interface ProwlarrApi {
     @GET("api/v1/indexer/{id}") suspend fun indexerRaw(@Path("id") id: Int): JsonObject
     @PUT("api/v1/indexer/{id}") suspend fun updateIndexer(@Path("id") id: Int, @Body body: JsonObject): Response<ResponseBody>
     @DELETE("api/v1/indexer/{id}") suspend fun deleteIndexer(@Path("id") id: Int): Response<ResponseBody>
-    @POST("api/v1/indexer/{id}/test") suspend fun testIndexer(@Path("id") id: Int): Response<ResponseBody>
+    // Servarr has no /indexer/{id}/test route (405) — testing an existing indexer means POSTing its
+    // definition to /indexer/test.
+    @POST("api/v1/indexer/test") suspend fun testIndexerBody(@Body body: JsonObject): Response<ResponseBody>
     @GET("api/v1/search") suspend fun search(
         @Query("query") query: String,
         @Query("categories") categories: List<Int>,
@@ -210,7 +212,22 @@ suspend fun prowlarrDeleteIndexer(config: ServiceConfig, id: Int): String = dest
 
 suspend fun prowlarrTestIndexer(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
     try {
-        okOr(apiFor<ProwlarrApi>(config, apiKeyHeader(config)).testIndexer(id), "ok")
+        val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
+        val definition = api.indexerRaw(id) // the saved indexer config …
+        val resp = api.testIndexerBody(definition) // … POSTed back to /indexer/test
+        if (resp.isSuccessful) {
+            "ok"
+        } else {
+            // A failing test returns 400 with [{"errorMessage": "..."}] — surface the first message.
+            val body = runCatching { resp.errorBody()?.string() }.getOrNull()
+            val msg = body?.let { txt ->
+                runCatching {
+                    (json.parseToJsonElement(txt) as? JsonArray)
+                        ?.firstNotNullOfOrNull { (it as? JsonObject)?.get("errorMessage")?.let { m -> (m as? JsonPrimitive)?.content } }
+                }.getOrNull()
+            }
+            "error: ${msg ?: "HTTP ${resp.code()}"}"
+        }
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
     }
