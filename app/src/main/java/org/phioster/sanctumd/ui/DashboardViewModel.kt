@@ -205,6 +205,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     private val dashStore = org.phioster.sanctumd.data.DashboardStore(app)
     private val notifyStore = org.phioster.sanctumd.data.NotifyStore(app)
     private val downloadStore = org.phioster.sanctumd.data.DownloadStore(app)
+    private val statsHistoryStore = org.phioster.sanctumd.data.StatsHistoryStore(app)
 
     /** Live offline-download registry (itemId -> entry) for the downloads UI + detail button state. */
     val downloads: kotlinx.coroutines.flow.Flow<Map<String, org.phioster.sanctumd.model.DownloadEntry>> = downloadStore.downloads
@@ -500,19 +501,29 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     // ---- Stats screen: aggregate numbers + bar charts across every configured service ----
     suspend fun loadStats(): org.phioster.sanctumd.model.StatsData = kotlinx.coroutines.coroutineScope {
         val svcs = services.value
-        val parts = svcs
-            .map { svc -> async(kotlinx.coroutines.Dispatchers.IO) { runCatching { statsForService(svc) }.getOrNull() } }
-            .awaitAll()
-            .filterNotNull()
+        // Display parts fetch concurrently; while they're in flight, record today's snapshot once
+        // (opportunistic logging) so a trend point exists even before the daily worker fires.
+        val partsDeferred = svcs.map { svc ->
+            async(kotlinx.coroutines.Dispatchers.IO) { runCatching { statsForService(svc) }.getOrNull() }
+        }
+        val today = java.time.LocalDate.now().toEpochDay()
+        if (svcs.isNotEmpty() && statsHistoryStore.read().none { it.epochDay == today }) {
+            runCatching { statsHistoryStore.append(org.phioster.sanctumd.net.collectStatsSnapshot(svcs)) }
+        }
+        val parts = partsDeferred.awaitAll().filterNotNull()
+        val (trendTiles, trends) = org.phioster.sanctumd.ui.stats.buildTrends(svcs, statsHistoryStore.read())
         org.phioster.sanctumd.model.StatsData(
             tiles = parts.flatMap { it.first },
             charts = parts.flatMap { it.second },
+            trendTiles = trendTiles,
+            trends = trends,
         )
     }
 
     private fun statBar(label: String, value: Int) =
         org.phioster.sanctumd.model.StatBar(label, value.toFloat(), value.toString())
     private fun freeGb(bytes: Long) = "%.0f GB".format(bytes / 1_000_000_000.0)
+    private fun gbFromMb(mb: Long) = if (mb >= 1_000_000L) "%.1f TB".format(mb / 1_000_000.0) else "%.0f GB".format(mb / 1_000.0)
 
     private suspend fun statsForService(svc: ServiceConfig): Pair<List<org.phioster.sanctumd.model.StatTile>, List<org.phioster.sanctumd.model.StatChart>> {
         val accent = svc.type.accent
@@ -523,6 +534,15 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                 val c = org.phioster.sanctumd.net.jellyfinCounts(svc)
                 tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · movies", c.movies.toString(), accent)
                 tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · episodes", c.episodes.toString(), accent)
+                runCatching { org.phioster.sanctumd.net.jellyfinUsers(svc).size }.getOrNull()?.let {
+                    tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · users", it.toString(), accent)
+                }
+                runCatching { org.phioster.sanctumd.net.jellyfinLibraries(svc).size }.getOrNull()?.let {
+                    tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · libraries", it.toString(), accent)
+                }
+                runCatching { org.phioster.sanctumd.net.jellyfinSessions(svc).count { s -> s.nowPlaying.isNotEmpty() } }.getOrNull()?.let {
+                    tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · now playing", it.toString(), accent)
+                }
                 charts += org.phioster.sanctumd.model.StatChart(
                     "${svc.label} · library",
                     listOf(statBar("Movies", c.movies), statBar("Series", c.series), statBar("Episodes", c.episodes), statBar("Songs", c.songs)),
@@ -530,10 +550,18 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                 )
             }
             ServiceType.RADARR, ServiceType.SONARR, ServiceType.LIDARR -> {
-                val total = org.phioster.sanctumd.net.arrLibraryCount(svc)
+                val lib = runCatching { org.phioster.sanctumd.net.arrLibrary(svc) }.getOrDefault(emptyList())
                 val missing = runCatching { org.phioster.sanctumd.net.arrMissing(svc).size }.getOrDefault(0)
-                tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · items", total.toString(), accent)
+                tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · items", lib.size.toString(), accent)
                 tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · missing", missing.toString(), accent)
+                val storageMb = lib.sumOf { it.sizeMb }
+                if (storageMb > 0) tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · storage", gbFromMb(storageMb), accent)
+                runCatching { org.phioster.sanctumd.net.arrQueue(svc).size }.getOrNull()?.let {
+                    tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · queue", it.toString(), accent)
+                }
+                runCatching { org.phioster.sanctumd.net.arrHealthCount(svc) }.getOrNull()?.let {
+                    tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · health", it.toString(), accent)
+                }
                 val disks = runCatching { org.phioster.sanctumd.net.arrDiskSpace(svc) }.getOrDefault(emptyList())
                 if (disks.isNotEmpty()) {
                     charts += org.phioster.sanctumd.model.StatChart(
@@ -548,12 +576,36 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                         accent,
                     )
                 }
+                val largest = lib.filter { it.sizeMb > 0 }.sortedByDescending { it.sizeMb }.take(8)
+                if (largest.isNotEmpty()) {
+                    charts += org.phioster.sanctumd.model.StatChart(
+                        "${svc.label} · largest titles",
+                        largest.map { org.phioster.sanctumd.model.StatBar(it.title, it.sizeMb.toFloat(), gbFromMb(it.sizeMb)) },
+                        accent,
+                    )
+                }
+                val now = java.time.Instant.now()
+                val upcoming = runCatching { org.phioster.sanctumd.net.arrCalendarRange(svc, now, now.plus(java.time.Duration.ofDays(7))) }.getOrDefault(emptyList())
+                if (upcoming.isNotEmpty()) {
+                    val byDay = upcoming.groupingBy { it.date }.eachCount().toSortedMap()
+                    charts += org.phioster.sanctumd.model.StatChart(
+                        "${svc.label} · upcoming 7d",
+                        byDay.map { (day, n) -> statBar(day.takeLast(5), n) },
+                        accent,
+                    )
+                }
             }
             ServiceType.PROWLARR -> {
-                val grabs = org.phioster.sanctumd.net.prowlarrIndexerGrabs(svc).sortedByDescending { it.second }.take(12)
-                tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · grabs", grabs.sumOf { it.second }.toString(), accent)
-                if (grabs.any { it.second > 0 }) {
-                    charts += org.phioster.sanctumd.model.StatChart("${svc.label} · grabs per indexer", grabs.map { statBar(it.first, it.second) }, accent)
+                val stats = org.phioster.sanctumd.net.prowlarrIndexerStats(svc).sortedByDescending { it.third }
+                tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · grabs", stats.sumOf { it.third }.toString(), accent)
+                tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · queries", stats.sumOf { it.second }.toString(), accent)
+                val grabBars = stats.take(12).filter { it.third > 0 }
+                if (grabBars.isNotEmpty()) {
+                    charts += org.phioster.sanctumd.model.StatChart("${svc.label} · grabs per indexer", grabBars.map { statBar(it.first, it.third) }, accent)
+                }
+                val queryBars = stats.sortedByDescending { it.second }.take(12).filter { it.second > 0 }
+                if (queryBars.isNotEmpty()) {
+                    charts += org.phioster.sanctumd.model.StatChart("${svc.label} · queries per indexer", queryBars.map { statBar(it.first, it.second) }, accent)
                 }
             }
             ServiceType.SEERR -> {
@@ -561,6 +613,15 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                 val bars = rs.mapNotNull { (k, v) -> v.toIntOrNull()?.let { org.phioster.sanctumd.model.StatBar(k, it.toFloat(), v) } }
                 rs.firstOrNull { it.first.equals("pending", true) }?.let { tiles += org.phioster.sanctumd.model.StatTile("${svc.label} · pending", it.second, accent) }
                 if (bars.any { it.value > 0 }) charts += org.phioster.sanctumd.model.StatChart("${svc.label} · requests", bars, accent)
+                val users = runCatching { org.phioster.sanctumd.net.seerrUsers(svc) }.getOrDefault(emptyList())
+                    .filter { it.requestCount > 0 }.sortedByDescending { it.requestCount }.take(8)
+                if (users.isNotEmpty()) {
+                    charts += org.phioster.sanctumd.model.StatChart(
+                        "${svc.label} · top requesters",
+                        users.map { statBar(it.name, it.requestCount) },
+                        accent,
+                    )
+                }
             }
             else -> {}
         }

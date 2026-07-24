@@ -99,6 +99,30 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                     StatChartView(chart)
                     Spacer(Modifier.height(18.dp))
                 }
+                // TRENDS section: derived from the recorded stat history (grows over days).
+                item {
+                    Spacer(Modifier.height(6.dp))
+                    Text("TRENDS", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(10.dp))
+                    if (d.trendTiles.isEmpty() && d.trends.isEmpty()) {
+                        Text(
+                            "collecting data — check back in a few days",
+                            fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp,
+                        )
+                    } else if (d.trendTiles.isNotEmpty()) {
+                        d.trendTiles.chunked(2).forEach { pair ->
+                            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                pair.forEach { t -> StatTileView(t, Modifier.weight(1f)) }
+                                if (pair.size == 1) Spacer(Modifier.weight(1f))
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
+                items(d.trends) { chart ->
+                    StatChartView(chart)
+                    Spacer(Modifier.height(18.dp))
+                }
                 item { Spacer(Modifier.height(24.dp)) }
             }
         }

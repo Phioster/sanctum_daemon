@@ -31,6 +31,19 @@ suspend fun prowlarrIndexerGrabs(config: ServiceConfig): List<Pair<String, Int>>
         .map { it.indexerName to it.numberOfGrabs }
 }
 
+/** Queries + grabs per indexer for a Prowlarr instance: (name, queries, grabs). */
+suspend fun prowlarrIndexerStats(config: ServiceConfig): List<Triple<String, Int, Int>> = withContext(Dispatchers.IO) {
+    apiFor<ProwlarrApi>(config, apiKeyHeader(config)).statsFull().indexers
+        .filter { it.indexerName.isNotBlank() }
+        .map { Triple(it.indexerName, it.numberOfQueries, it.numberOfGrabs) }
+}
+
+/** Number of active health-check warnings on an *arr instance. */
+suspend fun arrHealthCount(config: ServiceConfig): Int = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    apiFor<ArrApi>(config, apiKeyHeader(config)).healthChecks("$base/health").size
+}
+
 /** Total item count for an *arr library ("*arr" = Radarr/Sonarr/Lidarr). */
 suspend fun arrLibraryCount(config: ServiceConfig): Int = withContext(Dispatchers.IO) {
     if (config.type !in setOf(ServiceType.RADARR, ServiceType.SONARR, ServiceType.LIDARR)) 0

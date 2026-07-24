@@ -78,6 +78,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         org.phioster.sanctumd.notify.Notifications.ensureChannels(this)
+        org.phioster.sanctumd.widget.StatsHistoryWorker.schedule(this) // daily stat snapshot for trend charts
         lifecycleScope.launch {
             val s = org.phioster.sanctumd.data.NotifyStore(this@MainActivity).currentSettings()
             if (s.enabled) org.phioster.sanctumd.notify.Notifications.schedule(this@MainActivity, s.intervalMin)
