@@ -30,8 +30,8 @@ android {
         applicationId = "org.phioster.nexarr"
         minSdk = 26
         targetSdk = 35
-        versionCode = 181
-        versionName = "1.5.0"
+        versionCode = 182
+        versionName = "1.6.0"
     }
 
     signingConfigs {
@@ -145,6 +145,7 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.5.1")
     implementation("androidx.media3:media3-exoplayer-hls:1.5.1") // Jellyfin transcode fallback
     implementation("androidx.media3:media3-ui:1.5.1")
+    implementation("androidx.media3:media3-session:1.5.1") // background music: MediaSession + notification
 
     // Homescreen widgets (Compose-style)
     implementation("androidx.glance:glance-appwidget:1.1.1")

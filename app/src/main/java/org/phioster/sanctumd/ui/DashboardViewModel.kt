@@ -492,6 +492,10 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     // ---- Playback (streaming + progress reporting) ----
     suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String, maxBitrate: Int? = null): org.phioster.sanctumd.net.PlaybackSource =
         org.phioster.sanctumd.net.jellyfinPlaybackSource(config, itemId, maxBitrate)
+    suspend fun jellyfinAlbumTracks(config: ServiceConfig, albumId: String, albumName: String): List<org.phioster.sanctumd.net.MusicTrack> =
+        org.phioster.sanctumd.net.jellyfinAlbumTracks(config, albumId, albumName)
+    suspend fun jellyfinTrack(config: ServiceConfig, itemId: String): org.phioster.sanctumd.net.MusicTrack =
+        org.phioster.sanctumd.net.jellyfinTrack(config, itemId)
     suspend fun jellyfinReportStart(config: ServiceConfig, src: org.phioster.sanctumd.net.PlaybackSource, positionMs: Long) =
         org.phioster.sanctumd.net.jellyfinReportStart(config, src, positionMs)
     suspend fun jellyfinReportProgress(config: ServiceConfig, src: org.phioster.sanctumd.net.PlaybackSource, positionMs: Long, isPaused: Boolean) =

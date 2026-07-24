@@ -13,6 +13,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,6 +37,10 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.VideoLibrary
@@ -53,6 +58,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -73,6 +80,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.ui.DashboardViewModel
@@ -149,6 +157,10 @@ internal fun JellyfinScreen(
     val hiddenLibs by vm.hiddenLibraries.collectAsState()
     val hiddenSet = hiddenLibs[config.id].orEmpty().toSet()
     var libraryFilterOpen by remember { mutableStateOf(false) }
+    val musicState by org.phioster.sanctumd.ui.player.MusicController.state.collectAsState()
+    var nowPlayingOpen by remember { mutableStateOf(false) }
+    // Attach to any running music session so the now-playing bar appears immediately.
+    LaunchedEffect(Unit) { org.phioster.sanctumd.ui.player.MusicController.bind(context) }
     // Foregrounding the app resumes any Wi-Fi-parked downloads (a background FGS start is blocked).
     val hasQueued = downloads.values.any { it.state == org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED }
     LaunchedEffect(hasQueued) { if (hasQueued) org.phioster.sanctumd.service.DownloadService.resume(context) }
@@ -285,6 +297,9 @@ internal fun JellyfinScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
             )
+        },
+        bottomBar = {
+            if (musicState.hasMedia) MusicBar(musicState, accent, onToggle = { org.phioster.sanctumd.ui.player.MusicController.playPause() }, onNext = { org.phioster.sanctumd.ui.player.MusicController.next() }, onOpen = { nowPlayingOpen = true })
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
@@ -494,6 +509,15 @@ internal fun JellyfinScreen(
                                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                             Text("‹ back", fontFamily = Mono, color = accent, fontSize = 13.sp, modifier = Modifier.clickable { browseStack = browseStack.dropLast(1) })
                                             Spacer(Modifier.weight(1f))
+                                            // Play a whole album in the background music player.
+                                            if (here.kind == "MusicAlbum") {
+                                                Text("▶ play album", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, modifier = Modifier.clickable {
+                                                    scope.launch {
+                                                        val tracks = runCatching { vm.jellyfinAlbumTracks(config, here.id, here.name) }.getOrDefault(emptyList())
+                                                        if (tracks.isNotEmpty()) org.phioster.sanctumd.ui.player.MusicController.play(context, tracks, 0, config.customHeaders)
+                                                    }
+                                                }.padding(end = 14.dp))
+                                            }
                                             // Batch-download every episode in this folder that isn't downloaded yet.
                                             val episodes = mediaContents.orEmpty().filter { !it.isFolder && it.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS }
                                             val toGet = episodes.filter { downloads[it.id]?.done != true }
@@ -1047,6 +1071,19 @@ internal fun JellyfinScreen(
                         }
                         Spacer(Modifier.height(10.dp))
                     }
+                    if (d.kind == "Audio") {
+                        TextButton(
+                            onClick = {
+                                mediaDetail = null
+                                scope.launch {
+                                    val track = runCatching { vm.jellyfinTrack(config, d.id) }.getOrNull()
+                                    if (track != null) org.phioster.sanctumd.ui.player.MusicController.play(context, listOf(track), 0, config.customHeaders)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.6f), RoundedCornerShape(6.dp)),
+                        ) { Text("▶  play", fontFamily = Mono, color = MatrixGreen, fontWeight = FontWeight.Bold) }
+                        Spacer(Modifier.height(10.dp))
+                    }
                     if (d.facts.isNotEmpty()) {
                         d.facts.chunked(2).forEach { pair ->
                             Row(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
@@ -1144,6 +1181,10 @@ internal fun JellyfinScreen(
             onClearAll = { org.phioster.sanctumd.service.DownloadService.clearAll(context); downloadsManagerOpen = false },
             onClose = { downloadsManagerOpen = false },
         )
+    }
+
+    if (nowPlayingOpen) {
+        NowPlayingScreen(state = musicState, accent = accent, onClose = { nowPlayingOpen = false })
     }
 
     playRequest?.let { pr ->
@@ -1296,6 +1337,106 @@ private fun DownloadsManager(
                         }
                         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
                     }
+                }
+            }
+        }
+    }
+}
+
+private fun fmtTime(ms: Long): String {
+    if (ms <= 0) return "0:00"
+    val total = ms / 1000; val m = total / 60; val s = total % 60
+    return "%d:%02d".format(m, s)
+}
+
+/** Compact now-playing bar (Scaffold bottom): art, title/artist, play-pause, next; tap to expand. */
+@Composable
+private fun MusicBar(
+    state: org.phioster.sanctumd.ui.player.MusicState,
+    accent: Color,
+    onToggle: () -> Unit,
+    onNext: () -> Unit,
+    onOpen: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().background(Surface).clickable { onOpen() }.padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(40.dp).clip(RoundedCornerShape(4.dp)).background(Black)) {
+            if (state.artworkUri.isNotBlank()) {
+                coil.compose.AsyncImage(model = state.artworkUri, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(state.title.ifBlank { "…" }, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (state.artist.isNotBlank()) Text(state.artist, fontFamily = Mono, color = accent.copy(alpha = 0.75f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(if (state.isPlaying) "❚❚" else "▶", fontFamily = Mono, color = MatrixGreen, fontSize = 17.sp, modifier = Modifier.clickable { onToggle() }.padding(8.dp))
+        if (state.hasNext) Text("⏭", fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, modifier = Modifier.clickable { onNext() }.padding(8.dp))
+    }
+}
+
+/** Full-screen now-playing: big art, seek bar, prev/play-pause/next. */
+@Composable
+private fun NowPlayingScreen(
+    state: org.phioster.sanctumd.ui.player.MusicState,
+    accent: Color,
+    onClose: () -> Unit,
+) {
+    BackHandler { onClose() }
+    var pos by remember { mutableStateOf(0L) }
+    var dur by remember { mutableStateOf(0L) }
+    var scrubbing by remember { mutableStateOf(false) }
+    var scrubPos by remember { mutableStateOf(0f) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            if (!scrubbing) { pos = org.phioster.sanctumd.ui.player.MusicController.positionMs(); dur = org.phioster.sanctumd.ui.player.MusicController.durationMs() }
+            delay(500)
+        }
+    }
+    Box(Modifier.fillMaxSize().background(Black).systemBarsPadding()) {
+        Column(Modifier.fillMaxSize().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close", tint = MatrixGreen) }
+                Text("now playing", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp)
+            }
+            Spacer(Modifier.height(24.dp))
+            Box(Modifier.fillMaxWidth(0.82f).aspectRatio(1f).clip(RoundedCornerShape(12.dp)).background(Surface)) {
+                if (state.artworkUri.isNotBlank()) {
+                    coil.compose.AsyncImage(model = state.artworkUri, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+            Text(state.title, fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+            if (state.artist.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(state.artist, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Spacer(Modifier.height(20.dp))
+            val d = dur.coerceAtLeast(1)
+            val p = if (scrubbing) (scrubPos * d).toLong() else pos
+            Slider(
+                value = p.toFloat().coerceIn(0f, d.toFloat()),
+                onValueChange = { scrubbing = true; scrubPos = it / d.toFloat() },
+                onValueChangeFinished = { org.phioster.sanctumd.ui.player.MusicController.seekTo((scrubPos * d).toLong()); scrubbing = false },
+                valueRange = 0f..d.toFloat(),
+                colors = SliderDefaults.colors(thumbColor = MatrixGreen, activeTrackColor = MatrixGreen, inactiveTrackColor = MatrixGreen.copy(alpha = 0.25f)),
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(fmtTime(p), fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp)
+                Text(fmtTime(dur), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp)
+            }
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.prev() }, enabled = state.hasPrev) {
+                    Icon(Icons.Filled.SkipPrevious, contentDescription = "Prev", tint = if (state.hasPrev) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), modifier = Modifier.size(36.dp))
+                }
+                IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.playPause() }) {
+                    Icon(if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = "Play/Pause", tint = MatrixGreen, modifier = Modifier.size(56.dp))
+                }
+                IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.next() }, enabled = state.hasNext) {
+                    Icon(Icons.Filled.SkipNext, contentDescription = "Next", tint = if (state.hasNext) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), modifier = Modifier.size(36.dp))
                 }
             }
         }

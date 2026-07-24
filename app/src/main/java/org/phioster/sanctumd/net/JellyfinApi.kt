@@ -217,6 +217,7 @@ internal data class JfCounts(
     val SeriesName: String? = null, // episodes: the show they belong to
     val ParentIndexNumber: Int? = null, // episodes: season number
     val IndexNumber: Int? = null, // episodes: episode number
+    val AlbumArtist: String? = null, // audio: performing artist
     val Studios: List<JfStudio> = emptyList(),
     val People: List<JfPerson> = emptyList(),
     val ImageTags: Map<String, String>? = null,
