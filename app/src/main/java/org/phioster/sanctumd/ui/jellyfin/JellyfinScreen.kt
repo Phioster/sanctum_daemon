@@ -141,6 +141,7 @@ internal fun JellyfinScreen(
     var browseStack by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>>(emptyList()) }
     var mediaDetail by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
     var playRequest by remember { mutableStateOf<org.phioster.sanctumd.ui.player.PlayRequest?>(null) }
+    val downloads by vm.downloads.collectAsState(initial = emptyMap())
     // Deep link from search: open the item-detail dialog on top of the media tab.
     LaunchedEffect(Unit) {
         if (initialItemId != null) {
@@ -366,6 +367,32 @@ internal fun JellyfinScreen(
                             }
                             3 -> {
                                 if (browseStack.isEmpty()) {
+                                    val myDownloads = downloads.values
+                                        .filter { it.serverId == config.id }
+                                        .sortedByDescending { it.addedAt }
+                                    if (myDownloads.isNotEmpty()) {
+                                        item {
+                                            Spacer(Modifier.height(8.dp))
+                                            Text("DOWNLOADS  ·  offline", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                            Spacer(Modifier.height(6.dp))
+                                            Row(Modifier.horizontalScroll(rememberScrollState())) {
+                                                myDownloads.forEach { e ->
+                                                    DownloadCard(
+                                                        entry = e, accent = accent,
+                                                        onPlay = {
+                                                            if (e.done && e.filePath.isNotBlank()) {
+                                                                playRequest = org.phioster.sanctumd.ui.player.PlayRequest(
+                                                                    e.itemId, e.name,
+                                                                    localFileUri = android.net.Uri.fromFile(java.io.File(e.filePath)).toString(),
+                                                                )
+                                                            }
+                                                        },
+                                                        onDelete = { org.phioster.sanctumd.service.DownloadService.delete(context, e.itemId) },
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
                                     val res = resumeItems
                                     if (!res.isNullOrEmpty()) {
                                         item {
@@ -921,6 +948,32 @@ internal fun JellyfinScreen(
                             onClick = { mediaDetail = null; playRequest = org.phioster.sanctumd.ui.player.PlayRequest(d.id, d.name) },
                             modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.6f), RoundedCornerShape(6.dp)),
                         ) { Text("▶  play", fontFamily = Mono, color = MatrixGreen, fontWeight = FontWeight.Bold) }
+                        Spacer(Modifier.height(8.dp))
+                        val dl = downloads[d.id]
+                        val startDownload = {
+                            org.phioster.sanctumd.service.DownloadService.enqueue(
+                                context, config.id, d.id, d.name, d.genres, d.posterUrl, 0L,
+                            )
+                        }
+                        when (dl?.state) {
+                            org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
+                                Text("✓  downloaded — play it from the DOWNLOADS row", fontFamily = Mono, color = accent, fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp))
+                            org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING, org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED ->
+                                TextButton(
+                                    onClick = { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) },
+                                    modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.4f), RoundedCornerShape(6.dp)),
+                                ) { Text("⬇  ${(dl.progress * 100).toInt()}%  ·  cancel", fontFamily = Mono, color = MatrixGreen) }
+                            org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED ->
+                                TextButton(
+                                    onClick = { startDownload() },
+                                    modifier = Modifier.fillMaxWidth().border(1.dp, ErrRed.copy(alpha = 0.6f), RoundedCornerShape(6.dp)),
+                                ) { Text("⚠  download failed — retry", fontFamily = Mono, color = ErrRed) }
+                            else ->
+                                TextButton(
+                                    onClick = { startDownload() },
+                                    modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.6f), RoundedCornerShape(6.dp)),
+                                ) { Text("⬇  download", fontFamily = Mono, color = MatrixGreen, fontWeight = FontWeight.Bold) }
+                        }
                         Spacer(Modifier.height(10.dp))
                     }
                     if (d.facts.isNotEmpty()) {
@@ -985,5 +1038,60 @@ internal fun JellyfinScreen(
             onClose = { playRequest = null },
             localFileUri = pr.localFileUri,
         )
+    }
+}
+
+/** A card in the offline DOWNLOADS row: cached poster, progress/state, tap to play (when done). */
+@Composable
+private fun DownloadCard(
+    entry: org.phioster.sanctumd.model.DownloadEntry,
+    accent: Color,
+    onPlay: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Column(Modifier.width(120.dp).padding(end = 10.dp)) {
+        Box(
+            Modifier.width(120.dp).height(170.dp).clip(RoundedCornerShape(8.dp)).background(Surface)
+                .clickable { onPlay() },
+        ) {
+            if (entry.posterFile.startsWith("/")) {
+                coil.compose.AsyncImage(
+                    model = java.io.File(entry.posterFile),
+                    contentDescription = entry.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+            // Dim + state glyph overlay.
+            val glyph = when (entry.state) {
+                org.phioster.sanctumd.model.DownloadEntry.STATE_DONE -> "▶"
+                org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED -> "⚠"
+                else -> "${(entry.progress * 100).toInt()}%"
+            }
+            Box(Modifier.fillMaxSize().background(Color(0x55000000)), contentAlignment = Alignment.Center) {
+                Text(glyph, fontFamily = Mono, color = MatrixGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            }
+            Text(
+                "✕", fontFamily = Mono, color = ErrRed, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.TopEnd).background(Color(0xAA000000), RoundedCornerShape(6.dp))
+                    .clickable { onDelete() }.padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        }
+        // Thin progress bar while downloading.
+        if (!entry.done && entry.state != org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED) {
+            Spacer(Modifier.height(3.dp))
+            Box(Modifier.fillMaxWidth().height(3.dp).background(MatrixGreen.copy(alpha = 0.2f))) {
+                Box(Modifier.fillMaxWidth(entry.progress.coerceIn(0f, 1f)).height(3.dp).background(accent))
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(entry.name, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        val status = when (entry.state) {
+            org.phioster.sanctumd.model.DownloadEntry.STATE_DONE -> "downloaded"
+            org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED -> "failed"
+            org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING -> "downloading…"
+            else -> "queued"
+        }
+        Text(status, fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

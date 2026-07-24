@@ -28,6 +28,7 @@ import retrofit2.http.Query
     val SupportsTranscoding: Boolean = false,
     val TranscodingUrl: String? = null,
     val RunTimeTicks: Long? = null,
+    val Size: Long? = null,
 )
 @Serializable internal data class JfPlaybackInfoResp(
     val MediaSources: List<JfMediaSource> = emptyList(),
@@ -169,6 +170,34 @@ suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String, maxBit
         startPositionMs = resumeTicks / TICKS_PER_MS,
         runTimeMs = (ms.RunTimeTicks ?: 0L) / TICKS_PER_MS,
         authHeaders = mapOf("X-Emby-Token" to token) + config.customHeaders,
+    )
+}
+
+/** Everything the download service needs to fetch the original file for [itemId] and size it. */
+data class DownloadPlan(
+    val url: String,
+    val headers: Map<String, String>,
+    val container: String,
+    val sizeBytes: Long,
+)
+
+/**
+ * Resolves the original-file download for [itemId] (the static stream — the untouched source file,
+ * never a transcode). Token travels in a header. Container + size come from the media source so the
+ * download can be named and progress-tracked.
+ */
+suspend fun jellyfinDownloadPlan(config: ServiceConfig, itemId: String): DownloadPlan = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val api = jfPlaybackApi(config, token)
+    val uid = jellyfinResolveUserId(config, jfApi(config, token))
+    val info = api.playbackInfo(itemId, uid, playbackInfoBody(uid, null))
+    val ms = info.MediaSources.firstOrNull() ?: error("no media source for item $itemId")
+    val base = config.normalizedBaseUrl
+    DownloadPlan(
+        url = "${base}Videos/$itemId/stream?static=true&mediaSourceId=${ms.Id}",
+        headers = mapOf("X-Emby-Token" to token) + config.customHeaders,
+        container = ms.Container?.substringBefore(',')?.takeIf { it.isNotBlank() } ?: "mkv",
+        sizeBytes = ms.Size ?: 0L,
     )
 }
 

@@ -204,6 +204,10 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     private val store = ServiceStore(app)
     private val dashStore = org.phioster.sanctumd.data.DashboardStore(app)
     private val notifyStore = org.phioster.sanctumd.data.NotifyStore(app)
+    private val downloadStore = org.phioster.sanctumd.data.DownloadStore(app)
+
+    /** Live offline-download registry (itemId -> entry) for the downloads UI + detail button state. */
+    val downloads: kotlinx.coroutines.flow.Flow<Map<String, org.phioster.sanctumd.model.DownloadEntry>> = downloadStore.downloads
 
     val notifySettings: StateFlow<org.phioster.sanctumd.model.NotifySettings> =
         notifyStore.settings.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, org.phioster.sanctumd.model.NotifySettings())

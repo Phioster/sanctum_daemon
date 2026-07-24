@@ -48,6 +48,9 @@ interface MediaPlayerEngine {
     fun tracks(kind: TrackKind): List<TrackOption>
     /** Select a track by its [TrackOption.id]; null disables the kind (used to turn subtitles off). */
     fun selectTrack(kind: TrackKind, id: String?)
+    /** Auto-pick a subtitle preferring a *forced* track in one of [languages], then a normal track in
+     *  those languages; no-op if none match. Returns true if a track was selected. */
+    fun autoSelectSubtitle(languages: List<String>): Boolean
     fun setSpeed(speed: Float)
     fun currentSpeed(): Float
 

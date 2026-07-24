@@ -210,6 +210,17 @@ internal fun PlayerScreen(
         }
     }
 
+    // Once tracks load, default subtitles to forced German (fallback: normal German), else leave as-is.
+    LaunchedEffect(itemId, localFileUri) {
+        repeat(40) { // ~20s window for tracks to appear
+            if (engine.tracks(TrackKind.SUBTITLE).isNotEmpty()) {
+                engine.autoSelectSubtitle(listOf("de", "deu", "ger", "de-de"))
+                return@LaunchedEffect
+            }
+            delay(500)
+        }
+    }
+
     // Auto-hide controls a few seconds after they appear (while playing, settings closed).
     LaunchedEffect(controlsVisible, state.isPlaying, settingsOpen) {
         if (controlsVisible && state.isPlaying && !settingsOpen) { delay(3500); controlsVisible = false }

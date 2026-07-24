@@ -18,6 +18,7 @@ object Notifications {
     const val CH_HEALTH = "health"
     const val CH_LIVE = "live"
     const val CH_SERVICE = "live_service"
+    const val CH_DOWNLOADS = "downloads"
     // Historic name — renaming it would leave the old periodic work scheduled.
     private const val WORK = "nexarr_notify_poll"
 
@@ -30,6 +31,7 @@ object Notifications {
             Triple(CH_HEALTH, "Health issues", NotificationManager.IMPORTANCE_LOW),
             Triple(CH_LIVE, "Live push", NotificationManager.IMPORTANCE_HIGH),
             Triple(CH_SERVICE, "Live push service", NotificationManager.IMPORTANCE_MIN),
+            Triple(CH_DOWNLOADS, "Media downloads", NotificationManager.IMPORTANCE_LOW),
         ).forEach { (id, name, importance) ->
             nm.createNotificationChannel(NotificationChannel(id, name, importance))
         }

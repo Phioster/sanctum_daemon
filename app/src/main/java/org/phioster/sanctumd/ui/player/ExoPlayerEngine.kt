@@ -121,6 +121,34 @@ class ExoPlayerEngine(private val context: Context) : MediaPlayerEngine {
         exo.trackSelectionParameters = builder.build()
     }
 
+    override fun autoSelectSubtitle(languages: List<String>): Boolean {
+        if (released) return false
+        val langs = languages.map { it.lowercase() }.toSet()
+        // Collect German subtitle candidates, tracking whether each is forced.
+        val matches = mutableListOf<Triple<Tracks.Group, Int, Boolean>>()
+        exo.currentTracks.groups.forEach { g ->
+            if (g.type != C.TRACK_TYPE_TEXT) return@forEach
+            for (i in 0 until g.length) {
+                if (!g.isTrackSupported(i)) continue
+                val f = g.getTrackFormat(i)
+                val lang = f.language?.lowercase()
+                val label = f.label?.lowercase().orEmpty()
+                val isGerman = lang in langs || label.contains("deutsch") || label.contains("german")
+                if (!isGerman) continue
+                val forced = (f.selectionFlags and C.SELECTION_FLAG_FORCED) != 0 ||
+                    label.contains("forced") || label.contains("erzwungen")
+                matches += Triple(g.mediaTrackGroup, i, forced)
+            }
+        }
+        // Prefer a forced German track; otherwise the first normal German track.
+        val pick = matches.firstOrNull { it.third } ?: matches.firstOrNull() ?: return false
+        exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+            .setOverrideForType(TrackSelectionOverride(pick.first, pick.second))
+            .build()
+        return true
+    }
+
     override fun setSpeed(speed: Float) { exo.setPlaybackSpeed(speed) }
     override fun currentSpeed(): Float = exo.playbackParameters.speed
 
