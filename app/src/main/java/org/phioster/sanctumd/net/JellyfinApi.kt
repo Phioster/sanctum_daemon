@@ -177,6 +177,7 @@ internal data class JfCounts(
 @Serializable internal data class JfUserData(
     val PlayedPercentage: Double? = null,
     val Played: Boolean = false,
+    val PlaybackPositionTicks: Long? = null, // resume position (100ns ticks)
 )
 @Serializable internal data class JfItem(
     val Id: String = "",

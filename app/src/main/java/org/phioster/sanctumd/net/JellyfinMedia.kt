@@ -130,6 +130,7 @@ suspend fun jellyfinItemDetail(config: ServiceConfig, itemId: String): JellyMedi
         facts = facts,
         genres = d.Genres.joinToString(" · "),
         cast = cast,
+        kind = d.Type,
     )
 }
 

@@ -96,7 +96,7 @@ import org.phioster.sanctumd.ui.theme.*
 import org.phioster.sanctumd.ui.common.*
 import org.phioster.sanctumd.ServiceLogo
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.media3.common.util.UnstableApi::class)
 @Composable
 internal fun JellyfinScreen(
     vm: DashboardViewModel,
@@ -140,6 +140,7 @@ internal fun JellyfinScreen(
     var latestItems by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
     var browseStack by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>>(emptyList()) }
     var mediaDetail by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
+    var playRequest by remember { mutableStateOf<org.phioster.sanctumd.ui.player.PlayRequest?>(null) }
     // Deep link from search: open the item-detail dialog on top of the media tab.
     LaunchedEffect(Unit) {
         if (initialItemId != null) {
@@ -915,6 +916,13 @@ internal fun JellyfinScreen(
                         JellyPoster(d.posterUrl, config, Modifier.fillMaxWidth().heightIn(max = 260.dp), RoundedCornerShape(8.dp), ContentScale.Fit)
                         Spacer(Modifier.height(10.dp))
                     }
+                    if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
+                        TextButton(
+                            onClick = { mediaDetail = null; playRequest = org.phioster.sanctumd.ui.player.PlayRequest(d.id, d.name) },
+                            modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.6f), RoundedCornerShape(6.dp)),
+                        ) { Text("▶  play", fontFamily = Mono, color = MatrixGreen, fontWeight = FontWeight.Bold) }
+                        Spacer(Modifier.height(10.dp))
+                    }
                     if (d.facts.isNotEmpty()) {
                         d.facts.chunked(2).forEach { pair ->
                             Row(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
@@ -964,6 +972,18 @@ internal fun JellyfinScreen(
                     Text("Open in Jellyfin", fontFamily = Mono, color = accent)
                 }
             },
+        )
+    }
+
+    // Full-screen playback overlay, on top of everything in this screen.
+    playRequest?.let { pr ->
+        org.phioster.sanctumd.ui.player.PlayerScreen(
+            vm = vm,
+            config = config,
+            itemId = pr.itemId,
+            title = pr.title,
+            onClose = { playRequest = null },
+            localFileUri = pr.localFileUri,
         )
     }
 }

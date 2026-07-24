@@ -152,4 +152,5 @@ data class JellyMediaDetail(
     val facts: List<Pair<String, String>>,
     val genres: String,
     val cast: List<ArrCastMember>,
+    val kind: String = "", // "Movie"/"Episode"/"Video"/"Audio"/… — decides whether playback is offered
 )

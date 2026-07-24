@@ -30,8 +30,8 @@ android {
         applicationId = "org.phioster.nexarr"
         minSdk = 26
         targetSdk = 35
-        versionCode = 166
-        versionName = "1.1.0"
+        versionCode = 167
+        versionName = "1.2.0"
     }
 
     signingConfigs {
@@ -139,6 +139,12 @@ dependencies {
 
     // Image loading (posters, cast photos)
     implementation("io.coil-kt:coil-compose:2.7.0")
+
+    // Media playback (Jellyfin streaming + offline downloads). Engine sits behind the
+    // MediaPlayerEngine interface so libmpv can be swapped in later without touching UI.
+    implementation("androidx.media3:media3-exoplayer:1.5.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.5.1") // Jellyfin transcode fallback
+    implementation("androidx.media3:media3-ui:1.5.1")
 
     // Homescreen widgets (Compose-style)
     implementation("androidx.glance:glance-appwidget:1.1.1")

@@ -479,6 +479,19 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         noAdult(jellyfinItems(config, parentId, seasonNumber))
     suspend fun jellyfinMediaDetail(config: ServiceConfig, itemId: String): org.phioster.sanctumd.model.JellyMediaDetail =
         jellyfinItemDetail(config, itemId)
+    // ---- Playback (streaming + progress reporting) ----
+    suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String): org.phioster.sanctumd.net.PlaybackSource =
+        org.phioster.sanctumd.net.jellyfinPlaybackSource(config, itemId)
+    suspend fun jellyfinReportStart(config: ServiceConfig, src: org.phioster.sanctumd.net.PlaybackSource, positionMs: Long) =
+        org.phioster.sanctumd.net.jellyfinReportStart(config, src, positionMs)
+    suspend fun jellyfinReportProgress(config: ServiceConfig, src: org.phioster.sanctumd.net.PlaybackSource, positionMs: Long, isPaused: Boolean) =
+        org.phioster.sanctumd.net.jellyfinReportProgress(config, src, positionMs, isPaused)
+    suspend fun jellyfinReportStopped(config: ServiceConfig, src: org.phioster.sanctumd.net.PlaybackSource, positionMs: Long) =
+        org.phioster.sanctumd.net.jellyfinReportStopped(config, src, positionMs)
+    /** Fire-and-forget stop report — survives the player screen leaving composition. */
+    fun jellyfinReportStoppedAsync(config: ServiceConfig, src: org.phioster.sanctumd.net.PlaybackSource, positionMs: Long) {
+        viewModelScope.launch { runCatching { org.phioster.sanctumd.net.jellyfinReportStopped(config, src, positionMs) } }
+    }
     suspend fun jellyfinScanLibrary(config: ServiceConfig, itemId: String): String =
         jellyfinScanItem(config, itemId)
     suspend fun jellyfinLogList(config: ServiceConfig): List<org.phioster.sanctumd.model.JellyLogFile> =
