@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.jdtech.mpv.MPVLib
+import java.io.File
 import java.util.Locale
 
 /**
@@ -45,6 +46,12 @@ class MpvPlayerEngine(context: Context) : MediaPlayerEngine {
     }
 
     init {
+        // mpv has no system CA store on Android; copy the bundled Mozilla CA bundle to a real path so
+        // TLS can be verified properly (instead of tls-verify=no).
+        val caFile = File(context.filesDir, "cacert.pem")
+        runCatching {
+            context.assets.open("cacert.pem").use { input -> caFile.outputStream().use { input.copyTo(it) } }
+        }
         with(mpv) {
             setOptionString("config", "no")
             setOptionString("vo", "gpu")
@@ -53,9 +60,12 @@ class MpvPlayerEngine(context: Context) : MediaPlayerEngine {
             setOptionString("hwdec", "auto")
             setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
             setOptionString("ao", "audiotrack,opensles")
-            // The stream comes from the user's own Jellyfin; skip mpv's own CA bundle (it has none on
-            // Android) rather than bundle cacert.pem — the token still authenticates the request.
-            setOptionString("tls-verify", "no")
+            if (caFile.exists() && caFile.length() > 0) {
+                setOptionString("tls-verify", "yes")
+                setOptionString("tls-ca-file", caFile.absolutePath)
+            } else {
+                setOptionString("tls-verify", "no") // fall back if the bundle couldn't be written
+            }
             setOptionString("cache", "yes")
             setOptionString("force-window", "no")
             setOptionString("idle", "yes")
