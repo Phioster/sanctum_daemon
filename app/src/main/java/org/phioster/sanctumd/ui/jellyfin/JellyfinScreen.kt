@@ -14,6 +14,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -1204,7 +1205,9 @@ private fun DownloadsManager(
     val doneCount = entries.count { it.done }
 
     Box(Modifier.fillMaxSize().background(Black)) {
-        Column(Modifier.fillMaxSize().padding(16.dp)) {
+        // The app is edge-to-edge (enableEdgeToEdge); this full-screen overlay must pad for the
+        // status/nav bars itself, or the header sits under the status bar.
+        Column(Modifier.fillMaxSize().systemBarsPadding().padding(16.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close", tint = MatrixGreen) }
                 Text("downloads", fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold)
