@@ -24,6 +24,7 @@ private val SWIPE_TABS_KEY = booleanPreferencesKey("swipe_tabs")
 private val SWIPE_DRAWER_KEY = booleanPreferencesKey("swipe_drawer")
 private val DRAWER_BAND_KEY = floatPreferencesKey("drawer_band")
 private val SAFE_MODE_KEY = booleanPreferencesKey("safe_mode")
+private val DOWNLOADS_WIFI_ONLY_KEY = booleanPreferencesKey("downloads_wifi_only")
 private val json = Json { ignoreUnknownKeys = true }
 
 /** Persists the user's dashboard tabs (widget layout) as JSON in DataStore. */
@@ -74,6 +75,12 @@ class DashboardStore(private val context: Context) {
     }
     suspend fun setDrawerBand(fraction: Float) {
         context.dashboardDataStore.edit { it[DRAWER_BAND_KEY] = fraction.coerceIn(0f, 0.5f) }
+    }
+
+    // Offline downloads: only fetch on un-metered Wi-Fi when on.
+    val downloadsWifiOnly: Flow<Boolean> = context.dashboardDataStore.data.map { it[DOWNLOADS_WIFI_ONLY_KEY] ?: false }
+    suspend fun setDownloadsWifiOnly(enabled: Boolean) {
+        context.dashboardDataStore.edit { it[DOWNLOADS_WIFI_ONLY_KEY] = enabled }
     }
 
     /** Safe mode: block every call that would change something on a server. */

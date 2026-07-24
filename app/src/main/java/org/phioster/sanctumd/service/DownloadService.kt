@@ -25,6 +25,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.phioster.sanctumd.MainActivity
 import org.phioster.sanctumd.R
+import org.phioster.sanctumd.data.DashboardStore
 import org.phioster.sanctumd.data.DownloadStore
 import org.phioster.sanctumd.data.ServiceStore
 import org.phioster.sanctumd.model.DownloadEntry
@@ -54,6 +55,7 @@ class DownloadService : Service() {
     private val store by lazy { DownloadStore(this) }
     private val mutex = Mutex()
     private val cancelled = ConcurrentHashMap.newKeySet<String>()
+    private var wifiCallback: android.net.ConnectivityManager.NetworkCallback? = null
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.SECONDS) // stream large files without a read timeout
@@ -86,20 +88,74 @@ class DownloadService : Service() {
                 val id = intent.getStringExtra(EXTRA_ITEM_ID)
                 if (id != null) { cancelled += id; scope.launch { removeEntryAndFiles(id); if (noActiveWork()) stopNow() } }
             }
+            ACTION_CLEAR_DONE -> scope.launch {
+                store.read().values.filter { it.done }.forEach { removeEntryAndFiles(it.itemId) }
+                if (noActiveWork()) stopNow()
+            }
+            ACTION_CLEAR_ALL -> scope.launch {
+                store.read().values.forEach { cancelled += it.itemId; removeEntryAndFiles(it.itemId) }
+                stopNow()
+            }
             else -> scope.launch { pump() }
         }
         return START_NOT_STICKY
     }
 
-    /** Processes queued entries one by one, then stops the service when the queue is empty. */
+    /** Processes queued entries one by one, then stops the service when the queue is empty. Honours
+     *  the Wi-Fi-only setting: when on a metered network it parks the queue and waits for Wi-Fi. */
     private suspend fun pump() = mutex.withLock {
         while (true) {
             val next = store.read().values
                 .filter { it.state == DownloadEntry.STATE_QUEUED }
                 .minByOrNull { it.addedAt } ?: break
+            if (wifiOnlyBlocked()) {
+                // Flag the parked items and resume automatically when an un-metered network appears.
+                store.read().values.filter { it.state == DownloadEntry.STATE_QUEUED }
+                    .forEach { q -> store.update(q.itemId) { it.copy(error = "waiting for Wi-Fi") } }
+                awaitWifi()
+                stopNow()
+                return@withLock
+            }
             runCatching { downloadOne(next) }
         }
         stopNow()
+    }
+
+    private suspend fun wifiOnlyBlocked(): Boolean {
+        val wifiOnly = runCatching { DashboardStore(this).downloadsWifiOnly.first() }.getOrDefault(false)
+        return wifiOnly && isMetered()
+    }
+
+    /** True when there's no un-metered (Wi-Fi/ethernet) network — i.e. only mobile data. */
+    private fun isMetered(): Boolean = runCatching {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager ?: return@runCatching false
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return@runCatching true
+        !caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+    }.getOrDefault(false)
+
+    /** Registers a one-shot callback that re-triggers the queue once an un-metered network is up. */
+    private fun awaitWifi() {
+        if (wifiCallback != null) return
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager ?: return
+        val request = android.net.NetworkRequest.Builder()
+            .addCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+            .build()
+        val cb = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: android.net.Network) {
+                unregisterWifiWait()
+                // Starting a FGS from a background callback is blocked on Android 12+; if so the parked
+                // items just resume the next time the app is foregrounded (see resume()).
+                runCatching { ContextCompat.startForegroundService(this@DownloadService, Intent(this@DownloadService, DownloadService::class.java)) }
+            }
+        }
+        wifiCallback = cb
+        runCatching { cm.registerNetworkCallback(request, cb) }
+    }
+
+    private fun unregisterWifiWait() {
+        val cb = wifiCallback ?: return
+        wifiCallback = null
+        runCatching { (getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager)?.unregisterNetworkCallback(cb) }
     }
 
     private suspend fun downloadOne(entry: DownloadEntry) {
@@ -250,6 +306,7 @@ class DownloadService : Service() {
     }
 
     override fun onDestroy() {
+        unregisterWifiWait()
         scope.cancel()
         super.onDestroy()
     }
@@ -259,6 +316,8 @@ class DownloadService : Service() {
         private const val ACTION_ENQUEUE = "org.phioster.sanctumd.download.ENQUEUE"
         private const val ACTION_CANCEL = "org.phioster.sanctumd.download.CANCEL"
         private const val ACTION_DELETE = "org.phioster.sanctumd.download.DELETE"
+        private const val ACTION_CLEAR_DONE = "org.phioster.sanctumd.download.CLEAR_DONE"
+        private const val ACTION_CLEAR_ALL = "org.phioster.sanctumd.download.CLEAR_ALL"
         private const val EXTRA_ENTRY = "entry"
         private const val EXTRA_ITEM_ID = "itemId"
         private val downloadJson = Json { ignoreUnknownKeys = true }
@@ -278,6 +337,10 @@ class DownloadService : Service() {
 
         fun cancel(context: Context, itemId: String) = send(context, ACTION_CANCEL, itemId)
         fun delete(context: Context, itemId: String) = send(context, ACTION_DELETE, itemId)
+        fun clearCompleted(context: Context) = sendAction(context, ACTION_CLEAR_DONE)
+        fun clearAll(context: Context) = sendAction(context, ACTION_CLEAR_ALL)
+        /** Nudge the queue (e.g. from a foreground screen) — resumes Wi-Fi-parked downloads. */
+        fun resume(context: Context) = runCatching { ContextCompat.startForegroundService(context, Intent(context, DownloadService::class.java)) }.let {}
 
         private fun send(context: Context, action: String, itemId: String) {
             val i = Intent(context, DownloadService::class.java).apply {
@@ -285,6 +348,9 @@ class DownloadService : Service() {
                 putExtra(EXTRA_ITEM_ID, itemId)
             }
             ContextCompat.startForegroundService(context, i)
+        }
+        private fun sendAction(context: Context, action: String) {
+            ContextCompat.startForegroundService(context, Intent(context, DownloadService::class.java).apply { this.action = action })
         }
     }
 }

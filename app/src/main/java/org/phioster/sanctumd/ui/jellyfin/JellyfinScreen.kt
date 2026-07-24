@@ -142,6 +142,11 @@ internal fun JellyfinScreen(
     var mediaDetail by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
     var playRequest by remember { mutableStateOf<org.phioster.sanctumd.ui.player.PlayRequest?>(null) }
     val downloads by vm.downloads.collectAsState(initial = emptyMap())
+    val wifiOnly by vm.downloadsWifiOnly.collectAsState()
+    var downloadsManagerOpen by remember { mutableStateOf(false) }
+    // Foregrounding the app resumes any Wi-Fi-parked downloads (a background FGS start is blocked).
+    val hasQueued = downloads.values.any { it.state == org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED }
+    LaunchedEffect(hasQueued) { if (hasQueued) org.phioster.sanctumd.service.DownloadService.resume(context) }
     // Deep link from search: open the item-detail dialog on top of the media tab.
     LaunchedEffect(Unit) {
         if (initialItemId != null) {
@@ -389,7 +394,11 @@ internal fun JellyfinScreen(
                                     if (myDownloads.isNotEmpty()) {
                                         item {
                                             Spacer(Modifier.height(8.dp))
-                                            Text("DOWNLOADS  ·  offline", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                                Text("DOWNLOADS  ·  offline", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                                Spacer(Modifier.weight(1f))
+                                                Text("manage ›", fontFamily = Mono, color = accent, fontSize = 11.sp, modifier = Modifier.clickable { downloadsManagerOpen = true })
+                                            }
                                             Spacer(Modifier.height(6.dp))
                                             Row(Modifier.horizontalScroll(rememberScrollState())) {
                                                 myDownloads.forEach { e ->
@@ -462,6 +471,15 @@ internal fun JellyfinScreen(
                                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                             Text("‹ back", fontFamily = Mono, color = accent, fontSize = 13.sp, modifier = Modifier.clickable { browseStack = browseStack.dropLast(1) })
                                             Spacer(Modifier.weight(1f))
+                                            // Batch-download every episode in this folder that isn't downloaded yet.
+                                            val episodes = mediaContents.orEmpty().filter { !it.isFolder && it.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS }
+                                            val toGet = episodes.filter { downloads[it.id]?.done != true }
+                                            if (toGet.isNotEmpty()) {
+                                                Text("⬇ all (${toGet.size})", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, modifier = Modifier.clickable {
+                                                    toGet.forEach { ep -> org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, ep.id, ep.name, ep.subtitle, ep.posterUrl, 0L) }
+                                                    actionMsg = "queued ${toGet.size} downloads"
+                                                }.padding(end = 14.dp))
+                                            }
                                             Text("⟳ scan", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp, modifier = Modifier.clickable { scope.launch { actionMsg = vm.jellyfinScanLibrary(config, here.id) } })
                                         }
                                         Spacer(Modifier.height(4.dp))
@@ -1059,6 +1077,25 @@ internal fun JellyfinScreen(
     }
 
     // Full-screen playback overlay, on top of everything in this screen.
+    if (downloadsManagerOpen) {
+        DownloadsManager(
+            entries = downloads.values.filter { it.serverId == config.id }.sortedByDescending { it.addedAt },
+            accent = accent,
+            wifiOnly = wifiOnly,
+            onWifiOnly = { vm.setDownloadsWifiOnly(it) },
+            onPlay = { e ->
+                downloadsManagerOpen = false
+                playRequest = org.phioster.sanctumd.ui.player.PlayRequest(
+                    e.itemId, e.name, localFileUri = android.net.Uri.fromFile(java.io.File(e.filePath)).toString(),
+                )
+            },
+            onDelete = { id -> org.phioster.sanctumd.service.DownloadService.delete(context, id) },
+            onClearCompleted = { org.phioster.sanctumd.service.DownloadService.clearCompleted(context) },
+            onClearAll = { org.phioster.sanctumd.service.DownloadService.clearAll(context); downloadsManagerOpen = false },
+            onClose = { downloadsManagerOpen = false },
+        )
+    }
+
     playRequest?.let { pr ->
         org.phioster.sanctumd.ui.player.PlayerScreen(
             vm = vm,
@@ -1119,9 +1156,96 @@ private fun DownloadCard(
         val status = when (entry.state) {
             org.phioster.sanctumd.model.DownloadEntry.STATE_DONE -> "downloaded"
             org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED -> "failed"
-            org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING -> "downloading…"
-            else -> "queued"
+            org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING -> "${(entry.progress * 100).toInt()}% · downloading"
+            else -> if (entry.error.contains("Wi-Fi")) "waiting for Wi-Fi" else "queued"
         }
         Text(status, fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+private fun fmtSize(bytes: Long): String = when {
+    bytes >= 1_073_741_824 -> "%.2f GB".format(bytes / 1_073_741_824.0)
+    bytes >= 1_048_576 -> "%.0f MB".format(bytes / 1_048_576.0)
+    bytes >= 1024 -> "%.0f KB".format(bytes / 1024.0)
+    else -> "$bytes B"
+}
+
+/** Full-screen manager for offline downloads: storage summary, Wi-Fi-only toggle, bulk clear, and a
+ *  list with per-item play/delete. */
+@Composable
+private fun DownloadsManager(
+    entries: List<org.phioster.sanctumd.model.DownloadEntry>,
+    accent: Color,
+    wifiOnly: Boolean,
+    onWifiOnly: (Boolean) -> Unit,
+    onPlay: (org.phioster.sanctumd.model.DownloadEntry) -> Unit,
+    onDelete: (String) -> Unit,
+    onClearCompleted: () -> Unit,
+    onClearAll: () -> Unit,
+    onClose: () -> Unit,
+) {
+    BackHandler { onClose() }
+    val context = LocalContext.current
+    val used = entries.sumOf { if (it.done) it.sizeBytes else it.downloadedBytes }
+    val free = remember { runCatching { android.os.StatFs(context.filesDir.path).availableBytes }.getOrDefault(0L) }
+    val doneCount = entries.count { it.done }
+
+    Box(Modifier.fillMaxSize().background(Black)) {
+        Column(Modifier.fillMaxSize().padding(16.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close", tint = MatrixGreen) }
+                Text("downloads", fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(8.dp))
+            Text("${entries.size} items · ${fmtSize(used)} used · ${fmtSize(free)} free", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp)
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (wifiOnly) "[x] Wi-Fi only" else "[ ] Wi-Fi only", fontFamily = Mono, color = if (wifiOnly) MatrixGreen else MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.clickable { onWifiOnly(!wifiOnly) })
+                Spacer(Modifier.weight(1f))
+                if (doneCount > 0) Text("clear done", fontFamily = Mono, color = accent, fontSize = 12.sp, modifier = Modifier.clickable { onClearCompleted() }.padding(end = 14.dp))
+                if (entries.isNotEmpty()) Text("clear all", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.clickable { onClearAll() })
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
+            if (entries.isEmpty()) {
+                Text("no downloads", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
+            } else {
+                LazyColumn(Modifier.fillMaxSize()) {
+                    items(entries) { e ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable { if (e.done) onPlay(e) }.padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(Modifier.size(46.dp, 64.dp).clip(RoundedCornerShape(4.dp)).background(Surface)) {
+                                if (e.posterFile.startsWith("/")) {
+                                    coil.compose.AsyncImage(model = java.io.File(e.posterFile), contentDescription = e.name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                                }
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(e.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                val sub = when (e.state) {
+                                    org.phioster.sanctumd.model.DownloadEntry.STATE_DONE -> fmtSize(e.sizeBytes)
+                                    org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING -> "${(e.progress * 100).toInt()}% · ${fmtSize(e.downloadedBytes)}"
+                                    org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED -> "failed"
+                                    else -> if (e.error.contains("Wi-Fi")) "waiting for Wi-Fi" else "queued"
+                                }
+                                Text(sub, fontFamily = Mono, color = accent.copy(alpha = 0.75f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                if (e.state == org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING) {
+                                    Spacer(Modifier.height(3.dp))
+                                    Box(Modifier.fillMaxWidth().height(3.dp).background(MatrixGreen.copy(alpha = 0.2f))) {
+                                        Box(Modifier.fillMaxWidth(e.progress.coerceIn(0f, 1f)).height(3.dp).background(accent))
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            if (e.done) Text("▶", fontFamily = Mono, color = MatrixGreen, fontSize = 16.sp, modifier = Modifier.clickable { onPlay(e) }.padding(8.dp))
+                            Text("✕", fontFamily = Mono, color = ErrRed, fontSize = 15.sp, modifier = Modifier.clickable { onDelete(e.itemId) }.padding(8.dp))
+                        }
+                        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
+                    }
+                }
+            }
+        }
     }
 }

@@ -278,6 +278,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         dashStore.swipeDrawer.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, true)
     val drawerBand: StateFlow<Float> =
         dashStore.drawerBand.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, 0.4f)
+    val downloadsWifiOnly: StateFlow<Boolean> =
+        dashStore.downloadsWifiOnly.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
+    fun setDownloadsWifiOnly(enabled: Boolean) = viewModelScope.launch { dashStore.setDownloadsWifiOnly(enabled) }
 
     fun setSwipeTabs(enabled: Boolean) = viewModelScope.launch { dashStore.setSwipeTabs(enabled) }
     fun setSwipeDrawer(enabled: Boolean) = viewModelScope.launch { dashStore.setSwipeDrawer(enabled) }
