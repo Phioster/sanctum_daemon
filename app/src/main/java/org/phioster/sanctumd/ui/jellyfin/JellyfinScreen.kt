@@ -146,6 +146,9 @@ internal fun JellyfinScreen(
     val downloads by vm.downloads.collectAsState(initial = emptyMap())
     val wifiOnly by vm.downloadsWifiOnly.collectAsState()
     var downloadsManagerOpen by remember { mutableStateOf(false) }
+    val hiddenLibs by vm.hiddenLibraries.collectAsState()
+    val hiddenSet = hiddenLibs[config.id].orEmpty().toSet()
+    var libraryFilterOpen by remember { mutableStateOf(false) }
     // Foregrounding the app resumes any Wi-Fi-parked downloads (a background FGS start is blocked).
     val hasQueued = downloads.values.any { it.state == org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED }
     LaunchedEffect(hasQueued) { if (hasQueued) org.phioster.sanctumd.service.DownloadService.resume(context) }
@@ -469,12 +472,18 @@ internal fun JellyfinScreen(
                                         }
                                         item {
                                             Spacer(Modifier.height(12.dp))
-                                            Text("LIBRARIES", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                                Text("LIBRARIES", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                                                Spacer(Modifier.weight(1f))
+                                                if (!mediaViews.isNullOrEmpty()) {
+                                                    Text("edit", fontFamily = Mono, color = accent, fontSize = 11.sp, modifier = Modifier.clickable { libraryFilterOpen = true }.padding(4.dp))
+                                                }
+                                            }
                                         }
-                                        val v = mediaViews
+                                        val v = mediaViews?.filterNot { it.id in hiddenSet }
                                         when {
-                                            v == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                            v.isEmpty() -> item { Text("no libraries", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                            mediaViews == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                            v.isNullOrEmpty() -> item { Text(if (hiddenSet.isEmpty()) "no libraries" else "all libraries hidden", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
                                             else -> items(v) { m -> JellyMediaRow(m, config, accent) { openMedia(m) } }
                                         }
                                     }
@@ -1091,6 +1100,33 @@ internal fun JellyfinScreen(
     }
 
     // Full-screen playback overlay, on top of everything in this screen.
+    if (libraryFilterOpen) {
+        AlertDialog(
+            onDismissRequest = { libraryFilterOpen = false },
+            containerColor = Surface,
+            title = { Text("show libraries", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    mediaViews.orEmpty().forEach { view ->
+                        val shown = view.id !in hiddenSet
+                        Row(
+                            Modifier.fillMaxWidth().clickable {
+                                val next = if (shown) hiddenSet + view.id else hiddenSet - view.id
+                                vm.setHiddenLibraries(config.id, next.toList())
+                            }.padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(if (shown) "[x]" else "[ ]", fontFamily = Mono, color = if (shown) MatrixGreen else MatrixGreen.copy(alpha = 0.5f), fontSize = 14.sp)
+                            Spacer(Modifier.width(10.dp))
+                            Text(view.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { libraryFilterOpen = false }) { Text("done", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
     if (downloadsManagerOpen) {
         DownloadsManager(
             entries = downloads.values.filter { it.serverId == config.id }.sortedByDescending { it.addedAt },

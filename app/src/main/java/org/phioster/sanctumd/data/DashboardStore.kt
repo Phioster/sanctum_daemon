@@ -25,6 +25,7 @@ private val SWIPE_DRAWER_KEY = booleanPreferencesKey("swipe_drawer")
 private val DRAWER_BAND_KEY = floatPreferencesKey("drawer_band")
 private val SAFE_MODE_KEY = booleanPreferencesKey("safe_mode")
 private val DOWNLOADS_WIFI_ONLY_KEY = booleanPreferencesKey("downloads_wifi_only")
+private val HIDDEN_LIBRARIES_KEY = stringPreferencesKey("hidden_libraries_json")
 private val json = Json { ignoreUnknownKeys = true }
 
 /** Persists the user's dashboard tabs (widget layout) as JSON in DataStore. */
@@ -81,6 +82,17 @@ class DashboardStore(private val context: Context) {
     val downloadsWifiOnly: Flow<Boolean> = context.dashboardDataStore.data.map { it[DOWNLOADS_WIFI_ONLY_KEY] ?: false }
     suspend fun setDownloadsWifiOnly(enabled: Boolean) {
         context.dashboardDataStore.edit { it[DOWNLOADS_WIFI_ONLY_KEY] = enabled }
+    }
+
+    // Per Jellyfin service: library-view ids the user chose to hide from the media tab (e.g. Live TV).
+    val hiddenLibraries: Flow<Map<String, List<String>>> = context.dashboardDataStore.data.map { prefs ->
+        prefs[HIDDEN_LIBRARIES_KEY]?.let { runCatching { json.decodeFromString<Map<String, List<String>>>(it) }.getOrNull() } ?: emptyMap()
+    }
+    suspend fun setHiddenLibraries(serviceId: String, hidden: List<String>) {
+        context.dashboardDataStore.edit { prefs ->
+            val map = prefs[HIDDEN_LIBRARIES_KEY]?.let { runCatching { json.decodeFromString<Map<String, List<String>>>(it) }.getOrNull() } ?: emptyMap()
+            prefs[HIDDEN_LIBRARIES_KEY] = json.encodeToString(map + (serviceId to hidden))
+        }
     }
 
     /** Safe mode: block every call that would change something on a server. */

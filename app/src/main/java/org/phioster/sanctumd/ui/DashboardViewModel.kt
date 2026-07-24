@@ -281,6 +281,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     val downloadsWifiOnly: StateFlow<Boolean> =
         dashStore.downloadsWifiOnly.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
     fun setDownloadsWifiOnly(enabled: Boolean) = viewModelScope.launch { dashStore.setDownloadsWifiOnly(enabled) }
+    val hiddenLibraries: StateFlow<Map<String, List<String>>> =
+        dashStore.hiddenLibraries.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, emptyMap())
+    fun setHiddenLibraries(serviceId: String, hidden: List<String>) = viewModelScope.launch { dashStore.setHiddenLibraries(serviceId, hidden) }
 
     fun setSwipeTabs(enabled: Boolean) = viewModelScope.launch { dashStore.setSwipeTabs(enabled) }
     fun setSwipeDrawer(enabled: Boolean) = viewModelScope.launch { dashStore.setSwipeDrawer(enabled) }
