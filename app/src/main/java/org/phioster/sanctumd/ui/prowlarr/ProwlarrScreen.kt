@@ -550,7 +550,6 @@ internal fun ProwlarrHistoryRow(item: org.phioster.sanctumd.model.ProwlarrHistor
 }
 
 @Composable
-@Composable
 private fun ProwlarrFieldInput(f: org.phioster.sanctumd.model.ProwlarrField, value: String, onChange: (String) -> Unit) {
     when {
         f.type == "checkbox" -> JellyToggle(f.label, value.toBoolean()) { onChange(it.toString()) }
