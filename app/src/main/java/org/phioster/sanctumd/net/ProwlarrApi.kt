@@ -309,7 +309,7 @@ suspend fun prowlarrAddIndexer(config: ServiceConfig, entry: ProwlarrSchemaEntry
                         put("appProfileId", JsonPrimitive(appProfileId))
                     },
                 )
-                okOr(api.addIndexer(body), "added")
+                okOrServarr(api.addIndexer(body), "added")
             } catch (t: Throwable) {
                 "error: ${t.message ?: t.javaClass.simpleName}"
             }
@@ -324,25 +324,29 @@ suspend fun prowlarrSaveIndexer(config: ServiceConfig, id: Int, values: Map<Stri
                 val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
                 val raw = api.indexerRaw(id)
                 val body = JsonObject(raw.toMutableMap().apply { put("fields", mergeIndexerFields(raw, values)) })
-                okOr(api.updateIndexer(id, body), "saved")
+                okOrServarr(api.updateIndexer(id, body), "saved")
             } catch (t: Throwable) {
                 "error: ${t.message ?: t.javaClass.simpleName}"
             }
         }
     }
 
-/** "ok" on 2xx, else the first Servarr errorMessage ([{"errorMessage": "…"}]) or the HTTP code. */
-private fun testResult(resp: Response<ResponseBody>): String {
-    if (resp.isSuccessful) return "ok"
-    val body = runCatching { resp.errorBody()?.string() }.getOrNull()
-    val msg = body?.let { txt ->
-        runCatching {
-            (json.parseToJsonElement(txt) as? JsonArray)
-                ?.firstNotNullOfOrNull { (it as? JsonObject)?.get("errorMessage")?.let { m -> (m as? JsonPrimitive)?.content } }
-        }.getOrNull()
-    }
-    return "error: ${msg ?: "HTTP ${resp.code()}"}"
+/** The first Servarr validation errorMessage from a 400 body ([{"errorMessage": "…"}]), or null. */
+private fun servarrError(resp: Response<ResponseBody>): String? {
+    val body = runCatching { resp.errorBody()?.string() }.getOrNull() ?: return null
+    return runCatching {
+        (json.parseToJsonElement(body) as? JsonArray)
+            ?.firstNotNullOfOrNull { (it as? JsonObject)?.get("errorMessage")?.let { m -> (m as? JsonPrimitive)?.content } }
+    }.getOrNull()
 }
+
+/** "ok" on 2xx, else the first Servarr errorMessage or the HTTP code. */
+private fun testResult(resp: Response<ResponseBody>): String =
+    if (resp.isSuccessful) "ok" else "error: ${servarrError(resp) ?: "HTTP ${resp.code()}"}"
+
+/** [success] on 2xx, else the Servarr validation message (so the user sees *why* a 400 happened). */
+private fun okOrServarr(resp: Response<ResponseBody>, success: String): String =
+    if (resp.isSuccessful) success else "error: ${servarrError(resp) ?: "HTTP ${resp.code()}"}"
 
 suspend fun prowlarrTestIndexer(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
     try {
