@@ -24,14 +24,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -108,6 +112,74 @@ internal fun JellyPosterCard(item: org.phioster.sanctumd.model.JellyMediaItem, c
                 Text(item.subtitle, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
+    }
+}
+
+/** A section label with a short accent tick — the consistent header for the Media home rows. */
+@Composable
+internal fun MediaSectionHeader(label: String, accent: Color, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) {
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.width(3.dp).height(13.dp).clip(RoundedCornerShape(2.dp)).background(accent))
+        Spacer(Modifier.width(8.dp))
+        Text(label, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        if (trailing != null) {
+            Spacer(Modifier.weight(1f))
+            trailing()
+        }
+    }
+}
+
+/** The big featured card at the top of the Media home: backdrop-cropped poster + scrim + title +
+ *  Play/Resume button. Tapping the body opens detail; the button plays. */
+@Composable
+internal fun MediaHero(item: org.phioster.sanctumd.model.JellyMediaItem, config: ServiceConfig, accent: Color, onPlay: () -> Unit, onOpen: () -> Unit) {
+    Box(Modifier.fillMaxWidth().height(210.dp).clip(RoundedCornerShape(14.dp)).clickable { onOpen() }) {
+        if (item.posterUrl.isNotBlank()) {
+            JellyPoster(item.posterUrl, config, Modifier.matchParentSize(), RoundedCornerShape(14.dp), ContentScale.Crop)
+        } else {
+            Box(Modifier.matchParentSize().background(Surface))
+        }
+        Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Transparent, Black.copy(alpha = 0.88f)))))
+        Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
+            Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (item.subtitle.isNotBlank()) {
+                Text(item.subtitle, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(accent).clickable { onPlay() }.padding(horizontal = 16.dp, vertical = 7.dp),
+            ) {
+                Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Black, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(if (item.progressPct > 0.01f) "Resume" else "Play", fontFamily = Mono, color = Black, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        if (item.progressPct > 0.01f) {
+            LinearProgressIndicator(
+                progress = { item.progressPct },
+                modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter),
+                color = accent, trackColor = Black.copy(alpha = 0.5f),
+            )
+        }
+    }
+}
+
+/** A library shown as a landscape tile (poster-cropped + scrim + name) in the Media home grid. */
+@Composable
+internal fun MediaLibraryTile(item: org.phioster.sanctumd.model.JellyMediaItem, config: ServiceConfig, modifier: Modifier, onClick: () -> Unit) {
+    Box(modifier.height(92.dp).clip(RoundedCornerShape(10.dp)).clickable { onClick() }) {
+        if (item.posterUrl.isNotBlank()) {
+            JellyPoster(item.posterUrl, config, Modifier.matchParentSize(), RoundedCornerShape(10.dp), ContentScale.Crop)
+        } else {
+            Box(Modifier.matchParentSize().background(Surface))
+        }
+        Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Transparent, Black.copy(alpha = 0.8f)))))
+        Text(
+            item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.align(Alignment.BottomStart).padding(10.dp),
+        )
     }
 }
 

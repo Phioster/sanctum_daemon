@@ -123,7 +123,7 @@ internal fun JellyfinScreen(
     val accent = Color(config.type.accent)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    var mode by remember { mutableStateOf(if (initialItemId != null) 3 else 0) } // 0=Now Playing, 1=Users, 2=Dashboard, 3=Media, 4=Live TV
+    var mode by remember { mutableStateOf(3) } // 0=Now Playing, 1=Users, 2=Dashboard, 3=Media (default), 4=Live TV
     var sessions by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellySession>?>(null) }
     var users by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyUser>?>(null) }
     var dashInfo by remember { mutableStateOf<org.phioster.sanctumd.model.JellySystemInfo?>(null) }
@@ -330,7 +330,7 @@ internal fun JellyfinScreen(
                     Spacer(Modifier.height(10.dp))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    val jfChips = listOf("Now Playing" to 0, "Media" to 3, "Users" to 1, "Dashboard" to 2, "Live TV" to 4)
+                    val jfChips = listOf("Media" to 3, "Now Playing" to 0, "Users" to 1, "Dashboard" to 2, "Live TV" to 4)
                     val jfChipState = rememberLazyListState()
                     LaunchedEffect(mode) { jfChipState.animateScrollToItem(jfChips.indexOfFirst { it.second == mode }.coerceAtLeast(0)) }
                     LazyRow(
@@ -372,7 +372,7 @@ internal fun JellyfinScreen(
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
             // Chip order isn't the raw mode order, and swipe must not fight nested nav (Media browse /
             // Dashboard section). Swipe walks the visual order; disabled while inside a sub-navigation.
-            val jfOrder = listOf(0, 3, 1, 2, 4)
+            val jfOrder = listOf(3, 0, 1, 2, 4)
             SwipeTabs(
                 tab = jfOrder.indexOf(mode).coerceAtLeast(0),
                 count = jfOrder.size,
@@ -471,43 +471,71 @@ internal fun JellyfinScreen(
                                         }
                                     } else {
                                         val res = resumeItems
+                                        val lat = latestItems
+                                        // Hero: the top continue-watching item, else the newest addition.
+                                        val hero = res?.firstOrNull() ?: lat?.firstOrNull()
+                                        if (hero != null) {
+                                            item {
+                                                Spacer(Modifier.height(10.dp))
+                                                MediaHero(
+                                                    hero, config, accent,
+                                                    onPlay = {
+                                                        if (hero.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
+                                                            playRequest = org.phioster.sanctumd.ui.player.PlayRequest(hero.id, hero.name)
+                                                        } else {
+                                                            openMedia(hero)
+                                                        }
+                                                    },
+                                                    onOpen = { openMedia(hero) },
+                                                )
+                                            }
+                                        }
                                         if (!res.isNullOrEmpty()) {
                                             item {
+                                                Spacer(Modifier.height(16.dp))
+                                                MediaSectionHeader("CONTINUE WATCHING", accent)
                                                 Spacer(Modifier.height(8.dp))
-                                                Text("CONTINUE WATCHING", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                                                Spacer(Modifier.height(6.dp))
                                                 Row(Modifier.horizontalScroll(rememberScrollState())) {
                                                     res.forEach { m -> JellyPosterCard(m, config, accent) { openMedia(m) } }
                                                 }
                                             }
                                         }
-                                        val lat = latestItems
                                         if (!lat.isNullOrEmpty()) {
                                             item {
-                                                Spacer(Modifier.height(12.dp))
-                                                Text("RECENTLY ADDED", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                                                Spacer(Modifier.height(6.dp))
+                                                Spacer(Modifier.height(16.dp))
+                                                MediaSectionHeader("RECENTLY ADDED", accent)
+                                                Spacer(Modifier.height(8.dp))
                                                 Row(Modifier.horizontalScroll(rememberScrollState())) {
                                                     lat.forEach { m -> JellyPosterCard(m, config, accent) { openMedia(m) } }
                                                 }
                                             }
                                         }
                                         item {
-                                            Spacer(Modifier.height(12.dp))
-                                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                                Text("LIBRARIES", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                                                Spacer(Modifier.weight(1f))
+                                            Spacer(Modifier.height(16.dp))
+                                            MediaSectionHeader("LIBRARIES", accent, trailing = {
                                                 if (!mediaViews.isNullOrEmpty()) {
                                                     Text("edit", fontFamily = Mono, color = accent, fontSize = 11.sp, modifier = Modifier.clickable { libraryFilterOpen = true }.padding(4.dp))
                                                 }
-                                            }
+                                            })
+                                            Spacer(Modifier.height(8.dp))
                                         }
                                         val v = mediaViews?.filterNot { it.id in hiddenSet }
                                         when {
                                             mediaViews == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
                                             v.isNullOrEmpty() -> item { Text(if (hiddenSet.isEmpty()) "no libraries" else "all libraries hidden", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                            else -> items(v) { m -> JellyMediaRow(m, config, accent) { openMedia(m) } }
+                                            else -> {
+                                                // Libraries as a 2-per-row grid of landscape tiles.
+                                                v.chunked(2).forEachIndexed { idx, pair ->
+                                                    item(key = "librow-$idx") {
+                                                        Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                                            pair.forEach { lib -> MediaLibraryTile(lib, config, Modifier.weight(1f)) { openMedia(lib) } }
+                                                            if (pair.size == 1) Spacer(Modifier.weight(1f))
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
+                                        item { Spacer(Modifier.height(16.dp)) }
                                     }
                                 } else {
                                     val here = browseStack.last()
