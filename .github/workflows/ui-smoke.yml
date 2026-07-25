@@ -67,11 +67,11 @@ jobs:
             maestro test .maestro/01_launch_smoke.yaml
 
       - name: Upload maestro output
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: maestro-output
-          retention-days: 5
+          retention-days: 1
           path: |
             ~/.maestro/tests/**
           if-no-files-found: warn
