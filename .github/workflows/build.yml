@@ -59,4 +59,3 @@ jobs:
       # into the 0.5 GB free Actions-storage quota.
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon --stacktrace
-          if-no-files-found: error
