@@ -118,6 +118,9 @@ internal interface ProwlarrApi {
     @GET("api/v1/indexer/{id}") suspend fun indexerRaw(@Path("id") id: Int): JsonObject
     @PUT("api/v1/indexer/{id}") suspend fun updateIndexer(@Path("id") id: Int, @Body body: JsonObject): Response<ResponseBody>
     @DELETE("api/v1/indexer/{id}") suspend fun deleteIndexer(@Path("id") id: Int): Response<ResponseBody>
+    @GET("api/v1/indexer/schema") suspend fun indexerSchema(): List<JsonObject>
+    @POST("api/v1/indexer") suspend fun addIndexer(@Body body: JsonObject): Response<ResponseBody>
+    @GET("api/v1/appprofile") suspend fun appProfiles(): List<JsonObject>
     // Servarr has no /indexer/{id}/test route (405) — testing an existing indexer means POSTing its
     // definition to /indexer/test.
     @POST("api/v1/indexer/test") suspend fun testIndexerBody(@Body body: JsonObject): Response<ResponseBody>
@@ -211,11 +214,10 @@ suspend fun prowlarrDeleteIndexer(config: ServiceConfig, id: Int): String = dest
     }
 }
 
-/** The editable scalar fields of an indexer (multi-value fields like categories are left out so
- *  they're preserved untouched on save). */
-suspend fun prowlarrIndexerEdit(config: ServiceConfig, id: Int): org.phioster.sanctumd.model.ProwlarrIndexerEdit = withContext(Dispatchers.IO) {
-    val raw = apiFor<ProwlarrApi>(config, apiKeyHeader(config)).indexerRaw(id)
-    val fields = (raw["fields"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }.mapNotNull { f ->
+/** Parse an indexer/schema JSON's editable scalar fields (multi-value fields like categories are
+ *  left out so they're preserved untouched on save). Shared by edit + add. */
+private fun parseIndexerFields(raw: JsonObject): List<org.phioster.sanctumd.model.ProwlarrField> =
+    (raw["fields"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }.mapNotNull { f ->
         val name = jsStr(f, "name") ?: return@mapNotNull null
         val type = jsStr(f, "type") ?: "textbox"
         if (type == "info") return@mapNotNull null
@@ -238,8 +240,81 @@ suspend fun prowlarrIndexerEdit(config: ServiceConfig, id: Int): org.phioster.sa
             options = options,
         )
     }
-    org.phioster.sanctumd.model.ProwlarrIndexerEdit(id, jsStr(raw, "name") ?: "indexer", fields)
+
+/** Merge stringified [values] (keyed by field name) into a copy of [raw]'s fields[] with the correct
+ *  JSON types, leaving every other field/key untouched. Shared by edit + add. */
+private fun mergeIndexerFields(raw: JsonObject, values: Map<String, String>): JsonArray = buildJsonArray {
+    (raw["fields"] as? JsonArray).orEmpty().forEach { fe ->
+        val fo = fe as? JsonObject
+        val fname = fo?.let { jsStr(it, "name") }
+        if (fo != null && fname != null && values.containsKey(fname)) {
+            val type = jsStr(fo, "type") ?: "textbox"
+            val nv = values.getValue(fname)
+            val prim = when (type) {
+                "checkbox" -> JsonPrimitive(nv.toBoolean())
+                "number", "select" -> nv.toIntOrNull()?.let { JsonPrimitive(it) }
+                    ?: nv.toDoubleOrNull()?.let { JsonPrimitive(it) } ?: JsonPrimitive(nv)
+                else -> JsonPrimitive(nv)
+            }
+            add(JsonObject(fo.toMutableMap().apply { put("value", prim) }))
+        } else {
+            add(fe)
+        }
+    }
 }
+
+/** The editable scalar fields of an existing indexer. */
+suspend fun prowlarrIndexerEdit(config: ServiceConfig, id: Int): org.phioster.sanctumd.model.ProwlarrIndexerEdit = withContext(Dispatchers.IO) {
+    val raw = apiFor<ProwlarrApi>(config, apiKeyHeader(config)).indexerRaw(id)
+    org.phioster.sanctumd.model.ProwlarrIndexerEdit(id, jsStr(raw, "name") ?: "indexer", parseIndexerFields(raw))
+}
+
+/** One selectable indexer definition from the schema catalogue, with its raw JSON kept for the POST. */
+class ProwlarrSchemaEntry internal constructor(
+    internal val raw: JsonObject,
+    val name: String,
+    val protocol: String,
+    val privacy: String,
+    val fields: List<org.phioster.sanctumd.model.ProwlarrField>,
+)
+
+/** The full catalogue of addable indexer definitions (GET /indexer/schema), sorted by name. */
+suspend fun prowlarrIndexerSchemas(config: ServiceConfig): List<ProwlarrSchemaEntry> = withContext(Dispatchers.IO) {
+    apiFor<ProwlarrApi>(config, apiKeyHeader(config)).indexerSchema().mapNotNull { raw ->
+        val name = jsStr(raw, "name") ?: return@mapNotNull null
+        ProwlarrSchemaEntry(
+            raw = raw,
+            name = name,
+            protocol = jsStr(raw, "protocol") ?: "",
+            privacy = jsStr(raw, "privacy") ?: "",
+            fields = parseIndexerFields(raw),
+        )
+    }.sortedBy { it.name.lowercase() }
+}
+
+/** Add a new indexer from a chosen schema [entry] with the user-supplied [name] + field [values]. */
+suspend fun prowlarrAddIndexer(config: ServiceConfig, entry: ProwlarrSchemaEntry, name: String, values: Map<String, String>): String =
+    destructive("add Prowlarr indexer $name") {
+        withContext(Dispatchers.IO) {
+            try {
+                val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
+                val appProfileId = runCatching {
+                    api.appProfiles().firstNotNullOfOrNull { jsInt(it, "id") }
+                }.getOrNull() ?: 1
+                val body = JsonObject(
+                    entry.raw.toMutableMap().apply {
+                        put("fields", mergeIndexerFields(entry.raw, values))
+                        put("name", JsonPrimitive(name))
+                        put("enable", JsonPrimitive(true))
+                        put("appProfileId", JsonPrimitive(appProfileId))
+                    },
+                )
+                okOr(api.addIndexer(body), "added")
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
 
 /** Merge edited field [values] (keyed by field name) into the indexer's raw JSON and PUT it. */
 suspend fun prowlarrSaveIndexer(config: ServiceConfig, id: Int, values: Map<String, String>): String =
@@ -248,27 +323,7 @@ suspend fun prowlarrSaveIndexer(config: ServiceConfig, id: Int, values: Map<Stri
             try {
                 val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
                 val raw = api.indexerRaw(id)
-                val oldFields = (raw["fields"] as? JsonArray).orEmpty()
-                val newFields = buildJsonArray {
-                    oldFields.forEach { fe ->
-                        val fo = fe as? JsonObject
-                        val fname = fo?.let { jsStr(it, "name") }
-                        if (fo != null && fname != null && values.containsKey(fname)) {
-                            val type = jsStr(fo, "type") ?: "textbox"
-                            val nv = values.getValue(fname)
-                            val prim = when (type) {
-                                "checkbox" -> JsonPrimitive(nv.toBoolean())
-                                "number", "select" -> nv.toIntOrNull()?.let { JsonPrimitive(it) }
-                                    ?: nv.toDoubleOrNull()?.let { JsonPrimitive(it) } ?: JsonPrimitive(nv)
-                                else -> JsonPrimitive(nv)
-                            }
-                            add(JsonObject(fo.toMutableMap().apply { put("value", prim) }))
-                        } else {
-                            add(fe)
-                        }
-                    }
-                }
-                val body = JsonObject(raw.toMutableMap().apply { put("fields", newFields) })
+                val body = JsonObject(raw.toMutableMap().apply { put("fields", mergeIndexerFields(raw, values)) })
                 okOr(api.updateIndexer(id, body), "saved")
             } catch (t: Throwable) {
                 "error: ${t.message ?: t.javaClass.simpleName}"

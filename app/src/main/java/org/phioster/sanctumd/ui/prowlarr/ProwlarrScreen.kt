@@ -119,6 +119,13 @@ internal fun ProwlarrScreen(
     var editForm by remember { mutableStateOf<org.phioster.sanctumd.model.ProwlarrIndexerEdit?>(null) }
     var editValues by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var editSaving by remember { mutableStateOf(false) }
+    var showAddSchema by remember { mutableStateOf(false) }
+    var schemas by remember { mutableStateOf<List<org.phioster.sanctumd.net.ProwlarrSchemaEntry>?>(null) }
+    var schemaQuery by remember { mutableStateOf("") }
+    var addEntry by remember { mutableStateOf<org.phioster.sanctumd.net.ProwlarrSchemaEntry?>(null) }
+    var addName by remember { mutableStateOf("") }
+    var addValues by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var addSaving by remember { mutableStateOf(false) }
     val arrTargets = remember { vm.arrTargets() }
 
     suspend fun loadIndexers() {
@@ -189,6 +196,10 @@ internal fun ProwlarrScreen(
                     Box {
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
+                            DropdownMenuItem(text = { Text("Add indexer", fontFamily = Mono) }, onClick = {
+                                barMenu = false; showAddSchema = true; schemas = null; schemaQuery = ""
+                                scope.launch { schemas = runCatching { vm.prowlarrIndexerSchemasOf(config) }.getOrDefault(emptyList()) }
+                            })
                             DropdownMenuItem(text = { Text("Test all indexers", fontFamily = Mono) }, onClick = { barMenu = false; act({ vm.prowlarrTestAll(config) }, false) })
                             DropdownMenuItem(text = { Text("System & tasks", fontFamily = Mono) }, onClick = {
                                 barMenu = false; showSystem = true; systemInfo = null; tasks = null
@@ -376,23 +387,7 @@ internal fun ProwlarrScreen(
                 } else {
                     Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
                         form.fields.forEach { f ->
-                            val cur = editValues[f.name] ?: f.value
-                            when {
-                                f.type == "checkbox" ->
-                                    JellyToggle(f.label, cur.toBoolean()) { editValues = editValues + (f.name to it.toString()) }
-                                f.type == "select" && f.options.isNotEmpty() -> {
-                                    val curLabel = f.options.firstOrNull { it.first == cur }?.second ?: cur
-                                    DropdownField(f.label, curLabel, f.options.map { it.second }) { idx ->
-                                        editValues = editValues + (f.name to f.options[idx].first)
-                                    }
-                                }
-                                else ->
-                                    Field(f.label, cur, isPassword = f.type == "password") { editValues = editValues + (f.name to it) }
-                            }
-                            if (f.helpText.isNotBlank()) {
-                                Text(f.helpText, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 10.sp)
-                            }
-                            Spacer(Modifier.height(4.dp))
+                            ProwlarrFieldInput(f, editValues[f.name] ?: f.value) { editValues = editValues + (f.name to it) }
                         }
                     }
                 }
@@ -414,6 +409,85 @@ internal fun ProwlarrScreen(
                 ) { Text(if (editSaving) "saving…" else "Save", fontFamily = Mono, color = MatrixGreen) }
             },
             dismissButton = { TextButton(onClick = { if (!editSaving) editIndexer = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    if (showAddSchema) {
+        AlertDialog(
+            onDismissRequest = { showAddSchema = false },
+            containerColor = Surface,
+            title = { Text("Add indexer", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column(Modifier.heightIn(max = 480.dp)) {
+                    Field("search", schemaQuery) { schemaQuery = it }
+                    Spacer(Modifier.height(8.dp))
+                    val list = schemas
+                    when {
+                        list == null -> Text("loading catalogue…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        else -> {
+                            val filtered = list.filter { schemaQuery.isBlank() || it.name.contains(schemaQuery, ignoreCase = true) }
+                            LazyColumn(Modifier.heightIn(max = 400.dp)) {
+                                if (filtered.isEmpty()) {
+                                    item { Text("no matches", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp) }
+                                }
+                                items(filtered.take(120)) { s ->
+                                    Column(
+                                        Modifier.fillMaxWidth().clickable {
+                                            addEntry = s; addName = s.name
+                                            addValues = s.fields.associate { it.name to it.value }
+                                            showAddSchema = false
+                                        }.padding(vertical = 10.dp),
+                                    ) {
+                                        Text(s.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(
+                                            listOfNotNull(s.protocol.ifBlank { null }, s.privacy.ifBlank { null }).joinToString(" · "),
+                                            fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 10.sp,
+                                        )
+                                        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { showAddSchema = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    addEntry?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { if (!addSaving) addEntry = null },
+            containerColor = Surface,
+            title = { Text("Add ${entry.name}", fontFamily = Mono, color = MatrixGreen, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            text = {
+                Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+                    Field("name", addName) { addName = it }
+                    Spacer(Modifier.height(6.dp))
+                    entry.fields.forEach { f ->
+                        ProwlarrFieldInput(f, addValues[f.name] ?: f.value) { addValues = addValues + (f.name to it) }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = addName.isNotBlank() && !addSaving,
+                    onClick = {
+                        val e = entry
+                        val nm = addName
+                        val vals = addValues
+                        addSaving = true
+                        scope.launch {
+                            actionMsg = vm.prowlarrAddIndexerOf(config, e, nm, vals)
+                            addSaving = false
+                            addEntry = null
+                            loadIndexers()
+                        }
+                    },
+                ) { Text(if (addSaving) "adding…" else "Add", fontFamily = Mono, color = MatrixGreen) }
+            },
+            dismissButton = { TextButton(onClick = { if (!addSaving) addEntry = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
 
@@ -473,6 +547,23 @@ internal fun ProwlarrHistoryRow(item: org.phioster.sanctumd.model.ProwlarrHistor
         Spacer(Modifier.height(8.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
     }
+}
+
+@Composable
+@Composable
+private fun ProwlarrFieldInput(f: org.phioster.sanctumd.model.ProwlarrField, value: String, onChange: (String) -> Unit) {
+    when {
+        f.type == "checkbox" -> JellyToggle(f.label, value.toBoolean()) { onChange(it.toString()) }
+        f.type == "select" && f.options.isNotEmpty() -> {
+            val curLabel = f.options.firstOrNull { it.first == value }?.second ?: value
+            DropdownField(f.label, curLabel, f.options.map { it.second }) { idx -> onChange(f.options[idx].first) }
+        }
+        else -> Field(f.label, value, isPassword = f.type == "password") { onChange(it) }
+    }
+    if (f.helpText.isNotBlank()) {
+        Text(f.helpText, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 10.sp)
+    }
+    Spacer(Modifier.height(4.dp))
 }
 
 @Composable
