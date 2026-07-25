@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.alpha
@@ -180,6 +181,103 @@ internal fun MediaLibraryTile(item: org.phioster.sanctumd.model.JellyMediaItem, 
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.align(Alignment.BottomStart).padding(10.dp),
         )
+    }
+}
+
+/** A horizontal poster row for the Media home, honouring a [MediaRowStyle] (poster size + optional
+ *  Ken-Burns fanart background). */
+@Composable
+internal fun MediaPosterRow(
+    items: List<org.phioster.sanctumd.model.JellyMediaItem>,
+    config: ServiceConfig,
+    accent: Color,
+    style: org.phioster.sanctumd.model.MediaRowStyle,
+    onOpen: (org.phioster.sanctumd.model.JellyMediaItem) -> Unit,
+) {
+    val w = when (style.posterSize) { "small" -> 84.dp; "large" -> 150.dp; else -> 120.dp }
+    val bgUrl = items.firstOrNull { it.posterUrl.isNotBlank() }?.posterUrl
+    if (style.background && bgUrl != null) {
+        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))) {
+            KenBurnsBackground(bgUrl, config)
+            Box(Modifier.matchParentSize().background(Black.copy(alpha = 0.6f)))
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
+                items.forEach { m -> JellyPosterCard(m, config, accent, width = w) { onOpen(m) } }
+            }
+        }
+    } else {
+        Row(Modifier.horizontalScroll(rememberScrollState())) {
+            items.forEach { m -> JellyPosterCard(m, config, accent, width = w) { onOpen(m) } }
+        }
+    }
+}
+
+/** Settings sheet for one Media-home row: accent, poster size + fanart bg (poster rows only), hide. */
+@Composable
+internal fun MediaRowConfigDialog(
+    title: String,
+    style: org.phioster.sanctumd.model.MediaRowStyle,
+    serviceColor: Color,
+    posterOptions: Boolean,
+    onSave: (org.phioster.sanctumd.model.MediaRowStyle) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var accent by remember { mutableStateOf(style.accent) }
+    var poster by remember { mutableStateOf(style.posterSize) }
+    var bg by remember { mutableStateOf(style.background) }
+    var hidden by remember { mutableStateOf(style.hidden) }
+    val label = @Composable { t: String -> Text(t, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surface,
+        title = { Text("$title settings", fontFamily = Mono, color = MatrixGreen) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                label("ACCENT (1st = service default)")
+                Spacer(Modifier.height(6.dp))
+                AccentPickerRow(accent, serviceColor) { accent = it }
+                if (posterOptions) {
+                    Spacer(Modifier.height(16.dp))
+                    label("POSTER SIZE")
+                    Spacer(Modifier.height(6.dp))
+                    Row {
+                        listOf("small" to "S", "" to "M", "large" to "L").forEach { (value, lbl) ->
+                            val sel = poster == value
+                            Box(
+                                Modifier.padding(end = 8.dp).size(width = 52.dp, height = 38.dp).clip(RoundedCornerShape(8.dp))
+                                    .background(if (sel) MatrixGreen else Surface)
+                                    .border(1.dp, if (sel) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .clickable { poster = value },
+                                contentAlignment = Alignment.Center,
+                            ) { Text(lbl, fontFamily = Mono, color = if (sel) Black else MatrixGreen, fontSize = 15.sp) }
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    MediaCheckRow("Fanart background (Ken Burns)", bg) { bg = it }
+                }
+                Spacer(Modifier.height(16.dp))
+                MediaCheckRow("Hide this row", hidden) { hidden = it }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(org.phioster.sanctumd.model.MediaRowStyle(accent, poster, bg, hidden)); onDismiss() }) {
+                Text("Save", fontFamily = Mono, color = MatrixGreen)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+    )
+}
+
+@Composable
+private fun MediaCheckRow(text: String, checked: Boolean, onToggle: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable { onToggle(!checked) }, verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.size(22.dp).clip(RoundedCornerShape(5.dp))
+                .background(if (checked) MatrixGreen else Surface)
+                .border(1.dp, if (checked) MatrixGreen else MatrixGreen.copy(alpha = 0.4f), RoundedCornerShape(5.dp)),
+            contentAlignment = Alignment.Center,
+        ) { if (checked) Text("✓", fontFamily = Mono, color = Black, fontSize = 13.sp) }
+        Spacer(Modifier.width(10.dp))
+        Text(text, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
     }
 }
 

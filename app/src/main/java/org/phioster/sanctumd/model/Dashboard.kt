@@ -62,6 +62,16 @@ data class DashCard(
     val density: String = "", // "compact" | "" (normal) | "detail" — row spacing / detail level
 )
 
+/** Per-row appearance of the Jellyfin Media home (Continue Watching / Recently Added / Libraries),
+ *  keyed by row id. A subset of [DashCard]'s styling that makes sense for fixed media rows. */
+@Serializable
+data class MediaRowStyle(
+    val accent: Long = 0, // custom accent ARGB; 0 = service default
+    val posterSize: String = "", // "small" | "" (medium) | "large" — poster rows only
+    val background: Boolean = false, // Ken-Burns fanart background behind the row
+    val hidden: Boolean = false, // hide the row entirely
+)
+
 /** A dashboard tab (a bottom-nav category) holding an ordered list of cards. */
 @Serializable
 data class DashTab(

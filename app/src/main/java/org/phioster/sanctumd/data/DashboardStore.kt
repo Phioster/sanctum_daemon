@@ -26,6 +26,7 @@ private val DRAWER_BAND_KEY = floatPreferencesKey("drawer_band")
 private val SAFE_MODE_KEY = booleanPreferencesKey("safe_mode")
 private val DOWNLOADS_WIFI_ONLY_KEY = booleanPreferencesKey("downloads_wifi_only")
 private val HIDDEN_LIBRARIES_KEY = stringPreferencesKey("hidden_libraries_json")
+private val MEDIA_ROW_STYLES_KEY = stringPreferencesKey("media_row_styles_json")
 private val json = Json { ignoreUnknownKeys = true }
 
 /** Persists the user's dashboard tabs (widget layout) as JSON in DataStore. */
@@ -92,6 +93,17 @@ class DashboardStore(private val context: Context) {
         context.dashboardDataStore.edit { prefs ->
             val map = prefs[HIDDEN_LIBRARIES_KEY]?.let { runCatching { json.decodeFromString<Map<String, List<String>>>(it) }.getOrNull() } ?: emptyMap()
             prefs[HIDDEN_LIBRARIES_KEY] = json.encodeToString(map + (serviceId to hidden))
+        }
+    }
+
+    // Per-row styling of the Jellyfin Media home, keyed by row id ("resume"/"recent"/"libraries").
+    val mediaRowStyles: Flow<Map<String, org.phioster.sanctumd.model.MediaRowStyle>> = context.dashboardDataStore.data.map { prefs ->
+        prefs[MEDIA_ROW_STYLES_KEY]?.let { runCatching { json.decodeFromString<Map<String, org.phioster.sanctumd.model.MediaRowStyle>>(it) }.getOrNull() } ?: emptyMap()
+    }
+    suspend fun setMediaRowStyle(rowKey: String, style: org.phioster.sanctumd.model.MediaRowStyle) {
+        context.dashboardDataStore.edit { prefs ->
+            val map = prefs[MEDIA_ROW_STYLES_KEY]?.let { runCatching { json.decodeFromString<Map<String, org.phioster.sanctumd.model.MediaRowStyle>>(it) }.getOrNull() } ?: emptyMap()
+            prefs[MEDIA_ROW_STYLES_KEY] = json.encodeToString(map + (rowKey to style))
         }
     }
 

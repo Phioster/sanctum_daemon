@@ -286,6 +286,10 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         dashStore.hiddenLibraries.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, emptyMap())
     fun setHiddenLibraries(serviceId: String, hidden: List<String>) = viewModelScope.launch { dashStore.setHiddenLibraries(serviceId, hidden) }
 
+    val mediaRowStyles: StateFlow<Map<String, org.phioster.sanctumd.model.MediaRowStyle>> =
+        dashStore.mediaRowStyles.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, emptyMap())
+    fun setMediaRowStyle(rowKey: String, style: org.phioster.sanctumd.model.MediaRowStyle) = viewModelScope.launch { dashStore.setMediaRowStyle(rowKey, style) }
+
     fun setSwipeTabs(enabled: Boolean) = viewModelScope.launch { dashStore.setSwipeTabs(enabled) }
     fun setSwipeDrawer(enabled: Boolean) = viewModelScope.launch { dashStore.setSwipeDrawer(enabled) }
     fun setDrawerBand(fraction: Float) = viewModelScope.launch { dashStore.setDrawerBand(fraction) }

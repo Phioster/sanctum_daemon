@@ -159,6 +159,8 @@ internal fun JellyfinScreen(
     val hiddenLibs by vm.hiddenLibraries.collectAsState()
     val hiddenSet = hiddenLibs[config.id].orEmpty().toSet()
     var libraryFilterOpen by remember { mutableStateOf(false) }
+    val mediaStyles by vm.mediaRowStyles.collectAsState()
+    var configRow by remember { mutableStateOf<String?>(null) } // "resume"/"recent"/"libraries" being styled
     val musicState by org.phioster.sanctumd.ui.player.MusicController.state.collectAsState()
     var nowPlayingOpen by remember { mutableStateOf(false) }
     // Attach to any running music session so the now-playing bar appears immediately.
@@ -490,46 +492,57 @@ internal fun JellyfinScreen(
                                                 )
                                             }
                                         }
-                                        if (!res.isNullOrEmpty()) {
+                                        val sResume = mediaStyles["resume"] ?: org.phioster.sanctumd.model.MediaRowStyle()
+                                        val sRecent = mediaStyles["recent"] ?: org.phioster.sanctumd.model.MediaRowStyle()
+                                        val sLibs = mediaStyles["libraries"] ?: org.phioster.sanctumd.model.MediaRowStyle()
+                                        fun styleAccent(argb: Long) = if (argb != 0L) Color(argb) else accent
+                                        if (!res.isNullOrEmpty() && !sResume.hidden) {
                                             item {
                                                 Spacer(Modifier.height(16.dp))
-                                                MediaSectionHeader("CONTINUE WATCHING", accent)
+                                                MediaSectionHeader("CONTINUE WATCHING", styleAccent(sResume.accent), trailing = {
+                                                    Icon(Icons.Filled.Settings, contentDescription = "customize", tint = styleAccent(sResume.accent), modifier = Modifier.clickable { configRow = "resume" }.padding(4.dp).size(16.dp))
+                                                })
                                                 Spacer(Modifier.height(8.dp))
-                                                Row(Modifier.horizontalScroll(rememberScrollState())) {
-                                                    res.forEach { m -> JellyPosterCard(m, config, accent) { openMedia(m) } }
-                                                }
+                                                MediaPosterRow(res, config, styleAccent(sResume.accent), sResume) { openMedia(it) }
                                             }
                                         }
-                                        if (!lat.isNullOrEmpty()) {
+                                        if (!lat.isNullOrEmpty() && !sRecent.hidden) {
                                             item {
                                                 Spacer(Modifier.height(16.dp))
-                                                MediaSectionHeader("RECENTLY ADDED", accent)
+                                                MediaSectionHeader("RECENTLY ADDED", styleAccent(sRecent.accent), trailing = {
+                                                    Icon(Icons.Filled.Settings, contentDescription = "customize", tint = styleAccent(sRecent.accent), modifier = Modifier.clickable { configRow = "recent" }.padding(4.dp).size(16.dp))
+                                                })
                                                 Spacer(Modifier.height(8.dp))
-                                                Row(Modifier.horizontalScroll(rememberScrollState())) {
-                                                    lat.forEach { m -> JellyPosterCard(m, config, accent) { openMedia(m) } }
-                                                }
+                                                MediaPosterRow(lat, config, styleAccent(sRecent.accent), sRecent) { openMedia(it) }
                                             }
                                         }
-                                        item {
-                                            Spacer(Modifier.height(16.dp))
-                                            MediaSectionHeader("LIBRARIES", accent, trailing = {
-                                                if (!mediaViews.isNullOrEmpty()) {
-                                                    Text("edit", fontFamily = Mono, color = accent, fontSize = 11.sp, modifier = Modifier.clickable { libraryFilterOpen = true }.padding(4.dp))
-                                                }
-                                            })
-                                            Spacer(Modifier.height(8.dp))
+                                        if (!sLibs.hidden) {
+                                            item {
+                                                Spacer(Modifier.height(16.dp))
+                                                MediaSectionHeader("LIBRARIES", styleAccent(sLibs.accent), trailing = {
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        if (!mediaViews.isNullOrEmpty()) {
+                                                            Text("edit", fontFamily = Mono, color = styleAccent(sLibs.accent), fontSize = 11.sp, modifier = Modifier.clickable { libraryFilterOpen = true }.padding(4.dp))
+                                                        }
+                                                        Icon(Icons.Filled.Settings, contentDescription = "customize", tint = styleAccent(sLibs.accent), modifier = Modifier.clickable { configRow = "libraries" }.padding(4.dp).size(16.dp))
+                                                    }
+                                                })
+                                                Spacer(Modifier.height(8.dp))
+                                            }
                                         }
-                                        val v = mediaViews?.filterNot { it.id in hiddenSet }
-                                        when {
-                                            mediaViews == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                            v.isNullOrEmpty() -> item { Text(if (hiddenSet.isEmpty()) "no libraries" else "all libraries hidden", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                            else -> {
-                                                // Libraries as a 2-per-row grid of landscape tiles.
-                                                v.chunked(2).forEachIndexed { idx, pair ->
-                                                    item(key = "librow-$idx") {
-                                                        Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                                            pair.forEach { lib -> MediaLibraryTile(lib, config, Modifier.weight(1f)) { openMedia(lib) } }
-                                                            if (pair.size == 1) Spacer(Modifier.weight(1f))
+                                        if (!sLibs.hidden) {
+                                            val v = mediaViews?.filterNot { it.id in hiddenSet }
+                                            when {
+                                                mediaViews == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                                v.isNullOrEmpty() -> item { Text(if (hiddenSet.isEmpty()) "no libraries" else "all libraries hidden", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                                                else -> {
+                                                    // Libraries as a 2-per-row grid of landscape tiles.
+                                                    v.chunked(2).forEachIndexed { idx, pair ->
+                                                        item(key = "librow-$idx") {
+                                                            Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                                                pair.forEach { lib -> MediaLibraryTile(lib, config, Modifier.weight(1f)) { openMedia(lib) } }
+                                                                if (pair.size == 1) Spacer(Modifier.weight(1f))
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -1220,6 +1233,18 @@ internal fun JellyfinScreen(
                 }
             },
             confirmButton = { TextButton(onClick = { libraryFilterOpen = false }) { Text("done", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    configRow?.let { rowKey ->
+        val title = when (rowKey) { "resume" -> "Continue Watching"; "recent" -> "Recently Added"; else -> "Libraries" }
+        MediaRowConfigDialog(
+            title = title,
+            style = mediaStyles[rowKey] ?: org.phioster.sanctumd.model.MediaRowStyle(),
+            serviceColor = accent,
+            posterOptions = rowKey == "resume" || rowKey == "recent",
+            onSave = { vm.setMediaRowStyle(rowKey, it) },
+            onDismiss = { configRow = null },
         )
     }
 
