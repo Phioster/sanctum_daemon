@@ -292,24 +292,28 @@ suspend fun prowlarrIndexerSchemas(config: ServiceConfig): List<ProwlarrSchemaEn
     }.sortedBy { it.name.lowercase() }
 }
 
+/** The first App Profile id (Prowlarr requires a valid one on add/test), falling back to 1. */
+private suspend fun resolveAppProfileId(api: ProwlarrApi): Int =
+    runCatching { api.appProfiles().firstNotNullOfOrNull { jsInt(it, "id") } }.getOrNull()?.takeIf { it > 0 } ?: 1
+
+/** Build the POST/test body for a new indexer from [entry] + [name] + [values] + [appProfileId]. */
+private fun newIndexerBody(entry: ProwlarrSchemaEntry, name: String, values: Map<String, String>, appProfileId: Int): JsonObject =
+    JsonObject(
+        entry.raw.toMutableMap().apply {
+            put("fields", mergeIndexerFields(entry.raw, values))
+            put("name", JsonPrimitive(name))
+            put("enable", JsonPrimitive(true))
+            put("appProfileId", JsonPrimitive(appProfileId))
+        },
+    )
+
 /** Add a new indexer from a chosen schema [entry] with the user-supplied [name] + field [values]. */
 suspend fun prowlarrAddIndexer(config: ServiceConfig, entry: ProwlarrSchemaEntry, name: String, values: Map<String, String>): String =
     destructive("add Prowlarr indexer $name") {
         withContext(Dispatchers.IO) {
             try {
                 val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
-                val appProfileId = runCatching {
-                    api.appProfiles().firstNotNullOfOrNull { jsInt(it, "id") }
-                }.getOrNull() ?: 1
-                val body = JsonObject(
-                    entry.raw.toMutableMap().apply {
-                        put("fields", mergeIndexerFields(entry.raw, values))
-                        put("name", JsonPrimitive(name))
-                        put("enable", JsonPrimitive(true))
-                        put("appProfileId", JsonPrimitive(appProfileId))
-                    },
-                )
-                okOrServarr(api.addIndexer(body), "added")
+                okOrServarr(api.addIndexer(newIndexerBody(entry, name, values, resolveAppProfileId(api))), "added")
             } catch (t: Throwable) {
                 "error: ${t.message ?: t.javaClass.simpleName}"
             }
@@ -363,13 +367,7 @@ suspend fun prowlarrTestNewIndexer(config: ServiceConfig, entry: ProwlarrSchemaE
     withContext(Dispatchers.IO) {
         try {
             val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
-            val body = JsonObject(
-                entry.raw.toMutableMap().apply {
-                    put("fields", mergeIndexerFields(entry.raw, values))
-                    put("name", JsonPrimitive(name))
-                },
-            )
-            testResult(api.testIndexerBody(body))
+            testResult(api.testIndexerBody(newIndexerBody(entry, name, values, resolveAppProfileId(api))))
         } catch (t: Throwable) {
             "error: ${t.message ?: t.javaClass.simpleName}"
         }

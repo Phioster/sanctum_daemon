@@ -127,6 +127,7 @@ internal fun ProwlarrScreen(
     var addValues by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var addSaving by remember { mutableStateOf(false) }
     var addTesting by remember { mutableStateOf(false) }
+    var addMsg by remember { mutableStateOf<String?>(null) }
     val arrTargets = remember { vm.arrTargets() }
 
     suspend fun loadIndexers() {
@@ -434,7 +435,7 @@ internal fun ProwlarrScreen(
                                 items(filtered.take(120)) { s ->
                                     Column(
                                         Modifier.fillMaxWidth().clickable {
-                                            addEntry = s; addName = s.name
+                                            addEntry = s; addName = s.name; addMsg = null
                                             addValues = s.fields.associate { it.name to it.value }
                                             showAddSchema = false
                                         }.padding(vertical = 10.dp),
@@ -464,6 +465,14 @@ internal fun ProwlarrScreen(
             title = { Text("Add ${entry.name}", fontFamily = Mono, color = MatrixGreen, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             text = {
                 Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+                    addMsg?.let { m ->
+                        val ok = !m.startsWith("error")
+                        Text(
+                            if (ok) "✓ $m" else m,
+                            fontFamily = Mono, color = if (ok) MatrixGreen else ErrRed, fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                    }
                     Field("name", addName) { addName = it }
                     Spacer(Modifier.height(6.dp))
                     entry.fields.forEach { f ->
@@ -479,9 +488,9 @@ internal fun ProwlarrScreen(
                             val e = entry
                             val nm = addName
                             val vals = addValues
-                            addTesting = true
+                            addTesting = true; addMsg = null
                             scope.launch {
-                                actionMsg = "test: " + vm.prowlarrTestNewIndexerOf(config, e, nm, vals)
+                                addMsg = vm.prowlarrTestNewIndexerOf(config, e, nm, vals)
                                 addTesting = false
                             }
                         },
@@ -492,12 +501,17 @@ internal fun ProwlarrScreen(
                             val e = entry
                             val nm = addName
                             val vals = addValues
-                            addSaving = true
+                            addSaving = true; addMsg = null
                             scope.launch {
-                                actionMsg = vm.prowlarrAddIndexerOf(config, e, nm, vals)
+                                val res = vm.prowlarrAddIndexerOf(config, e, nm, vals)
                                 addSaving = false
-                                addEntry = null
-                                loadIndexers()
+                                if (res.startsWith("error")) {
+                                    addMsg = res // keep the dialog open so the user can fix the field
+                                } else {
+                                    actionMsg = res
+                                    addEntry = null
+                                    loadIndexers()
+                                }
                             }
                         },
                     ) { Text(if (addSaving) "adding…" else "Add", fontFamily = Mono, color = MatrixGreen) }
