@@ -126,6 +126,7 @@ internal fun ProwlarrScreen(
     var addName by remember { mutableStateOf("") }
     var addValues by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var addSaving by remember { mutableStateOf(false) }
+    var addTesting by remember { mutableStateOf(false) }
     val arrTargets = remember { vm.arrTargets() }
 
     suspend fun loadIndexers() {
@@ -471,23 +472,38 @@ internal fun ProwlarrScreen(
                 }
             },
             confirmButton = {
-                TextButton(
-                    enabled = addName.isNotBlank() && !addSaving,
-                    onClick = {
-                        val e = entry
-                        val nm = addName
-                        val vals = addValues
-                        addSaving = true
-                        scope.launch {
-                            actionMsg = vm.prowlarrAddIndexerOf(config, e, nm, vals)
-                            addSaving = false
-                            addEntry = null
-                            loadIndexers()
-                        }
-                    },
-                ) { Text(if (addSaving) "adding…" else "Add", fontFamily = Mono, color = MatrixGreen) }
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(
+                        enabled = addName.isNotBlank() && !addSaving && !addTesting,
+                        onClick = {
+                            val e = entry
+                            val nm = addName
+                            val vals = addValues
+                            addTesting = true
+                            scope.launch {
+                                actionMsg = "test: " + vm.prowlarrTestNewIndexerOf(config, e, nm, vals)
+                                addTesting = false
+                            }
+                        },
+                    ) { Text(if (addTesting) "testing…" else "Test", fontFamily = Mono, color = accent) }
+                    TextButton(
+                        enabled = addName.isNotBlank() && !addSaving && !addTesting,
+                        onClick = {
+                            val e = entry
+                            val nm = addName
+                            val vals = addValues
+                            addSaving = true
+                            scope.launch {
+                                actionMsg = vm.prowlarrAddIndexerOf(config, e, nm, vals)
+                                addSaving = false
+                                addEntry = null
+                                loadIndexers()
+                            }
+                        },
+                    ) { Text(if (addSaving) "adding…" else "Add", fontFamily = Mono, color = MatrixGreen) }
+                }
             },
-            dismissButton = { TextButton(onClick = { if (!addSaving) addEntry = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+            dismissButton = { TextButton(onClick = { if (!addSaving && !addTesting) addEntry = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
 

@@ -723,6 +723,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.net.prowlarrIndexerSchemas(config)
     suspend fun prowlarrAddIndexerOf(config: ServiceConfig, entry: org.phioster.sanctumd.net.ProwlarrSchemaEntry, name: String, values: Map<String, String>): String =
         org.phioster.sanctumd.net.prowlarrAddIndexer(config, entry, name, values)
+    suspend fun prowlarrTestNewIndexerOf(config: ServiceConfig, entry: org.phioster.sanctumd.net.ProwlarrSchemaEntry, name: String, values: Map<String, String>): String =
+        org.phioster.sanctumd.net.prowlarrTestNewIndexer(config, entry, name, values)
     suspend fun prowlarrSearchList(config: ServiceConfig, query: String, categoryId: Int): List<ProwlarrRelease> =
         prowlarrSearch(config, query, categoryId)
     suspend fun prowlarrGrabRelease(config: ServiceConfig, release: ProwlarrRelease): String =

@@ -331,28 +331,45 @@ suspend fun prowlarrSaveIndexer(config: ServiceConfig, id: Int, values: Map<Stri
         }
     }
 
+/** "ok" on 2xx, else the first Servarr errorMessage ([{"errorMessage": "…"}]) or the HTTP code. */
+private fun testResult(resp: Response<ResponseBody>): String {
+    if (resp.isSuccessful) return "ok"
+    val body = runCatching { resp.errorBody()?.string() }.getOrNull()
+    val msg = body?.let { txt ->
+        runCatching {
+            (json.parseToJsonElement(txt) as? JsonArray)
+                ?.firstNotNullOfOrNull { (it as? JsonObject)?.get("errorMessage")?.let { m -> (m as? JsonPrimitive)?.content } }
+        }.getOrNull()
+    }
+    return "error: ${msg ?: "HTTP ${resp.code()}"}"
+}
+
 suspend fun prowlarrTestIndexer(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
     try {
         val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
-        val definition = api.indexerRaw(id) // the saved indexer config …
-        val resp = api.testIndexerBody(definition) // … POSTed back to /indexer/test
-        if (resp.isSuccessful) {
-            "ok"
-        } else {
-            // A failing test returns 400 with [{"errorMessage": "..."}] — surface the first message.
-            val body = runCatching { resp.errorBody()?.string() }.getOrNull()
-            val msg = body?.let { txt ->
-                runCatching {
-                    (json.parseToJsonElement(txt) as? JsonArray)
-                        ?.firstNotNullOfOrNull { (it as? JsonObject)?.get("errorMessage")?.let { m -> (m as? JsonPrimitive)?.content } }
-                }.getOrNull()
-            }
-            "error: ${msg ?: "HTTP ${resp.code()}"}"
-        }
+        testResult(api.testIndexerBody(api.indexerRaw(id))) // saved config POSTed to /indexer/test
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
     }
 }
+
+/** Test a not-yet-added indexer: build its definition from the chosen schema [entry] + [name] +
+ *  field [values] and POST it to /indexer/test (no changes made). */
+suspend fun prowlarrTestNewIndexer(config: ServiceConfig, entry: ProwlarrSchemaEntry, name: String, values: Map<String, String>): String =
+    withContext(Dispatchers.IO) {
+        try {
+            val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
+            val body = JsonObject(
+                entry.raw.toMutableMap().apply {
+                    put("fields", mergeIndexerFields(entry.raw, values))
+                    put("name", JsonPrimitive(name))
+                },
+            )
+            testResult(api.testIndexerBody(body))
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
 
 suspend fun prowlarrSearch(config: ServiceConfig, query: String, categoryId: Int): List<ProwlarrRelease> = withContext(Dispatchers.IO) {
     val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
