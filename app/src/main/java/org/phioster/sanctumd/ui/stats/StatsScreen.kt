@@ -43,6 +43,8 @@ import org.phioster.sanctumd.model.StatChart
 import org.phioster.sanctumd.model.StatTile
 import org.phioster.sanctumd.model.StatsData
 import org.phioster.sanctumd.ui.DashboardViewModel
+import org.phioster.sanctumd.ui.common.Hint
+import org.phioster.sanctumd.ui.common.SectionHeader
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
@@ -79,7 +81,7 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                 CircularProgressIndicator(color = MatrixGreen)
             }
             d == null || (d.tiles.isEmpty() && d.charts.isEmpty()) -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("no stats — add services with data", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp)
+                Hint("no stats — add services with data")
             }
             else -> LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
                 if (d.tiles.isNotEmpty()) {
@@ -102,7 +104,7 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                 // TRENDS section: derived from the recorded stat history (grows over days).
                 item {
                     Spacer(Modifier.height(6.dp))
-                    Text("TRENDS", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    SectionHeader("TRENDS")
                     Spacer(Modifier.height(10.dp))
                     if (d.trendTiles.isEmpty() && d.trends.isEmpty()) {
                         Text(
@@ -149,7 +151,7 @@ private fun StatChartView(chart: StatChart) {
     val accent = Color(chart.accentArgb)
     val max = chart.bars.maxOfOrNull { it.value }?.coerceAtLeast(1f) ?: 1f
     Column(Modifier.fillMaxWidth()) {
-        Text(chart.title.uppercase(), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+        SectionHeader(chart.title, accent)
         Spacer(Modifier.height(8.dp))
         chart.bars.forEach { bar ->
             val color = bar.colorArgb?.let { Color(it) } ?: accent

@@ -130,3 +130,24 @@ internal fun Field(
 internal fun ActionBtn(label: String, enabled: Boolean, onClick: () -> Unit) {
     Button(onClick = onClick, enabled = enabled) { Text(label, fontFamily = Mono) }
 }
+
+/** The app-wide section header: a short accent tick + a bold mono label. Use this everywhere a
+ *  screen labels a group of content, so every screen reads the same. */
+@Composable
+internal fun SectionHeader(label: String, accent: Color = MatrixGreen, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) {
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(width = 3.dp, height = 13.dp).clip(RoundedCornerShape(2.dp)).background(accent))
+        Spacer(Modifier.size(8.dp))
+        Text(label.uppercase(), fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        if (trailing != null) {
+            Spacer(Modifier.weight(1f))
+            trailing()
+        }
+    }
+}
+
+/** The app-wide muted hint line (loading / empty / "nothing here"). One style for all of them. */
+@Composable
+internal fun Hint(text: String, modifier: Modifier = Modifier) {
+    Text(text, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 12.sp, modifier = modifier)
+}

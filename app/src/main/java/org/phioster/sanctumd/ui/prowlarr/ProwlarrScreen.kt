@@ -531,7 +531,7 @@ internal fun ProwlarrScreen(
                     val si = systemInfo
                     Text("version ${si?.version ?: "…"}", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
                     Spacer(Modifier.height(8.dp))
-                    Text("HEALTH", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    SectionHeader("HEALTH")
                     when {
                         si == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                         si.health.isEmpty() -> Text("all healthy", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
@@ -541,7 +541,7 @@ internal fun ProwlarrScreen(
                         }
                     }
                     Spacer(Modifier.height(12.dp))
-                    Text("TASKS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    SectionHeader("TASKS")
                     val tk = tasks
                     when {
                         tk == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)

@@ -117,19 +117,10 @@ internal fun JellyPosterCard(item: org.phioster.sanctumd.model.JellyMediaItem, c
     }
 }
 
-/** A section label with a short accent tick — the consistent header for the Media home rows. */
+/** Media-home section label — delegates to the app-wide [SectionHeader] so every screen matches. */
 @Composable
-internal fun MediaSectionHeader(label: String, accent: Color, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) {
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(3.dp).height(13.dp).clip(RoundedCornerShape(2.dp)).background(accent))
-        Spacer(Modifier.width(8.dp))
-        Text(label, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        if (trailing != null) {
-            Spacer(Modifier.weight(1f))
-            trailing()
-        }
-    }
-}
+internal fun MediaSectionHeader(label: String, accent: Color, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) =
+    SectionHeader(label, accent, modifier, trailing)
 
 /** The big featured card at the top of the Media home: backdrop-cropped poster + scrim + title +
  *  Play/Resume button. Tapping the body opens detail; the button plays. */

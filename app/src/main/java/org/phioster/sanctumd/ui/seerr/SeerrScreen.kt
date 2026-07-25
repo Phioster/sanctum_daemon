@@ -578,7 +578,7 @@ internal fun SeerrScreen(
                     }
                     if (d.cast.isNotEmpty()) {
                         Spacer(Modifier.height(12.dp))
-                        Text("CAST", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                        SectionHeader("CAST")
                         Spacer(Modifier.height(6.dp))
                         Row(Modifier.horizontalScroll(rememberScrollState())) {
                             d.cast.forEach { member ->
@@ -629,7 +629,7 @@ internal fun SeerrScreen(
             title = { Text("Users & stats", fontFamily = Mono, color = MatrixGreen) },
             text = {
                 Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
-                    Text("REQUESTS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    SectionHeader("REQUESTS")
                     Spacer(Modifier.height(6.dp))
                     val st = stats
                     when {
@@ -649,7 +649,7 @@ internal fun SeerrScreen(
                     Spacer(Modifier.height(10.dp))
                     HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
                     Spacer(Modifier.height(8.dp))
-                    Text("USERS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    SectionHeader("USERS")
                     Spacer(Modifier.height(6.dp))
                     val us = users
                     when {
