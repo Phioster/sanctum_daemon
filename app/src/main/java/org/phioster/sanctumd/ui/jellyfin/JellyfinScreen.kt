@@ -14,6 +14,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -161,6 +167,7 @@ internal fun JellyfinScreen(
     var libraryFilterOpen by remember { mutableStateOf(false) }
     val mediaStyles by vm.mediaRowStyles.collectAsState()
     var configRow by remember { mutableStateOf<String?>(null) } // "resume"/"recent"/"libraries" being styled
+    var rowPickerOpen by remember { mutableStateOf(false) } // the shared "customize rows" entry
     val musicState by org.phioster.sanctumd.ui.player.MusicController.state.collectAsState()
     var nowPlayingOpen by remember { mutableStateOf(false) }
     // Attach to any running music session so the now-playing bar appears immediately.
@@ -303,6 +310,9 @@ internal fun JellyfinScreen(
                     Box {
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
+                            if (mode == 3) {
+                                DropdownMenuItem(text = { Text("Customize rows", fontFamily = Mono) }, onClick = { barMenu = false; rowPickerOpen = true })
+                            }
                             DropdownMenuItem(text = { Text("Open in Jellyfin", fontFamily = Mono) }, onClick = { barMenu = false; openExternal(context, jellyfinAppPackages, "${config.normalizedBaseUrl}web/") })
                             DropdownMenuItem(text = { Text("Scan library", fontFamily = Mono) }, onClick = { barMenu = false; scope.launch { actionMsg = vm.jellyfinScan(config) } })
                             DropdownMenuItem(text = { Text("Restart server", fontFamily = Mono) }, onClick = { barMenu = false; confirmRestart = true })
@@ -499,9 +509,7 @@ internal fun JellyfinScreen(
                                         if (!res.isNullOrEmpty() && !sResume.hidden) {
                                             item {
                                                 Spacer(Modifier.height(16.dp))
-                                                MediaSectionHeader("CONTINUE WATCHING", styleAccent(sResume.accent), trailing = {
-                                                    Icon(Icons.Filled.Settings, contentDescription = "customize", tint = styleAccent(sResume.accent), modifier = Modifier.clickable { configRow = "resume" }.padding(4.dp).size(16.dp))
-                                                })
+                                                MediaSectionHeader("CONTINUE WATCHING", styleAccent(sResume.accent))
                                                 Spacer(Modifier.height(8.dp))
                                                 MediaPosterRow(res, config, styleAccent(sResume.accent), sResume) { openMedia(it) }
                                             }
@@ -509,9 +517,7 @@ internal fun JellyfinScreen(
                                         if (!lat.isNullOrEmpty() && !sRecent.hidden) {
                                             item {
                                                 Spacer(Modifier.height(16.dp))
-                                                MediaSectionHeader("RECENTLY ADDED", styleAccent(sRecent.accent), trailing = {
-                                                    Icon(Icons.Filled.Settings, contentDescription = "customize", tint = styleAccent(sRecent.accent), modifier = Modifier.clickable { configRow = "recent" }.padding(4.dp).size(16.dp))
-                                                })
+                                                MediaSectionHeader("RECENTLY ADDED", styleAccent(sRecent.accent))
                                                 Spacer(Modifier.height(8.dp))
                                                 MediaPosterRow(lat, config, styleAccent(sRecent.accent), sRecent) { openMedia(it) }
                                             }
@@ -520,11 +526,8 @@ internal fun JellyfinScreen(
                                             item {
                                                 Spacer(Modifier.height(16.dp))
                                                 MediaSectionHeader("LIBRARIES", styleAccent(sLibs.accent), trailing = {
-                                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        if (!mediaViews.isNullOrEmpty()) {
-                                                            Text("edit", fontFamily = Mono, color = styleAccent(sLibs.accent), fontSize = 11.sp, modifier = Modifier.clickable { libraryFilterOpen = true }.padding(4.dp))
-                                                        }
-                                                        Icon(Icons.Filled.Settings, contentDescription = "customize", tint = styleAccent(sLibs.accent), modifier = Modifier.clickable { configRow = "libraries" }.padding(4.dp).size(16.dp))
+                                                    if (!mediaViews.isNullOrEmpty()) {
+                                                        Text("edit", fontFamily = Mono, color = styleAccent(sLibs.accent), fontSize = 11.sp, modifier = Modifier.clickable { libraryFilterOpen = true }.padding(4.dp))
                                                     }
                                                 })
                                                 Spacer(Modifier.height(8.dp))
@@ -554,47 +557,55 @@ internal fun JellyfinScreen(
                                     val here = browseStack.last()
                                     item {
                                         Spacer(Modifier.height(8.dp))
-                                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                            Text("‹ back", fontFamily = Mono, color = accent, fontSize = 13.sp, modifier = Modifier.clickable { browseStack = browseStack.dropLast(1) })
-                                            Spacer(Modifier.weight(1f))
-                                            // Play / download a whole album.
+                                        BrowseChip("‹ back", accent) { browseStack = browseStack.dropLast(1) }
+                                        Spacer(Modifier.height(10.dp))
+                                        Text(here.name, fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                        Spacer(Modifier.height(10.dp))
+                                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                             if (here.kind == "MusicAlbum") {
-                                                Text("▶ play album", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, modifier = Modifier.clickable {
+                                                BrowseChip("▶ play album", MatrixGreen) {
                                                     scope.launch {
                                                         val tracks = runCatching { vm.jellyfinAlbumTracks(config, here.id, here.name) }.getOrDefault(emptyList())
                                                         if (tracks.isNotEmpty()) org.phioster.sanctumd.ui.player.MusicController.play(context, tracks, 0, config.customHeaders)
                                                     }
-                                                }.padding(end = 14.dp))
-                                                val trackItems = mediaContents.orEmpty().filter { !it.isFolder && it.kind == "Audio" }
-                                                val toGetAudio = trackItems.filter { downloads[it.id]?.done != true }
+                                                }
+                                                val toGetAudio = mediaContents.orEmpty().filter { !it.isFolder && it.kind == "Audio" && downloads[it.id]?.done != true }
                                                 if (toGetAudio.isNotEmpty()) {
-                                                    Text("⬇ album (${toGetAudio.size})", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, modifier = Modifier.clickable {
+                                                    BrowseChip("⬇ album (${toGetAudio.size})", MatrixGreen) {
                                                         toGetAudio.forEach { t -> org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, t.id, t.name, t.subtitle, t.posterUrl, 0L, "Audio") }
                                                         actionMsg = "queued ${toGetAudio.size} downloads"
-                                                    }.padding(end = 14.dp))
+                                                    }
                                                 }
                                             }
-                                            // Batch-download every episode in this folder that isn't downloaded yet.
-                                            val episodes = mediaContents.orEmpty().filter { !it.isFolder && it.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS }
-                                            val toGet = episodes.filter { downloads[it.id]?.done != true }
+                                            val toGet = mediaContents.orEmpty().filter { !it.isFolder && it.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS && downloads[it.id]?.done != true }
                                             if (toGet.isNotEmpty()) {
-                                                Text("⬇ all (${toGet.size})", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, modifier = Modifier.clickable {
+                                                BrowseChip("⬇ all (${toGet.size})", MatrixGreen) {
                                                     toGet.forEach { ep -> org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, ep.id, ep.name, ep.subtitle, ep.posterUrl, 0L) }
                                                     actionMsg = "queued ${toGet.size} downloads"
-                                                }.padding(end = 14.dp))
+                                                }
                                             }
-                                            Text("⟳ scan", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp, modifier = Modifier.clickable { scope.launch { actionMsg = vm.jellyfinScanLibrary(config, here.id) } })
+                                            BrowseChip("⟳ scan", MatrixGreen.copy(alpha = 0.85f)) { scope.launch { actionMsg = vm.jellyfinScanLibrary(config, here.id) } }
                                         }
-                                        Spacer(Modifier.height(4.dp))
-                                        Text(here.name, fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                        Spacer(Modifier.height(6.dp))
+                                        Spacer(Modifier.height(10.dp))
                                         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
                                     }
                                     val m = mediaContents
                                     when {
                                         m == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
                                         m.isEmpty() -> item { Text("empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
-                                        else -> items(m) { it2 -> JellyMediaRow(it2, config, accent) { openMedia(it2) } }
+                                        // Audio tracks read better as a list; everything else as a 3-column poster grid.
+                                        m.any { it.kind == "Audio" } -> items(m) { it2 -> JellyMediaRow(it2, config, accent) { openMedia(it2) } }
+                                        else -> {
+                                            m.chunked(3).forEachIndexed { idx, rowItems ->
+                                                item(key = "browserow-$idx") {
+                                                    Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                        rowItems.forEach { it2 -> MediaGridCard(it2, config, accent, Modifier.weight(1f)) { openMedia(it2) } }
+                                                        repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
+                                                    }
+                                                }
+                                            }
+                                            item { Spacer(Modifier.height(16.dp)) }
+                                        }
                                     }
                                 }
                             }
@@ -1084,81 +1095,110 @@ internal fun JellyfinScreen(
     }
 
     mediaDetail?.let { d ->
-        AlertDialog(
-            onDismissRequest = { mediaDetail = null },
-            containerColor = Surface,
-            title = { Text(d.name, fontFamily = Mono, color = MatrixGreen, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
+        val dl = downloads[d.id]
+        Box(Modifier.fillMaxSize().background(Black)) {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                // ── Banner: a blurred poster backdrop with the sharp poster + title on top ──
+                Box(Modifier.fillMaxWidth().height(320.dp)) {
                     if (d.posterUrl.isNotBlank()) {
-                        JellyPoster(d.posterUrl, config, Modifier.fillMaxWidth().heightIn(max = 260.dp), RoundedCornerShape(8.dp), ContentScale.Fit)
-                        Spacer(Modifier.height(10.dp))
+                        JellyPoster(d.posterUrl, config, Modifier.matchParentSize().blur(28.dp), RectangleShape, ContentScale.Crop)
+                    } else {
+                        Box(Modifier.matchParentSize().background(Surface))
                     }
-                    if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
-                        TextButton(
-                            onClick = { mediaDetail = null; playRequest = org.phioster.sanctumd.ui.player.PlayRequest(d.id, d.name) },
-                            modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.6f), RoundedCornerShape(6.dp)),
-                        ) { Text("▶  play", fontFamily = Mono, color = MatrixGreen, fontWeight = FontWeight.Bold) }
-                        Spacer(Modifier.height(8.dp))
-                        val dl = downloads[d.id]
-                        val startDownload = {
-                            org.phioster.sanctumd.service.DownloadService.enqueue(
-                                context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L,
-                            )
+                    Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Black.copy(alpha = 0.35f), Black.copy(alpha = 0.65f), Black))))
+                    Row(Modifier.align(Alignment.BottomStart).padding(16.dp), verticalAlignment = Alignment.Bottom) {
+                        if (d.posterUrl.isNotBlank()) {
+                            JellyPoster(d.posterUrl, config, Modifier.width(120.dp).height(180.dp), RoundedCornerShape(8.dp), ContentScale.Crop)
+                            Spacer(Modifier.width(14.dp))
                         }
+                        Column(Modifier.weight(1f)) {
+                            Text(d.name, fontFamily = Mono, color = MatrixGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            if (d.subtitle.isNotBlank()) {
+                                Spacer(Modifier.height(4.dp))
+                                Text(d.subtitle, fontFamily = Mono, color = accent.copy(alpha = 0.85f), fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
+                            val quick = d.facts.take(3).joinToString("  ·  ") { it.second }
+                            if (quick.isNotBlank()) {
+                                Spacer(Modifier.height(6.dp))
+                                Text(quick, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                }
+                // ── Body ──
+                Column(Modifier.padding(horizontal = 16.dp)) {
+                    Spacer(Modifier.height(14.dp))
+                    if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MatrixGreen)
+                                .clickable { mediaDetail = null; playRequest = org.phioster.sanctumd.ui.player.PlayRequest(d.id, d.name) }
+                                .padding(vertical = 12.dp),
+                            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Black, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("play", fontFamily = Mono, color = Black, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        val startDownload = { org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L) }
                         when (dl?.state) {
                             org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
                                 Text("✓  downloaded — play it from the DOWNLOADS row", fontFamily = Mono, color = accent, fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp))
                             org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING, org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED ->
                                 TextButton(
                                     onClick = { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) },
-                                    modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.4f), RoundedCornerShape(6.dp)),
+                                    modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
                                 ) { Text("⬇  ${(dl.progress * 100).toInt()}%  ·  cancel", fontFamily = Mono, color = MatrixGreen) }
                             org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED ->
                                 TextButton(
                                     onClick = { startDownload() },
-                                    modifier = Modifier.fillMaxWidth().border(1.dp, ErrRed.copy(alpha = 0.6f), RoundedCornerShape(6.dp)),
+                                    modifier = Modifier.fillMaxWidth().border(1.dp, ErrRed.copy(alpha = 0.6f), RoundedCornerShape(8.dp)),
                                 ) { Text("⚠  download failed — retry", fontFamily = Mono, color = ErrRed) }
                             else ->
                                 TextButton(
                                     onClick = { startDownload() },
-                                    modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.6f), RoundedCornerShape(6.dp)),
+                                    modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.6f), RoundedCornerShape(8.dp)),
                                 ) { Text("⬇  download", fontFamily = Mono, color = MatrixGreen, fontWeight = FontWeight.Bold) }
                         }
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(12.dp))
                     }
                     if (d.kind == "Audio") {
-                        TextButton(
-                            onClick = {
-                                mediaDetail = null
-                                scope.launch {
-                                    val track = runCatching { vm.jellyfinTrack(config, d.id) }.getOrNull()
-                                    if (track != null) org.phioster.sanctumd.ui.player.MusicController.play(context, listOf(track), 0, config.customHeaders)
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MatrixGreen)
+                                .clickable {
+                                    mediaDetail = null
+                                    scope.launch {
+                                        val track = runCatching { vm.jellyfinTrack(config, d.id) }.getOrNull()
+                                        if (track != null) org.phioster.sanctumd.ui.player.MusicController.play(context, listOf(track), 0, config.customHeaders)
+                                    }
                                 }
-                            },
-                            modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.6f), RoundedCornerShape(6.dp)),
-                        ) { Text("▶  play", fontFamily = Mono, color = MatrixGreen, fontWeight = FontWeight.Bold) }
+                                .padding(vertical = 12.dp),
+                            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Black, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("play", fontFamily = Mono, color = Black, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        }
                         Spacer(Modifier.height(8.dp))
-                        val adl = downloads[d.id]
-                        when (adl?.state) {
+                        when (dl?.state) {
                             org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
                                 Text("✓  downloaded", fontFamily = Mono, color = accent, fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp))
                             org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING, org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED ->
                                 TextButton(
                                     onClick = { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) },
-                                    modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.4f), RoundedCornerShape(6.dp)),
-                                ) { Text("⬇  ${(adl.progress * 100).toInt()}%  ·  cancel", fontFamily = Mono, color = MatrixGreen) }
+                                    modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
+                                ) { Text("⬇  ${(dl.progress * 100).toInt()}%  ·  cancel", fontFamily = Mono, color = MatrixGreen) }
                             else ->
                                 TextButton(
                                     onClick = { org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L, "Audio") },
-                                    modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.6f), RoundedCornerShape(6.dp)),
+                                    modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.6f), RoundedCornerShape(8.dp)),
                                 ) { Text("⬇  download", fontFamily = Mono, color = MatrixGreen, fontWeight = FontWeight.Bold) }
                         }
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(12.dp))
                     }
                     if (d.facts.isNotEmpty()) {
                         d.facts.chunked(2).forEach { pair ->
-                            Row(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
+                            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                                 pair.forEach { (k, v) ->
                                     Column(Modifier.weight(1f)) {
                                         Text(v, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1170,16 +1210,17 @@ internal fun JellyfinScreen(
                         }
                     }
                     if (d.genres.isNotBlank()) {
+                        Spacer(Modifier.height(2.dp))
                         Text(d.genres, fontFamily = Mono, color = accent.copy(alpha = 0.85f), fontSize = 11.sp)
                     }
                     if (d.overview.isNotBlank()) {
-                        Spacer(Modifier.height(10.dp))
-                        Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp)
+                        Spacer(Modifier.height(12.dp))
+                        Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp, lineHeight = 17.sp)
                     }
                     if (d.cast.isNotEmpty()) {
-                        Spacer(Modifier.height(12.dp))
-                        Text("CAST", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(16.dp))
+                        MediaSectionHeader("CAST", accent)
+                        Spacer(Modifier.height(8.dp))
                         Row(Modifier.horizontalScroll(rememberScrollState())) {
                             d.cast.forEach { member ->
                                 Column(Modifier.width(84.dp).padding(end = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1197,15 +1238,19 @@ internal fun JellyfinScreen(
                             }
                         }
                     }
+                    Spacer(Modifier.height(24.dp))
                 }
-            },
-            confirmButton = { TextButton(onClick = { mediaDetail = null }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
-            dismissButton = {
-                TextButton(onClick = { openExternal(context, jellyfinAppPackages, "${config.normalizedBaseUrl}web/#/details?id=${d.id}") }) {
-                    Text("Open in Jellyfin", fontFamily = Mono, color = accent)
+                Spacer(Modifier.navigationBarsPadding())
+            }
+            // ── Top bar overlay: back + open-in-Jellyfin ──
+            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { mediaDetail = null }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = { openExternal(context, jellyfinAppPackages, "${config.normalizedBaseUrl}web/#/details?id=${d.id}") }) {
+                    Icon(Icons.Filled.OpenInNew, contentDescription = "Open in Jellyfin", tint = accent)
                 }
-            },
-        )
+            }
+        }
     }
 
     // Full-screen playback overlay, on top of everything in this screen.
@@ -1233,6 +1278,33 @@ internal fun JellyfinScreen(
                 }
             },
             confirmButton = { TextButton(onClick = { libraryFilterOpen = false }) { Text("done", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    if (rowPickerOpen) {
+        AlertDialog(
+            onDismissRequest = { rowPickerOpen = false },
+            containerColor = Surface,
+            title = { Text("customize rows", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    listOf("resume" to "Continue Watching", "recent" to "Recently Added", "libraries" to "Libraries").forEach { (key, label) ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable { rowPickerOpen = false; configRow = key }.padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Filled.Settings, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Text(label, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp)
+                            Spacer(Modifier.weight(1f))
+                            if ((mediaStyles[key] ?: org.phioster.sanctumd.model.MediaRowStyle()).hidden) {
+                                Text("hidden", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.4f), fontSize = 10.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { rowPickerOpen = false }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
 

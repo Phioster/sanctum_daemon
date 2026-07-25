@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -166,6 +167,42 @@ internal fun MediaHero(item: org.phioster.sanctumd.model.JellyMediaItem, config:
     }
 }
 
+/** A poster tile that fills its grid cell (2:3 poster + caption) for the library browse grid. */
+@Composable
+internal fun MediaGridCard(item: org.phioster.sanctumd.model.JellyMediaItem, config: ServiceConfig, accent: Color, modifier: Modifier, onClick: () -> Unit) {
+    Column(modifier.clickable { onClick() }) {
+        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(6.dp))) {
+            if (item.posterUrl.isNotBlank()) {
+                JellyPoster(item.posterUrl, config, Modifier.matchParentSize(), RoundedCornerShape(6.dp), ContentScale.Crop)
+            } else {
+                Box(Modifier.matchParentSize().background(Surface))
+            }
+            if (item.progressPct > 0.01f) {
+                LinearProgressIndicator(
+                    progress = { item.progressPct },
+                    modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter),
+                    color = accent, trackColor = Black.copy(alpha = 0.6f),
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (item.subtitle.isNotBlank()) {
+            Text(item.subtitle, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** A bordered action chip with a decent tap target, used in the browse header. */
+@Composable
+internal fun BrowseChip(label: String, accent: Color, onClick: () -> Unit) {
+    Text(
+        label, fontFamily = Mono, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+        modifier = Modifier.clip(RoundedCornerShape(8.dp)).border(1.dp, accent.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+            .clickable { onClick() }.padding(horizontal = 12.dp, vertical = 8.dp),
+    )
+}
+
 /** A library shown as a landscape tile (poster-cropped + scrim + name) in the Media home grid. */
 @Composable
 internal fun MediaLibraryTile(item: org.phioster.sanctumd.model.JellyMediaItem, config: ServiceConfig, modifier: Modifier, onClick: () -> Unit) {
@@ -199,7 +236,7 @@ internal fun MediaPosterRow(
     if (style.background && bgUrl != null) {
         Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))) {
             KenBurnsBackground(bgUrl, config)
-            Box(Modifier.matchParentSize().background(Black.copy(alpha = 0.6f)))
+            Box(Modifier.matchParentSize().background(Black.copy(alpha = 0.3f)))
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
                 items.forEach { m -> JellyPosterCard(m, config, accent, width = w) { onOpen(m) } }
             }
