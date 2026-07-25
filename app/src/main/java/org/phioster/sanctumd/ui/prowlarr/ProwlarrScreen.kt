@@ -115,6 +115,10 @@ internal fun ProwlarrScreen(
     var tasks by remember { mutableStateOf<List<org.phioster.sanctumd.model.ProwlarrTaskItem>?>(null) }
     var showSystem by remember { mutableStateOf(false) }
     var confirmDelIndexer by remember { mutableStateOf<ProwlarrIndexerItem?>(null) }
+    var editIndexer by remember { mutableStateOf<ProwlarrIndexerItem?>(null) }
+    var editForm by remember { mutableStateOf<org.phioster.sanctumd.model.ProwlarrIndexerEdit?>(null) }
+    var editValues by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var editSaving by remember { mutableStateOf(false) }
     val arrTargets = remember { vm.arrTargets() }
 
     suspend fun loadIndexers() {
@@ -273,6 +277,14 @@ internal fun ProwlarrScreen(
                                             accent = accent,
                                             onTest = { act({ vm.prowlarrTest(config, row.id) }, false) },
                                             onToggle = { act({ vm.prowlarrToggle(config, row.id, !row.enable) }, true) },
+                                            onEdit = {
+                                                editIndexer = row; editForm = null; editValues = emptyMap()
+                                                scope.launch {
+                                                    val f = runCatching { vm.prowlarrIndexerEditOf(config, row.id) }.getOrNull()
+                                                    editForm = f
+                                                    editValues = f?.fields?.associate { it.name to it.value } ?: emptyMap()
+                                                }
+                                            },
                                             onDelete = { confirmDelIndexer = row },
                                         )
                                     }
@@ -350,6 +362,61 @@ internal fun ProwlarrScreen(
         )
     }
 
+    editIndexer?.let { ix ->
+        AlertDialog(
+            onDismissRequest = { if (!editSaving) editIndexer = null },
+            containerColor = Surface,
+            title = { Text("Edit ${editForm?.name ?: ix.name}", fontFamily = Mono, color = MatrixGreen, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            text = {
+                val form = editForm
+                if (form == null) {
+                    Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                } else if (form.fields.isEmpty()) {
+                    Text("no editable settings", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                } else {
+                    Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+                        form.fields.forEach { f ->
+                            val cur = editValues[f.name] ?: f.value
+                            when {
+                                f.type == "checkbox" ->
+                                    JellyToggle(f.label, cur.toBoolean()) { editValues = editValues + (f.name to it.toString()) }
+                                f.type == "select" && f.options.isNotEmpty() -> {
+                                    val curLabel = f.options.firstOrNull { it.first == cur }?.second ?: cur
+                                    DropdownField(f.label, curLabel, f.options.map { it.second }) { idx ->
+                                        editValues = editValues + (f.name to f.options[idx].first)
+                                    }
+                                }
+                                else ->
+                                    Field(f.label, cur, isPassword = f.type == "password") { editValues = editValues + (f.name to it) }
+                            }
+                            if (f.helpText.isNotBlank()) {
+                                Text(f.helpText, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 10.sp)
+                            }
+                            Spacer(Modifier.height(4.dp))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = editForm != null && !editSaving,
+                    onClick = {
+                        val id = ix.id
+                        val vals = editValues
+                        editSaving = true
+                        scope.launch {
+                            actionMsg = vm.prowlarrSaveIndexerOf(config, id, vals)
+                            editSaving = false
+                            editIndexer = null
+                            loadIndexers()
+                        }
+                    },
+                ) { Text(if (editSaving) "saving…" else "Save", fontFamily = Mono, color = MatrixGreen) }
+            },
+            dismissButton = { TextButton(onClick = { if (!editSaving) editIndexer = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
     if (showSystem) {
         AlertDialog(
             onDismissRequest = { showSystem = false },
@@ -409,7 +476,7 @@ internal fun ProwlarrHistoryRow(item: org.phioster.sanctumd.model.ProwlarrHistor
 }
 
 @Composable
-internal fun ProwlarrIndexerRow(item: ProwlarrIndexerItem, accent: Color, onTest: () -> Unit, onToggle: () -> Unit, onDelete: () -> Unit) {
+internal fun ProwlarrIndexerRow(item: ProwlarrIndexerItem, accent: Color, onTest: () -> Unit, onToggle: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     val stateColor = when {
         item.failing -> ErrRed
@@ -444,6 +511,7 @@ internal fun ProwlarrIndexerRow(item: ProwlarrIndexerItem, accent: Color, onTest
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(text = { Text("Test", fontFamily = Mono) }, onClick = { menu = false; onTest() })
+            DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { menu = false; onEdit() })
             DropdownMenuItem(text = { Text(if (item.enable) "Disable" else "Enable", fontFamily = Mono) }, onClick = { menu = false; onToggle() })
             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono, color = ErrRed) }, onClick = { menu = false; onDelete() })
         }

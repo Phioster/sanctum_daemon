@@ -9,6 +9,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonArray
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
@@ -209,6 +210,71 @@ suspend fun prowlarrDeleteIndexer(config: ServiceConfig, id: Int): String = dest
         }
     }
 }
+
+/** The editable scalar fields of an indexer (multi-value fields like categories are left out so
+ *  they're preserved untouched on save). */
+suspend fun prowlarrIndexerEdit(config: ServiceConfig, id: Int): org.phioster.sanctumd.model.ProwlarrIndexerEdit = withContext(Dispatchers.IO) {
+    val raw = apiFor<ProwlarrApi>(config, apiKeyHeader(config)).indexerRaw(id)
+    val fields = (raw["fields"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }.mapNotNull { f ->
+        val name = jsStr(f, "name") ?: return@mapNotNull null
+        val type = jsStr(f, "type") ?: "textbox"
+        if (type == "info") return@mapNotNull null
+        val vEl = f["value"]
+        if (vEl is JsonArray) return@mapNotNull null // multi-value (e.g. categories) — don't expose
+        val value = (vEl as? JsonPrimitive)?.content ?: ""
+        val options = (f["selectOptions"] as? JsonArray)?.mapNotNull { o ->
+            (o as? JsonObject)?.let { so ->
+                val ov = so["value"]?.let { v -> (v as? JsonPrimitive)?.content } ?: return@mapNotNull null
+                ov to (jsStr(so, "name") ?: ov)
+            }
+        }.orEmpty()
+        org.phioster.sanctumd.model.ProwlarrField(
+            name = name,
+            label = jsStr(f, "label") ?: name,
+            type = type,
+            value = value,
+            helpText = jsStr(f, "helpText") ?: "",
+            advanced = jsBool(f, "advanced") ?: false,
+            options = options,
+        )
+    }
+    org.phioster.sanctumd.model.ProwlarrIndexerEdit(id, jsStr(raw, "name") ?: "indexer", fields)
+}
+
+/** Merge edited field [values] (keyed by field name) into the indexer's raw JSON and PUT it. */
+suspend fun prowlarrSaveIndexer(config: ServiceConfig, id: Int, values: Map<String, String>): String =
+    destructive("edit Prowlarr indexer $id") {
+        withContext(Dispatchers.IO) {
+            try {
+                val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
+                val raw = api.indexerRaw(id)
+                val oldFields = (raw["fields"] as? JsonArray).orEmpty()
+                val newFields = buildJsonArray {
+                    oldFields.forEach { fe ->
+                        val fo = fe as? JsonObject
+                        val fname = fo?.let { jsStr(it, "name") }
+                        if (fo != null && fname != null && values.containsKey(fname)) {
+                            val type = jsStr(fo, "type") ?: "textbox"
+                            val nv = values.getValue(fname)
+                            val prim = when (type) {
+                                "checkbox" -> JsonPrimitive(nv.toBoolean())
+                                "number", "select" -> nv.toIntOrNull()?.let { JsonPrimitive(it) }
+                                    ?: nv.toDoubleOrNull()?.let { JsonPrimitive(it) } ?: JsonPrimitive(nv)
+                                else -> JsonPrimitive(nv)
+                            }
+                            add(JsonObject(fo.toMutableMap().apply { put("value", prim) }))
+                        } else {
+                            add(fe)
+                        }
+                    }
+                }
+                val body = JsonObject(raw.toMutableMap().apply { put("fields", newFields) })
+                okOr(api.updateIndexer(id, body), "saved")
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
 
 suspend fun prowlarrTestIndexer(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
     try {

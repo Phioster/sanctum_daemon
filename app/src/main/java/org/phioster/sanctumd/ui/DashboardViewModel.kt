@@ -715,6 +715,10 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun prowlarrDelete(config: ServiceConfig, id: Int): String =
         prowlarrDeleteIndexer(config, id)
     suspend fun prowlarrTest(config: ServiceConfig, id: Int): String = prowlarrTestIndexer(config, id)
+    suspend fun prowlarrIndexerEditOf(config: ServiceConfig, id: Int): org.phioster.sanctumd.model.ProwlarrIndexerEdit =
+        org.phioster.sanctumd.net.prowlarrIndexerEdit(config, id)
+    suspend fun prowlarrSaveIndexerOf(config: ServiceConfig, id: Int, values: Map<String, String>): String =
+        org.phioster.sanctumd.net.prowlarrSaveIndexer(config, id, values)
     suspend fun prowlarrSearchList(config: ServiceConfig, query: String, categoryId: Int): List<ProwlarrRelease> =
         prowlarrSearch(config, query, categoryId)
     suspend fun prowlarrGrabRelease(config: ServiceConfig, release: ProwlarrRelease): String =

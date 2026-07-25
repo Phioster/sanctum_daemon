@@ -54,3 +54,22 @@ data class ProwlarrSystemInfo(
     val version: String,
     val health: List<Pair<String, String>>, // type -> message
 )
+
+/** One editable setting of an indexer (from its Servarr field schema). [value] is stringified
+ *  ("true"/"false" for a checkbox, the option value for a select); [options] is (value, label). */
+data class ProwlarrField(
+    val name: String,
+    val label: String,
+    val type: String, // "textbox" | "password" | "number" | "checkbox" | "select" | …
+    val value: String,
+    val helpText: String = "",
+    val advanced: Boolean = false,
+    val options: List<Pair<String, String>> = emptyList(),
+)
+
+/** An indexer's editable field schema, for the add/edit form. */
+data class ProwlarrIndexerEdit(
+    val id: Int,
+    val name: String,
+    val fields: List<ProwlarrField>,
+)
