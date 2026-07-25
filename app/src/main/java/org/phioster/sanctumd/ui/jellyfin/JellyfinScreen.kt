@@ -47,6 +47,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Schedule
@@ -525,11 +526,7 @@ internal fun JellyfinScreen(
                                         if (!sLibs.hidden) {
                                             item {
                                                 Spacer(Modifier.height(16.dp))
-                                                MediaSectionHeader("LIBRARIES", styleAccent(sLibs.accent), trailing = {
-                                                    if (!mediaViews.isNullOrEmpty()) {
-                                                        Text("edit", fontFamily = Mono, color = styleAccent(sLibs.accent), fontSize = 11.sp, modifier = Modifier.clickable { libraryFilterOpen = true }.padding(4.dp))
-                                                    }
-                                                })
+                                                MediaSectionHeader("LIBRARIES", styleAccent(sLibs.accent))
                                                 Spacer(Modifier.height(8.dp))
                                             }
                                         }
@@ -1301,6 +1298,15 @@ internal fun JellyfinScreen(
                                 Text("hidden", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.4f), fontSize = 10.sp)
                             }
                         }
+                    }
+                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.12f))
+                    Row(
+                        Modifier.fillMaxWidth().clickable { rowPickerOpen = false; libraryFilterOpen = true }.padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Filled.Visibility, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("Show / hide libraries", fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp)
                     }
                 }
             },
