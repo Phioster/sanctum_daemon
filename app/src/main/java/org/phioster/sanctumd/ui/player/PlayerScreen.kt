@@ -12,13 +12,9 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import android.os.Build
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.positionChange
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
@@ -297,13 +293,6 @@ internal fun PlayerScreen(
     var zoomScale by remember { mutableStateOf(1f) }
     val zoomStops = remember { floatArrayOf(1f, 2f, 3f, 4f) } // fit (1x) → 2x → 3x → 4x
 
-    // Symmetric margin around the video so it sits centered and clear of the camera cutout on BOTH
-    // sides (equal bars). Pinch-zoom scales past it to fill.
-    val cutoutPad = WindowInsets.displayCutout.asPaddingValues()
-    val ld = LocalLayoutDirection.current
-    val sidePad = maxOf(cutoutPad.calculateLeftPadding(ld), cutoutPad.calculateRightPadding(ld))
-    val vertPad = maxOf(cutoutPad.calculateTopPadding(), cutoutPad.calculateBottomPadding())
-
     Box(
         Modifier
             .fillMaxSize()
@@ -353,9 +342,9 @@ internal fun PlayerScreen(
             },
     ) {
         engine.VideoSurface(
-            // Base sits centered with equal black bars, clear of the cutout; pinch-zoom scales it,
-            // snapping to fixed steps; the video stays centered (no free panning).
-            Modifier.fillMaxSize().padding(horizontal = sidePad, vertical = vertPad).graphicsLayer {
+            // Fills the full screen (aspect-fit → full phone width for wide video) at 1x; pinch snaps
+            // to fixed zoom steps, video stays centered (no free panning).
+            Modifier.fillMaxSize().graphicsLayer {
                 scaleX = zoomScale; scaleY = zoomScale
             },
         )
