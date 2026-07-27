@@ -28,6 +28,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Folder
@@ -89,6 +90,24 @@ internal fun JellyPoster(url: String, config: ServiceConfig, modifier: Modifier,
     )
 }
 
+/**
+ * "Fully watched" marker: a filled accent dot with a black check, the way Jellyfin's own web client
+ * flags played items. Meant to be dropped on a poster [Box] with `Modifier.align(Alignment.TopEnd)`.
+ */
+@Composable
+internal fun WatchedBadge(accent: Color, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 20.dp) {
+    Box(
+        modifier
+            .padding(4.dp)
+            .size(size)
+            .clip(RoundedCornerShape(size / 2))
+            .background(accent),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Icons.Filled.Check, contentDescription = "watched", tint = Black, modifier = Modifier.size(size * 0.7f))
+    }
+}
+
 @Composable
 internal fun JellyPosterCard(item: org.phioster.sanctumd.model.JellyMediaItem, config: ServiceConfig, accent: Color, width: androidx.compose.ui.unit.Dp = 120.dp, caption: Boolean = true, onClick: () -> Unit) {
     val h = width * 1.5f
@@ -106,6 +125,7 @@ internal fun JellyPosterCard(item: org.phioster.sanctumd.model.JellyMediaItem, c
                     color = accent, trackColor = Black.copy(alpha = 0.6f),
                 )
             }
+            if (item.played) WatchedBadge(accent, Modifier.align(Alignment.TopEnd), size = if (width < 100.dp) 16.dp else 20.dp)
         }
         if (caption) {
             Spacer(Modifier.height(4.dp))
@@ -155,6 +175,7 @@ internal fun MediaHero(item: org.phioster.sanctumd.model.JellyMediaItem, config:
                 color = accent, trackColor = Black.copy(alpha = 0.5f),
             )
         }
+        if (item.played) WatchedBadge(accent, Modifier.align(Alignment.TopEnd).padding(6.dp), size = 24.dp)
     }
 }
 
@@ -175,6 +196,7 @@ internal fun MediaGridCard(item: org.phioster.sanctumd.model.JellyMediaItem, con
                     color = accent, trackColor = Black.copy(alpha = 0.6f),
                 )
             }
+            if (item.played) WatchedBadge(accent, Modifier.align(Alignment.TopEnd))
         }
         Spacer(Modifier.height(4.dp))
         Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -306,10 +328,13 @@ private fun MediaCheckRow(text: String, checked: Boolean, onToggle: (Boolean) ->
 @Composable
 internal fun JellyMediaRow(item: org.phioster.sanctumd.model.JellyMediaItem, config: ServiceConfig, accent: Color, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (item.posterUrl.isNotBlank()) {
-            JellyPoster(item.posterUrl, config, Modifier.width(46.dp).height(68.dp), RoundedCornerShape(4.dp), ContentScale.Crop)
-        } else {
-            Box(Modifier.width(46.dp).height(68.dp).clip(RoundedCornerShape(4.dp)).background(Surface))
+        Box {
+            if (item.posterUrl.isNotBlank()) {
+                JellyPoster(item.posterUrl, config, Modifier.width(46.dp).height(68.dp), RoundedCornerShape(4.dp), ContentScale.Crop)
+            } else {
+                Box(Modifier.width(46.dp).height(68.dp).clip(RoundedCornerShape(4.dp)).background(Surface))
+            }
+            if (item.played) WatchedBadge(accent, Modifier.align(Alignment.TopEnd), size = 14.dp)
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {

@@ -141,6 +141,7 @@ data class JellyMediaItem(
     val progressPct: Float, // 0..1, for "continue watching" rows
     val number: Int? = null, // the item's own IndexNumber (season number for a Season, episode number for an Episode)
     val adult: Boolean = false, // official rating marks it as adult / XXX
+    val played: Boolean = false, // fully watched (a Series/Season is played once every episode is)
 )
 
 /** Full detail for a single media item. */
@@ -154,4 +155,5 @@ data class JellyMediaDetail(
     val cast: List<ArrCastMember>,
     val kind: String = "", // "Movie"/"Episode"/"Video"/"Audio"/… — decides whether playback is offered
     val subtitle: String = "", // episodes: "SeriesName · S01E02" (used for downloads/notifications)
+    val played: Boolean = false, // fully watched
 )

@@ -221,6 +221,7 @@ internal data class JfCounts(
     val Studios: List<JfStudio> = emptyList(),
     val People: List<JfPerson> = emptyList(),
     val ImageTags: Map<String, String>? = null,
+    val UserData: JfUserData? = null, // watched state / resume position for this user
 )
 
 @Serializable internal data class JfAuthReq(val Username: String, val Pw: String)

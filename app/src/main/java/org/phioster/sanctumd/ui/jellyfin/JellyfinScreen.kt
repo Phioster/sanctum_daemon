@@ -1105,11 +1105,20 @@ internal fun JellyfinScreen(
                     Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Black.copy(alpha = 0.35f), Black.copy(alpha = 0.65f), Black))))
                     Row(Modifier.align(Alignment.BottomStart).padding(16.dp), verticalAlignment = Alignment.Bottom) {
                         if (d.posterUrl.isNotBlank()) {
-                            JellyPoster(d.posterUrl, config, Modifier.width(120.dp).height(180.dp), RoundedCornerShape(8.dp), ContentScale.Crop)
+                            Box {
+                                JellyPoster(d.posterUrl, config, Modifier.width(120.dp).height(180.dp), RoundedCornerShape(8.dp), ContentScale.Crop)
+                                if (d.played) WatchedBadge(accent, Modifier.align(Alignment.TopEnd), size = 22.dp)
+                            }
                             Spacer(Modifier.width(14.dp))
                         }
                         Column(Modifier.weight(1f)) {
-                            Text(d.name, fontFamily = Mono, color = MatrixGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (d.played && d.posterUrl.isBlank()) {
+                                    WatchedBadge(accent, size = 18.dp)
+                                    Spacer(Modifier.width(6.dp))
+                                }
+                                Text(d.name, fontFamily = Mono, color = MatrixGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            }
                             if (d.subtitle.isNotBlank()) {
                                 Spacer(Modifier.height(4.dp))
                                 Text(d.subtitle, fontFamily = Mono, color = accent.copy(alpha = 0.85f), fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)

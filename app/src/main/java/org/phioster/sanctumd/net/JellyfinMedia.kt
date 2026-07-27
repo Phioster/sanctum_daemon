@@ -58,6 +58,7 @@ internal fun JfItem.toMediaItem(config: ServiceConfig, token: String) = JellyMed
     progressPct = ((UserData?.PlayedPercentage ?: 0.0) / 100.0).toFloat(),
     number = IndexNumber,
     adult = isAdultRating(OfficialRating),
+    played = UserData?.Played == true,
 )
 
 /** The user's libraries (Movies, Shows, Music, …). */
@@ -140,6 +141,7 @@ suspend fun jellyfinItemDetail(config: ServiceConfig, itemId: String): JellyMedi
             "Audio" -> d.AlbumArtist.orEmpty()
             else -> ""
         },
+        played = d.UserData?.Played == true,
     )
 }
 
