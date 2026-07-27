@@ -198,6 +198,7 @@ internal fun PlayerScreen(
     val autoplayNext by vm.autoplayNext.collectAsState()
     val autoSkipSegments by vm.autoSkipSegments.collectAsState()
     val askResume by vm.askResume.collectAsState()
+    val nextLeadSec by vm.nextEpisodeLead.collectAsState()
 
     // Live (per-playback) subtitle tuning, seeded from the saved preference.
     var subScale by remember(subScalePref) { mutableStateOf(subScalePref) }
@@ -359,8 +360,11 @@ internal fun PlayerScreen(
 
             // "Next episode" countdown once the outro starts (or the file ends).
             val outro = segments.firstOrNull { it.kind.equals("Outro", true) }
+            // With a real outro segment the card follows the server's timing; without one it falls
+            // back to a fixed lead before the end (the server may report no outro at all — the older
+            // Intro Skipper route only ever returns intros).
             val nearEnd = snap.durationMs > 0 && snap.positionMs > 0 &&
-                snap.positionMs >= (outro?.startMs ?: (snap.durationMs - 30_000))
+                snap.positionMs >= (outro?.startMs ?: (snap.durationMs - nextLeadSec * 1000L))
             val next = nextUp
             if (next != null && !sleepAtEpisodeEnd && !sleepFired && (snap.ended || nearEnd)) {
                 if (!nextCardVisible) {
@@ -795,6 +799,7 @@ internal fun PlayerScreen(
                 engine = engine,
                 isLocal = localFileUri != null,
                 playMethod = playMethod,
+                segments = segments,
                 onClose = { infoOpen = false },
                 modifier = Modifier.align(Alignment.CenterStart),
             )
@@ -813,6 +818,7 @@ private fun InfoPanel(
     engine: MediaPlayerEngine,
     isLocal: Boolean,
     playMethod: String,
+    segments: List<org.phioster.sanctumd.net.MediaSegment>,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -878,6 +884,24 @@ private fun InfoPanel(
         InfoStat("bitrate", if (stats.bitrateKbps > 0) "${stats.bitrateKbps} kbps" else "—")
         InfoStat("buffer", "${stats.bufferedPercent}%")
         if (stats.hwDecode.isNotBlank()) InfoStat("decode", "hw · ${stats.hwDecode}")
+
+        // What the server reported for intro/outro — the honest answer to "why did the skip button
+        // (or the next-episode card) show up when it did".
+        if (!isLocal) {
+            Spacer(Modifier.height(16.dp))
+            Text("SEGMENTS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(6.dp))
+            if (segments.isEmpty()) {
+                Text(
+                    "none reported — no media segments and no Intro Skipper data for this episode",
+                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, lineHeight = 15.sp,
+                )
+            } else {
+                segments.forEach { seg ->
+                    InfoStat(seg.kind.lowercase(), "${fmt(seg.startMs)} – ${fmt(seg.endMs)}")
+                }
+            }
+        }
     }
 }
 

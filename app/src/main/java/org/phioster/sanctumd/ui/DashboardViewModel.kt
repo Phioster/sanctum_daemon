@@ -311,6 +311,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     fun setAutoplayNext(v: Boolean) = viewModelScope.launch { dashStore.setAutoplayNext(v) }
     fun setAutoSkipSegments(v: Boolean) = viewModelScope.launch { dashStore.setAutoSkipSegments(v) }
     fun setAskResume(v: Boolean) = viewModelScope.launch { dashStore.setAskResume(v) }
+    val nextEpisodeLead: StateFlow<Int> =
+        dashStore.nextEpisodeLead.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, 45)
+    fun setNextEpisodeLead(v: Int) = viewModelScope.launch { dashStore.setNextEpisodeLead(v) }
 
     /** Intro/outro segments for an item (native MediaSegments, else the Intro Skipper plugin). */
     suspend fun jellyfinSegments(config: ServiceConfig, itemId: String) =

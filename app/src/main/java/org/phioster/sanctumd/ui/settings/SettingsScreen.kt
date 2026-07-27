@@ -281,6 +281,17 @@ internal fun PlaybackSection(vm: DashboardViewModel) {
 
     NotifyToggleRow("Autoplay next episode", "Shows a countdown card near the end and rolls on", autoplay) { vm.setAutoplayNext(it) }
     NotifyToggleRow("Auto-skip intro & outro", "Skips without asking — the skip button appears either way", autoSkip) { vm.setAutoSkipSegments(it) }
+    val nextLead by vm.nextEpisodeLead.collectAsState()
+    SettingsPickerRow(
+        "Next-episode card",
+        listOf("30" to "30 s", "45" to "45 s", "60" to "60 s", "90" to "90 s", "120" to "120 s"),
+        nextLead.toString(),
+    ) { vm.setNextEpisodeLead(it.toIntOrNull() ?: 45) }
+    Text(
+        "How long before the end the card appears when the server reports no outro segment. With a real outro segment the card follows that instead — the info panel in the player shows which one you got.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+    )
+
     NotifyToggleRow("Ask where to resume", "Offers \"resume\" vs \"start over\" instead of jumping straight in", askResume) { vm.setAskResume(it) }
     Text(
         "Intro/outro ranges come from the server: Jellyfin 10.10+ media segments, or the Intro Skipper plugin. Without either, no skip button appears.",

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -37,6 +38,7 @@ private val SUB_SCALE_KEY = floatPreferencesKey("player_sub_scale")
 private val AUTOPLAY_NEXT_KEY = booleanPreferencesKey("player_autoplay_next")
 private val AUTO_SKIP_KEY = booleanPreferencesKey("player_auto_skip_segments")
 private val ASK_RESUME_KEY = booleanPreferencesKey("player_ask_resume")
+private val NEXT_LEAD_KEY = intPreferencesKey("player_next_lead_seconds")
 private val json = Json { ignoreUnknownKeys = true }
 
 /** Persists the user's dashboard tabs (widget layout) as JSON in DataStore. */
@@ -117,6 +119,9 @@ class DashboardStore(private val context: Context) {
     suspend fun setAutoplayNext(v: Boolean) { context.dashboardDataStore.edit { it[AUTOPLAY_NEXT_KEY] = v } }
     suspend fun setAutoSkipSegments(v: Boolean) { context.dashboardDataStore.edit { it[AUTO_SKIP_KEY] = v } }
     suspend fun setAskResume(v: Boolean) { context.dashboardDataStore.edit { it[ASK_RESUME_KEY] = v } }
+    /** How early the "next episode" card shows when the server reports no outro segment. */
+    val nextEpisodeLead: Flow<Int> = context.dashboardDataStore.data.map { it[NEXT_LEAD_KEY] ?: 45 }
+    suspend fun setNextEpisodeLead(v: Int) { context.dashboardDataStore.edit { it[NEXT_LEAD_KEY] = v.coerceIn(10, 300) } }
 
     // Offline downloads: only fetch on un-metered Wi-Fi when on.
     val downloadsWifiOnly: Flow<Boolean> = context.dashboardDataStore.data.map { it[DOWNLOADS_WIFI_ONLY_KEY] ?: false }
