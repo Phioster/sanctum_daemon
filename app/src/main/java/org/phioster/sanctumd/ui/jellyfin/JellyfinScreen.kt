@@ -212,7 +212,7 @@ internal fun JellyfinScreen(
     /** Drop finished downloads whose item is watched on the server, when the user asked for that. */
     suspend fun sweepWatchedDownloads() {
         if (!vm.downloadsDeleteWatched.value) return
-        val done = downloads.values.filter { it.serviceId == config.id && it.state == org.phioster.sanctumd.model.DownloadEntry.STATE_DONE }
+        val done = downloads.values.filter { it.serverId == config.id && it.state == org.phioster.sanctumd.model.DownloadEntry.STATE_DONE }
         if (done.isEmpty()) return
         val watched = runCatching { vm.jellyfinPlayedIds(config, done.map { it.itemId }) }.getOrDefault(emptySet())
         watched.forEach { org.phioster.sanctumd.service.DownloadService.delete(context, it) }
