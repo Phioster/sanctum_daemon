@@ -40,15 +40,18 @@ import androidx.glance.unit.ColorProvider
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import org.phioster.sanctumd.MainActivity
+import org.phioster.sanctumd.ui.theme.ThemeState
+import org.phioster.sanctumd.ui.theme.ThemeStore
+import org.phioster.sanctumd.ui.theme.dimInk
 import org.phioster.sanctumd.R
 import org.phioster.sanctumd.data.CalendarSnap
 import org.phioster.sanctumd.data.CalendarSnapshotStore
 import org.phioster.sanctumd.model.ServiceType
 import org.phioster.sanctumd.service.ServiceRegistry
 
-private val Bg = Color(0xFF0A0F0A)
-private val Green = Color(0xFF00FF41)
-private val Dim = Color(0xFF7A9A7A)
+private val Bg: Color get() = ThemeState.palette.background
+private val Green: Color get() = ThemeState.palette.accent
+private val Dim: Color get() = ThemeState.palette.dimInk()
 
 private fun typeOf(name: String): ServiceType? = runCatching { ServiceType.valueOf(name) }.getOrNull()
 
@@ -88,6 +91,7 @@ private fun buildLines(snaps: List<CalendarSnap>): List<Line> {
  *  Renders from a cached snapshot ([CalendarSnapshotStore]); [CalendarCacheWorker] refreshes it. */
 class CalendarWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        ThemeState.palette = ThemeStore.read(context)
         val snaps = runCatching { CalendarSnapshotStore(context).read() }.getOrDefault(emptyList())
         provideContent { Content(snaps) }
     }

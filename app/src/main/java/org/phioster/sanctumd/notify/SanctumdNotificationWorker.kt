@@ -91,7 +91,7 @@ class SanctumdNotificationWorker(ctx: Context, params: WorkerParameters) : Corou
         }
         val n = NotificationCompat.Builder(ctx, channel)
             .setSmallIcon(org.phioster.sanctumd.R.drawable.ic_notify)
-            .setColor(android.graphics.Color.parseColor("#14532D"))
+            .setColor(org.phioster.sanctumd.ui.theme.ThemeStore.notificationColor(applicationContext))
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))

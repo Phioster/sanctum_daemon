@@ -36,13 +36,16 @@ import androidx.glance.unit.ColorProvider
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import org.phioster.sanctumd.MainActivity
+import org.phioster.sanctumd.ui.theme.ThemeState
+import org.phioster.sanctumd.ui.theme.ThemeStore
+import org.phioster.sanctumd.ui.theme.dimInk
 import org.phioster.sanctumd.data.ResumeSnap
 import org.phioster.sanctumd.data.ResumeSnapshotStore
 
-private val Bg = Color(0xFF0A0F0A)
-private val Green = Color(0xFF00FF41)
-private val Dim = Color(0xFF7A9A7A)
-private val Track = Color(0xFF1E2A1E)
+private val Bg: Color get() = ThemeState.palette.background
+private val Green: Color get() = ThemeState.palette.accent
+private val Dim: Color get() = ThemeState.palette.dimInk()
+private val Track: Color get() = ThemeState.palette.surfaceHi
 
 /**
  * Homescreen widget: what's half-watched on Jellyfin, with a progress bar per row. Tapping a row
@@ -51,6 +54,7 @@ private val Track = Color(0xFF1E2A1E)
  */
 class ResumeWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        ThemeState.palette = ThemeStore.read(context)
         val snaps = runCatching { ResumeSnapshotStore(context).read() }.getOrDefault(emptyList())
         provideContent { Content(snaps) }
     }

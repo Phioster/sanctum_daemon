@@ -1,5 +1,8 @@
 package org.phioster.sanctumd.widget
 
+import org.phioster.sanctumd.ui.theme.ThemeState
+import org.phioster.sanctumd.ui.theme.ThemeStore
+import org.phioster.sanctumd.ui.theme.dimInk
 import android.content.Context
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -41,6 +44,7 @@ val WIDGET_ICONS = listOf(
  */
 class ShortcutIconWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        ThemeState.palette = ThemeStore.read(context)
         provideContent {
             val prefs = currentState<Preferences>()
             val serviceId = prefs[serviceIdKey] ?: ""

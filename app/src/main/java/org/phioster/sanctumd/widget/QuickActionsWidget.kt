@@ -1,5 +1,8 @@
 package org.phioster.sanctumd.widget
 
+import org.phioster.sanctumd.ui.theme.ThemeState
+import org.phioster.sanctumd.ui.theme.ThemeStore
+import org.phioster.sanctumd.ui.theme.dimInk
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.runtime.Composable
@@ -37,14 +40,15 @@ import kotlinx.coroutines.withContext
 import org.phioster.sanctumd.data.ServiceStore
 import org.phioster.sanctumd.model.ServiceConfig
 
-private val Bg = Color(0xFF0A0F0A)
-private val Green = Color(0xFF00FF41)
-private val Dim = Color(0xFF7A9A7A)
+private val Bg: Color get() = ThemeState.palette.background
+private val Green: Color get() = ThemeState.palette.accent
+private val Dim: Color get() = ThemeState.palette.dimInk()
 private val Chip = Color(0xFF13251A)
 
 /** Homescreen widget: quick-action buttons for one chosen service. */
 class QuickActionsWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        ThemeState.palette = ThemeStore.read(context)
         val services = runCatching { ServiceStore(context).services.first() }.getOrDefault(emptyList())
         provideContent {
             val sid = currentState<Preferences>()[serviceIdKey] ?: ""

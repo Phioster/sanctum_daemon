@@ -1,5 +1,8 @@
 package org.phioster.sanctumd.widget
 
+import org.phioster.sanctumd.ui.theme.ThemeState
+import org.phioster.sanctumd.ui.theme.ThemeStore
+import org.phioster.sanctumd.ui.theme.dimInk
 import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.Intent
@@ -50,15 +53,16 @@ import org.phioster.sanctumd.model.HttpShortcut
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
 
-private val Bg = Color(0xFF0A0F0A)
-private val Green = Color(0xFF00FF41)
+private val Bg: Color get() = ThemeState.palette.background
+private val Green: Color get() = ThemeState.palette.accent
 private val Chip = Color(0xFF13251A)
-private val Dim = Color(0xFF7A9A7A)
+private val Dim: Color get() = ThemeState.palette.dimInk()
 
 /** Shown when the 1×1 icon widget is placed: pick which shortcut it fires + an icon. */
 class ShortcutWidgetConfigActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ThemeState.palette = ThemeStore.read(this)
         // Cancel by default, so backing out doesn't leave a half-placed widget.
         setResult(Activity.RESULT_CANCELED)
         val appWidgetId = intent?.extras?.getInt(

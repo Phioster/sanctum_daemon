@@ -1,30 +1,117 @@
 package org.phioster.sanctumd.ui.theme
 
 import androidx.compose.foundation.background
-import androidx.compose.ui.draw.alpha
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 
-internal val MatrixGreen = Color(0xFF00FF41)
+/** One theme: the accent that carries the whole UI, plus the three surface levels behind it. */
+data class Palette(
+    val id: String,
+    val label: String,
+    val accent: Color,
+    val background: Color,
+    val surface: Color,
+    val surfaceHi: Color,
+)
 
-// The app-wide base is a very dark anthracite (not pure black — that read as oppressive). The name
-// `Black` is kept because it's referenced ~150× as both the background AND the ink on the green accent;
-// as ink on bright green this anthracite is still maximally legible, and scrims just tint slightly.
-internal val Black = Color(0xFF141619)
-internal val Surface = Color(0xFF1E2126) // cards — a clear step lighter than the base
-internal val SurfaceHi = Color(0xFF262A30) // elevated surfaces: chips, buttons, config sheets
+/**
+ * Fixed presets — no free colour picker on purpose.
+ *
+ * NB for future additions: [Palette.background] doubles as the *ink* on the accent (chips, buttons,
+ * FAB), so it has to stay dark enough to read on a bright accent. Nord is closest to that limit.
+ */
+val PALETTES: List<Palette> = listOf(
+    Palette("matrix", "Matrix", Color(0xFF00FF41), Color(0xFF141619), Color(0xFF1E2126), Color(0xFF262A30)),
+    Palette("synthwave", "Synthwave", Color(0xFFFF6AD5), Color(0xFF1A0B2E), Color(0xFF241040), Color(0xFF2F1553)),
+    Palette("neon", "Japan Neon", Color(0xFFFF2E97), Color(0xFF071016), Color(0xFF0E1B22), Color(0xFF15252E)),
+    Palette("ae86", "AE86 Panda", Color(0xFFEDEDED), Color(0xFF0A0A0A), Color(0xFF16181A), Color(0xFF202326)),
+    Palette("amber", "Amber CRT", Color(0xFFFFB000), Color(0xFF14100C), Color(0xFF1E1810), Color(0xFF282016)),
+    Palette("ice", "Ice", Color(0xFF7DD3FC), Color(0xFF0B1220), Color(0xFF121C2E), Color(0xFF1A2740)),
+    Palette("nord", "Nord", Color(0xFF88C0D0), Color(0xFF2E3440), Color(0xFF3B4252), Color(0xFF434C5E)),
+    Palette("gruvbox", "Gruvbox", Color(0xFFFABD2F), Color(0xFF282828), Color(0xFF32302F), Color(0xFF3C3836)),
+)
+
+const val DEFAULT_PALETTE_ID = "matrix"
+
+fun paletteById(id: String?): Palette = PALETTES.firstOrNull { it.id == id } ?: PALETTES.first()
+
+/** The background can be chosen independently of the preset's own. */
+enum class BackgroundMode(val id: String, val label: String) {
+    PRESET("preset", "preset"),
+    OLED("oled", "OLED black"),
+    ANTHRACITE("anthracite", "anthracite"),
+    ;
+
+    companion object {
+        fun from(id: String?): BackgroundMode = entries.firstOrNull { it.id == id } ?: PRESET
+    }
+}
+
+private fun Color.mixWith(other: Color, fraction: Float): Color = Color(
+    red = red + (other.red - red) * fraction,
+    green = green + (other.green - green) * fraction,
+    blue = blue + (other.blue - blue) * fraction,
+    alpha = 1f,
+)
+
+/**
+ * Applies the background choice on top of a preset, keeping its accent.
+ *
+ * OLED deliberately does *not* flatten the card surfaces to pure black: they stay a shade above it
+ * (and keep a hint of the preset's tint) so cards remain distinguishable, while the large areas —
+ * the ones that actually glow in a dark room and cost power — are true black.
+ */
+fun Palette.withBackground(mode: BackgroundMode): Palette = when (mode) {
+    BackgroundMode.PRESET -> this
+    BackgroundMode.OLED -> copy(
+        background = Color(0xFF000000),
+        surface = surface.mixWith(Color.Black, 0.60f),
+        surfaceHi = surfaceHi.mixWith(Color.Black, 0.50f),
+    )
+    BackgroundMode.ANTHRACITE -> copy(
+        background = Color(0xFF141619),
+        surface = Color(0xFF1E2126),
+        surfaceHi = Color(0xFF262A30),
+    )
+}
+
+/** Secondary/muted ink derived from the accent — used where a fixed muted green used to sit. */
+internal fun Palette.dimInk(): Color = accent.mixWith(background, 0.45f)
+
+/** The live palette. Seeded from ThemeStore before the first frame; changing it repaints the app. */
+object ThemeState {
+    var palette by mutableStateOf(paletteById(DEFAULT_PALETTE_ID))
+}
+
+// These four keep their historic names although they now read the active palette: they are
+// referenced ~900× across the UI, and renaming them would be churn without a payoff. Read them as
+// "the accent" (MatrixGreen) and the three surface levels. `Black` is the base *and* the ink on the
+// accent, which is why the presets keep their background dark.
+internal val MatrixGreen: Color get() = ThemeState.palette.accent
+internal val Black: Color get() = ThemeState.palette.background
+internal val Surface: Color get() = ThemeState.palette.surface
+internal val SurfaceHi: Color get() = ThemeState.palette.surfaceHi
+
+// Errors stay red in every theme — that is the one colour that must not blend in.
 internal val ErrRed = Color(0xFFFF5555)
 internal val Mono = FontFamily.Monospace
 
-internal val SanctumdColors = darkColorScheme(
-    primary = MatrixGreen,
-    onPrimary = Black,
-    background = Black,
-    onBackground = MatrixGreen,
-    surface = Surface,
-    onSurface = MatrixGreen,
-    surfaceVariant = SurfaceHi,
-    onSurfaceVariant = MatrixGreen,
-    outline = MatrixGreen.copy(alpha = 0.4f),
-)
+// A getter, not a value: as a top-level `val` this would capture the colours once at class-init and
+// freeze the app on whatever theme happened to be active then.
+internal val SanctumdColors
+    get() = darkColorScheme(
+        primary = MatrixGreen,
+        onPrimary = Black,
+        background = Black,
+        onBackground = MatrixGreen,
+        surface = Surface,
+        onSurface = MatrixGreen,
+        surfaceVariant = SurfaceHi,
+        onSurfaceVariant = MatrixGreen,
+        outline = MatrixGreen.copy(alpha = 0.4f),
+    )

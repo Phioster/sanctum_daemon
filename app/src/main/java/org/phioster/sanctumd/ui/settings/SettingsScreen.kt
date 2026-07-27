@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import org.phioster.sanctumd.ui.theme.withBackground
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
@@ -103,6 +104,7 @@ internal fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowIn
                     SettingsCategoryRow("security", "Biometric app lock") { section = "security" }
                     SettingsCategoryRow("content", "Hide adult / 18+ content") { section = "content" }
                     SettingsCategoryRow("general", "Which screen the app opens on") { section = "general" }
+                    SettingsCategoryRow("theme", "Accent presets and background") { section = "theme" }
                     SettingsCategoryRow("playback", "Languages, subtitles, autoplay & skipping") { section = "playback" }
                     SettingsCategoryRow("gestures", "Swipe between dashboard tabs + swipe zone") { section = "gestures" }
                     SettingsCategoryRow("backup / data", "Export or import your config (encrypted)") { section = "backup / data" }
@@ -114,6 +116,7 @@ internal fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowIn
                 "security" -> SecuritySection(vm)
                 "content" -> ContentSection(vm)
                 "general" -> GeneralSection(vm)
+                "theme" -> ThemeSection()
                 "playback" -> PlaybackSection(vm)
                 "gestures" -> GesturesSection(vm)
                 "backup / data" -> BackupSection(vm)
@@ -218,6 +221,73 @@ internal fun ContentSection(vm: DashboardViewModel) {
     Text(
         "Only real porn is hidden — XXX / X / X18+ / Adult ratings on Jellyfin and the TMDB adult flag on Seerr. Mainstream 18-rated films (horror, NC-17, R, FSK 18, R18+) stay visible. Doesn't touch Radarr/Sonarr or global search.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
+    )
+}
+
+/** Accent presets plus the independent background choice. Applies instantly — the whole UI reads
+ *  its colours from [org.phioster.sanctumd.ui.theme.ThemeState]. */
+@Composable
+internal fun ThemeSection() {
+    val context = LocalContext.current
+    val active = org.phioster.sanctumd.ui.theme.ThemeState.palette
+    var presetId by remember { mutableStateOf(org.phioster.sanctumd.ui.theme.ThemeStore.paletteId(context)) }
+    var background by remember { mutableStateOf(org.phioster.sanctumd.ui.theme.ThemeStore.backgroundMode(context)) }
+
+    Text(
+        "PRESET",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp,
+        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+    )
+    org.phioster.sanctumd.ui.theme.PALETTES.forEach { p ->
+        // Show each preset in its own colours, with the current background choice applied, so the
+        // row is a real preview rather than a name.
+        val shown = p.withBackground(background)
+        val selected = p.id == presetId
+        Row(
+            Modifier.fillMaxWidth()
+                .clickable {
+                    presetId = p.id
+                    org.phioster.sanctumd.ui.theme.ThemeStore.writePreset(context, p.id)
+                }
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(shown.accent, shown.background, shown.surface).forEach { c ->
+                    Box(
+                        Modifier.size(width = 22.dp, height = 22.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(c)
+                            .border(1.dp, MatrixGreen.copy(alpha = 0.25f), RoundedCornerShape(4.dp)),
+                    )
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(p.label, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, modifier = Modifier.weight(1f))
+            if (selected) Text("✓", fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp)
+        }
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+    }
+
+    SettingsPickerRow(
+        "Background",
+        org.phioster.sanctumd.ui.theme.BackgroundMode.entries.map { it.id to it.label },
+        background.id,
+    ) { picked ->
+        background = org.phioster.sanctumd.ui.theme.BackgroundMode.from(picked)
+        org.phioster.sanctumd.ui.theme.ThemeStore.writeBackground(context, background)
+    }
+    Text(
+        "\"Preset\" keeps each theme's own background. \"OLED black\" makes the large areas true black " +
+            "while cards stay a shade above it, so they don't disappear. \"Anthracite\" is the neutral " +
+            "dark grey the app shipped with.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp,
+        modifier = Modifier.padding(top = 4.dp),
+    )
+    Text(
+        "Service colours (Jellyfin blue, Prowlarr orange…) and the red used for errors stay as they are.",
+        fontFamily = Mono, color = active.accent.copy(alpha = 0.6f), fontSize = 11.sp,
+        modifier = Modifier.padding(top = 8.dp),
     )
 }
 

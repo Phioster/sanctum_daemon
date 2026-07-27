@@ -40,6 +40,9 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import kotlinx.coroutines.flow.first
 import org.phioster.sanctumd.MainActivity
+import org.phioster.sanctumd.ui.theme.ThemeState
+import org.phioster.sanctumd.ui.theme.ThemeStore
+import org.phioster.sanctumd.ui.theme.dimInk
 import org.phioster.sanctumd.R
 import org.phioster.sanctumd.data.ServiceStore
 import org.phioster.sanctumd.data.StatusSnap
@@ -48,10 +51,10 @@ import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
 import org.phioster.sanctumd.service.ServiceRegistry
 
-private val Bg = Color(0xFF0A0F0A)
-private val Green = Color(0xFF00FF41)
+private val Bg: Color get() = ThemeState.palette.background
+private val Green: Color get() = ThemeState.palette.accent
 private val Red = Color(0xFFFF5555)
-private val Dim = Color(0xFF7A9A7A)
+private val Dim: Color get() = ThemeState.palette.dimInk()
 
 private fun logoRes(type: ServiceType): Int = ServiceRegistry.logoRes(type)
 
@@ -59,6 +62,7 @@ private fun logoRes(type: ServiceType): Int = ServiceRegistry.logoRes(type)
  *  a cached snapshot ([StatusSnapshotStore]); [StatusCacheWorker] refreshes it. */
 class StatusWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        ThemeState.palette = ThemeStore.read(context)
         val services = runCatching { ServiceStore(context).services.first() }
             .getOrDefault(emptyList())
             .filter { it.type != ServiceType.SHORTCUTS }

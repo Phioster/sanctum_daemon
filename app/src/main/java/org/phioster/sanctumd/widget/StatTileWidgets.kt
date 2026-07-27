@@ -31,17 +31,20 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import kotlinx.coroutines.flow.first
 import org.phioster.sanctumd.MainActivity
+import org.phioster.sanctumd.ui.theme.ThemeState
+import org.phioster.sanctumd.ui.theme.ThemeStore
+import org.phioster.sanctumd.ui.theme.dimInk
 import org.phioster.sanctumd.data.ServiceStore
 import org.phioster.sanctumd.data.StatusSnap
 import org.phioster.sanctumd.data.StatusSnapshotStore
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
 
-private val Bg = Color(0xFF0A0F0A)
-private val Green = Color(0xFF00FF41)
+private val Bg: Color get() = ThemeState.palette.background
+private val Green: Color get() = ThemeState.palette.accent
 private val Red = Color(0xFFFF5555)
 private val Amber = Color(0xFFFFB454)
-private val Dim = Color(0xFF7A9A7A)
+private val Dim: Color get() = ThemeState.palette.dimInk()
 
 /** Loads the shared status cache both stat tiles and the stack-health tile render from. */
 private suspend fun loadState(context: Context): Pair<List<ServiceConfig>, Map<String, StatusSnap>> {
@@ -102,6 +105,7 @@ private fun openIntent(ctx: Context, serviceId: String?): Intent {
 /** 1×1 tile: online/total services at a glance (green all-up, red if any down). */
 class StackHealthWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        ThemeState.palette = ThemeStore.read(context)
         val (services, snaps) = loadState(context)
         provideContent {
             val ctx = LocalContext.current
@@ -127,6 +131,7 @@ class StackHealthWidget : GlanceAppWidget() {
 /** 1×1 tile: NZBGet queue size (⏸ when paused). */
 class QueueTileWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        ThemeState.palette = ThemeStore.read(context)
         val (services, snaps) = loadState(context)
         provideContent {
             val ctx = LocalContext.current
@@ -149,6 +154,7 @@ class QueueTileWidget : GlanceAppWidget() {
 /** 1×1 tile: Jellyseerr pending request count. */
 class SeerrTileWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        ThemeState.palette = ThemeStore.read(context)
         val (services, snaps) = loadState(context)
         provideContent {
             val ctx = LocalContext.current
@@ -170,6 +176,7 @@ class SeerrTileWidget : GlanceAppWidget() {
 /** 1×1 tile: total Jellyfin library items (movies + series). */
 class LibraryTileWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        ThemeState.palette = ThemeStore.read(context)
         val (services, snaps) = loadState(context)
         provideContent {
             val ctx = LocalContext.current

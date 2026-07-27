@@ -94,6 +94,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             }
         }
         vm.setRoute(routeFromIntent(intent)) // launcher shortcut, if any
+        // Before the first frame, or the app paints matrix green and then repaints.
+        org.phioster.sanctumd.ui.theme.ThemeState.palette = org.phioster.sanctumd.ui.theme.ThemeStore.read(this)
         setContent {
             MaterialTheme(colorScheme = SanctumdColors) {
                 AppLockGate(vm = vm, activity = this) { SanctumdApp(vm = vm) }
