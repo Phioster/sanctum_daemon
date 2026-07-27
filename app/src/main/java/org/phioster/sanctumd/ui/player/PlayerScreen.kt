@@ -295,7 +295,7 @@ internal fun PlayerScreen(
 
     // Pinch-to-zoom: snaps to fixed steps on release, stays centered (no free panning). Double-tap resets.
     var zoomScale by remember { mutableStateOf(1f) }
-    val zoomStops = remember { floatArrayOf(1f, 1.5f, 2f, 3f, 4f) }
+    val zoomStops = remember { floatArrayOf(1f, 2f, 3f, 4f) } // fit (1x) → 2x → 3x → 4x
 
     // Symmetric margin around the video so it sits centered and clear of the camera cutout on BOTH
     // sides (equal bars). Pinch-zoom scales past it to fill.
