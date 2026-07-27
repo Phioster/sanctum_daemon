@@ -11,6 +11,10 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
+import android.os.Build
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -169,8 +173,16 @@ internal fun PlayerScreen(
     DisposableEffect(Unit) {
         val window = activity?.window
         val prevOrientation = activity?.requestedOrientation
+        val prevCutoutMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) window?.attributes?.layoutInDisplayCutoutMode else null
         if (window != null) {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            // Let the window use the full display incl. the camera cutout, so a zoomed video can fill
+            // right to the edge. The base video is padded away from the cutout below (YouTube-like).
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val lp = window.attributes
+                lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                window.attributes = lp
+            }
             // NB: don't touch decorFitsSystemWindows — the app runs edge-to-edge (enableEdgeToEdge),
             // so the Scaffolds pad for the status bar themselves. Flipping it here (and back to true
             // on dispose) made the decor consume the insets → 0 status-bar inset → the top bar slid
@@ -187,6 +199,9 @@ internal fun PlayerScreen(
                 // Release our brightness override back to the system.
                 val lp = window.attributes
                 lp.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && prevCutoutMode != null) {
+                    lp.layoutInDisplayCutoutMode = prevCutoutMode
+                }
                 window.attributes = lp
             }
             prevOrientation?.let { activity.requestedOrientation = it }
@@ -342,7 +357,8 @@ internal fun PlayerScreen(
             },
     ) {
         engine.VideoSurface(
-            Modifier.fillMaxSize().graphicsLayer {
+            // Base fits inside the display cutout (YouTube-like); pinch-zoom scales past it to fill.
+            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.displayCutout).graphicsLayer {
                 scaleX = zoomScale; scaleY = zoomScale; translationX = panX; translationY = panY
             },
         )
