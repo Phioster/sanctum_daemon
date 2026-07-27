@@ -74,6 +74,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.phioster.sanctumd.model.SeerrIssueItem
 import org.phioster.sanctumd.model.SeerrRequestItem
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material.icons.filled.OpenInNew
+import androidx.activity.compose.BackHandler
 import org.phioster.sanctumd.model.SeerrSearchItem
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.ui.DashboardViewModel
@@ -539,55 +546,86 @@ internal fun SeerrScreen(
     }
 
     mediaDetail?.let { d ->
-        AlertDialog(
-            onDismissRequest = { mediaDetail = null },
-            containerColor = Surface,
-            title = { Text(d.title, fontFamily = Mono, color = MatrixGreen, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
+        BackHandler { mediaDetail = null }
+        Box(Modifier.fillMaxSize().background(Black)) {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                // ── Banner: blurred poster backdrop + sharp poster + title ──
+                Box(Modifier.fillMaxWidth().height(320.dp)) {
                     if (d.posterUrl.isNotBlank()) {
                         AsyncImage(
-                            model = d.posterUrl,
-                            contentDescription = null,
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier.fillMaxWidth().heightIn(max = 260.dp).clip(RoundedCornerShape(8.dp)).background(Surface),
+                            model = d.posterUrl, contentDescription = null, contentScale = ContentScale.Crop,
+                            modifier = Modifier.matchParentSize().blur(28.dp).background(Surface),
                         )
-                        Spacer(Modifier.height(10.dp))
+                    } else {
+                        Box(Modifier.matchParentSize().background(Surface))
                     }
-                    val chips = buildList {
-                        addAll(d.facts)
-                        if (d.status.isNotBlank()) add("status" to d.status)
-                    }
-                    chips.chunked(2).forEach { pair ->
-                        Row(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
-                            pair.forEach { (k, v) ->
-                                Column(Modifier.weight(1f)) {
-                                    Text(v, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(k.uppercase(), fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 9.sp)
-                                }
+                    Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Black.copy(alpha = 0.35f), Black.copy(alpha = 0.65f), Black))))
+                    Row(Modifier.align(Alignment.BottomStart).padding(16.dp), verticalAlignment = Alignment.Bottom) {
+                        if (d.posterUrl.isNotBlank()) {
+                            AsyncImage(
+                                model = d.posterUrl, contentDescription = null, contentScale = ContentScale.Crop,
+                                modifier = Modifier.width(120.dp).height(180.dp).clip(RoundedCornerShape(8.dp)).background(Surface),
+                            )
+                            Spacer(Modifier.width(14.dp))
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text(d.title, fontFamily = Mono, color = MatrixGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            val quick = buildList { if (d.year.isNotBlank()) add(d.year); addAll(d.facts.take(2).map { it.second }) }.joinToString("  ·  ")
+                            if (quick.isNotBlank()) {
+                                Spacer(Modifier.height(6.dp))
+                                Text(quick, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                            if (pair.size == 1) Spacer(Modifier.weight(1f))
+                            if (d.status.isNotBlank()) {
+                                Spacer(Modifier.height(4.dp))
+                                Text(d.status, fontFamily = Mono, color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+                // ── Body ──
+                Column(Modifier.padding(horizontal = 16.dp)) {
+                    Spacer(Modifier.height(14.dp))
+                    PrimaryButton("request", Modifier.fillMaxWidth(), accent = accent) {
+                        val item = SeerrSearchItem(d.tmdbId, d.title, d.year, d.mediaType)
+                        mediaDetail = null
+                        confirmItem = item
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    SecondaryButton("open in Seerr", Modifier.fillMaxWidth(), accent = accent) {
+                        openExternal(context, seerrAppPackages, "${config.normalizedBaseUrl}${d.mediaType}/${d.tmdbId}")
+                    }
+                    if (d.facts.isNotEmpty()) {
+                        Spacer(Modifier.height(14.dp))
+                        d.facts.chunked(2).forEach { pair ->
+                            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                                pair.forEach { (k, v) ->
+                                    Column(Modifier.weight(1f)) {
+                                        Text(v, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(k.uppercase(), fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 9.sp)
+                                    }
+                                }
+                                if (pair.size == 1) Spacer(Modifier.weight(1f))
+                            }
                         }
                     }
                     if (d.genres.isNotBlank()) {
+                        Spacer(Modifier.height(2.dp))
                         Text(d.genres, fontFamily = Mono, color = accent.copy(alpha = 0.85f), fontSize = 11.sp)
                     }
                     if (d.overview.isNotBlank()) {
-                        Spacer(Modifier.height(10.dp))
-                        Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp)
+                        Spacer(Modifier.height(12.dp))
+                        Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp, lineHeight = 17.sp)
                     }
                     if (d.cast.isNotEmpty()) {
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(16.dp))
                         SectionHeader("CAST")
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(8.dp))
                         Row(Modifier.horizontalScroll(rememberScrollState())) {
                             d.cast.forEach { member ->
                                 Column(Modifier.width(84.dp).padding(end = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                     if (member.profileUrl.isNotBlank()) {
                                         AsyncImage(
-                                            model = member.profileUrl,
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Crop,
+                                            model = member.profileUrl, contentDescription = null, contentScale = ContentScale.Crop,
                                             modifier = Modifier.size(72.dp).clip(RoundedCornerShape(36.dp)).background(Surface),
                                         )
                                     } else {
@@ -602,24 +640,19 @@ internal fun SeerrScreen(
                             }
                         }
                     }
+                    Spacer(Modifier.height(24.dp))
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val item = SeerrSearchItem(d.tmdbId, d.title, d.year, d.mediaType)
-                    mediaDetail = null
-                    confirmItem = item
-                }) { Text("Request", fontFamily = Mono, color = MatrixGreen) }
-            },
-            dismissButton = {
-                Row {
-                    TextButton(onClick = { openExternal(context, seerrAppPackages, "${config.normalizedBaseUrl}${d.mediaType}/${d.tmdbId}") }) {
-                        Text("Open in Seerr", fontFamily = Mono, color = accent)
-                    }
-                    TextButton(onClick = { mediaDetail = null }) { Text("Close", fontFamily = Mono, color = MatrixGreen) }
+                Spacer(Modifier.navigationBarsPadding())
+            }
+            // ── Top bar overlay: back + open-in-Seerr ──
+            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { mediaDetail = null }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = { openExternal(context, seerrAppPackages, "${config.normalizedBaseUrl}${d.mediaType}/${d.tmdbId}") }) {
+                    Icon(Icons.Filled.OpenInNew, contentDescription = "Open in Seerr", tint = accent)
                 }
-            },
-        )
+            }
+        }
     }
 
     if (showStats) {
