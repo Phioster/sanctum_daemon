@@ -13,10 +13,12 @@ import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import android.os.Build
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.displayCutout
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
@@ -296,25 +298,37 @@ internal fun PlayerScreen(
     var panX by remember { mutableStateOf(0f) }
     var panY by remember { mutableStateOf(0f) }
 
+    // Symmetric margin around the video so it sits centered and clear of the camera cutout on BOTH
+    // sides (equal bars). Pinch-zoom scales past it to fill.
+    val cutoutPad = WindowInsets.displayCutout.asPaddingValues()
+    val ld = LocalLayoutDirection.current
+    val sidePad = maxOf(cutoutPad.calculateLeftPadding(ld), cutoutPad.calculateRightPadding(ld))
+    val vertPad = maxOf(cutoutPad.calculateTopPadding(), cutoutPad.calculateBottomPadding())
+
     Box(
         Modifier
             .fillMaxSize()
-            .background(Black)
+            .background(Color.Black) // pure black bars around the video (matches the letterbox)
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = { if (settingsOpen) settingsOpen = false else controlsVisible = !controlsVisible },
                     onDoubleTap = { zoomScale = 1f; panX = 0f; panY = 0f },
                 )
             }
-            // Two-finger pinch zoom + pan. Only consumes multi-touch, so single-finger swipes below
-            // (brightness/volume) still work.
-            .pointerInput(Unit) {
+            // One unified gesture loop: 2 fingers = pinch zoom + pan; 1 finger (overlay hidden) =
+            // brightness (left) / volume (right). Handling both here keeps them from fighting.
+            .pointerInput(controlsVisible, settingsOpen, swipeMagnitude, swipeMargin) {
                 awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val onLeft = down.position.x < size.width / 2f
+                    val marginPx = size.height * swipeMargin
+                    val dragAllowed = !(controlsVisible || settingsOpen) && down.position.y in marginPx..(size.height - marginPx)
+                    var pinching = false
                     do {
                         val event = awaitPointerEvent()
                         val pressed = event.changes.count { it.pressed }
                         if (pressed >= 2) {
+                            pinching = true
                             zoomScale = (zoomScale * event.calculateZoom()).coerceIn(1f, 4f)
                             if (zoomScale > 1f) {
                                 val pan = event.calculatePan()
@@ -326,39 +340,26 @@ internal fun PlayerScreen(
                                 panX = 0f; panY = 0f
                             }
                             event.changes.forEach { if (it.pressed) it.consume() }
+                        } else if (!pinching && dragAllowed && pressed == 1) {
+                            val change = event.changes.firstOrNull { it.pressed }
+                            val dy = change?.positionChange()?.y ?: 0f
+                            if (dy != 0f) {
+                                val frac = dy / size.height.coerceAtLeast(1) * swipeMagnitude
+                                if (onLeft) {
+                                    brightness = (brightness - frac).coerceIn(0.01f, 1f); applyBrightness(); adjustHud = true to brightness
+                                } else {
+                                    volume = (volume - frac).coerceIn(0f, 1f); applyVolume(); adjustHud = false to volume
+                                }
+                                change.consume()
+                            }
                         }
                     } while (event.changes.any { it.pressed })
                 }
-            }
-            // Brightness/volume swipes only while the overlay is hidden, so they never fight the controls.
-            .pointerInput(controlsVisible, settingsOpen, swipeMagnitude, swipeMargin) {
-                if (controlsVisible || settingsOpen) return@pointerInput
-                var onLeft = true
-                var active = true
-                detectVerticalDragGestures(
-                    onDragStart = { offset ->
-                        onLeft = offset.x < size.width / 2f
-                        val marginPx = size.height * swipeMargin
-                        active = offset.y in marginPx..(size.height - marginPx)
-                    },
-                    onVerticalDrag = { change, dragAmount ->
-                        if (!active) return@detectVerticalDragGestures
-                        change.consume()
-                        val frac = dragAmount / size.height.coerceAtLeast(1) * swipeMagnitude
-                        if (onLeft) {
-                            brightness = (brightness - frac).coerceIn(0.01f, 1f)
-                            applyBrightness(); adjustHud = true to brightness
-                        } else {
-                            volume = (volume - frac).coerceIn(0f, 1f)
-                            applyVolume(); adjustHud = false to volume
-                        }
-                    },
-                )
             },
     ) {
         engine.VideoSurface(
-            // Base fits inside the display cutout (YouTube-like); pinch-zoom scales past it to fill.
-            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.displayCutout).graphicsLayer {
+            // Base sits centered with equal black bars, clear of the cutout; pinch-zoom scales past it.
+            Modifier.fillMaxSize().padding(horizontal = sidePad, vertical = vertPad).graphicsLayer {
                 scaleX = zoomScale; scaleY = zoomScale; translationX = panX; translationY = panY
             },
         )
