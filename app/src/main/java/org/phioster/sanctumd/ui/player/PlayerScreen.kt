@@ -293,10 +293,9 @@ internal fun PlayerScreen(
     }
     DisposableEffect(Unit) { onDispose { engine.release() } }
 
-    // Pinch-to-zoom state for the video surface (double-tap resets).
+    // Pinch-to-zoom: snaps to fixed steps on release, stays centered (no free panning). Double-tap resets.
     var zoomScale by remember { mutableStateOf(1f) }
-    var panX by remember { mutableStateOf(0f) }
-    var panY by remember { mutableStateOf(0f) }
+    val zoomStops = remember { floatArrayOf(1f, 1.5f, 2f, 3f, 4f) }
 
     // Symmetric margin around the video so it sits centered and clear of the camera cutout on BOTH
     // sides (equal bars). Pinch-zoom scales past it to fill.
@@ -312,7 +311,7 @@ internal fun PlayerScreen(
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = { if (settingsOpen) settingsOpen = false else controlsVisible = !controlsVisible },
-                    onDoubleTap = { zoomScale = 1f; panX = 0f; panY = 0f },
+                    onDoubleTap = { zoomScale = 1f },
                 )
             }
             // One unified gesture loop: 2 fingers = pinch zoom + pan; 1 finger (overlay hidden) =
@@ -330,15 +329,6 @@ internal fun PlayerScreen(
                         if (pressed >= 2) {
                             pinching = true
                             zoomScale = (zoomScale * event.calculateZoom()).coerceIn(1f, 4f)
-                            if (zoomScale > 1f) {
-                                val pan = event.calculatePan()
-                                val maxX = size.width * (zoomScale - 1f) / 2f
-                                val maxY = size.height * (zoomScale - 1f) / 2f
-                                panX = (panX + pan.x).coerceIn(-maxX, maxX)
-                                panY = (panY + pan.y).coerceIn(-maxY, maxY)
-                            } else {
-                                panX = 0f; panY = 0f
-                            }
                             event.changes.forEach { if (it.pressed) it.consume() }
                         } else if (!pinching && dragAllowed && pressed == 1) {
                             val change = event.changes.firstOrNull { it.pressed }
@@ -354,13 +344,19 @@ internal fun PlayerScreen(
                             }
                         }
                     } while (event.changes.any { it.pressed })
+                    // Snap the zoom to the nearest fixed step on release, so it "latches" instead of
+                    // sitting at an arbitrary level.
+                    if (pinching) {
+                        zoomScale = zoomStops.minByOrNull { kotlin.math.abs(it - zoomScale) } ?: 1f
+                    }
                 }
             },
     ) {
         engine.VideoSurface(
-            // Base sits centered with equal black bars, clear of the cutout; pinch-zoom scales past it.
+            // Base sits centered with equal black bars, clear of the cutout; pinch-zoom scales it,
+            // snapping to fixed steps; the video stays centered (no free panning).
             Modifier.fillMaxSize().padding(horizontal = sidePad, vertical = vertPad).graphicsLayer {
-                scaleX = zoomScale; scaleY = zoomScale; translationX = panX; translationY = panY
+                scaleX = zoomScale; scaleY = zoomScale
             },
         )
 

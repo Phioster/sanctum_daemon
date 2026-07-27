@@ -81,6 +81,13 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.foundation.layout.aspectRatio
+import org.phioster.sanctumd.ui.theme.SurfaceHi
 import org.phioster.sanctumd.model.SeerrSearchItem
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.ui.DashboardViewModel
@@ -133,6 +140,7 @@ internal fun SeerrScreen(
     var genres by remember { mutableStateOf<List<Pair<Int, String>>?>(null) }
     var genreItems by remember { mutableStateOf<Map<Int, List<org.phioster.sanctumd.model.SeerrDiscoverItem>>>(emptyMap()) }
     var genreType by remember { mutableStateOf("movies") } // "movies" | "tv" — which genre catalog the rows use
+    var category by remember { mutableStateOf<Triple<Int, String, String>?>(null) } // (genreId, name, kind) for the full-screen category view
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var refreshing by remember { mutableStateOf(false) }
@@ -400,7 +408,13 @@ internal fun SeerrScreen(
                                     else -> gs.forEach { (id, name) ->
                                         val its = genreItems[id]
                                         if (!its.isNullOrEmpty()) {
-                                            item(key = "genre-$id") { SeerrGenreSection(name, its, accent) { di -> openDiscoverDetail(di) } }
+                                            item(key = "genre-$id") {
+                                                SeerrGenreSection(
+                                                    name = name, items = its, accent = accent,
+                                                    onSeeAll = { category = Triple(id, name, genreType) },
+                                                    onOpen = { di -> openDiscoverDetail(di) },
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -655,6 +669,70 @@ internal fun SeerrScreen(
         }
     }
 
+    category?.let { (genreId, catName, catKind) ->
+        BackHandler { category = null }
+        var sort by remember(genreId, catKind) { mutableStateOf("popularity.desc") }
+        var catItems by remember(genreId, catKind) { mutableStateOf<List<org.phioster.sanctumd.model.SeerrDiscoverItem>>(emptyList()) }
+        var catPage by remember(genreId, catKind) { mutableStateOf(1) }
+        var catLoading by remember(genreId, catKind) { mutableStateOf(false) }
+        var catEnd by remember(genreId, catKind) { mutableStateOf(false) }
+        val gridState = rememberLazyGridState()
+        val newestSort = if (catKind == "tv") "first_air_date.desc" else "release_date.desc"
+        LaunchedEffect(sort) {
+            catItems = emptyList(); catPage = 1; catEnd = false; catLoading = true
+            val first = runCatching { vm.seerrDiscoverGenreOf(config, catKind, genreId, sort, 1) }.getOrDefault(emptyList())
+            catItems = first.distinctBy { it.tmdbId }; catLoading = false; if (first.isEmpty()) catEnd = true
+        }
+        LaunchedEffect(gridState, sort) {
+            snapshotFlow { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }.collect { last ->
+                if (!catLoading && !catEnd && catItems.isNotEmpty() && last >= catItems.size - 6) {
+                    catLoading = true
+                    val next = catPage + 1
+                    val more = runCatching { vm.seerrDiscoverGenreOf(config, catKind, genreId, sort, next) }.getOrDefault(emptyList())
+                    if (more.isEmpty()) catEnd = true else { catItems = (catItems + more).distinctBy { it.tmdbId }; catPage = next }
+                    catLoading = false
+                }
+            }
+        }
+        // Hidden (but state kept) while a media detail is open on top — the detail is composed
+        // earlier in the tree, so it would otherwise draw behind this full-screen grid.
+        if (mediaDetail == null) Box(Modifier.fillMaxSize().background(Black)) {
+            Column(Modifier.fillMaxSize()) {
+                Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { category = null }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
+                    Text(catName.uppercase(), fontFamily = Mono, color = MatrixGreen, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    Text(if (catKind == "tv") "series" else "movies", fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 11.sp, modifier = Modifier.padding(end = 10.dp))
+                }
+                Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("popularity.desc" to "Popular", newestSort to "Newest", "vote_average.desc" to "Top rated").forEach { (v, label) ->
+                        val sel = sort == v
+                        Text(
+                            label, fontFamily = Mono, color = if (sel) Black else MatrixGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(if (sel) accent else SurfaceHi).clickable { sort = v }.padding(horizontal = 12.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                Box(Modifier.fillMaxSize()) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        state = gridState,
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        gridItems(catItems, key = { it.tmdbId }) { di -> SeerrCategoryPoster(di) { openDiscoverDetail(di) } }
+                    }
+                    if (catLoading && catItems.isEmpty()) {
+                        CircularProgressIndicator(color = MatrixGreen, modifier = Modifier.align(Alignment.Center))
+                    }
+                    if (!catLoading && catItems.isEmpty()) {
+                        Text("nothing here", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 12.sp, modifier = Modifier.align(Alignment.Center))
+                    }
+                }
+            }
+        }
+    }
+
     if (showStats) {
         AlertDialog(
             onDismissRequest = { showStats = false },
@@ -859,17 +937,22 @@ internal fun SeerrDiscoverRow(item: org.phioster.sanctumd.model.SeerrDiscoverIte
     }
 }
 
-/** One genre's horizontal poster row in the Discover "genres" view. */
+/** One genre's horizontal poster row in the Discover "genres" view, with a "see all ›" that opens
+ *  the full-screen category view. */
 @Composable
 private fun SeerrGenreSection(
     name: String,
     items: List<org.phioster.sanctumd.model.SeerrDiscoverItem>,
     accent: Color,
+    onSeeAll: () -> Unit,
     onOpen: (org.phioster.sanctumd.model.SeerrDiscoverItem) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Text(name.uppercase(), fontFamily = Mono, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(6.dp))
+        Row(Modifier.fillMaxWidth().clickable { onSeeAll() }.padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(name.uppercase(), fontFamily = Mono, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.weight(1f))
+            Text("see all ›", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
+        }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(items, key = { it.tmdbId }) { di -> SeerrGenrePoster(di, onOpen) }
         }
@@ -891,5 +974,19 @@ private fun SeerrGenrePoster(item: org.phioster.sanctumd.model.SeerrDiscoverItem
         }
         Spacer(Modifier.height(4.dp))
         Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** A poster tile that fills its grid cell (2:3 poster + title) for the full-screen category grid. */
+@Composable
+private fun SeerrCategoryPoster(item: org.phioster.sanctumd.model.SeerrDiscoverItem, onOpen: () -> Unit) {
+    Column(Modifier.clickable { onOpen() }) {
+        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(6.dp)).background(Surface)) {
+            if (item.posterUrl.isNotBlank()) {
+                AsyncImage(model = item.posterUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

@@ -125,8 +125,8 @@ internal interface SeerrApi {
     @GET("api/v1/search") suspend fun searchRaw(@Query("query") query: String): JsonObject
     @POST("api/v1/request") suspend fun createRequest(@Body body: JsonObject): Response<ResponseBody>
     @GET("api/v1/discover/trending") suspend fun trending(@Query("page") page: Int = 1): JsonObject
-    @GET("api/v1/discover/movies") suspend fun discoverMovies(@Query("page") page: Int = 1, @Query("genre") genre: Int? = null): JsonObject
-    @GET("api/v1/discover/tv") suspend fun discoverTv(@Query("page") page: Int = 1, @Query("genre") genre: Int? = null): JsonObject
+    @GET("api/v1/discover/movies") suspend fun discoverMovies(@Query("page") page: Int = 1, @Query("genre") genre: Int? = null, @Query("sortBy") sortBy: String? = null): JsonObject
+    @GET("api/v1/discover/tv") suspend fun discoverTv(@Query("page") page: Int = 1, @Query("genre") genre: Int? = null, @Query("sortBy") sortBy: String? = null): JsonObject
     @GET("api/v1/discover/watchlist") suspend fun watchlist(@Query("page") page: Int = 1): JsonObject
     @GET("api/v1/issue/{id}") suspend fun issueDetail(@Path("id") id: Int): JsonObject
     @POST("api/v1/issue/{id}/comment") suspend fun addComment(@Path("id") id: Int, @Body body: JsonObject): Response<ResponseBody>
@@ -299,9 +299,19 @@ suspend fun seerrGenres(config: ServiceConfig, kind: String): List<Pair<Int, Str
 }
 
 /** Discover [kind] = "movies" | "tv" filtered to one [genreId]. */
-suspend fun seerrDiscoverGenre(config: ServiceConfig, kind: String, genreId: Int): List<SeerrDiscoverItem> = withContext(Dispatchers.IO) {
+suspend fun seerrDiscoverGenre(
+    config: ServiceConfig,
+    kind: String,
+    genreId: Int,
+    sortBy: String? = null,
+    pageNum: Int = 1,
+): List<SeerrDiscoverItem> = withContext(Dispatchers.IO) {
     val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
-    val (page, def) = if (kind == "tv") api.discoverTv(genre = genreId) to "tv" else api.discoverMovies(genre = genreId) to "movie"
+    val (page, def) = if (kind == "tv") {
+        api.discoverTv(page = pageNum, genre = genreId, sortBy = sortBy) to "tv"
+    } else {
+        api.discoverMovies(page = pageNum, genre = genreId, sortBy = sortBy) to "movie"
+    }
     parseDiscoverItems(page, def)
 }
 

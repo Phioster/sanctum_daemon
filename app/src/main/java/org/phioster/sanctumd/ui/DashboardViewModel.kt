@@ -859,8 +859,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.net.seerrWatchlist(config)
     suspend fun seerrGenresOf(config: ServiceConfig, kind: String): List<Pair<Int, String>> =
         org.phioster.sanctumd.net.seerrGenres(config, kind)
-    suspend fun seerrDiscoverGenreOf(config: ServiceConfig, kind: String, genreId: Int): List<org.phioster.sanctumd.model.SeerrDiscoverItem> =
-        org.phioster.sanctumd.net.seerrDiscoverGenre(config, kind, genreId).let { if (hideAdult.value) it.filterNot { d -> d.adult } else it }
+    suspend fun seerrDiscoverGenreOf(config: ServiceConfig, kind: String, genreId: Int, sortBy: String? = null, page: Int = 1): List<org.phioster.sanctumd.model.SeerrDiscoverItem> =
+        org.phioster.sanctumd.net.seerrDiscoverGenre(config, kind, genreId, sortBy, page).let { if (hideAdult.value) it.filterNot { d -> d.adult } else it }
     suspend fun seerrMediaDetailById(config: ServiceConfig, tmdbId: Int, mediaType: String): org.phioster.sanctumd.model.SeerrMediaDetail =
         seerrMediaDetail(config, tmdbId, mediaType)
     suspend fun seerrStats(config: ServiceConfig): List<Pair<String, String>> = seerrRequestStats(config)
