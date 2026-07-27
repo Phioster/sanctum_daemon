@@ -350,7 +350,7 @@ internal fun PlayerScreen(
                                 } else {
                                     volume = (volume - frac).coerceIn(0f, 1f); applyVolume(); adjustHud = false to volume
                                 }
-                                change.consume()
+                                change?.consume()
                             }
                         }
                     } while (event.changes.any { it.pressed })
