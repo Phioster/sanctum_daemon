@@ -130,7 +130,10 @@ internal fun ServiceCard(
                 ServiceLogo(config.type, 30.dp)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(config.label, fontFamily = Mono, fontWeight = FontWeight.Bold, color = accent, fontSize = 18.sp)
+                    Text(
+                        if (config.pinned) "★ ${config.label}" else config.label,
+                        fontFamily = Mono, fontWeight = FontWeight.Bold, color = accent, fontSize = 18.sp,
+                    )
                     // The type line is noise when the service is simply called after its type
                     // (the common case) — only show it when the label says something else.
                     if (!config.label.equals(config.type.label, ignoreCase = true)) {
@@ -202,7 +205,10 @@ internal fun ServiceRowCompact(
         ServiceLogo(config.type, 22.dp)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(config.label, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                if (config.pinned) "★ ${config.label}" else config.label,
+                fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
             val sub = when {
                 status == null || status.isLoading -> "connecting…"
                 status.ok -> status.stats.joinToString("  ") { "${it.second} ${it.first.lowercase()}" }
@@ -214,9 +220,6 @@ internal fun ServiceRowCompact(
                 color = if (status?.ok == false && !status.isLoading) ErrRed else accent.copy(alpha = 0.8f),
                 fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
-        }
-        if (config.pinned) {
-            Text("★", fontFamily = Mono, color = accent, fontSize = 12.sp, modifier = Modifier.padding(end = 6.dp))
         }
         Box(
             Modifier.size(8.dp).clip(RoundedCornerShape(4.dp))
@@ -253,7 +256,10 @@ internal fun ServiceTile(
         ) {
             ServiceLogo(config.type, 30.dp)
             Spacer(Modifier.height(8.dp))
-            Text(config.label, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                if (config.pinned) "★ ${config.label}" else config.label,
+                fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
             Spacer(Modifier.height(8.dp))
             // The same key numbers the card view shows, scaled down to fit a tile.
             when {
@@ -284,11 +290,9 @@ internal fun ServiceTile(
                         ),
                 )
                 Spacer(Modifier.width(5.dp))
-                val typeLine = if (config.label.equals(config.type.label, ignoreCase = true)) "" else config.type.label
-                Text(
-                    listOf(if (config.pinned) "★" else "", typeLine).filter { it.isNotBlank() }.joinToString(" "),
-                    fontFamily = Mono, color = accent, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
+                if (!config.label.equals(config.type.label, ignoreCase = true)) {
+                    Text(config.type.label, fontFamily = Mono, color = accent, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
     }

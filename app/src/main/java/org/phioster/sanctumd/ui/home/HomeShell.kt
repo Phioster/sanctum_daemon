@@ -466,7 +466,7 @@ internal fun ServicesContent(
                             .padding(horizontal = 10.dp, vertical = 5.dp),
                     )
                     androidx.compose.material3.DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
-                        listOf("cards", "compact", "grid").forEach { key ->
+                        listOf("cards", "compact", "grid", "mixed").forEach { key ->
                             androidx.compose.material3.DropdownMenuItem(
                                 text = {
                                     Text(
@@ -503,7 +503,14 @@ internal fun ServicesContent(
                 }
                 if (isCollapsed) return@forEach
 
-                when (viewMode) {
+                // "mixed": the pinned section keeps full-width cards, everything else is tiles — so a
+                // service you care about stays readable at a glance while the rest stays compact.
+                val effectiveMode = when {
+                    viewMode != "mixed" -> viewMode
+                    section == PINNED_SECTION -> "cards"
+                    else -> "grid"
+                }
+                when (effectiveMode) {
                     "grid" -> items.chunked(2).forEach { pair ->
                         Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             pair.forEach { svc ->
