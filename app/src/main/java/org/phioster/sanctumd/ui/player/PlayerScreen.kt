@@ -141,6 +141,8 @@ internal fun PlayerScreen(
     var source by remember { mutableStateOf<PlaybackSource?>(null) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var state by remember { mutableStateOf(PlaybackState()) }
+    var videoAspect by remember { mutableStateOf(0f) } // video width/height, for the zoom-to-fill step
+    var boxSize by remember { mutableStateOf(IntSize.Zero) }
     var controlsVisible by remember { mutableStateOf(true) }
     var scrubbing by remember { mutableStateOf(false) }
     var scrubPos by remember { mutableStateOf(0f) }
@@ -295,8 +297,6 @@ internal fun PlayerScreen(
 
     // Pinch-to-zoom: snaps to steps on release, stays centered (no free panning). Double-tap resets.
     var zoomScale by remember { mutableStateOf(1f) }
-    var videoAspect by remember { mutableStateOf(0f) }
-    var boxSize by remember { mutableStateOf(IntSize.Zero) }
     // Steps: fit (1x) → "fill" (scales the video to cover the whole screen, cropping the overflow —
     // YouTube-style, for content whose aspect doesn't match the phone) → one bigger step. When the
     // video aspect isn't known yet, fall back to plain multiples.
