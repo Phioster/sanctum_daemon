@@ -16,6 +16,7 @@ data class DownloadEntry(
     val downloadedBytes: Long = 0,
     val runTimeTicks: Long = 0,
     val mediaType: String = "Video", // "Video" | "Audio" — decides offline playback path
+    val maxBitrate: Int = 0, // >0 = fetch a transcoded, smaller copy at this bitrate (bps)
     val state: String = STATE_QUEUED,
     val error: String = "",
     val addedAt: Long = 0,

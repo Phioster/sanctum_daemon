@@ -186,18 +186,38 @@ data class DownloadPlan(
  * never a transcode). Token travels in a header. Container + size come from the media source so the
  * download can be named and progress-tracked.
  */
-suspend fun jellyfinDownloadPlan(config: ServiceConfig, itemId: String): DownloadPlan = withContext(Dispatchers.IO) {
+suspend fun jellyfinDownloadPlan(config: ServiceConfig, itemId: String, maxBitrate: Int = 0): DownloadPlan = withContext(Dispatchers.IO) {
     val token = jellyfinAccessToken(config)
     val api = jfPlaybackApi(config, token)
     val uid = jellyfinResolveUserId(config, jfApi(config, token))
-    val info = api.playbackInfo(itemId, uid, playbackInfoBody(uid, null))
+    val info = api.playbackInfo(itemId, uid, playbackInfoBody(uid, maxBitrate.takeIf { it > 0 }))
     val ms = info.MediaSources.firstOrNull() ?: error("no media source for item $itemId")
     val base = config.normalizedBaseUrl
+    val headers = mapOf("X-Emby-Token" to token) + config.customHeaders
+    if (maxBitrate <= 0) {
+        return@withContext DownloadPlan(
+            url = "${base}Videos/$itemId/stream?static=true&mediaSourceId=${ms.Id}",
+            headers = headers,
+            container = ms.Container?.substringBefore(',')?.takeIf { it.isNotBlank() } ?: "mkv",
+            sizeBytes = ms.Size ?: 0L,
+        )
+    }
+    // Smaller copy: a progressive MP4 transcode (NOT the HLS playlist — that would arrive as
+    // segments we'd have to stitch). The server streams it as one response, but its length is
+    // unknown up front, so the size is estimated from bitrate × runtime for the progress bar.
+    val runtimeSec = (ms.RunTimeTicks ?: 0L) / 10_000_000.0
+    val height = when {
+        maxBitrate >= 8_000_000 -> 1080
+        maxBitrate >= 4_000_000 -> 720
+        else -> 480
+    }
     DownloadPlan(
-        url = "${base}Videos/$itemId/stream?static=true&mediaSourceId=${ms.Id}",
-        headers = mapOf("X-Emby-Token" to token) + config.customHeaders,
-        container = ms.Container?.substringBefore(',')?.takeIf { it.isNotBlank() } ?: "mkv",
-        sizeBytes = ms.Size ?: 0L,
+        url = "${base}Videos/$itemId/stream.mp4?mediaSourceId=${ms.Id}" +
+            "&videoCodec=h264&audioCodec=aac&maxAudioChannels=2" +
+            "&videoBitRate=$maxBitrate&maxHeight=$height&static=false",
+        headers = headers,
+        container = "mp4",
+        sizeBytes = if (runtimeSec > 0) (maxBitrate / 8.0 * runtimeSec).toLong() else 0L,
     )
 }
 

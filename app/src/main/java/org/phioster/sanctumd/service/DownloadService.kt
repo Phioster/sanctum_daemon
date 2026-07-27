@@ -173,7 +173,7 @@ class DownloadService : Service() {
 
         val dir = File(filesDir, "downloads").apply { mkdirs() }
         try {
-            val plan = if (entry.mediaType == "Audio") jellyfinAudioDownloadPlan(config, id) else jellyfinDownloadPlan(config, id)
+            val plan = if (entry.mediaType == "Audio") jellyfinAudioDownloadPlan(config, id) else jellyfinDownloadPlan(config, id, entry.maxBitrate)
             val file = File(dir, "$id.${plan.container}")
             val reqB = Request.Builder().url(plan.url)
             plan.headers.forEach { (k, v) -> if (v.isNotBlank()) reqB.header(k, v) }
@@ -332,10 +332,11 @@ class DownloadService : Service() {
         private val downloadJson = Json { ignoreUnknownKeys = true }
 
         /** Queue a download. [posterUrl] is remote here; the service caches it locally. */
-        fun enqueue(context: Context, serverId: String, itemId: String, name: String, subtitle: String, posterUrl: String, runTimeTicks: Long, mediaType: String = "Video") {
+        fun enqueue(context: Context, serverId: String, itemId: String, name: String, subtitle: String, posterUrl: String, runTimeTicks: Long, mediaType: String = "Video", maxBitrate: Int = 0) {
             val entry = DownloadEntry(
                 itemId = itemId, serverId = serverId, name = name, subtitle = subtitle,
                 posterFile = posterUrl, runTimeTicks = runTimeTicks, mediaType = mediaType,
+                maxBitrate = maxBitrate,
             )
             val i = Intent(context, DownloadService::class.java).apply {
                 action = ACTION_ENQUEUE

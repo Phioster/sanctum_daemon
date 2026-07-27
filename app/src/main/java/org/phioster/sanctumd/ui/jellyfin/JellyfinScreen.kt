@@ -208,6 +208,7 @@ internal fun JellyfinScreen(
     var browseFilter by remember { mutableStateOf("") }
     var favorites by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
     var castTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
+    var downloadQuality by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
 
     /** Drop finished downloads whose item is watched on the server, when the user asked for that. */
     suspend fun sweepWatchedDownloads() {
@@ -1042,6 +1043,39 @@ internal fun JellyfinScreen(
         )
     }
 
+    downloadQuality?.let { d ->
+        // Original file vs. a transcoded, smaller copy. The server re-encodes on the fly for the
+        // capped options, so the size shown on the card is an estimate until it finishes.
+        AlertDialog(
+            onDismissRequest = { downloadQuality = null },
+            containerColor = Surface,
+            title = { Text("download quality", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    listOf(
+                        0 to "original file",
+                        8_000_000 to "1080p  ·  smaller",
+                        4_000_000 to "720p  ·  much smaller",
+                        1_500_000 to "480p  ·  smallest",
+                    ).forEach { (bitrate, label) ->
+                        Text(
+                            label,
+                            fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp,
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                downloadQuality = null
+                                org.phioster.sanctumd.service.DownloadService.enqueue(
+                                    context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L, "Video", bitrate,
+                                )
+                                actionMsg = "download queued"
+                            }.padding(vertical = 10.dp),
+                        )
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { downloadQuality = null }) { Text("cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
     castTarget?.let { d ->
         // Hand the item to another Jellyfin client. Only sessions that accept remote control and
         // aren't this phone are useful here.
@@ -1368,7 +1402,7 @@ internal fun JellyfinScreen(
                             mediaDetail = null; playRequest = org.phioster.sanctumd.ui.player.PlayRequest(d.id, d.name)
                         }
                         Spacer(Modifier.height(8.dp))
-                        val startDownload = { org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L) }
+                        val startDownload = { downloadQuality = d }
                         when (dl?.state) {
                             org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
                                 Hint("✓  downloaded — play it from the DOWNLOADS row", Modifier.padding(vertical = 8.dp))
