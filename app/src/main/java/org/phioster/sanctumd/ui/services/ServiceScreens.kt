@@ -27,6 +27,12 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -94,6 +100,7 @@ internal fun friendlyStatusError(raw: String?): String {
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun ServiceCard(
     config: ServiceConfig,
@@ -105,11 +112,18 @@ internal fun ServiceCard(
     onRemove: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
+    onLongPress: (() -> Unit)? = null,
+    onPin: (() -> Unit)? = null,
+    onGroup: (() -> Unit)? = null,
+    dragHandle: (@Composable () -> Unit)? = null,
 ) {
     val accent = Color(config.type.accent)
     var menuOpen by remember { mutableStateOf(false) }
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onOpen() },
+        modifier = Modifier.fillMaxWidth().combinedClickable(
+            onClick = onOpen,
+            onLongClick = { onLongPress?.invoke() },
+        ),
         colors = CardDefaults.cardColors(containerColor = Surface),
     ) {
         Column(Modifier.padding(16.dp)) {
@@ -127,6 +141,7 @@ internal fun ServiceCard(
                 }
                 Text(tag, fontFamily = Mono, color = if (status == null || status.isLoading || status.ok) MatrixGreen else ErrRed)
                 Spacer(Modifier.width(4.dp))
+                dragHandle?.invoke()
                 Box {
                     IconButton(onClick = { menuOpen = true }) {
                         Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen.copy(alpha = 0.6f))
@@ -134,6 +149,12 @@ internal fun ServiceCard(
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                         if (!isFirst) DropdownMenuItem(text = { Text("Move up", fontFamily = Mono) }, onClick = { menuOpen = false; onMoveUp() })
                         if (!isLast) DropdownMenuItem(text = { Text("Move down", fontFamily = Mono) }, onClick = { menuOpen = false; onMoveDown() })
+                        onPin?.let { pin ->
+                            DropdownMenuItem(text = { Text(if (config.pinned) "Unpin" else "Pin to top", fontFamily = Mono) }, onClick = { menuOpen = false; pin() })
+                        }
+                        onGroup?.let { grp ->
+                            DropdownMenuItem(text = { Text("Group…", fontFamily = Mono) }, onClick = { menuOpen = false; grp() })
+                        }
                         DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { menuOpen = false; onEdit() })
                         DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { menuOpen = false; onRemove() })
                     }
@@ -155,6 +176,101 @@ internal fun ServiceCard(
             status?.note?.let {
                 Spacer(Modifier.height(8.dp))
                 Text(it, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
+            }
+        }
+    }
+}
+
+/** One-line variant of [ServiceCard] for the "compact" list view: logo, label, stats, status. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+internal fun ServiceRowCompact(
+    config: ServiceConfig,
+    status: ServiceStatus?,
+    onOpen: () -> Unit,
+    onLongPress: () -> Unit,
+    dragHandle: (@Composable () -> Unit)? = null,
+) {
+    val accent = Color(config.type.accent)
+    Row(
+        Modifier.fillMaxWidth()
+            .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ServiceLogo(config.type, 22.dp)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(config.label, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val sub = when {
+                status == null || status.isLoading -> "connecting…"
+                status.ok -> status.stats.joinToString("  ") { "${it.second} ${it.first.lowercase()}" }
+                else -> friendlyStatusError(status.error)
+            }
+            Text(
+                sub,
+                fontFamily = Mono,
+                color = if (status?.ok == false && !status.isLoading) ErrRed else accent.copy(alpha = 0.8f),
+                fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (config.pinned) {
+            Text("★", fontFamily = Mono, color = accent, fontSize = 12.sp, modifier = Modifier.padding(end = 6.dp))
+        }
+        Box(
+            Modifier.size(8.dp).clip(RoundedCornerShape(4.dp))
+                .background(
+                    when {
+                        status == null || status.isLoading -> MatrixGreen.copy(alpha = 0.35f)
+                        status.ok -> MatrixGreen
+                        else -> ErrRed
+                    },
+                ),
+        )
+        dragHandle?.invoke()
+    }
+    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+}
+
+/** Square tile for the "grid" list view: logo, label, status dot. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+internal fun ServiceTile(
+    config: ServiceConfig,
+    status: ServiceStatus?,
+    modifier: Modifier = Modifier,
+    onOpen: () -> Unit,
+    onLongPress: () -> Unit,
+) {
+    val accent = Color(config.type.accent)
+    Card(
+        modifier = modifier.combinedClickable(onClick = onOpen, onLongClick = onLongPress),
+        colors = CardDefaults.cardColors(containerColor = Surface),
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(vertical = 14.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            ServiceLogo(config.type, 30.dp)
+            Spacer(Modifier.height(8.dp))
+            Text(config.label, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(7.dp).clip(RoundedCornerShape(4.dp))
+                        .background(
+                            when {
+                                status == null || status.isLoading -> MatrixGreen.copy(alpha = 0.35f)
+                                status.ok -> MatrixGreen
+                                else -> ErrRed
+                            },
+                        ),
+                )
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    if (config.pinned) "★ ${config.type.label}" else config.type.label,
+                    fontFamily = Mono, color = accent, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }

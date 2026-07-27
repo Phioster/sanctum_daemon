@@ -1,5 +1,14 @@
 package org.phioster.sanctumd.ui.home
 
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -403,34 +412,304 @@ internal fun ServicesContent(
 ) {
     val services by vm.services.collectAsState()
     val statuses by vm.statuses.collectAsState()
+    val viewMode by vm.serviceViewMode.collectAsState()
+    val collapsed by vm.collapsedGroups.collectAsState()
     val scope = rememberCoroutineScope()
     var refreshing by remember { mutableStateOf(false) }
+    // Long-press target: its quick actions open in a sheet. Group editor target: a rename dialog.
+    var actionsFor by remember { mutableStateOf<ServiceConfig?>(null) }
+    var groupFor by remember { mutableStateOf<ServiceConfig?>(null) }
+    // Drag state: which service is being dragged and how far it has travelled since the last swap.
+    var dragId by remember { mutableStateOf<String?>(null) }
+    var dragOffset by remember { mutableStateOf(0f) }
+    var rowHeight by remember { mutableStateOf(0) }
+
+    // Pinned first, then groups alphabetically with the ungrouped ones last; the order inside each
+    // section stays the user's own (that's what dragging edits).
+    val pinned = services.filter { it.pinned }
+    val rest = services.filterNot { it.pinned }
+    val groups: List<Pair<String, List<ServiceConfig>>> = buildList {
+        if (pinned.isNotEmpty()) add(PINNED_SECTION to pinned)
+        rest.filter { it.group.isNotBlank() }
+            .groupBy { it.group }
+            .toSortedMap(String.CASE_INSENSITIVE_ORDER)
+            .forEach { (name, list) -> add(name to list) }
+        rest.filter { it.group.isBlank() }.takeIf { it.isNotEmpty() }?.let {
+            add((if (isEmpty()) "" else UNGROUPED_SECTION) to it)
+        }
+    }
+
+    /** Swap the dragged service with its neighbour inside the section it is being dragged in. */
+    fun dragBy(section: List<ServiceConfig>, id: String, steps: Int) {
+        val idx = section.indexOfFirst { it.id == id }
+        val target = section.getOrNull(idx + steps) ?: return
+        vm.moveServiceTo(id, target.id)
+    }
+
     PullToRefreshBox(
         isRefreshing = refreshing,
         onRefresh = { scope.launch { refreshing = true; vm.refreshAllSuspend(); refreshing = false } },
         modifier = Modifier.fillMaxSize(),
     ) {
-    Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
-        if (services.isEmpty()) {
-            Spacer(Modifier.height(48.dp))
-            Text("no services yet\n\ntap + to add a service", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 14.sp)
-        }
-        services.forEachIndexed { index, svc ->
-            ServiceCard(
-                config = svc,
-                status = statuses[svc.id],
-                isFirst = index == 0,
-                isLast = index == services.lastIndex,
-                onOpen = { onOpen(svc) },
-                onEdit = { onEdit(svc) },
-                onRemove = { vm.removeService(svc.id) },
-                onMoveUp = { vm.moveService(svc.id, -1) },
-                onMoveDown = { vm.moveService(svc.id, +1) },
-            )
-            Spacer(Modifier.height(12.dp))
+        Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
+            if (services.isEmpty()) {
+                Spacer(Modifier.height(48.dp))
+                Text("no services yet\n\ntap + to add a service", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 14.sp)
+            } else {
+                // View switcher.
+                Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("cards" to "cards", "compact" to "compact", "grid" to "grid").forEach { (key, label) ->
+                        val on = viewMode == key
+                        Text(
+                            label,
+                            fontFamily = Mono, fontSize = 11.sp,
+                            color = if (on) Black else MatrixGreen,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(if (on) MatrixGreen else Color.Transparent)
+                                .border(1.dp, MatrixGreen.copy(alpha = if (on) 0f else 0.3f), RoundedCornerShape(6.dp))
+                                .clickable { vm.setServiceViewMode(key) }
+                                .padding(horizontal = 10.dp, vertical = 5.dp),
+                        )
+                    }
+                }
+            }
+
+            groups.forEach { (section, items) ->
+                val isCollapsed = section in collapsed
+                if (section.isNotEmpty()) {
+                    Row(
+                        Modifier.fillMaxWidth().clickable { vm.toggleGroupCollapsed(section) }.padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(if (isCollapsed) "▸" else "▾", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            section.uppercase(),
+                            fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("(${items.size})", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.4f), fontSize = 11.sp)
+                    }
+                }
+                if (isCollapsed) return@forEach
+
+                when (viewMode) {
+                    "grid" -> items.chunked(2).forEach { pair ->
+                        Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            pair.forEach { svc ->
+                                ServiceTile(
+                                    config = svc,
+                                    status = statuses[svc.id],
+                                    modifier = Modifier.weight(1f),
+                                    onOpen = { onOpen(svc) },
+                                    onLongPress = { actionsFor = svc },
+                                )
+                            }
+                            if (pair.size == 1) Spacer(Modifier.weight(1f))
+                        }
+                    }
+                    "compact" -> items.forEach { svc ->
+                        Box(Modifier.dragSlot(svc.id, dragId, dragOffset)) {
+                            ServiceRowCompact(
+                                config = svc,
+                                status = statuses[svc.id],
+                                onOpen = { onOpen(svc) },
+                                onLongPress = { actionsFor = svc },
+                                dragHandle = {
+                                    DragHandle(
+                                        onStart = { dragId = svc.id; dragOffset = 0f },
+                                        onDrag = { dy ->
+                                            dragOffset += dy
+                                            val h = (rowHeight.takeIf { it > 0 } ?: 120)
+                                            while (kotlin.math.abs(dragOffset) >= h) {
+                                                val step = if (dragOffset > 0) 1 else -1
+                                                dragBy(items, svc.id, step)
+                                                dragOffset -= step * h
+                                            }
+                                        },
+                                        onEnd = { dragId = null; dragOffset = 0f },
+                                    )
+                                },
+                            )
+                        }
+                    }
+                    else -> items.forEachIndexed { index, svc ->
+                        Box(Modifier.dragSlot(svc.id, dragId, dragOffset).onSizeChanged { if (it.height > 0) rowHeight = it.height }) {
+                            ServiceCard(
+                                config = svc,
+                                status = statuses[svc.id],
+                                isFirst = index == 0,
+                                isLast = index == items.lastIndex,
+                                onOpen = { onOpen(svc) },
+                                onEdit = { onEdit(svc) },
+                                onRemove = { vm.removeService(svc.id) },
+                                onMoveUp = { dragBy(items, svc.id, -1) },
+                                onMoveDown = { dragBy(items, svc.id, +1) },
+                                onLongPress = { actionsFor = svc },
+                                onPin = { vm.setServicePinned(svc.id, !svc.pinned) },
+                                onGroup = { groupFor = svc },
+                                dragHandle = {
+                                    DragHandle(
+                                        onStart = { dragId = svc.id; dragOffset = 0f },
+                                        onDrag = { dy ->
+                                            dragOffset += dy
+                                            val h = (rowHeight.takeIf { it > 0 } ?: 200)
+                                            while (kotlin.math.abs(dragOffset) >= h) {
+                                                val step = if (dragOffset > 0) 1 else -1
+                                                dragBy(items, svc.id, step)
+                                                dragOffset -= step * h
+                                            }
+                                        },
+                                        onEnd = { dragId = null; dragOffset = 0f },
+                                    )
+                                },
+                            )
+                        }
+                        Spacer(Modifier.height(12.dp))
+                    }
+                }
+            }
         }
     }
+
+    actionsFor?.let { svc ->
+        ServiceQuickActionsSheet(vm, svc, onEdit = { actionsFor = null; onEdit(svc) }, onClose = { actionsFor = null })
     }
+    groupFor?.let { svc ->
+        ServiceGroupDialog(
+            config = svc,
+            existing = services.mapNotNull { it.group.takeIf { g -> g.isNotBlank() } }.distinct().sorted(),
+            onPick = { vm.setServiceGroup(svc.id, it); groupFor = null },
+            onClose = { groupFor = null },
+        )
+    }
+}
+
+private const val PINNED_SECTION = "pinned"
+private const val UNGROUPED_SECTION = "other"
+
+/** Lifts the dragged item out of the flow visually without disturbing its neighbours. */
+private fun Modifier.dragSlot(id: String, dragId: String?, offset: Float): Modifier =
+    if (id == dragId) this.zIndex(1f).graphicsLayer { translationY = offset; alpha = 0.85f } else this
+
+/** The ≡ grip: dragging it reorders, so a long-press anywhere else stays free for quick actions. */
+@Composable
+private fun DragHandle(onStart: () -> Unit, onDrag: (Float) -> Unit, onEnd: () -> Unit) {
+    Icon(
+        Icons.Filled.DragHandle,
+        contentDescription = "Reorder",
+        tint = MatrixGreen.copy(alpha = 0.45f),
+        modifier = Modifier
+            .padding(start = 2.dp)
+            .size(22.dp)
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = { onStart() },
+                    onDragEnd = { onEnd() },
+                    onDragCancel = { onEnd() },
+                    onDrag = { change, amount -> change.consume(); onDrag(amount.y) },
+                )
+            },
+    )
+}
+
+/** Long-press sheet: the service's quick actions, run in place. */
+@Composable
+private fun ServiceQuickActionsSheet(
+    vm: DashboardViewModel,
+    config: ServiceConfig,
+    onEdit: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val actions = remember(config.id) { org.phioster.sanctumd.ui.dashboard.quickActionsFor(config) }
+    var running by remember { mutableStateOf<String?>(null) }
+    var result by remember { mutableStateOf<String?>(null) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onClose,
+        containerColor = Surface,
+        title = { Text(config.label, fontFamily = Mono, color = MatrixGreen) },
+        text = {
+            Column {
+                if (actions.isEmpty()) {
+                    Text("no quick actions for this service", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp)
+                }
+                actions.forEach { action ->
+                    Text(
+                        if (running == action.label) "${action.label}  ·  running…" else action.label,
+                        fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp,
+                        modifier = Modifier.fillMaxWidth().clickable(enabled = running == null) {
+                            running = action.label
+                            scope.launch {
+                                result = runCatching { action.run(vm, config) }.getOrElse { "error: ${it.message}" }
+                                running = null
+                            }
+                        }.padding(vertical = 10.dp),
+                    )
+                }
+                result?.let {
+                    Spacer(Modifier.height(6.dp))
+                    Text(it, fontFamily = Mono, color = Color(config.type.accent), fontSize = 11.sp)
+                }
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = onEdit) { Text("edit", fontFamily = Mono, color = MatrixGreen) } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onClose) { Text("close", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f)) } },
+    )
+}
+
+/** Picks or types the group a service belongs to. */
+@Composable
+private fun ServiceGroupDialog(
+    config: ServiceConfig,
+    existing: List<String>,
+    onPick: (String) -> Unit,
+    onClose: () -> Unit,
+) {
+    var name by remember { mutableStateOf(config.group) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onClose,
+        containerColor = Surface,
+        title = { Text("group", fontFamily = Mono, color = MatrixGreen) },
+        text = {
+            Column {
+                androidx.compose.material3.OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    singleLine = true,
+                    placeholder = { Text("group name", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.4f)) },
+                    textStyle = androidx.compose.ui.text.TextStyle(fontFamily = Mono, color = MatrixGreen),
+                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MatrixGreen.copy(alpha = 0.6f),
+                        unfocusedBorderColor = MatrixGreen.copy(alpha = 0.25f),
+                        cursorColor = MatrixGreen,
+                    ),
+                )
+                if (existing.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        existing.forEach { g ->
+                            Text(
+                                g, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp,
+                                modifier = Modifier
+                                    .border(1.dp, MatrixGreen.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                                    .clickable { name = g }
+                                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Leave empty to take it out of every group.",
+                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp,
+                )
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = { onPick(name) }) { Text("save", fontFamily = Mono, color = MatrixGreen) } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onClose) { Text("cancel", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f)) } },
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

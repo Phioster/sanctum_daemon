@@ -39,6 +39,9 @@ private val AUTOPLAY_NEXT_KEY = booleanPreferencesKey("player_autoplay_next")
 private val AUTO_SKIP_KEY = booleanPreferencesKey("player_auto_skip_segments")
 private val ASK_RESUME_KEY = booleanPreferencesKey("player_ask_resume")
 private val NEXT_LEAD_KEY = intPreferencesKey("player_next_lead_seconds")
+private val SERVICE_VIEW_KEY = stringPreferencesKey("service_view_mode")
+private val COLLAPSED_GROUPS_KEY = stringPreferencesKey("collapsed_groups_json")
+private val START_SCREEN_KEY = stringPreferencesKey("start_screen")
 private val json = Json { ignoreUnknownKeys = true }
 
 /** Persists the user's dashboard tabs (widget layout) as JSON in DataStore. */
@@ -122,6 +125,23 @@ class DashboardStore(private val context: Context) {
     /** How early the "next episode" card shows when the server reports no outro segment. */
     val nextEpisodeLead: Flow<Int> = context.dashboardDataStore.data.map { it[NEXT_LEAD_KEY] ?: 45 }
     suspend fun setNextEpisodeLead(v: Int) { context.dashboardDataStore.edit { it[NEXT_LEAD_KEY] = v.coerceIn(10, 300) } }
+
+    // ── Services list ─────────────────────────────────────────────────────────────────────────
+    /** How the services list renders: "cards" (default), "compact" rows, or a "grid" of tiles. */
+    val serviceViewMode: Flow<String> = context.dashboardDataStore.data.map { it[SERVICE_VIEW_KEY] ?: "cards" }
+    suspend fun setServiceViewMode(v: String) { context.dashboardDataStore.edit { it[SERVICE_VIEW_KEY] = v } }
+
+    /** Group names the user has folded away. */
+    val collapsedGroups: Flow<Set<String>> = context.dashboardDataStore.data.map { prefs ->
+        prefs[COLLAPSED_GROUPS_KEY]?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }?.toSet() ?: emptySet()
+    }
+    suspend fun setCollapsedGroups(groups: Set<String>) {
+        context.dashboardDataStore.edit { it[COLLAPSED_GROUPS_KEY] = json.encodeToString(groups.toList()) }
+    }
+
+    /** Which surface the app opens on: "dashboard" (default) or the "services" list. */
+    val startScreen: Flow<String> = context.dashboardDataStore.data.map { it[START_SCREEN_KEY] ?: "dashboard" }
+    suspend fun setStartScreen(v: String) { context.dashboardDataStore.edit { it[START_SCREEN_KEY] = v } }
 
     // Offline downloads: only fetch on un-metered Wi-Fi when on.
     val downloadsWifiOnly: Flow<Boolean> = context.dashboardDataStore.data.map { it[DOWNLOADS_WIFI_ONLY_KEY] ?: false }

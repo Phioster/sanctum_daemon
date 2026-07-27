@@ -54,6 +54,8 @@ data class ServiceConfig(
     val customHeaders: Map<String, String> = emptyMap(),
     val topics: List<String> = emptyList(), // NTFY: subscribed topics (history + live notifications)
     val shortcuts: List<HttpShortcut> = emptyList(), // SHORTCUTS: one-tap HTTP requests
+    val group: String = "", // user-defined section in the services list ("" = ungrouped)
+    val pinned: Boolean = false, // sticks to the top, above every group
 ) {
     /** Retrofit needs a base URL that ends with a slash. */
     val normalizedBaseUrl: String

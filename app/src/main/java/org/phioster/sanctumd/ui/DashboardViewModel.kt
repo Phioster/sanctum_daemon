@@ -482,6 +482,47 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Move [id] so it lands directly where [targetId] sits — the primitive behind drag & drop.
+     *  Reordering works on the global list, so a drag inside a group leaves other groups alone. */
+    fun moveServiceTo(id: String, targetId: String) {
+        viewModelScope.launch {
+            val list = _services.value.toMutableList()
+            val from = list.indexOfFirst { it.id == id }
+            val to = list.indexOfFirst { it.id == targetId }
+            if (from < 0 || to < 0 || from == to) return@launch
+            list.add(to, list.removeAt(from))
+            store.save(list)
+        }
+    }
+
+    /** Assign a service to a group ("" = ungrouped). */
+    fun setServiceGroup(id: String, group: String) {
+        viewModelScope.launch {
+            store.save(_services.value.map { if (it.id == id) it.copy(group = group.trim()) else it })
+        }
+    }
+
+    /** Pin/unpin a service to the top of the list. */
+    fun setServicePinned(id: String, pinned: Boolean) {
+        viewModelScope.launch {
+            store.save(_services.value.map { if (it.id == id) it.copy(pinned = pinned) else it })
+        }
+    }
+
+    /** Services-list presentation + which surface the app opens on. */
+    val serviceViewMode: StateFlow<String> =
+        dashStore.serviceViewMode.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, "cards")
+    fun setServiceViewMode(v: String) = viewModelScope.launch { dashStore.setServiceViewMode(v) }
+    val collapsedGroups: StateFlow<Set<String>> =
+        dashStore.collapsedGroups.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, emptySet())
+    fun toggleGroupCollapsed(group: String) = viewModelScope.launch {
+        val cur = collapsedGroups.value
+        dashStore.setCollapsedGroups(if (group in cur) cur - group else cur + group)
+    }
+    val startScreen: StateFlow<String> =
+        dashStore.startScreen.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, "dashboard")
+    fun setStartScreen(v: String) = viewModelScope.launch { dashStore.setStartScreen(v) }
+
     /** One-off connection test used by the Add-service screen. */
     suspend fun test(config: ServiceConfig): ServiceStatus = fetchStatus(config)
 
