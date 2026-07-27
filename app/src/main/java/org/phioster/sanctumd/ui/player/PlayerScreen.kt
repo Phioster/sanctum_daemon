@@ -15,6 +15,8 @@ import android.os.Build
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
@@ -226,6 +228,8 @@ internal fun PlayerScreen(
     LaunchedEffect(Unit) {
         while (true) {
             if (!scrubbing) state = engine.snapshot()
+            val st = engine.stats()
+            if (st.width > 0 && st.height > 0) videoAspect = st.width.toFloat() / st.height
             if (state.ended) controlsVisible = true
             delay(500)
         }
@@ -289,13 +293,31 @@ internal fun PlayerScreen(
     }
     DisposableEffect(Unit) { onDispose { engine.release() } }
 
-    // Pinch-to-zoom: snaps to fixed steps on release, stays centered (no free panning). Double-tap resets.
+    // Pinch-to-zoom: snaps to steps on release, stays centered (no free panning). Double-tap resets.
     var zoomScale by remember { mutableStateOf(1f) }
-    val zoomStops = remember { floatArrayOf(1f, 2f, 3f, 4f) } // fit (1x) → 2x → 3x → 4x
+    var videoAspect by remember { mutableStateOf(0f) }
+    var boxSize by remember { mutableStateOf(IntSize.Zero) }
+    // Steps: fit (1x) → "fill" (scales the video to cover the whole screen, cropping the overflow —
+    // YouTube-style, for content whose aspect doesn't match the phone) → one bigger step. When the
+    // video aspect isn't known yet, fall back to plain multiples.
+    val zoomStops = remember(videoAspect, boxSize) {
+        if (videoAspect > 0f && boxSize.width > 0 && boxSize.height > 0) {
+            val screenAspect = boxSize.width.toFloat() / boxSize.height
+            val fill = maxOf(videoAspect / screenAspect, screenAspect / videoAspect).coerceIn(1f, 4f)
+            buildList {
+                add(1f)
+                if (fill > 1.02f) add(fill)
+                add((fill * 2f).coerceAtMost(4f))
+            }.distinct().sorted().toFloatArray()
+        } else {
+            floatArrayOf(1f, 2f, 3f, 4f)
+        }
+    }
 
     Box(
         Modifier
             .fillMaxSize()
+            .onSizeChanged { boxSize = it }
             .background(Color.Black) // pure black bars around the video (matches the letterbox)
             .pointerInput(Unit) {
                 detectTapGestures(
