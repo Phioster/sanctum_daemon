@@ -453,21 +453,31 @@ internal fun ServicesContent(
                 Spacer(Modifier.height(48.dp))
                 Text("no services yet\n\ntap + to add a service", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 14.sp)
             } else {
-                // View switcher.
-                Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("cards" to "cards", "compact" to "compact", "grid" to "grid").forEach { (key, label) ->
-                        val on = viewMode == key
-                        Text(
-                            label,
-                            fontFamily = Mono, fontSize = 11.sp,
-                            color = if (on) Black else MatrixGreen,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(if (on) MatrixGreen else Color.Transparent)
-                                .border(1.dp, MatrixGreen.copy(alpha = if (on) 0f else 0.3f), RoundedCornerShape(6.dp))
-                                .clickable { vm.setServiceViewMode(key) }
-                                .padding(horizontal = 10.dp, vertical = 5.dp),
-                        )
+                // View switcher — one chip showing the current mode, the rest behind a menu.
+                Box(Modifier.padding(bottom = 10.dp)) {
+                    var viewMenu by remember { mutableStateOf(false) }
+                    Text(
+                        "view: $viewMode ▾",
+                        fontFamily = Mono, fontSize = 11.sp, color = MatrixGreen,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .border(1.dp, MatrixGreen.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                            .clickable { viewMenu = true }
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                    )
+                    androidx.compose.material3.DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
+                        listOf("cards", "compact", "grid").forEach { key ->
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (key == viewMode) "$key  ✓" else key,
+                                        fontFamily = Mono,
+                                        color = if (key == viewMode) MatrixGreen else MatrixGreen.copy(alpha = 0.75f),
+                                    )
+                                },
+                                onClick = { viewMenu = false; vm.setServiceViewMode(key) },
+                            )
+                        }
                     }
                 }
             }

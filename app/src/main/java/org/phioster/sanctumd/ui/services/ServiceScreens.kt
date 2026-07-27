@@ -130,8 +130,12 @@ internal fun ServiceCard(
                 ServiceLogo(config.type, 30.dp)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(config.label, fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen, fontSize = 18.sp)
-                    Text(config.type.label, fontFamily = Mono, color = accent, fontSize = 12.sp)
+                    Text(config.label, fontFamily = Mono, fontWeight = FontWeight.Bold, color = accent, fontSize = 18.sp)
+                    // The type line is noise when the service is simply called after its type
+                    // (the common case) — only show it when the label says something else.
+                    if (!config.label.equals(config.type.label, ignoreCase = true)) {
+                        Text(config.type.label, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                    }
                 }
                 val tag = when {
                     status == null || status.isLoading -> "[...]"
@@ -280,8 +284,9 @@ internal fun ServiceTile(
                         ),
                 )
                 Spacer(Modifier.width(5.dp))
+                val typeLine = if (config.label.equals(config.type.label, ignoreCase = true)) "" else config.type.label
                 Text(
-                    if (config.pinned) "★ ${config.type.label}" else config.type.label,
+                    listOf(if (config.pinned) "★" else "", typeLine).filter { it.isNotBlank() }.joinToString(" "),
                     fontFamily = Mono, color = accent, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
