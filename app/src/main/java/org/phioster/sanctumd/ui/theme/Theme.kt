@@ -61,7 +61,7 @@ val PALETTES: List<Palette> = listOf(
         "toxic", "Toxic",
         accent = Color(0xFFC6FF00), background = Color(0xFF0B0F00),
         surface = Color(0xFF141A03), surfaceHi = Color(0xFF1D2408),
-        highlight = Color(0xFFB026FF),
+        highlight = Color(0xFF9B5DE5),
     ),
 )
 

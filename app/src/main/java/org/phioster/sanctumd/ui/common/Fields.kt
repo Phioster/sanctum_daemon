@@ -195,7 +195,7 @@ internal fun SecondaryButton(label: String, modifier: Modifier = Modifier, icon:
 
 /** A compact bordered action chip — the standard chip for inline actions (back / scan / filters). */
 @Composable
-internal fun AppChip(label: String, accent: Color = AccentHi, onClick: () -> Unit) {
+internal fun AppChip(label: String, accent: Color = MatrixGreen, onClick: () -> Unit) {
     Text(
         label, fontFamily = Mono, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
         modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(SurfaceHi)

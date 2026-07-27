@@ -63,7 +63,6 @@ import org.phioster.sanctumd.model.ServiceType
 import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.ErrRed
-import org.phioster.sanctumd.ui.theme.AccentHi
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
@@ -172,7 +171,7 @@ internal fun ServiceCard(
                 status.ok -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     status.stats.forEach { (k, v) ->
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(v, fontFamily = Mono, fontWeight = FontWeight.Bold, color = AccentHi, fontSize = 20.sp)
+                            Text(v, fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen, fontSize = 20.sp)
                             Text(k.uppercase(), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
                         }
                     }
@@ -270,7 +269,7 @@ internal fun ServiceTile(
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         status.stats.take(3).forEach { (k, v) ->
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(v, fontFamily = Mono, fontWeight = FontWeight.Bold, color = AccentHi, fontSize = 15.sp, maxLines = 1)
+                                Text(v, fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen, fontSize = 15.sp, maxLines = 1)
                                 Text(k.uppercase(), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }

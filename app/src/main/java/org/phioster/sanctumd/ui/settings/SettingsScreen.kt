@@ -296,8 +296,8 @@ internal fun ThemeSection() {
         modifier = Modifier.padding(top = 4.dp),
     )
     Text(
-        "Two-tone presets read in the accent and act in the second colour: buttons, the add button, " +
-            "section markers and the big numbers pick it up.",
+        "Two-tone presets keep every text in the accent; the second colour is for the things you " +
+            "press or scan for: buttons, the add button, section markers.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp,
         modifier = Modifier.padding(top = 8.dp),
     )
