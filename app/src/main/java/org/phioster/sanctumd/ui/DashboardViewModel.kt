@@ -666,6 +666,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.net.jellyfinReportProgress(config, src, positionMs, isPaused)
     suspend fun jellyfinReportStopped(config: ServiceConfig, src: org.phioster.sanctumd.net.PlaybackSource, positionMs: Long) =
         org.phioster.sanctumd.net.jellyfinReportStopped(config, src, positionMs)
+    /** Fire-and-forget progress report — used when the app goes to the background, where a swipe-kill
+     *  can follow immediately and the player's own 10s loop would never get another turn. */
+    fun jellyfinReportProgressAsync(config: ServiceConfig, src: org.phioster.sanctumd.net.PlaybackSource, positionMs: Long, isPaused: Boolean) {
+        viewModelScope.launch { runCatching { org.phioster.sanctumd.net.jellyfinReportProgress(config, src, positionMs, isPaused) } }
+    }
     /** Fire-and-forget stop report — survives the player screen leaving composition. */
     fun jellyfinReportStoppedAsync(config: ServiceConfig, src: org.phioster.sanctumd.net.PlaybackSource, positionMs: Long) {
         viewModelScope.launch { runCatching { org.phioster.sanctumd.net.jellyfinReportStopped(config, src, positionMs) } }

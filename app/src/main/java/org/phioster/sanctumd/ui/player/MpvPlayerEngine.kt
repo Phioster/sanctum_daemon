@@ -82,16 +82,19 @@ class MpvPlayerEngine(context: Context) : MediaPlayerEngine {
 
     override fun prepare(url: String, isHls: Boolean, startPositionMs: Long, headers: Map<String, String>) {
         if (released) return
-        lastError = null; eof = false
+        lastError = null; eof = false; posSec = 0.0; durSec = 0.0
         if (headers.isNotEmpty()) {
             mpv.setOptionString("http-header-fields", headers.entries.joinToString(",") { "${it.key}: ${it.value}" })
         }
+        // The resume position goes in as the `start` option, NOT as a loadfile argument: since mpv
+        // 0.38 the third loadfile parameter is the playlist *index* (an integer), so the old
+        // `loadfile <url> replace start=120` failed to parse and the file never loaded at all — i.e.
+        // every partially-watched item refused to play (and the dead player then reported position 0
+        // to Jellyfin, which wiped its resume point). The bundled libmpv 1.0.0 is mpv 0.41.
+        // Always set it explicitly so a previous file's value can't leak into the next one.
         val startSec = startPositionMs / 1000.0
-        if (startSec > 0) {
-            mpv.command(arrayOf("loadfile", url, "replace", "start=$startSec"))
-        } else {
-            mpv.command(arrayOf("loadfile", url, "replace"))
-        }
+        mpv.setOptionString("start", if (startSec > 0) "$startSec" else "none")
+        mpv.command(arrayOf("loadfile", url, "replace"))
         mpv.setPropertyBoolean("pause", false)
     }
 

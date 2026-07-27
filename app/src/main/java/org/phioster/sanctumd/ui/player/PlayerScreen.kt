@@ -78,6 +78,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -150,6 +153,14 @@ internal fun PlayerScreen(
     var infoOpen by remember { mutableStateOf(false) }
     var speed by remember { mutableStateOf(1f) }
     var qualityLabel by remember { mutableStateOf("Auto") }
+    // Last position the engine actually reported (> 0 = something is really decoding). Every report to
+    // Jellyfin is made from this: a PositionTicks of 0 makes the server store PlaybackPositionTicks=0,
+    // which silently drops the item out of "Continue Watching" — so a player that never started (or a
+    // stream still loading) must never report.
+    var lastGoodPos by remember { mutableStateOf(0L) }
+    // Resume position we asked the engine to start at, and whether we've verified it took effect.
+    var resumeTarget by remember { mutableStateOf(0L) }
+    var resumeApplied by remember { mutableStateOf(true) }
 
     // Brightness (window level, 0..1) + volume (0..1) driven by swipe gestures.
     var brightness by remember {
@@ -218,6 +229,8 @@ internal fun PlayerScreen(
             } else {
                 val src = vm.jellyfinPlaybackSource(config, itemId)
                 source = src
+                resumeTarget = src.startPositionMs
+                resumeApplied = src.startPositionMs <= 0
                 engine.prepare(src.url, src.isHls, src.startPositionMs, src.authHeaders)
                 vm.jellyfinReportStart(config, src, src.startPositionMs)
             }
@@ -229,7 +242,15 @@ internal fun PlayerScreen(
     // Poll player state for the UI (position, buffering, ended).
     LaunchedEffect(Unit) {
         while (true) {
-            if (!scrubbing) state = engine.snapshot()
+            val snap = engine.snapshot()
+            if (!scrubbing) state = snap
+            if (snap.positionMs > 0) lastGoodPos = snap.positionMs
+            // Belt-and-braces resume: once the file is loaded, if the engine is still sitting at the
+            // start although we asked to resume, seek there once ourselves.
+            if (!resumeApplied && snap.durationMs > 0) {
+                if (snap.positionMs < 2_000) engine.seekTo(resumeTarget)
+                resumeApplied = true
+            }
             val st = engine.stats()
             if (st.width > 0 && st.height > 0) videoAspect = st.width.toFloat() / st.height
             if (state.ended) controlsVisible = true
@@ -243,8 +264,27 @@ internal fun PlayerScreen(
         while (true) {
             delay(10_000)
             val snap = engine.snapshot()
+            // Still loading / nothing decoding: skip rather than report a 0 and erase the resume point.
+            if (snap.positionMs <= 0) continue
             vm.jellyfinReportProgress(config, src, snap.positionMs, !snap.isPlaying)
         }
+    }
+
+    // Swiping the app away from recents kills the process with no dispose and no back press, so push
+    // the current position when the app goes to the background — otherwise everything since the last
+    // 10s ping is lost and the server is left with a session that never stopped.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, source) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                val src = source
+                val snap = engine.snapshot()
+                val pos = if (snap.positionMs > 0) snap.positionMs else lastGoodPos
+                if (src != null && pos > 0) vm.jellyfinReportProgressAsync(config, src, pos, !snap.isPlaying)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // Once tracks load, default subtitles to forced German (fallback: normal German), else leave as-is.
@@ -272,11 +312,13 @@ internal fun PlayerScreen(
         if (localFileUri != null) return
         qualityLabel = label
         settingsOpen = false
-        val resumeMs = engine.snapshot().positionMs
+        val resumeMs = engine.snapshot().positionMs.takeIf { it > 0 } ?: lastGoodPos
         scope.launch {
             try {
                 val src = vm.jellyfinPlaybackSource(config, itemId, cap)
                 source = src
+                resumeTarget = resumeMs
+                resumeApplied = resumeMs <= 0
                 engine.prepare(src.url, src.isHls, resumeMs, src.authHeaders)
                 engine.setSpeed(speed)
             } catch (t: Throwable) {
@@ -287,7 +329,17 @@ internal fun PlayerScreen(
 
     val leave = {
         val src = source
-        if (src != null) vm.jellyfinReportStoppedAsync(config, src, engine.snapshot().positionMs)
+        if (src != null) {
+            // Fall back to the last seen position, then to where we started — never report a 0 we
+            // don't mean, or Jellyfin drops the item from Continue Watching.
+            val snapPos = engine.snapshot().positionMs
+            val pos = when {
+                snapPos > 0 -> snapPos
+                lastGoodPos > 0 -> lastGoodPos
+                else -> src.startPositionMs
+            }
+            vm.jellyfinReportStoppedAsync(config, src, pos)
+        }
         onClose() // removal triggers the DisposableEffect below, which releases the engine once
     }
     BackHandler {
