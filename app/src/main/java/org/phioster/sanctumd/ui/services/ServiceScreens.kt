@@ -115,7 +115,6 @@ internal fun ServiceCard(
     onLongPress: (() -> Unit)? = null,
     onPin: (() -> Unit)? = null,
     onGroup: (() -> Unit)? = null,
-    dragHandle: (@Composable () -> Unit)? = null,
 ) {
     val accent = Color(config.type.accent)
     var menuOpen by remember { mutableStateOf(false) }
@@ -141,7 +140,6 @@ internal fun ServiceCard(
                 }
                 Text(tag, fontFamily = Mono, color = if (status == null || status.isLoading || status.ok) MatrixGreen else ErrRed)
                 Spacer(Modifier.width(4.dp))
-                dragHandle?.invoke()
                 Box {
                     IconButton(onClick = { menuOpen = true }) {
                         Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen.copy(alpha = 0.6f))
@@ -189,7 +187,6 @@ internal fun ServiceRowCompact(
     status: ServiceStatus?,
     onOpen: () -> Unit,
     onLongPress: () -> Unit,
-    dragHandle: (@Composable () -> Unit)? = null,
 ) {
     val accent = Color(config.type.accent)
     Row(
@@ -227,7 +224,6 @@ internal fun ServiceRowCompact(
                     },
                 ),
         )
-        dragHandle?.invoke()
     }
     HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
 }
@@ -254,7 +250,24 @@ internal fun ServiceTile(
             ServiceLogo(config.type, 30.dp)
             Spacer(Modifier.height(8.dp))
             Text(config.label, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
+            // The same key numbers the card view shows, scaled down to fit a tile.
+            when {
+                status == null || status.isLoading ->
+                    Text("connecting…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp)
+                status.ok && status.stats.isNotEmpty() ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        status.stats.take(3).forEach { (k, v) ->
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(v, fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen, fontSize = 15.sp, maxLines = 1)
+                                Text(k.uppercase(), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                status.ok -> Spacer(Modifier.height(0.dp))
+                else -> Text(friendlyStatusError(status.error), fontFamily = Mono, color = ErrRed, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier.size(7.dp).clip(RoundedCornerShape(4.dp))

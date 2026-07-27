@@ -4,7 +4,6 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.border
-import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -422,11 +421,6 @@ internal fun ServicesContent(
     // Long-press target: its quick actions open in a sheet. Group editor target: a rename dialog.
     var actionsFor by remember { mutableStateOf<ServiceConfig?>(null) }
     var groupFor by remember { mutableStateOf<ServiceConfig?>(null) }
-    // Drag state: which service is being dragged and how far it has travelled since the last swap.
-    var dragId by remember { mutableStateOf<String?>(null) }
-    var dragOffset by remember { mutableStateOf(0f) }
-    var rowHeight by remember { mutableStateOf(0) }
-
     // Pinned first, then groups alphabetically with the ungrouped ones last; the order inside each
     // section stays the user's own (that's what dragging edits).
     val pinned = services.filter { it.pinned }
@@ -442,8 +436,8 @@ internal fun ServicesContent(
         }
     }
 
-    /** Swap the dragged service with its neighbour inside the section it is being dragged in. */
-    fun dragBy(section: List<ServiceConfig>, id: String, steps: Int) {
+    /** Move a service one slot inside its own section (the menu's move up/down). */
+    fun moveWithin(section: List<ServiceConfig>, id: String, steps: Int) {
         val idx = section.indexOfFirst { it.id == id }
         val target = section.getOrNull(idx + steps) ?: return
         vm.moveServiceTo(id, target.id)
@@ -488,8 +482,10 @@ internal fun ServicesContent(
                         Text(if (isCollapsed) "▸" else "▾", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp)
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            section.uppercase(),
-                            fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                            if (section == PINNED_SECTION) "★" else section.uppercase(),
+                            fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f),
+                            fontSize = if (section == PINNED_SECTION) 13.sp else 11.sp,
+                            fontWeight = FontWeight.Bold,
                         )
                         Spacer(Modifier.width(6.dp))
                         Text("(${items.size})", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.4f), fontSize = 11.sp)
@@ -513,62 +509,28 @@ internal fun ServicesContent(
                         }
                     }
                     "compact" -> items.forEach { svc ->
-                        Box(Modifier.dragSlot(svc.id, dragId, dragOffset)) {
-                            ServiceRowCompact(
-                                config = svc,
-                                status = statuses[svc.id],
-                                onOpen = { onOpen(svc) },
-                                onLongPress = { actionsFor = svc },
-                                dragHandle = {
-                                    DragHandle(
-                                        onStart = { dragId = svc.id; dragOffset = 0f },
-                                        onDrag = { dy ->
-                                            dragOffset += dy
-                                            val h = (rowHeight.takeIf { it > 0 } ?: 120)
-                                            while (kotlin.math.abs(dragOffset) >= h) {
-                                                val step = if (dragOffset > 0) 1 else -1
-                                                dragBy(items, svc.id, step)
-                                                dragOffset -= step * h
-                                            }
-                                        },
-                                        onEnd = { dragId = null; dragOffset = 0f },
-                                    )
-                                },
-                            )
-                        }
+                        ServiceRowCompact(
+                            config = svc,
+                            status = statuses[svc.id],
+                            onOpen = { onOpen(svc) },
+                            onLongPress = { actionsFor = svc },
+                        )
                     }
                     else -> items.forEachIndexed { index, svc ->
-                        Box(Modifier.dragSlot(svc.id, dragId, dragOffset).onSizeChanged { if (it.height > 0) rowHeight = it.height }) {
-                            ServiceCard(
-                                config = svc,
-                                status = statuses[svc.id],
-                                isFirst = index == 0,
-                                isLast = index == items.lastIndex,
-                                onOpen = { onOpen(svc) },
-                                onEdit = { onEdit(svc) },
-                                onRemove = { vm.removeService(svc.id) },
-                                onMoveUp = { dragBy(items, svc.id, -1) },
-                                onMoveDown = { dragBy(items, svc.id, +1) },
-                                onLongPress = { actionsFor = svc },
-                                onPin = { vm.setServicePinned(svc.id, !svc.pinned) },
-                                onGroup = { groupFor = svc },
-                                dragHandle = {
-                                    DragHandle(
-                                        onStart = { dragId = svc.id; dragOffset = 0f },
-                                        onDrag = { dy ->
-                                            dragOffset += dy
-                                            val h = (rowHeight.takeIf { it > 0 } ?: 200)
-                                            while (kotlin.math.abs(dragOffset) >= h) {
-                                                val step = if (dragOffset > 0) 1 else -1
-                                                dragBy(items, svc.id, step)
-                                                dragOffset -= step * h
-                                            }
-                                        },
-                                        onEnd = { dragId = null; dragOffset = 0f },
-                                    )
-                                },
-                            )
-                        }
+                        ServiceCard(
+                            config = svc,
+                            status = statuses[svc.id],
+                            isFirst = index == 0,
+                            isLast = index == items.lastIndex,
+                            onOpen = { onOpen(svc) },
+                            onEdit = { onEdit(svc) },
+                            onRemove = { vm.removeService(svc.id) },
+                            onMoveUp = { moveWithin(items, svc.id, -1) },
+                            onMoveDown = { moveWithin(items, svc.id, +1) },
+                            onLongPress = { actionsFor = svc },
+                            onPin = { vm.setServicePinned(svc.id, !svc.pinned) },
+                            onGroup = { groupFor = svc },
+                        )
                         Spacer(Modifier.height(12.dp))
                     }
                 }
@@ -589,33 +551,8 @@ internal fun ServicesContent(
     }
 }
 
-private const val PINNED_SECTION = "pinned"
+private const val PINNED_SECTION = "\u2605pinned"
 private const val UNGROUPED_SECTION = "other"
-
-/** Lifts the dragged item out of the flow visually without disturbing its neighbours. */
-private fun Modifier.dragSlot(id: String, dragId: String?, offset: Float): Modifier =
-    if (id == dragId) this.zIndex(1f).graphicsLayer { translationY = offset; alpha = 0.85f } else this
-
-/** The ≡ grip: dragging it reorders, so a long-press anywhere else stays free for quick actions. */
-@Composable
-private fun DragHandle(onStart: () -> Unit, onDrag: (Float) -> Unit, onEnd: () -> Unit) {
-    Icon(
-        Icons.Filled.DragHandle,
-        contentDescription = "Reorder",
-        tint = MatrixGreen.copy(alpha = 0.45f),
-        modifier = Modifier
-            .padding(start = 2.dp)
-            .size(22.dp)
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { onStart() },
-                    onDragEnd = { onEnd() },
-                    onDragCancel = { onEnd() },
-                    onDrag = { change, amount -> change.consume(); onDrag(amount.y) },
-                )
-            },
-    )
-}
 
 /** Long-press sheet: the service's quick actions, run in place. */
 @Composable
