@@ -143,7 +143,7 @@ import org.phioster.sanctumd.net.runProwlarrTestAll
 import org.phioster.sanctumd.net.runSearchMissing
 
 /** Where a launcher shortcut wants to navigate. [serviceId] is set for kind "service". */
-data class PendingRoute(val kind: String, val serviceId: String? = null)
+data class PendingRoute(val kind: String, val serviceId: String? = null, val itemId: String? = null)
 
 class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 

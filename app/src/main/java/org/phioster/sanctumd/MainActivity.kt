@@ -109,7 +109,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 
     private fun routeFromIntent(intent: android.content.Intent?): org.phioster.sanctumd.ui.PendingRoute? {
         val route = intent?.getStringExtra("route") ?: return null
-        return org.phioster.sanctumd.ui.PendingRoute(route, intent.getStringExtra("serviceId"))
+        return org.phioster.sanctumd.ui.PendingRoute(route, intent.getStringExtra("serviceId"), intent.getStringExtra("itemId"))
     }
 
     override fun onStop() {
@@ -244,7 +244,10 @@ internal fun SanctumdApp(vm: DashboardViewModel = viewModel()) {
             "search" -> { addOpen = false; editing = null; detail = null; searchTerm = ""; searchOpen = true }
             "settings" -> { addOpen = false; editing = null; detail = null; searchOpen = false; notifOpen = true }
             "service" -> allServicesForShortcuts.firstOrNull { it.id == p.serviceId }?.let {
-                detailFromSearch = false; searchDeepLink = null; searchOpen = false; notifOpen = false; detail = it
+                detailFromSearch = p.itemId != null
+                // Reuse the search deep-link carrier so the Jellyfin screen opens that item's detail.
+                searchDeepLink = p.itemId?.let { id -> org.phioster.sanctumd.model.SearchResult(serviceId = it.id, serviceLabel = it.label, serviceType = it.type, title = "", subtitle = "", posterUrl = "", jellyItemId = id) }
+                searchOpen = false; notifOpen = false; detail = it
             }
         }
         vm.consumeRoute()
