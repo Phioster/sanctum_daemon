@@ -262,6 +262,37 @@ internal fun JellyfinScreen(
         if (it.isFolder) browseStack = browseStack + it
         else scope.launch { mediaDetail = runCatching { vm.jellyfinMediaDetail(config, it.id) }.getOrElse { null } }
     }
+
+    // ── Watched toggle ────────────────────────────────────────────────────────────────────────────
+    // Marking a Series/Season cascades to every episode on the server, so folders confirm first.
+    // Non-folders flip straight away; the badge keeps its own optimistic state, we reload behind it.
+    var confirmWatched by remember { mutableStateOf<Triple<String, String, Boolean>?>(null) } // id, name, target
+    suspend fun reloadMedia() {
+        if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last())
+    }
+    fun applyWatched(itemId: String, name: String, want: Boolean) {
+        scope.launch {
+            runCatching { vm.jellyfinSetWatched(config, itemId, want) }
+                .onSuccess {
+                    actionMsg = if (want) "$name marked watched" else "$name marked unwatched"
+                    if (mediaDetail?.id == itemId) {
+                        mediaDetail = runCatching { vm.jellyfinMediaDetail(config, itemId) }.getOrNull() ?: mediaDetail
+                    }
+                    reloadMedia()
+                }
+                .onFailure { actionMsg = "could not update: ${it.message ?: "failed"}" }
+        }
+    }
+    /** Badge tap: returns whether the change was applied now (false = a confirmation is pending). */
+    val setWatched: (org.phioster.sanctumd.model.JellyMediaItem, Boolean) -> Boolean = { m, want ->
+        if (m.isFolder) {
+            confirmWatched = Triple(m.id, m.name, want)
+            false
+        } else {
+            applyWatched(m.id, m.name, want)
+            true
+        }
+    }
     // Play a completed download offline: audio via the background music player, video via the overlay.
     fun playDownload(e: org.phioster.sanctumd.model.DownloadEntry) {
         if (e.filePath.isBlank()) return
@@ -492,6 +523,7 @@ internal fun JellyfinScreen(
                                                 Spacer(Modifier.height(10.dp))
                                                 MediaHero(
                                                     hero, config, accent,
+                                                    onSetWatched = { want -> setWatched(hero, want) },
                                                     onPlay = {
                                                         if (hero.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
                                                             playRequest = org.phioster.sanctumd.ui.player.PlayRequest(hero.id, hero.name)
@@ -512,7 +544,7 @@ internal fun JellyfinScreen(
                                                 Spacer(Modifier.height(16.dp))
                                                 MediaSectionHeader("CONTINUE WATCHING", styleAccent(sResume.accent))
                                                 Spacer(Modifier.height(8.dp))
-                                                MediaPosterRow(res, config, styleAccent(sResume.accent), sResume) { openMedia(it) }
+                                                MediaPosterRow(res, config, styleAccent(sResume.accent), sResume, setWatched) { openMedia(it) }
                                             }
                                         }
                                         if (!lat.isNullOrEmpty() && !sRecent.hidden) {
@@ -520,7 +552,7 @@ internal fun JellyfinScreen(
                                                 Spacer(Modifier.height(16.dp))
                                                 MediaSectionHeader("RECENTLY ADDED", styleAccent(sRecent.accent))
                                                 Spacer(Modifier.height(8.dp))
-                                                MediaPosterRow(lat, config, styleAccent(sRecent.accent), sRecent) { openMedia(it) }
+                                                MediaPosterRow(lat, config, styleAccent(sRecent.accent), sRecent, setWatched) { openMedia(it) }
                                             }
                                         }
                                         if (!sLibs.hidden) {
@@ -591,12 +623,12 @@ internal fun JellyfinScreen(
                                         m == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
                                         m.isEmpty() -> item { Text("empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
                                         // Audio tracks read better as a list; everything else as a 3-column poster grid.
-                                        m.any { it.kind == "Audio" } -> items(m) { it2 -> JellyMediaRow(it2, config, accent) { openMedia(it2) } }
+                                        m.any { it.kind == "Audio" } -> items(m) { it2 -> JellyMediaRow(it2, config, accent, { want -> setWatched(it2, want) }) { openMedia(it2) } }
                                         else -> {
                                             m.chunked(3).forEachIndexed { idx, rowItems ->
                                                 item(key = "browserow-$idx") {
                                                     Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                        rowItems.forEach { it2 -> MediaGridCard(it2, config, accent, Modifier.weight(1f)) { openMedia(it2) } }
+                                                        rowItems.forEach { it2 -> MediaGridCard(it2, config, accent, Modifier.weight(1f), { want -> setWatched(it2, want) }) { openMedia(it2) } }
                                                         repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                                                     }
                                                 }
@@ -869,6 +901,26 @@ internal fun JellyfinScreen(
                 }) { Text("Send", fontFamily = Mono, color = MatrixGreen) }
             },
             dismissButton = { TextButton(onClick = { messageFor = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    confirmWatched?.let { (wid, wname, want) ->
+        AlertDialog(
+            onDismissRequest = { confirmWatched = null },
+            containerColor = Surface,
+            title = { Text(if (want) "Mark everything watched?" else "Mark everything unwatched?", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Text(
+                    "This applies to every episode in \"$wname\".",
+                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 13.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { confirmWatched = null; applyWatched(wid, wname, want) }) {
+                    Text(if (want) "mark watched" else "mark unwatched", fontFamily = Mono, color = MatrixGreen)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmWatched = null }) { Text("cancel", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f)) } },
         )
     }
 
@@ -1168,6 +1220,19 @@ internal fun JellyfinScreen(
                                 SecondaryButton("⬇  ${(dl.progress * 100).toInt()}%  ·  cancel", Modifier.fillMaxWidth()) { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) }
                             else ->
                                 SecondaryButton("⬇  download", Modifier.fillMaxWidth()) { org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L, "Audio") }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                    }
+                    // Watched toggle — the explicit counterpart to the poster badge (and the only way
+                    // to mark something watched that has no badge yet).
+                    if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS || d.kind in setOf("Series", "Season")) {
+                        val folder = d.kind in setOf("Series", "Season")
+                        SecondaryButton(
+                            if (d.played) "✓  watched  ·  mark unwatched" else "mark as watched",
+                            Modifier.fillMaxWidth(),
+                        ) {
+                            if (folder) confirmWatched = Triple(d.id, d.name, !d.played)
+                            else applyWatched(d.id, d.name, !d.played)
                         }
                         Spacer(Modifier.height(12.dp))
                     }

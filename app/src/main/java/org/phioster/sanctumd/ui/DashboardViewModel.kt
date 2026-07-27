@@ -675,6 +675,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     fun jellyfinReportStoppedAsync(config: ServiceConfig, src: org.phioster.sanctumd.net.PlaybackSource, positionMs: Long) {
         viewModelScope.launch { runCatching { org.phioster.sanctumd.net.jellyfinReportStopped(config, src, positionMs) } }
     }
+    /** Mark a media item watched/unwatched (folders cascade to their children server-side). */
+    suspend fun jellyfinSetWatched(config: ServiceConfig, itemId: String, played: Boolean) =
+        org.phioster.sanctumd.net.jellyfinSetPlayed(config, itemId, played)
     suspend fun jellyfinScanLibrary(config: ServiceConfig, itemId: String): String =
         jellyfinScanItem(config, itemId)
     suspend fun jellyfinLogList(config: ServiceConfig): List<org.phioster.sanctumd.model.JellyLogFile> =

@@ -59,6 +59,7 @@ internal fun JfItem.toMediaItem(config: ServiceConfig, token: String) = JellyMed
     number = IndexNumber,
     adult = isAdultRating(OfficialRating),
     played = UserData?.Played == true,
+    unplayedCount = UserData?.UnplayedItemCount ?: 0,
 )
 
 /** The user's libraries (Movies, Shows, Music, …). */
@@ -142,7 +143,21 @@ suspend fun jellyfinItemDetail(config: ServiceConfig, itemId: String): JellyMedi
             else -> ""
         },
         played = d.UserData?.Played == true,
+        unplayedCount = d.UserData?.UnplayedItemCount ?: 0,
     )
+}
+
+/**
+ * Mark [itemId] watched or unwatched for the current user. On a Series or Season the server cascades
+ * the change to every episode underneath — which is why the UI confirms before doing it to a folder.
+ * Not gated by safe mode: it's user data, reversible with one tap, same class as a progress report.
+ */
+suspend fun jellyfinSetPlayed(config: ServiceConfig, itemId: String, played: Boolean): Unit = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val api = jfApi(config, token)
+    val uid = jellyfinResolveUserId(config, api)
+    val resp = if (played) api.markPlayed(uid, itemId) else api.markUnplayed(uid, itemId)
+    if (!resp.isSuccessful) error("HTTP ${resp.code()}")
 }
 
 /** Trigger a metadata/library refresh for a single library or item. */

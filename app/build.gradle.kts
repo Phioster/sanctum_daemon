@@ -30,8 +30,8 @@ android {
         applicationId = "org.phioster.nexarr"
         minSdk = 26
         targetSdk = 35
-        versionCode = 220
-        versionName = "1.26.0"
+        versionCode = 221
+        versionName = "1.27.0"
 
         // libmpv ships native libs for several ABIs; the target device is arm64, so bundle only that
         // to keep the APK small (drop this filter to support 32-bit / x86 devices).

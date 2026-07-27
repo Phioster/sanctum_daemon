@@ -178,6 +178,7 @@ internal data class JfCounts(
     val PlayedPercentage: Double? = null,
     val Played: Boolean = false,
     val PlaybackPositionTicks: Long? = null, // resume position (100ns ticks)
+    val UnplayedItemCount: Int? = null, // folders (Series/Season): episodes still unwatched
 )
 @Serializable internal data class JfItem(
     val Id: String = "",
@@ -260,6 +261,9 @@ internal interface JellyfinApi {
         @Query("Fields") fields: String = "PrimaryImageAspectRatio,OfficialRating",
     ): JfItemsResp
     @GET("Users/{uid}/Items/{id}") suspend fun itemDetail(@Path("uid") uid: String, @Path("id") id: String): JfItemDetail
+    // Watched state. On a Series/Season the server cascades to every episode underneath.
+    @POST("Users/{uid}/PlayedItems/{id}") suspend fun markPlayed(@Path("uid") uid: String, @Path("id") id: String): Response<ResponseBody>
+    @DELETE("Users/{uid}/PlayedItems/{id}") suspend fun markUnplayed(@Path("uid") uid: String, @Path("id") id: String): Response<ResponseBody>
     @GET("Users/{uid}/Items") suspend fun searchItems(
         @Path("uid") uid: String,
         @Query("searchTerm") term: String,
