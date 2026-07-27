@@ -27,6 +27,8 @@ private val SAFE_MODE_KEY = booleanPreferencesKey("safe_mode")
 private val DOWNLOADS_WIFI_ONLY_KEY = booleanPreferencesKey("downloads_wifi_only")
 private val HIDDEN_LIBRARIES_KEY = stringPreferencesKey("hidden_libraries_json")
 private val MEDIA_ROW_STYLES_KEY = stringPreferencesKey("media_row_styles_json")
+private val PLAYER_SWIPE_MAG_KEY = floatPreferencesKey("player_swipe_magnitude")
+private val PLAYER_SWIPE_MARGIN_KEY = floatPreferencesKey("player_swipe_margin")
 private val json = Json { ignoreUnknownKeys = true }
 
 /** Persists the user's dashboard tabs (widget layout) as JSON in DataStore. */
@@ -77,6 +79,17 @@ class DashboardStore(private val context: Context) {
     }
     suspend fun setDrawerBand(fraction: Float) {
         context.dashboardDataStore.edit { it[DRAWER_BAND_KEY] = fraction.coerceIn(0f, 0.5f) }
+    }
+
+    // Player brightness/volume swipe tuning: sensitivity multiplier + a top/bottom edge dead-zone
+    // (fraction of screen height where a vertical swipe won't start).
+    val playerSwipeMagnitude: Flow<Float> = context.dashboardDataStore.data.map { it[PLAYER_SWIPE_MAG_KEY] ?: 1.5f }
+    val playerSwipeMargin: Flow<Float> = context.dashboardDataStore.data.map { it[PLAYER_SWIPE_MARGIN_KEY] ?: 0f }
+    suspend fun setPlayerSwipeMagnitude(v: Float) {
+        context.dashboardDataStore.edit { it[PLAYER_SWIPE_MAG_KEY] = v.coerceIn(0.3f, 3f) }
+    }
+    suspend fun setPlayerSwipeMargin(v: Float) {
+        context.dashboardDataStore.edit { it[PLAYER_SWIPE_MARGIN_KEY] = v.coerceIn(0f, 0.3f) }
     }
 
     // Offline downloads: only fetch on un-metered Wi-Fi when on.

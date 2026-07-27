@@ -281,6 +281,13 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         dashStore.drawerBand.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, 0.4f)
     val downloadsWifiOnly: StateFlow<Boolean> =
         dashStore.downloadsWifiOnly.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
+
+    val playerSwipeMagnitude: StateFlow<Float> =
+        dashStore.playerSwipeMagnitude.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, 1.5f)
+    val playerSwipeMargin: StateFlow<Float> =
+        dashStore.playerSwipeMargin.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, 0f)
+    fun setPlayerSwipeMagnitude(v: Float) = viewModelScope.launch { dashStore.setPlayerSwipeMagnitude(v) }
+    fun setPlayerSwipeMargin(v: Float) = viewModelScope.launch { dashStore.setPlayerSwipeMargin(v) }
     fun setDownloadsWifiOnly(enabled: Boolean) = viewModelScope.launch { dashStore.setDownloadsWifiOnly(enabled) }
     val hiddenLibraries: StateFlow<Map<String, List<String>>> =
         dashStore.hiddenLibraries.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, emptyMap())

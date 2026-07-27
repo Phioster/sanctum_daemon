@@ -243,6 +243,47 @@ internal fun GesturesSection(vm: DashboardViewModel) {
         "How far up from the bottom edge a right-swipe opens the Services drawer (max 50%). Above this band, swipes switch tabs. Poster rows keep scrolling.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
     )
+
+    // ── Player brightness/volume swipe ──
+    val mag by vm.playerSwipeMagnitude.collectAsState()
+    var magLocal by remember(mag) { mutableStateOf(mag) }
+    Text(
+        "PLAYER SWIPE SENSITIVITY  (${"%.1f".format(magLocal)}×)",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 20.dp, bottom = 4.dp),
+    )
+    androidx.compose.material3.Slider(
+        value = magLocal,
+        onValueChange = { magLocal = it },
+        onValueChangeFinished = { vm.setPlayerSwipeMagnitude(magLocal) },
+        valueRange = 0.3f..3f,
+        colors = androidx.compose.material3.SliderDefaults.colors(
+            thumbColor = MatrixGreen, activeTrackColor = MatrixGreen, inactiveTrackColor = MatrixGreen.copy(alpha = 0.25f),
+        ),
+    )
+    Text(
+        "How much a vertical swipe in the player changes brightness (left) / volume (right).",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
+    )
+
+    val margin by vm.playerSwipeMargin.collectAsState()
+    var marginLocal by remember(margin) { mutableStateOf(margin) }
+    Text(
+        "PLAYER SWIPE EDGE MARGIN  (top & bottom ${(marginLocal * 100).roundToInt()}%)",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
+    )
+    androidx.compose.material3.Slider(
+        value = marginLocal,
+        onValueChange = { marginLocal = it },
+        onValueChangeFinished = { vm.setPlayerSwipeMargin(marginLocal) },
+        valueRange = 0f..0.3f,
+        colors = androidx.compose.material3.SliderDefaults.colors(
+            thumbColor = MatrixGreen, activeTrackColor = MatrixGreen, inactiveTrackColor = MatrixGreen.copy(alpha = 0.25f),
+        ),
+    )
+    Text(
+        "A dead zone at the top & bottom of the player where a vertical swipe won't start (avoids the system edge gestures).",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
+    )
 }
 
 @Composable

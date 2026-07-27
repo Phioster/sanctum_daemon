@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.graphics.graphicsLayer
@@ -130,6 +131,8 @@ internal fun PlayerScreen(
     val activity = remember(context) { findActivity(context) }
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val maxVol = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1) }
+    val swipeMagnitude by vm.playerSwipeMagnitude.collectAsState()
+    val swipeMargin by vm.playerSwipeMargin.collectAsState()
 
     var source by remember { mutableStateOf<PlaybackSource?>(null) }
     var loadError by remember { mutableStateOf<String?>(null) }
@@ -313,14 +316,20 @@ internal fun PlayerScreen(
                 }
             }
             // Brightness/volume swipes only while the overlay is hidden, so they never fight the controls.
-            .pointerInput(controlsVisible, settingsOpen) {
+            .pointerInput(controlsVisible, settingsOpen, swipeMagnitude, swipeMargin) {
                 if (controlsVisible || settingsOpen) return@pointerInput
                 var onLeft = true
+                var active = true
                 detectVerticalDragGestures(
-                    onDragStart = { offset -> onLeft = offset.x < size.width / 2f },
+                    onDragStart = { offset ->
+                        onLeft = offset.x < size.width / 2f
+                        val marginPx = size.height * swipeMargin
+                        active = offset.y in marginPx..(size.height - marginPx)
+                    },
                     onVerticalDrag = { change, dragAmount ->
+                        if (!active) return@detectVerticalDragGestures
                         change.consume()
-                        val frac = dragAmount / size.height.coerceAtLeast(1) * 1.5f
+                        val frac = dragAmount / size.height.coerceAtLeast(1) * swipeMagnitude
                         if (onLeft) {
                             brightness = (brightness - frac).coerceIn(0.01f, 1f)
                             applyBrightness(); adjustHud = true to brightness
