@@ -7,8 +7,13 @@ import android.media.AudioManager
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -268,14 +273,44 @@ internal fun PlayerScreen(
     }
     DisposableEffect(Unit) { onDispose { engine.release() } }
 
+    // Pinch-to-zoom state for the video surface (double-tap resets).
+    var zoomScale by remember { mutableStateOf(1f) }
+    var panX by remember { mutableStateOf(0f) }
+    var panY by remember { mutableStateOf(0f) }
+
     Box(
         Modifier
             .fillMaxSize()
             .background(Black)
             .pointerInput(Unit) {
-                detectTapGestures(onTap = {
-                    if (settingsOpen) settingsOpen = false else controlsVisible = !controlsVisible
-                })
+                detectTapGestures(
+                    onTap = { if (settingsOpen) settingsOpen = false else controlsVisible = !controlsVisible },
+                    onDoubleTap = { zoomScale = 1f; panX = 0f; panY = 0f },
+                )
+            }
+            // Two-finger pinch zoom + pan. Only consumes multi-touch, so single-finger swipes below
+            // (brightness/volume) still work.
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    do {
+                        val event = awaitPointerEvent()
+                        val pressed = event.changes.count { it.pressed }
+                        if (pressed >= 2) {
+                            zoomScale = (zoomScale * event.calculateZoom()).coerceIn(1f, 4f)
+                            if (zoomScale > 1f) {
+                                val pan = event.calculatePan()
+                                val maxX = size.width * (zoomScale - 1f) / 2f
+                                val maxY = size.height * (zoomScale - 1f) / 2f
+                                panX = (panX + pan.x).coerceIn(-maxX, maxX)
+                                panY = (panY + pan.y).coerceIn(-maxY, maxY)
+                            } else {
+                                panX = 0f; panY = 0f
+                            }
+                            event.changes.forEach { if (it.pressed) it.consume() }
+                        }
+                    } while (event.changes.any { it.pressed })
+                }
             }
             // Brightness/volume swipes only while the overlay is hidden, so they never fight the controls.
             .pointerInput(controlsVisible, settingsOpen) {
@@ -297,7 +332,11 @@ internal fun PlayerScreen(
                 )
             },
     ) {
-        engine.VideoSurface(Modifier.fillMaxSize())
+        engine.VideoSurface(
+            Modifier.fillMaxSize().graphicsLayer {
+                scaleX = zoomScale; scaleY = zoomScale; translationX = panX; translationY = panY
+            },
+        )
 
         if ((source == null && loadError == null && localFileUri == null) || (state.isBuffering && loadError == null)) {
             CircularProgressIndicator(color = MatrixGreen, modifier = Modifier.align(Alignment.Center))
