@@ -260,9 +260,33 @@ internal interface JellyfinApi {
         @Path("uid") uid: String,
         @Query("ParentId") parentId: String,
         @Query("SortBy") sortBy: String = "IsFolder,SortName",
+        @Query("SortOrder") sortOrder: String = "Ascending",
+        @Query("Filters") filters: String? = null, // e.g. "IsUnplayed"
         @Query("Limit") limit: Int = 300,
         @Query("Fields") fields: String = "PrimaryImageAspectRatio,OfficialRating",
     ): JfItemsResp
+
+    /** Flat query: the favourites row, and reading UserData for a specific set of ids. */
+    @GET("Users/{uid}/Items") suspend fun itemQuery(
+        @Path("uid") uid: String,
+        @Query("Ids") ids: String? = null,
+        @Query("Filters") filters: String? = null,
+        @Query("Recursive") recursive: Boolean = true,
+        @Query("IncludeItemTypes") types: String? = null,
+        @Query("SortBy") sortBy: String = "SortName",
+        @Query("Limit") limit: Int = 100,
+        @Query("Fields") fields: String = "PrimaryImageAspectRatio,OfficialRating",
+    ): JfItemsResp
+
+    @POST("Users/{uid}/FavoriteItems/{id}") suspend fun markFavorite(@Path("uid") uid: String, @Path("id") id: String): Response<ResponseBody>
+    @DELETE("Users/{uid}/FavoriteItems/{id}") suspend fun unmarkFavorite(@Path("uid") uid: String, @Path("id") id: String): Response<ResponseBody>
+    /** Tell another client (a TV, a browser) to start playing an item — the "cast" direction. */
+    @POST("Sessions/{id}/Playing") suspend fun playOn(
+        @Path("id") sessionId: String,
+        @Query("itemIds") itemIds: String,
+        @Query("playCommand") playCommand: String = "PlayNow",
+        @Query("startPositionTicks") startPositionTicks: Long = 0,
+    ): Response<ResponseBody>
     @GET("Users/{uid}/Items/{id}") suspend fun itemDetail(@Path("uid") uid: String, @Path("id") id: String): JfItemDetail
     // Watched state. On a Series/Season the server cascades to every episode underneath.
     @POST("Users/{uid}/PlayedItems/{id}") suspend fun markPlayed(@Path("uid") uid: String, @Path("id") id: String): Response<ResponseBody>
