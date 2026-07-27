@@ -408,6 +408,75 @@ internal fun JellyMediaRow(item: org.phioster.sanctumd.model.JellyMediaItem, con
     }
 }
 
+/**
+ * A collapsible season / album section: the header row toggles its children open in place, so a
+ * series' seasons (or an artist's albums) can be skimmed without drilling in and back out.
+ *
+ * [children] null means "still loading". The trailing `›` still opens the folder's own page — that's
+ * where the batch actions live (download all, play album, rescan), so expanding doesn't cost them.
+ */
+@Composable
+internal fun ExpandableFolderRow(
+    folder: org.phioster.sanctumd.model.JellyMediaItem,
+    children: List<org.phioster.sanctumd.model.JellyMediaItem>?,
+    config: ServiceConfig,
+    accent: Color,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onOpenFolder: () -> Unit,
+    onOpenChild: (org.phioster.sanctumd.model.JellyMediaItem) -> Unit,
+    onSetWatched: ((org.phioster.sanctumd.model.JellyMediaItem, Boolean) -> Boolean)? = null,
+) {
+    val album = folder.kind == "MusicAlbum"
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().clickable { onToggle() }.padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                if (expanded) "▾" else "▸",
+                fontFamily = Mono, color = accent, fontSize = 14.sp,
+                modifier = Modifier.width(18.dp),
+            )
+            Box {
+                if (folder.posterUrl.isNotBlank()) {
+                    JellyPoster(folder.posterUrl, config, Modifier.width(40.dp).height(60.dp), RoundedCornerShape(4.dp), ContentScale.Crop)
+                } else {
+                    Box(Modifier.width(40.dp).height(60.dp).clip(RoundedCornerShape(4.dp)).background(Surface))
+                }
+                WatchedMarker(folder, accent, Modifier.align(Alignment.TopEnd), 14.dp, onSetWatched?.let { f -> { want: Boolean -> f(folder, want) } })
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(folder.name, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val sub = children?.let { "${it.size} ${if (album) "tracks" else "episodes"}" } ?: folder.subtitle
+                if (sub.isNotBlank()) {
+                    Text(sub, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Text(
+                "›",
+                fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 20.sp,
+                modifier = Modifier.clickable { onOpenFolder() }.padding(horizontal = 10.dp, vertical = 4.dp),
+            )
+        }
+        if (expanded) {
+            Column(Modifier.padding(start = 18.dp)) {
+                when {
+                    children == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp))
+                    children.isEmpty() -> Text("empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp))
+                    else -> children.forEach { c ->
+                        // Inside a season the show name is noise — lead with the episode number instead.
+                        val shown = if (!album && c.number != null) c.copy(name = "E%02d · %s".format(c.number, c.name), subtitle = "") else c
+                        JellyMediaRow(shown, config, accent, onSetWatched?.let { f -> { want: Boolean -> f(c, want) } }) { onOpenChild(c) }
+                    }
+                }
+            }
+        }
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+    }
+}
+
 @Composable
 internal fun JellyUserDialog(
     user: org.phioster.sanctumd.model.JellyUser,

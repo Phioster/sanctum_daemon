@@ -263,12 +263,35 @@ internal fun JellyfinScreen(
         else scope.launch { mediaDetail = runCatching { vm.jellyfinMediaDetail(config, it.id) }.getOrElse { null } }
     }
 
+    // ── Season / album accordion ──────────────────────────────────────────────────────────────────
+    // Which folders are open in the current browse level, and their lazily loaded children.
+    var expandedFolders by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var folderChildren by remember { mutableStateOf<Map<String, List<org.phioster.sanctumd.model.JellyMediaItem>>>(emptyMap()) }
+    suspend fun loadChildren(f: org.phioster.sanctumd.model.JellyMediaItem) {
+        val kids = runCatching {
+            vm.jellyfinItemList(config, f.id, if (f.kind == "Season") f.number else null)
+        }.getOrDefault(emptyList())
+        folderChildren = folderChildren + (f.id to kids)
+    }
+    fun toggleFolder(f: org.phioster.sanctumd.model.JellyMediaItem) {
+        if (f.id in expandedFolders) {
+            expandedFolders = expandedFolders - f.id
+        } else {
+            expandedFolders = expandedFolders + f.id
+            if (folderChildren[f.id] == null) scope.launch { loadChildren(f) }
+        }
+    }
+    // Leaving a folder level closes everything — the state belongs to the level you were on.
+    LaunchedEffect(browseStack) { expandedFolders = emptySet(); folderChildren = emptyMap() }
+
     // ── Watched toggle ────────────────────────────────────────────────────────────────────────────
     // Marking a Series/Season cascades to every episode on the server, so folders confirm first.
     // Non-folders flip straight away; the badge keeps its own optimistic state, we reload behind it.
     var confirmWatched by remember { mutableStateOf<Triple<String, String, Boolean>?>(null) } // id, name, target
     suspend fun reloadMedia() {
         if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last())
+        // Keep open accordion sections in sync — their episodes carry watched state too.
+        mediaContents.orEmpty().filter { it.id in expandedFolders }.forEach { loadChildren(it) }
     }
     fun applyWatched(itemId: String, name: String, want: Boolean) {
         scope.launch {
@@ -624,6 +647,21 @@ internal fun JellyfinScreen(
                                         m.isEmpty() -> item { Text("empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
                                         // Audio tracks read better as a list; everything else as a 3-column poster grid.
                                         m.any { it.kind == "Audio" } -> items(m) { it2 -> JellyMediaRow(it2, config, accent, { want -> setWatched(it2, want) }) { openMedia(it2) } }
+                                        // Seasons and albums expand in place instead of forcing a drill-in.
+                                        m.all { it.isFolder && (it.kind == "Season" || it.kind == "MusicAlbum") } ->
+                                            items(m, key = { "acc-${it.id}" }) { f ->
+                                                ExpandableFolderRow(
+                                                    folder = f,
+                                                    children = folderChildren[f.id],
+                                                    config = config,
+                                                    accent = accent,
+                                                    expanded = f.id in expandedFolders,
+                                                    onToggle = { toggleFolder(f) },
+                                                    onOpenFolder = { openMedia(f) },
+                                                    onOpenChild = { openMedia(it) },
+                                                    onSetWatched = setWatched,
+                                                )
+                                            }
                                         else -> {
                                             m.chunked(3).forEachIndexed { idx, rowItems ->
                                                 item(key = "browserow-$idx") {
