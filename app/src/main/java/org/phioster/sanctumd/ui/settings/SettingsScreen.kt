@@ -102,6 +102,7 @@ internal fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowIn
                     SettingsCategoryRow("live push (ntfy)", "Instant notifications from your ntfy server") { section = "live push (ntfy)" }
                     SettingsCategoryRow("security", "Biometric app lock") { section = "security" }
                     SettingsCategoryRow("content", "Hide adult / 18+ content") { section = "content" }
+                    SettingsCategoryRow("general", "Which screen the app opens on") { section = "general" }
                     SettingsCategoryRow("playback", "Languages, subtitles, autoplay & skipping") { section = "playback" }
                     SettingsCategoryRow("gestures", "Swipe between dashboard tabs + swipe zone") { section = "gestures" }
                     SettingsCategoryRow("backup / data", "Export or import your config (encrypted)") { section = "backup / data" }
@@ -112,6 +113,7 @@ internal fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowIn
                 "live push (ntfy)" -> LivePushSection(vm)
                 "security" -> SecuritySection(vm)
                 "content" -> ContentSection(vm)
+                "general" -> GeneralSection(vm)
                 "playback" -> PlaybackSection(vm)
                 "gestures" -> GesturesSection(vm)
                 "backup / data" -> BackupSection(vm)

@@ -167,8 +167,11 @@ internal fun HomeShell(
     val currentAccent = currentTab?.takeIf { it.accent != 0L }?.let { Color(it.accent) } ?: MatrixGreen
     val scope = rememberCoroutineScope()
     // Custom full-width Services drawer, driven directly by the finger. progress: 0 = closed, 1 = open.
-    val startOpen = vm.reopenDrawer
-    LaunchedEffect(Unit) { vm.reopenDrawer = false }
+    // Either we're coming back from a screen opened out of the drawer, or this is a cold start and
+    // the user wants the app to open on the services list.
+    val startOnServices = vm.startScreenPending && vm.startScreen.value == "services"
+    val startOpen = vm.reopenDrawer || startOnServices
+    LaunchedEffect(Unit) { vm.reopenDrawer = false; vm.startScreenPending = false }
     var drawerWidthPx by remember { mutableFloatStateOf(1f) }
     val drawerProgress = remember { androidx.compose.animation.core.Animatable(if (startOpen) 1f else 0f) }
     val drawerOpen = drawerProgress.value > 0.001f

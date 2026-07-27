@@ -198,6 +198,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     /** Set when navigating away from inside the Services drawer; HomeShell reopens it once on return. */
     var reopenDrawer: Boolean = false
 
+    /** True until the "open on the services list" preference has been honoured for this launch. */
+    var startScreenPending: Boolean = true
+
     /** App-lock session state: survives rotation (VM outlives the activity), reset on process death. */
     val unlocked = androidx.compose.runtime.mutableStateOf(false)
 
