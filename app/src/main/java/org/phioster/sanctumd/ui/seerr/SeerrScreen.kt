@@ -748,12 +748,23 @@ internal fun SeerrRequestRow(item: SeerrRequestItem, accent: Color, onApprove: (
             Modifier
                 .fillMaxWidth()
                 .clickable(enabled = item.pending) { menu = true }
-                .padding(vertical = 10.dp),
+                .padding(vertical = 8.dp),
         ) {
-            Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(2.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(item.subtitle, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (item.posterUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = item.posterUrl, contentDescription = null, contentScale = ContentScale.Crop,
+                        modifier = Modifier.width(46.dp).height(69.dp).clip(RoundedCornerShape(4.dp)).background(Surface),
+                    )
+                } else {
+                    Box(Modifier.width(46.dp).height(69.dp).clip(RoundedCornerShape(4.dp)).background(Surface))
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.height(2.dp))
+                    Text(item.subtitle, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
                 Text(item.status, fontFamily = Mono, color = statusColor, fontSize = 11.sp)
             }
             Spacer(Modifier.height(8.dp))

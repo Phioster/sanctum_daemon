@@ -104,6 +104,7 @@ internal interface LidarrApi {
 @Serializable internal data class ArrQueuePage(val records: List<ArrQueueRecord> = emptyList())
 
 @Serializable internal data class ArrStats(val sizeOnDisk: Long = 0)
+@Serializable internal data class ArrImageRec(val coverType: String = "", val remoteUrl: String = "", val url: String = "")
 @Serializable internal data class ArrLibraryRecord(
     val id: Int = 0,
     val title: String = "",
@@ -114,6 +115,7 @@ internal interface LidarrApi {
     val status: String = "",
     val sizeOnDisk: Long = 0,
     val statistics: ArrStats? = null,
+    val images: List<ArrImageRec> = emptyList(),
 )
 
 @Serializable internal data class ArrProfileRecord(val id: Int = 0, val name: String = "")
@@ -413,7 +415,8 @@ suspend fun arrLibrary(config: ServiceConfig): List<ArrLibraryItem> = withContex
             ServiceType.SONARR -> listOfNotNull(r.year.takeIf { it > 0 }?.toString(), r.status.ifBlank { null }).joinToString(" · ")
             else -> "${r.year} · ${if (r.hasFile) "downloaded" else "missing"}"
         }
-        ArrLibraryItem(r.id, title, sub, r.year, size)
+        val poster = r.images.firstOrNull { img -> img.coverType == "poster" }?.let { img -> img.remoteUrl.ifBlank { img.url } } ?: ""
+        ArrLibraryItem(r.id, title, sub, r.year, size, poster)
     }
 }
 

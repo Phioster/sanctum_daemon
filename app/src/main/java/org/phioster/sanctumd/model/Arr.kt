@@ -32,6 +32,7 @@ data class ArrLibraryItem(
     val subtitle: String,
     val year: Int,
     val sizeMb: Long,
+    val posterUrl: String = "",
 )
 
 /** A lookup result for adding; [raw] is the original JSON reused as the add body. */

@@ -72,7 +72,7 @@ import retrofit2.http.Query
     val requestedBy: SeerrUser = SeerrUser(),
 )
 @Serializable internal data class SeerrRequestPage(val results: List<SeerrRequest> = emptyList())
-@Serializable internal data class SeerrMeta(val title: String? = null, val name: String? = null)
+@Serializable internal data class SeerrMeta(val title: String? = null, val name: String? = null, val posterPath: String? = null)
 
 @Serializable internal data class SeerrIssue(
     val id: Int = 0,
@@ -164,16 +164,15 @@ suspend fun seerrRequests(config: ServiceConfig, filter: String): List<SeerrRequ
         reqs.map { r ->
             async {
                 val isTv = r.type == "tv" || r.media.mediaType == "tv"
-                val title = runCatching {
-                    if (isTv) api.tv(r.media.tmdbId).let { it.name ?: it.title }
-                    else api.movie(r.media.tmdbId).let { it.title ?: it.name }
-                }.getOrNull() ?: "#${r.media.tmdbId}"
+                val meta = runCatching { if (isTv) api.tv(r.media.tmdbId) else api.movie(r.media.tmdbId) }.getOrNull()
+                val title = (if (isTv) meta?.name ?: meta?.title else meta?.title ?: meta?.name) ?: "#${r.media.tmdbId}"
                 SeerrRequestItem(
                     id = r.id,
                     title = title,
                     subtitle = "${r.type} · ${r.requestedBy.displayName}",
                     status = seerrStatusText(r.status),
                     pending = r.status == 1,
+                    posterUrl = meta?.posterPath?.let { "https://image.tmdb.org/t/p/w300$it" } ?: "",
                 )
             }
         }.awaitAll()

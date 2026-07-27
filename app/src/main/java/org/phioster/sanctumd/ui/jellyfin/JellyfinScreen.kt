@@ -1126,70 +1126,39 @@ internal fun JellyfinScreen(
                 Column(Modifier.padding(horizontal = 16.dp)) {
                     Spacer(Modifier.height(14.dp))
                     if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
-                        Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MatrixGreen)
-                                .clickable { mediaDetail = null; playRequest = org.phioster.sanctumd.ui.player.PlayRequest(d.id, d.name) }
-                                .padding(vertical = 12.dp),
-                            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Black, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("play", fontFamily = Mono, color = Black, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        PrimaryButton("play", Modifier.fillMaxWidth(), icon = Icons.Filled.PlayArrow) {
+                            mediaDetail = null; playRequest = org.phioster.sanctumd.ui.player.PlayRequest(d.id, d.name)
                         }
                         Spacer(Modifier.height(8.dp))
                         val startDownload = { org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L) }
                         when (dl?.state) {
                             org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
-                                Text("✓  downloaded — play it from the DOWNLOADS row", fontFamily = Mono, color = accent, fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp))
+                                Hint("✓  downloaded — play it from the DOWNLOADS row", Modifier.padding(vertical = 8.dp))
                             org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING, org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED ->
-                                TextButton(
-                                    onClick = { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) },
-                                    modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
-                                ) { Text("⬇  ${(dl.progress * 100).toInt()}%  ·  cancel", fontFamily = Mono, color = MatrixGreen) }
+                                SecondaryButton("⬇  ${(dl.progress * 100).toInt()}%  ·  cancel", Modifier.fillMaxWidth()) { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) }
                             org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED ->
-                                TextButton(
-                                    onClick = { startDownload() },
-                                    modifier = Modifier.fillMaxWidth().border(1.dp, ErrRed.copy(alpha = 0.6f), RoundedCornerShape(8.dp)),
-                                ) { Text("⚠  download failed — retry", fontFamily = Mono, color = ErrRed) }
+                                SecondaryButton("⚠  download failed — retry", Modifier.fillMaxWidth(), accent = ErrRed) { startDownload() }
                             else ->
-                                TextButton(
-                                    onClick = { startDownload() },
-                                    modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.6f), RoundedCornerShape(8.dp)),
-                                ) { Text("⬇  download", fontFamily = Mono, color = MatrixGreen, fontWeight = FontWeight.Bold) }
+                                SecondaryButton("⬇  download", Modifier.fillMaxWidth()) { startDownload() }
                         }
                         Spacer(Modifier.height(12.dp))
                     }
                     if (d.kind == "Audio") {
-                        Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MatrixGreen)
-                                .clickable {
-                                    mediaDetail = null
-                                    scope.launch {
-                                        val track = runCatching { vm.jellyfinTrack(config, d.id) }.getOrNull()
-                                        if (track != null) org.phioster.sanctumd.ui.player.MusicController.play(context, listOf(track), 0, config.customHeaders)
-                                    }
-                                }
-                                .padding(vertical = 12.dp),
-                            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Black, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("play", fontFamily = Mono, color = Black, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        PrimaryButton("play", Modifier.fillMaxWidth(), icon = Icons.Filled.PlayArrow) {
+                            mediaDetail = null
+                            scope.launch {
+                                val track = runCatching { vm.jellyfinTrack(config, d.id) }.getOrNull()
+                                if (track != null) org.phioster.sanctumd.ui.player.MusicController.play(context, listOf(track), 0, config.customHeaders)
+                            }
                         }
                         Spacer(Modifier.height(8.dp))
                         when (dl?.state) {
                             org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
-                                Text("✓  downloaded", fontFamily = Mono, color = accent, fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp))
+                                Hint("✓  downloaded", Modifier.padding(vertical = 8.dp))
                             org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING, org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED ->
-                                TextButton(
-                                    onClick = { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) },
-                                    modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
-                                ) { Text("⬇  ${(dl.progress * 100).toInt()}%  ·  cancel", fontFamily = Mono, color = MatrixGreen) }
+                                SecondaryButton("⬇  ${(dl.progress * 100).toInt()}%  ·  cancel", Modifier.fillMaxWidth()) { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) }
                             else ->
-                                TextButton(
-                                    onClick = { org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L, "Audio") },
-                                    modifier = Modifier.fillMaxWidth().border(1.dp, MatrixGreen.copy(alpha = 0.6f), RoundedCornerShape(8.dp)),
-                                ) { Text("⬇  download", fontFamily = Mono, color = MatrixGreen, fontWeight = FontWeight.Bold) }
+                                SecondaryButton("⬇  download", Modifier.fillMaxWidth()) { org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L, "Audio") }
                         }
                         Spacer(Modifier.height(12.dp))
                     }

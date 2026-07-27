@@ -184,15 +184,9 @@ internal fun MediaGridCard(item: org.phioster.sanctumd.model.JellyMediaItem, con
     }
 }
 
-/** A bordered action chip with a decent tap target, used in the browse header. */
+/** Browse-header action chip — delegates to the app-wide [AppChip]. */
 @Composable
-internal fun BrowseChip(label: String, accent: Color, onClick: () -> Unit) {
-    Text(
-        label, fontFamily = Mono, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-        modifier = Modifier.clip(RoundedCornerShape(8.dp)).border(1.dp, accent.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-            .clickable { onClick() }.padding(horizontal = 12.dp, vertical = 8.dp),
-    )
-}
+internal fun BrowseChip(label: String, accent: Color, onClick: () -> Unit) = AppChip(label, accent, onClick)
 
 /** A library shown as a landscape tile (poster-cropped + scrim + name) in the Media home grid. */
 @Composable

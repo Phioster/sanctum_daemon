@@ -7,6 +7,7 @@ data class SeerrRequestItem(
     val subtitle: String,
     val status: String,
     val pending: Boolean,
+    val posterUrl: String = "",
 )
 
 /** An issue reported in Seerr. */

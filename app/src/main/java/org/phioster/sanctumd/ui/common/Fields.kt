@@ -1,5 +1,6 @@
 package org.phioster.sanctumd.ui.common
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
@@ -40,6 +41,7 @@ import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
+import org.phioster.sanctumd.ui.theme.SurfaceHi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
@@ -150,4 +152,53 @@ internal fun SectionHeader(label: String, accent: Color = MatrixGreen, modifier:
 @Composable
 internal fun Hint(text: String, modifier: Modifier = Modifier) {
     Text(text, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 12.sp, modifier = modifier)
+}
+
+/** Filled accent button (dark ink) — the primary in-content action everywhere. */
+@Composable
+internal fun PrimaryButton(label: String, modifier: Modifier = Modifier, icon: ImageVector? = null, accent: Color = MatrixGreen, enabled: Boolean = true, onClick: () -> Unit) {
+    Row(
+        modifier.clip(RoundedCornerShape(8.dp))
+            .background(if (enabled) accent else accent.copy(alpha = 0.3f))
+            .clickable(enabled = enabled) { onClick() }
+            .padding(horizontal = 16.dp, vertical = 11.dp),
+        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icon != null) {
+            Icon(icon, contentDescription = null, tint = Black, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(6.dp))
+        }
+        Text(label, fontFamily = Mono, color = Black, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+    }
+}
+
+/** Outlined accent button (accent text on a slightly-raised surface) — the secondary action. */
+@Composable
+internal fun SecondaryButton(label: String, modifier: Modifier = Modifier, icon: ImageVector? = null, accent: Color = MatrixGreen, enabled: Boolean = true, onClick: () -> Unit) {
+    Row(
+        modifier.clip(RoundedCornerShape(8.dp))
+            .background(SurfaceHi)
+            .border(1.dp, accent.copy(alpha = if (enabled) 0.6f else 0.25f), RoundedCornerShape(8.dp))
+            .clickable(enabled = enabled) { onClick() }
+            .padding(horizontal = 16.dp, vertical = 11.dp),
+        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val c = if (enabled) accent else accent.copy(alpha = 0.4f)
+        if (icon != null) {
+            Icon(icon, contentDescription = null, tint = c, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(6.dp))
+        }
+        Text(label, fontFamily = Mono, color = c, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+    }
+}
+
+/** A compact bordered action chip — the standard chip for inline actions (back / scan / filters). */
+@Composable
+internal fun AppChip(label: String, accent: Color = MatrixGreen, onClick: () -> Unit) {
+    Text(
+        label, fontFamily = Mono, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+        modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(SurfaceHi)
+            .border(1.dp, accent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+            .clickable { onClick() }.padding(horizontal = 12.dp, vertical = 8.dp),
+    )
 }
