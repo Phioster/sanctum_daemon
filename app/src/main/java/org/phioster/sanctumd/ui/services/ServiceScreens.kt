@@ -258,7 +258,7 @@ internal fun ServiceTile(
             Spacer(Modifier.height(8.dp))
             Text(
                 if (config.pinned) "★ ${config.label}" else config.label,
-                fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                fontFamily = Mono, color = accent, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(8.dp))
             // The same key numbers the card view shows, scaled down to fit a tile.
