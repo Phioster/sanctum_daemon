@@ -293,6 +293,16 @@ suspend fun seerrDiscover(config: ServiceConfig, kind: String): List<SeerrDiscov
     parseDiscoverItems(page, def)
 }
 
+/** [success] on 2xx, else the Overseerr/Jellyseerr error `{message}` (so a 400/409 says why). */
+private fun seerrOkOr(resp: Response<ResponseBody>, success: String): String {
+    if (resp.isSuccessful) return success
+    val body = runCatching { resp.errorBody()?.string() }.getOrNull()
+    val msg = body?.let {
+        runCatching { (json.parseToJsonElement(it) as? JsonObject)?.get("message")?.let { m -> (m as? JsonPrimitive)?.content } }.getOrNull()
+    }
+    return "error: ${msg ?: "HTTP ${resp.code()}"}"
+}
+
 /** Add a title to the (Jellyseerr) watchlist. */
 suspend fun seerrAddToWatchlist(config: ServiceConfig, tmdbId: Int, mediaType: String, title: String): String =
     destructive("add $title to the Seerr watchlist") {
@@ -303,7 +313,7 @@ suspend fun seerrAddToWatchlist(config: ServiceConfig, tmdbId: Int, mediaType: S
                     put("mediaType", mediaType)
                     put("title", title)
                 }
-                okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).addWatchlist(body), "added to watchlist")
+                seerrOkOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).addWatchlist(body), "added to watchlist")
             } catch (t: Throwable) {
                 "error: ${t.message ?: t.javaClass.simpleName}"
             }
@@ -315,7 +325,7 @@ suspend fun seerrRemoveFromWatchlist(config: ServiceConfig, tmdbId: Int): String
     destructive("remove tmdb $tmdbId from the Seerr watchlist") {
         withContext(Dispatchers.IO) {
             try {
-                okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).deleteWatchlist(tmdbId), "removed from watchlist")
+                seerrOkOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).deleteWatchlist(tmdbId), "removed from watchlist")
             } catch (t: Throwable) {
                 "error: ${t.message ?: t.javaClass.simpleName}"
             }
