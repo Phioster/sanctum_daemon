@@ -50,6 +50,7 @@ data class SeerrMediaDetail(
     val genres: String,
     val status: String, // "available" / "processing" / … / "" (not requested)
     val cast: List<ArrCastMember>,
+    val onWatchlist: Boolean = false,
 )
 
 /** A Seerr user, for the admin user list. */

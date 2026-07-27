@@ -129,6 +129,7 @@ internal interface SeerrApi {
     @GET("api/v1/discover/tv") suspend fun discoverTv(@Query("page") page: Int = 1, @Query("genre") genre: Int? = null, @Query("sortBy") sortBy: String? = null): JsonObject
     @GET("api/v1/discover/watchlist") suspend fun watchlist(@Query("page") page: Int = 1): JsonObject
     @POST("api/v1/watchlist") suspend fun addWatchlist(@Body body: JsonObject): Response<ResponseBody>
+    @DELETE("api/v1/watchlist/{id}") suspend fun deleteWatchlist(@Path("id") tmdbId: Int): Response<ResponseBody>
     @GET("api/v1/issue/{id}") suspend fun issueDetail(@Path("id") id: Int): JsonObject
     @POST("api/v1/issue/{id}/comment") suspend fun addComment(@Path("id") id: Int, @Body body: JsonObject): Response<ResponseBody>
     @POST("api/v1/issue/{id}/{status}") suspend fun setIssueStatus(@Path("id") id: Int, @Path("status") status: String): Response<ResponseBody>
@@ -309,6 +310,18 @@ suspend fun seerrAddToWatchlist(config: ServiceConfig, tmdbId: Int, mediaType: S
         }
     }
 
+/** Remove a title from the (Jellyseerr) watchlist. */
+suspend fun seerrRemoveFromWatchlist(config: ServiceConfig, tmdbId: Int): String =
+    destructive("remove tmdb $tmdbId from the Seerr watchlist") {
+        withContext(Dispatchers.IO) {
+            try {
+                okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).deleteWatchlist(tmdbId), "removed from watchlist")
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
+
 /** Genre list for [kind] = "movies" | "tv" (id + name), for the discover genre rows. */
 suspend fun seerrGenres(config: ServiceConfig, kind: String): List<Pair<Int, String>> = withContext(Dispatchers.IO) {
     val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
@@ -335,20 +348,35 @@ suspend fun seerrDiscoverGenre(
 
 /** The signed-in user's Plex watchlist (synced via Seerr). Items carry tmdbId + mediaType. */
 suspend fun seerrWatchlist(config: ServiceConfig): List<SeerrDiscoverItem> = withContext(Dispatchers.IO) {
-    val page = apiFor<SeerrApi>(config, apiKeyHeader(config)).watchlist()
+    val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
+    val page = api.watchlist()
     val results = page["results"] as? JsonArray ?: return@withContext emptyList()
-    results.mapNotNull { it as? JsonObject }.mapNotNull { o ->
-        val tmdb = jsInt(o, "tmdbId") ?: return@mapNotNull null
-        val type = jsStr(o, "mediaType") ?: "movie"
-        val poster = jsStr(o, "posterPath")
-        SeerrDiscoverItem(
-            tmdbId = tmdb,
-            title = jsStr(o, "title") ?: "?",
-            year = "",
-            mediaType = type,
-            posterUrl = if (!poster.isNullOrBlank()) "https://image.tmdb.org/t/p/w300$poster" else "",
-            status = "",
-        )
+    val objs = results.mapNotNull { it as? JsonObject }
+    // The watchlist endpoint often omits the poster path (and sometimes the title), so fetch the
+    // TMDB metadata per title in parallel when needed.
+    coroutineScope {
+        objs.mapNotNull { o ->
+            val tmdb = jsInt(o, "tmdbId") ?: return@mapNotNull null
+            val type = jsStr(o, "mediaType") ?: "movie"
+            val itemPoster = jsStr(o, "posterPath").orEmpty()
+            val itemTitle = jsStr(o, "title").orEmpty()
+            async {
+                val meta = if (itemPoster.isBlank() || itemTitle.isBlank()) {
+                    runCatching { if (type == "tv") api.tv(tmdb) else api.movie(tmdb) }.getOrNull()
+                } else {
+                    null
+                }
+                val poster = itemPoster.ifBlank { meta?.posterPath.orEmpty() }
+                SeerrDiscoverItem(
+                    tmdbId = tmdb,
+                    title = itemTitle.ifBlank { (if (type == "tv") meta?.name ?: meta?.title else meta?.title ?: meta?.name) ?: "#$tmdb" },
+                    year = "",
+                    mediaType = type,
+                    posterUrl = if (poster.isNotBlank()) "https://image.tmdb.org/t/p/w300$poster" else "",
+                    status = "",
+                )
+            }
+        }.awaitAll()
     }
 }
 
@@ -538,6 +566,7 @@ suspend fun seerrMediaDetail(config: ServiceConfig, tmdbId: Int, mediaType: Stri
         genres = genres,
         status = seerrMediaStatusText(statusInt),
         cast = cast,
+        onWatchlist = jsBool(o, "onUserWatchlist") ?: false,
     )
 }
 
