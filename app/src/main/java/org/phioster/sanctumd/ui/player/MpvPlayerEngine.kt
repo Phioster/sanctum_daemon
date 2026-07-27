@@ -155,25 +155,44 @@ class MpvPlayerEngine(context: Context) : MediaPlayerEngine {
         mpv.setPropertyString(prop, id ?: "no")
     }
 
-    override fun autoSelectSubtitle(languages: List<String>): Boolean {
-        if (released) return false
-        val langs = languages.map { it.lowercase() }.toSet()
+    /** Track ids of [kind] whose language or title matches [langs], with their forced flag. */
+    private fun matches(kind: TrackKind, langs: Set<String>): List<Pair<Int, Boolean>> {
+        val want = typeName(kind)
         val count = mpv.getPropertyInt("track-list/count") ?: 0
-        val matches = mutableListOf<Pair<Int, Boolean>>() // id, forced
+        val out = mutableListOf<Pair<Int, Boolean>>()
         for (i in 0 until count) {
-            if (mpv.getPropertyString("track-list/$i/type") != "sub") continue
+            if (mpv.getPropertyString("track-list/$i/type") != want) continue
             val id = mpv.getPropertyInt("track-list/$i/id") ?: continue
             val lang = mpv.getPropertyString("track-list/$i/lang")?.lowercase()
             val title = mpv.getPropertyString("track-list/$i/title")?.lowercase().orEmpty()
-            val german = lang in langs || title.contains("deutsch") || title.contains("german")
-            if (!german) continue
-            val forced = (mpv.getPropertyBoolean("track-list/$i/forced") ?: false) || title.contains("forced") || title.contains("erzwungen")
-            matches += id to forced
+            if (lang !in langs && langs.none { title.contains(it) }) continue
+            val forced = (mpv.getPropertyBoolean("track-list/$i/forced") ?: false) ||
+                title.contains("forced") || title.contains("erzwungen")
+            out += id to forced
         }
-        val pick = matches.firstOrNull { it.second } ?: matches.firstOrNull() ?: return false
-        mpv.setPropertyString("sid", pick.first.toString())
-        return true
+        return out
     }
+
+    override fun applyTrackPreferences(audioLang: String, subLang: String, subMode: String) {
+        if (released) return
+        if (audioLang.isNotBlank()) {
+            matches(TrackKind.AUDIO, languageAliases(audioLang)).firstOrNull()?.let {
+                mpv.setPropertyString("aid", it.first.toString())
+            }
+        }
+        if (subMode == "off" || subLang.isBlank()) {
+            mpv.setPropertyString("sid", "no")
+            return
+        }
+        val subs = matches(TrackKind.SUBTITLE, languageAliases(subLang))
+        val pick = subs.firstOrNull { it.second } ?: subs.firstOrNull().takeIf { subMode == "any" }
+        // No match in "forced" mode means subtitles stay off on purpose — otherwise the file's own
+        // default track would show up, which is exactly what the preference exists to prevent.
+        mpv.setPropertyString("sid", pick?.first?.toString() ?: "no")
+    }
+
+    override fun setSubtitleScale(scale: Float) { if (!released) mpv.setPropertyDouble("sub-scale", scale.toDouble()) }
+    override fun setSubtitleDelay(delayMs: Long) { if (!released) mpv.setPropertyDouble("sub-delay", delayMs / 1000.0) }
 
     override fun setSpeed(speed: Float) { if (!released) mpv.setPropertyDouble("speed", speed.toDouble()) }
     override fun currentSpeed(): Float = if (released) 1f else (mpv.getPropertyDouble("speed")?.toFloat() ?: 1f)

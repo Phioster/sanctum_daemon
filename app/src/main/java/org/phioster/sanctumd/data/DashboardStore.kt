@@ -29,6 +29,13 @@ private val HIDDEN_LIBRARIES_KEY = stringPreferencesKey("hidden_libraries_json")
 private val MEDIA_ROW_STYLES_KEY = stringPreferencesKey("media_row_styles_json")
 private val PLAYER_SWIPE_MAG_KEY = floatPreferencesKey("player_swipe_magnitude")
 private val PLAYER_SWIPE_MARGIN_KEY = floatPreferencesKey("player_swipe_margin")
+private val AUDIO_LANG_KEY = stringPreferencesKey("player_audio_lang")
+private val SUB_LANG_KEY = stringPreferencesKey("player_sub_lang")
+private val SUB_MODE_KEY = stringPreferencesKey("player_sub_mode")
+private val SUB_SCALE_KEY = floatPreferencesKey("player_sub_scale")
+private val AUTOPLAY_NEXT_KEY = booleanPreferencesKey("player_autoplay_next")
+private val AUTO_SKIP_KEY = booleanPreferencesKey("player_auto_skip_segments")
+private val ASK_RESUME_KEY = booleanPreferencesKey("player_ask_resume")
 private val json = Json { ignoreUnknownKeys = true }
 
 /** Persists the user's dashboard tabs (widget layout) as JSON in DataStore. */
@@ -91,6 +98,24 @@ class DashboardStore(private val context: Context) {
     suspend fun setPlayerSwipeMargin(v: Float) {
         context.dashboardDataStore.edit { it[PLAYER_SWIPE_MARGIN_KEY] = v.coerceIn(0f, 0.3f) }
     }
+
+    // ── Playback preferences ──────────────────────────────────────────────────────────────────
+    // Language codes are ISO-639 ("de"/"en"/…); [subtitleMode] is "forced" (only a forced track for
+    // the chosen language, else nothing), "any" (forced first, then a normal track) or "off".
+    val audioLanguage: Flow<String> = context.dashboardDataStore.data.map { it[AUDIO_LANG_KEY] ?: "de" }
+    val subtitleLanguage: Flow<String> = context.dashboardDataStore.data.map { it[SUB_LANG_KEY] ?: "de" }
+    val subtitleMode: Flow<String> = context.dashboardDataStore.data.map { it[SUB_MODE_KEY] ?: "forced" }
+    val subtitleScale: Flow<Float> = context.dashboardDataStore.data.map { it[SUB_SCALE_KEY] ?: 1f }
+    val autoplayNext: Flow<Boolean> = context.dashboardDataStore.data.map { it[AUTOPLAY_NEXT_KEY] ?: true }
+    val autoSkipSegments: Flow<Boolean> = context.dashboardDataStore.data.map { it[AUTO_SKIP_KEY] ?: false }
+    val askResume: Flow<Boolean> = context.dashboardDataStore.data.map { it[ASK_RESUME_KEY] ?: true }
+    suspend fun setAudioLanguage(v: String) { context.dashboardDataStore.edit { it[AUDIO_LANG_KEY] = v } }
+    suspend fun setSubtitleLanguage(v: String) { context.dashboardDataStore.edit { it[SUB_LANG_KEY] = v } }
+    suspend fun setSubtitleMode(v: String) { context.dashboardDataStore.edit { it[SUB_MODE_KEY] = v } }
+    suspend fun setSubtitleScale(v: Float) { context.dashboardDataStore.edit { it[SUB_SCALE_KEY] = v.coerceIn(0.5f, 2.5f) } }
+    suspend fun setAutoplayNext(v: Boolean) { context.dashboardDataStore.edit { it[AUTOPLAY_NEXT_KEY] = v } }
+    suspend fun setAutoSkipSegments(v: Boolean) { context.dashboardDataStore.edit { it[AUTO_SKIP_KEY] = v } }
+    suspend fun setAskResume(v: Boolean) { context.dashboardDataStore.edit { it[ASK_RESUME_KEY] = v } }
 
     // Offline downloads: only fetch on un-metered Wi-Fi when on.
     val downloadsWifiOnly: Flow<Boolean> = context.dashboardDataStore.data.map { it[DOWNLOADS_WIFI_ONLY_KEY] ?: false }

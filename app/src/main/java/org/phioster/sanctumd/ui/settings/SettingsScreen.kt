@@ -6,6 +6,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import kotlin.math.roundToInt
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -100,6 +102,7 @@ internal fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowIn
                     SettingsCategoryRow("live push (ntfy)", "Instant notifications from your ntfy server") { section = "live push (ntfy)" }
                     SettingsCategoryRow("security", "Biometric app lock") { section = "security" }
                     SettingsCategoryRow("content", "Hide adult / 18+ content") { section = "content" }
+                    SettingsCategoryRow("playback", "Languages, subtitles, autoplay & skipping") { section = "playback" }
                     SettingsCategoryRow("gestures", "Swipe between dashboard tabs + swipe zone") { section = "gestures" }
                     SettingsCategoryRow("backup / data", "Export or import your config (encrypted)") { section = "backup / data" }
                     SettingsCategoryRow("about", "Version & project info") { section = "about" }
@@ -109,6 +112,7 @@ internal fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowIn
                 "live push (ntfy)" -> LivePushSection(vm)
                 "security" -> SecuritySection(vm)
                 "content" -> ContentSection(vm)
+                "playback" -> PlaybackSection(vm)
                 "gestures" -> GesturesSection(vm)
                 "backup / data" -> BackupSection(vm)
                 "about" -> AboutSection()
@@ -213,6 +217,101 @@ internal fun ContentSection(vm: DashboardViewModel) {
         "Only real porn is hidden — XXX / X / X18+ / Adult ratings on Jellyfin and the TMDB adult flag on Seerr. Mainstream 18-rated films (horror, NC-17, R, FSK 18, R18+) stay visible. Doesn't touch Radarr/Sonarr or global search.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
     )
+}
+
+/** Playback preferences: track languages, subtitle look, autoplay, segment skipping, resume. */
+@Composable
+internal fun PlaybackSection(vm: DashboardViewModel) {
+    val audioLang by vm.audioLanguage.collectAsState()
+    val subLang by vm.subtitleLanguage.collectAsState()
+    val subMode by vm.subtitleMode.collectAsState()
+    val subScale by vm.subtitleScale.collectAsState()
+    val autoplay by vm.autoplayNext.collectAsState()
+    val autoSkip by vm.autoSkipSegments.collectAsState()
+    val askResume by vm.askResume.collectAsState()
+
+    SettingsPickerRow(
+        "Audio language",
+        org.phioster.sanctumd.ui.player.LANGUAGE_OPTIONS,
+        audioLang,
+    ) { vm.setAudioLanguage(it) }
+    Text(
+        "The player picks the first audio track in this language; \"file default\" leaves the choice to the file.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(bottom = 12.dp),
+    )
+
+    SettingsPickerRow(
+        "Subtitle language",
+        org.phioster.sanctumd.ui.player.LANGUAGE_OPTIONS.filter { it.first.isNotBlank() },
+        subLang,
+    ) { vm.setSubtitleLanguage(it) }
+
+    SettingsPickerRow(
+        "Subtitles",
+        listOf(
+            "forced" to "forced only, else off",
+            "any" to "forced, else a normal track",
+            "off" to "always off",
+        ),
+        subMode,
+    ) { vm.setSubtitleMode(it) }
+    Text(
+        "\"Forced only\" shows the signs-and-songs track when the file has one and otherwise leaves subtitles off — a file whose default track is a full translation stays quiet.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(bottom = 12.dp),
+    )
+
+    var scaleLocal by remember(subScale) { mutableStateOf(subScale) }
+    Text(
+        "SUBTITLE SIZE  (${(scaleLocal * 100).roundToInt()}%)",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+    )
+    androidx.compose.material3.Slider(
+        value = scaleLocal,
+        onValueChange = { scaleLocal = it },
+        onValueChangeFinished = { vm.setSubtitleScale(scaleLocal) },
+        valueRange = 0.5f..2.5f,
+        colors = androidx.compose.material3.SliderDefaults.colors(
+            thumbColor = MatrixGreen, activeTrackColor = MatrixGreen, inactiveTrackColor = MatrixGreen.copy(alpha = 0.25f),
+        ),
+    )
+    Text(
+        "Applies to the mpv engine (the default). Size and timing can also be nudged per playback from the player's settings panel.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(bottom = 12.dp),
+    )
+
+    NotifyToggleRow("Autoplay next episode", "Shows a countdown card near the end and rolls on", autoplay) { vm.setAutoplayNext(it) }
+    NotifyToggleRow("Auto-skip intro & outro", "Skips without asking — the skip button appears either way", autoSkip) { vm.setAutoSkipSegments(it) }
+    NotifyToggleRow("Ask where to resume", "Offers \"resume\" vs \"start over\" instead of jumping straight in", askResume) { vm.setAskResume(it) }
+    Text(
+        "Intro/outro ranges come from the server: Jellyfin 10.10+ media segments, or the Intro Skipper plugin. Without either, no skip button appears.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
+    )
+}
+
+/** A labelled row of choice chips — used where a toggle isn't enough but a dialog is too much. */
+@Composable
+internal fun SettingsPickerRow(
+    label: String,
+    options: List<Pair<String, String>>,
+    selected: String,
+    onPick: (String) -> Unit,
+) {
+    Text(label.uppercase(), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        options.forEach { (value, text) ->
+            val on = value == selected
+            Text(
+                text,
+                fontFamily = Mono, fontSize = 12.sp,
+                color = if (on) Black else MatrixGreen,
+                modifier = Modifier
+                    .background(if (on) MatrixGreen else Color.Transparent, RoundedCornerShape(6.dp))
+                    .border(1.dp, MatrixGreen.copy(alpha = if (on) 0f else 0.35f), RoundedCornerShape(6.dp))
+                    .clickable { onPick(value) }
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
+        }
+    }
 }
 
 @Composable

@@ -216,6 +216,8 @@ internal data class JfCounts(
     val CommunityRating: Double? = null,
     val Type: String = "",
     val SeriesName: String? = null, // episodes: the show they belong to
+    val SeriesId: String? = null, // episodes: id of the show (used to find what plays next)
+    val SeasonId: String? = null,
     val ParentIndexNumber: Int? = null, // episodes: season number
     val IndexNumber: Int? = null, // episodes: episode number
     val AlbumArtist: String? = null, // audio: performing artist

@@ -117,6 +117,12 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         backgroundedAt = android.os.SystemClock.elapsedRealtime()
     }
 
+    /** The player overlay hides its chrome while floating; it reads this. */
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        org.phioster.sanctumd.ui.player.PipState.inPip.value = isInPictureInPictureMode
+    }
+
     override fun onStart() {
         super.onStart()
         // Re-lock after more than 2 minutes in the background (cold start locks anyway).

@@ -288,6 +288,36 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         dashStore.playerSwipeMargin.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, 0f)
     fun setPlayerSwipeMagnitude(v: Float) = viewModelScope.launch { dashStore.setPlayerSwipeMagnitude(v) }
     fun setPlayerSwipeMargin(v: Float) = viewModelScope.launch { dashStore.setPlayerSwipeMargin(v) }
+
+    /** Playback preferences (track languages, subtitle look, autoplay, segment skipping, resume). */
+    val audioLanguage: StateFlow<String> =
+        dashStore.audioLanguage.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, "de")
+    val subtitleLanguage: StateFlow<String> =
+        dashStore.subtitleLanguage.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, "de")
+    val subtitleMode: StateFlow<String> =
+        dashStore.subtitleMode.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, "forced")
+    val subtitleScale: StateFlow<Float> =
+        dashStore.subtitleScale.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, 1f)
+    val autoplayNext: StateFlow<Boolean> =
+        dashStore.autoplayNext.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, true)
+    val autoSkipSegments: StateFlow<Boolean> =
+        dashStore.autoSkipSegments.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
+    val askResume: StateFlow<Boolean> =
+        dashStore.askResume.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, true)
+    fun setAudioLanguage(v: String) = viewModelScope.launch { dashStore.setAudioLanguage(v) }
+    fun setSubtitleLanguage(v: String) = viewModelScope.launch { dashStore.setSubtitleLanguage(v) }
+    fun setSubtitleMode(v: String) = viewModelScope.launch { dashStore.setSubtitleMode(v) }
+    fun setSubtitleScale(v: Float) = viewModelScope.launch { dashStore.setSubtitleScale(v) }
+    fun setAutoplayNext(v: Boolean) = viewModelScope.launch { dashStore.setAutoplayNext(v) }
+    fun setAutoSkipSegments(v: Boolean) = viewModelScope.launch { dashStore.setAutoSkipSegments(v) }
+    fun setAskResume(v: Boolean) = viewModelScope.launch { dashStore.setAskResume(v) }
+
+    /** Intro/outro segments for an item (native MediaSegments, else the Intro Skipper plugin). */
+    suspend fun jellyfinSegments(config: ServiceConfig, itemId: String) =
+        org.phioster.sanctumd.net.jellyfinMediaSegments(config, itemId)
+    /** The episode that follows [itemId] in its series, or null. */
+    suspend fun jellyfinNextEpisode(config: ServiceConfig, itemId: String) =
+        org.phioster.sanctumd.net.jellyfinNextEpisode(config, itemId)
     fun setDownloadsWifiOnly(enabled: Boolean) = viewModelScope.launch { dashStore.setDownloadsWifiOnly(enabled) }
     val hiddenLibraries: StateFlow<Map<String, List<String>>> =
         dashStore.hiddenLibraries.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, emptyMap())

@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -46,6 +47,9 @@ import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PictureInPictureAlt
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.Settings
@@ -97,6 +101,24 @@ private fun fmt(ms: Long): String {
     val total = ms / 1000
     val h = total / 3600; val m = (total % 3600) / 60; val s = total % 60
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+}
+
+/** Whether the app is currently in picture-in-picture; MainActivity pushes the changes in. */
+object PipState {
+    val inPip = kotlinx.coroutines.flow.MutableStateFlow(false)
+}
+
+/** Shrink the player into a floating window. No-op below Android 8 or if the system refuses. */
+private fun enterPip(activity: Activity?, aspect: Float) {
+    if (activity == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+    val a = if (aspect > 0.4f && aspect < 2.4f) aspect else 16f / 9f
+    runCatching {
+        activity.enterPictureInPictureMode(
+            android.app.PictureInPictureParams.Builder()
+                .setAspectRatio(android.util.Rational((a * 1000).toInt(), 1000))
+                .build(),
+        )
+    }
 }
 
 private fun findActivity(context: Context): Activity? =
@@ -162,6 +184,39 @@ internal fun PlayerScreen(
     var resumeTarget by remember { mutableStateOf(0L) }
     var resumeApplied by remember { mutableStateOf(true) }
 
+    // The item actually on screen. Autoplay swaps this instead of tearing the overlay down, so the
+    // engine, the immersive window flags and the surface all survive a jump to the next episode.
+    var curItem by remember(itemId) { mutableStateOf(itemId) }
+    var curTitle by remember(itemId) { mutableStateOf(title) }
+
+    // Playback preferences.
+    val audioLang by vm.audioLanguage.collectAsState()
+    val subLang by vm.subtitleLanguage.collectAsState()
+    val subMode by vm.subtitleMode.collectAsState()
+    val subScalePref by vm.subtitleScale.collectAsState()
+    val autoplayNext by vm.autoplayNext.collectAsState()
+    val autoSkipSegments by vm.autoSkipSegments.collectAsState()
+    val askResume by vm.askResume.collectAsState()
+
+    // Live (per-playback) subtitle tuning, seeded from the saved preference.
+    var subScale by remember(subScalePref) { mutableStateOf(subScalePref) }
+    var subDelayMs by remember { mutableStateOf(0L) }
+
+    // Resume prompt: set when the server has a position and the user wants to be asked.
+    var resumeAsk by remember { mutableStateOf<Long?>(null) }
+    // Intro/outro ranges and what the next episode is (both null until loaded, both optional).
+    var segments by remember { mutableStateOf<List<org.phioster.sanctumd.net.MediaSegment>>(emptyList()) }
+    var skipped by remember { mutableStateOf<Set<Int>>(emptySet()) } // segment indices already skipped/dismissed
+    var nextUp by remember { mutableStateOf<org.phioster.sanctumd.net.NextEpisode?>(null) }
+    var nextCardVisible by remember { mutableStateOf(false) }
+    var nextCountdown by remember { mutableStateOf(-1) } // seconds left, <0 = no countdown (manual)
+    // Sleep timer: minutes chosen, and the deadline it maps to (null = off). "episode" ends at EOF.
+    var sleepMinutes by remember { mutableStateOf(0) }
+    var sleepAtEpisodeEnd by remember { mutableStateOf(false) }
+    var sleepDeadline by remember { mutableStateOf(0L) }
+    var sleepFired by remember { mutableStateOf(false) }
+    val inPip by PipState.inPip.collectAsState()
+
     // Brightness (window level, 0..1) + volume (0..1) driven by swipe gestures.
     var brightness by remember {
         mutableStateOf(activity?.window?.attributes?.screenBrightness?.takeIf { it in 0f..1f } ?: 0.5f)
@@ -171,6 +226,8 @@ internal fun PlayerScreen(
     }
     // Transient HUD while adjusting: Pair(isBrightness, value 0..1); null = hidden.
     var adjustHud by remember { mutableStateOf<Pair<Boolean, Float>?>(null) }
+    // Transient "±10s" flash after a double-tap seek (0 = hidden).
+    var seekHud by remember { mutableStateOf(0) }
 
     fun applyBrightness() {
         val w = activity?.window ?: return
@@ -221,22 +278,48 @@ internal fun PlayerScreen(
         }
     }
 
-    // Resolve the stream (or load the local file) and start playback.
-    LaunchedEffect(itemId, localFileUri) {
+    // Resolve the stream (or load the local file) and start playback. Re-runs when autoplay moves on
+    // to the next episode, which is why it keys on [curItem] rather than the parameter.
+    LaunchedEffect(curItem, localFileUri) {
         try {
+            loadError = null
+            segments = emptyList(); skipped = emptySet(); nextUp = null
+            nextCardVisible = false; nextCountdown = -1
             if (localFileUri != null) {
                 engine.prepare(localFileUri, isHls = false, startPositionMs = 0, headers = emptyMap())
             } else {
-                val src = vm.jellyfinPlaybackSource(config, itemId)
+                val src = vm.jellyfinPlaybackSource(config, curItem)
                 source = src
-                resumeTarget = src.startPositionMs
-                resumeApplied = src.startPositionMs <= 0
-                engine.prepare(src.url, src.isHls, src.startPositionMs, src.authHeaders)
-                vm.jellyfinReportStart(config, src, src.startPositionMs)
+                // Asking about the resume point means starting at 0 and offering the jump — starting
+                // mid-file and then rewinding would waste a seek and look broken.
+                val ask = askResume && src.startPositionMs > 5_000
+                val start = if (ask) 0L else src.startPositionMs
+                resumeTarget = start
+                resumeApplied = start <= 0
+                engine.prepare(src.url, src.isHls, start, src.authHeaders)
+                vm.jellyfinReportStart(config, src, start)
+                if (ask) resumeAsk = src.startPositionMs
+                // Both are optional extras: no plugin, no segments; not an episode, no next up.
+                segments = runCatching { vm.jellyfinSegments(config, curItem) }.getOrDefault(emptyList())
+                nextUp = runCatching { vm.jellyfinNextEpisode(config, curItem) }.getOrNull()
             }
         } catch (t: Throwable) {
             loadError = t.message ?: t.javaClass.simpleName
         }
+    }
+
+    /** Report the current item as stopped and move the overlay to [next]. */
+    fun playNext(next: org.phioster.sanctumd.net.NextEpisode) {
+        source?.let { src ->
+            val pos = engine.snapshot().positionMs.takeIf { it > 0 } ?: lastGoodPos
+            vm.jellyfinReportStoppedAsync(config, src, pos)
+        }
+        source = null
+        lastGoodPos = 0
+        nextCardVisible = false
+        nextCountdown = -1
+        curTitle = next.name
+        curItem = next.id
     }
 
     // Poll player state for the UI (position, buffering, ended).
@@ -254,6 +337,39 @@ internal fun PlayerScreen(
             val st = engine.stats()
             if (st.width > 0 && st.height > 0) videoAspect = st.width.toFloat() / st.height
             if (state.ended) controlsVisible = true
+
+            // Auto-skip intro/outro when the user asked for it (the button shows either way).
+            if (autoSkipSegments && snap.positionMs > 0) {
+                val i = segments.indexOfFirst { snap.positionMs in it.startMs until it.endMs }
+                if (i >= 0 && i !in skipped) {
+                    skipped = skipped + i
+                    engine.seekTo(segments[i].endMs)
+                }
+            }
+
+            // Sleep timer.
+            if (!sleepFired && sleepDeadline > 0 && System.currentTimeMillis() >= sleepDeadline) {
+                sleepFired = true; sleepDeadline = 0
+                engine.pause(); controlsVisible = true
+            }
+            if (!sleepFired && sleepAtEpisodeEnd && snap.ended) {
+                sleepFired = true; engine.pause()
+            }
+
+            // "Next episode" countdown once the outro starts (or the file ends).
+            val outro = segments.firstOrNull { it.kind.equals("Outro", true) }
+            val nearEnd = snap.durationMs > 0 && snap.positionMs > 0 &&
+                snap.positionMs >= (outro?.startMs ?: (snap.durationMs - 30_000))
+            val next = nextUp
+            if (next != null && !sleepAtEpisodeEnd && !sleepFired && (snap.ended || nearEnd)) {
+                if (!nextCardVisible) {
+                    nextCardVisible = true
+                    nextCountdown = if (autoplayNext) (if (snap.ended) 5 else 15) else -1
+                }
+            } else if (!snap.ended && !nearEnd) {
+                nextCardVisible = false
+                nextCountdown = -1
+            }
             delay(500)
         }
     }
@@ -287,14 +403,29 @@ internal fun PlayerScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Once tracks load, default subtitles to forced German (fallback: normal German), else leave as-is.
-    LaunchedEffect(itemId, localFileUri) {
+    // Once tracks load, apply the saved language preferences. In the default "forced" mode a file
+    // without a forced track in that language ends up with subtitles OFF, deliberately.
+    LaunchedEffect(curItem, localFileUri, audioLang, subLang, subMode) {
         repeat(40) { // ~20s window for tracks to appear
-            if (engine.tracks(TrackKind.SUBTITLE).isNotEmpty()) {
-                engine.autoSelectSubtitle(listOf("de", "deu", "ger", "de-de"))
+            if (engine.tracks(TrackKind.SUBTITLE).isNotEmpty() || engine.tracks(TrackKind.AUDIO).isNotEmpty()) {
+                engine.applyTrackPreferences(audioLang, subLang, subMode)
+                engine.setSubtitleScale(subScale)
+                engine.setSubtitleDelay(subDelayMs)
                 return@LaunchedEffect
             }
             delay(500)
+        }
+    }
+    // Live subtitle tuning from the settings panel.
+    LaunchedEffect(subScale) { engine.setSubtitleScale(subScale) }
+    LaunchedEffect(subDelayMs) { engine.setSubtitleDelay(subDelayMs) }
+    // Count the "next episode" card down once it appears.
+    LaunchedEffect(nextCountdown) {
+        if (nextCountdown > 0) {
+            delay(1000)
+            nextCountdown -= 1
+        } else if (nextCountdown == 0) {
+            nextUp?.let { playNext(it) }
         }
     }
 
@@ -306,6 +437,9 @@ internal fun PlayerScreen(
     LaunchedEffect(adjustHud) {
         if (adjustHud != null) { delay(700); adjustHud = null }
     }
+    LaunchedEffect(seekHud) {
+        if (seekHud != 0) { delay(600); seekHud = 0 }
+    }
 
     // Re-resolve the stream at a new quality cap, resuming from the current position.
     fun changeQuality(label: String, cap: Int?) {
@@ -315,7 +449,7 @@ internal fun PlayerScreen(
         val resumeMs = engine.snapshot().positionMs.takeIf { it > 0 } ?: lastGoodPos
         scope.launch {
             try {
-                val src = vm.jellyfinPlaybackSource(config, itemId, cap)
+                val src = vm.jellyfinPlaybackSource(config, curItem, cap)
                 source = src
                 resumeTarget = resumeMs
                 resumeApplied = resumeMs <= 0
@@ -374,7 +508,15 @@ internal fun PlayerScreen(
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = { if (settingsOpen) settingsOpen = false else controlsVisible = !controlsVisible },
-                    onDoubleTap = { zoomScale = 1f },
+                    // YouTube-style: double-tap the sides to jump, the middle to reset the zoom.
+                    onDoubleTap = { offset ->
+                        val third = size.width / 3f
+                        when {
+                            offset.x < third -> { engine.seekBy(-10_000); adjustHud = null; seekHud = -10 }
+                            offset.x > size.width - third -> { engine.seekBy(10_000); adjustHud = null; seekHud = 10 }
+                            else -> zoomScale = 1f
+                        }
+                    },
                 )
             }
             // One unified gesture loop: 2 fingers = pinch zoom + pan; 1 finger (overlay hidden) =
@@ -451,7 +593,96 @@ internal fun PlayerScreen(
             }
         }
 
-        if (controlsVisible) {
+        if (seekHud != 0) {
+            Text(
+                if (seekHud > 0) "»  +10s" else "«  −10s",
+                fontFamily = Mono, color = MatrixGreen, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(if (seekHud > 0) Alignment.CenterEnd else Alignment.CenterStart)
+                    .padding(horizontal = 40.dp)
+                    .background(Color(0xB3000000), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+            )
+        }
+
+        // ── Skip intro / outro ──
+        val activeSegment = segments.withIndex().firstOrNull { (i, seg) ->
+            i !in skipped && state.positionMs in seg.startMs until seg.endMs
+        }
+        if (activeSegment != null && !inPip && nextCountdown < 0 && !nextCardVisible) {
+            val (idx, seg) = activeSegment
+            Text(
+                if (seg.kind.equals("Outro", true)) "skip outro  »" else "skip intro  »",
+                fontFamily = Mono, color = Black, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 20.dp, bottom = if (controlsVisible) 76.dp else 28.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MatrixGreen)
+                    .clickable { skipped = skipped + idx; engine.seekTo(seg.endMs) }
+                    .padding(horizontal = 16.dp, vertical = 9.dp),
+            )
+        }
+
+        // ── Next episode ──
+        val next = nextUp
+        if (nextCardVisible && next != null && !inPip) {
+            Column(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 20.dp, bottom = if (controlsVisible) 76.dp else 28.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xE6000000))
+                    .clickable { playNext(next) }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            ) {
+                Text(
+                    if (nextCountdown > 0) "NEXT IN ${nextCountdown}s" else "NEXT EPISODE",
+                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(next.name, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (next.subtitle.isNotBlank()) {
+                    Text(next.subtitle, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Spacer(Modifier.height(8.dp))
+                Row {
+                    Text("▶  play now", fontFamily = Mono, color = Black, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(MatrixGreen).clickable { playNext(next) }.padding(horizontal = 12.dp, vertical = 6.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("dismiss", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp,
+                        modifier = Modifier.clickable { nextCardVisible = false; nextCountdown = -1; nextUp = null }.padding(horizontal = 10.dp, vertical = 6.dp))
+                }
+            }
+        }
+
+        // ── Resume prompt ──
+        resumeAsk?.let { pos ->
+            Column(
+                Modifier
+                    .align(Alignment.Center)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xF0000000))
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text("continue watching?", fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(12.dp))
+                Row {
+                    Text("resume ${fmt(pos)}", fontFamily = Mono, color = Black, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(MatrixGreen)
+                            .clickable { engine.seekTo(pos); resumeTarget = pos; resumeApplied = true; resumeAsk = null }
+                            .padding(horizontal = 14.dp, vertical = 8.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("start over", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp,
+                        modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(Color(0x33FFFFFF))
+                            .clickable { resumeAsk = null }
+                            .padding(horizontal = 14.dp, vertical = 8.dp))
+                }
+            }
+        }
+
+        if (controlsVisible && !inPip) {
             // Top scrim + bar: back, title, settings gear.
             Row(
                 Modifier.fillMaxWidth().align(Alignment.TopCenter)
@@ -462,7 +693,12 @@ internal fun PlayerScreen(
                 IconButton(onClick = { leave() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close", tint = MatrixGreen)
                 }
-                Text(title, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(curTitle, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    IconButton(onClick = { enterPip(activity, videoAspect) }) {
+                        Icon(Icons.Filled.PictureInPictureAlt, contentDescription = "Picture in picture", tint = MatrixGreen)
+                    }
+                }
                 IconButton(onClick = { infoOpen = true; controlsVisible = true }) {
                     Icon(Icons.Filled.Info, contentDescription = "Info", tint = MatrixGreen)
                 }
@@ -518,19 +754,32 @@ internal fun PlayerScreen(
             }
         }
 
-        if (settingsOpen) {
+        if (settingsOpen && !inPip) {
             SettingsPanel(
                 engine = engine,
                 currentSpeed = speed,
                 currentQuality = qualityLabel,
-                onSpeed = { s -> speed = s; engine.setSpeed(s) },
+                subtitleScale = subScale,
+                subtitleDelayMs = subDelayMs,
+                sleepMinutes = sleepMinutes,
+                sleepAtEpisodeEnd = sleepAtEpisodeEnd,
+                hasNextEpisode = nextUp != null,
+                onSpeed = { sp -> speed = sp; engine.setSpeed(sp) },
                 onQuality = { label, cap -> changeQuality(label, cap) },
+                onSubtitleScale = { subScale = it },
+                onSubtitleDelay = { subDelayMs = it },
+                onSleep = { minutes, tillEnd ->
+                    sleepMinutes = minutes
+                    sleepAtEpisodeEnd = tillEnd
+                    sleepFired = false
+                    sleepDeadline = if (minutes > 0) System.currentTimeMillis() + minutes * 60_000L else 0L
+                },
                 onClose = { settingsOpen = false },
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
         }
 
-        if (infoOpen) {
+        if (infoOpen && !inPip) {
             val playMethod = when {
                 localFileUri != null -> "local file"
                 source?.isHls == true -> "transcode (HLS)"
@@ -540,8 +789,8 @@ internal fun PlayerScreen(
             InfoPanel(
                 vm = vm,
                 config = config,
-                itemId = itemId,
-                title = title,
+                itemId = curItem,
+                title = curTitle,
                 engine = engine,
                 isLocal = localFileUri != null,
                 playMethod = playMethod,
@@ -646,8 +895,16 @@ private fun SettingsPanel(
     engine: MediaPlayerEngine,
     currentSpeed: Float,
     currentQuality: String,
+    subtitleScale: Float,
+    subtitleDelayMs: Long,
+    sleepMinutes: Int,
+    sleepAtEpisodeEnd: Boolean,
+    hasNextEpisode: Boolean,
     onSpeed: (Float) -> Unit,
     onQuality: (String, Int?) -> Unit,
+    onSubtitleScale: (Float) -> Unit,
+    onSubtitleDelay: (Long) -> Unit,
+    onSleep: (minutes: Int, tillEpisodeEnd: Boolean) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -714,6 +971,45 @@ private fun SettingsPanel(
                 }
             }
             if (subtitleTracks.isEmpty()) SettingsPlaceholder()
+        }
+
+        // Subtitle look & sync — live for this playback (the default size lives in settings).
+        SettingsSection(Icons.Filled.Translate, "subtitle size") {
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(0.75f, 1f, 1.25f, 1.5f, 2f).forEach { sc ->
+                    val on = kotlin.math.abs(sc - subtitleScale) < 0.01f
+                    Text(
+                        "${(sc * 100).roundToInt()}%",
+                        fontFamily = Mono, fontSize = 12.sp, color = if (on) Black else MatrixGreen,
+                        modifier = Modifier
+                            .background(if (on) MatrixGreen else Color.Transparent, RoundedCornerShape(6.dp))
+                            .clickable { onSubtitleScale(sc) }
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                    )
+                }
+            }
+        }
+        SettingsSection(Icons.Filled.Subtitles, "subtitle delay") {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("−0.5s", fontFamily = Mono, fontSize = 12.sp, color = MatrixGreen,
+                    modifier = Modifier.background(Color(0x33FFFFFF), RoundedCornerShape(6.dp))
+                        .clickable { onSubtitleDelay(subtitleDelayMs - 500) }.padding(horizontal = 10.dp, vertical = 5.dp))
+                Text("%+.1fs".format(subtitleDelayMs / 1000f), fontFamily = Mono, fontSize = 12.sp, color = MatrixGreen,
+                    modifier = Modifier.widthIn(min = 52.dp).clickable { onSubtitleDelay(0) })
+                Text("+0.5s", fontFamily = Mono, fontSize = 12.sp, color = MatrixGreen,
+                    modifier = Modifier.background(Color(0x33FFFFFF), RoundedCornerShape(6.dp))
+                        .clickable { onSubtitleDelay(subtitleDelayMs + 500) }.padding(horizontal = 10.dp, vertical = 5.dp))
+            }
+        }
+
+        SettingsSection(Icons.Filled.Bedtime, "sleep timer") {
+            SettingsRow("off", selected = sleepMinutes == 0 && !sleepAtEpisodeEnd) { onSleep(0, false) }
+            listOf(15, 30, 45, 60).forEach { min ->
+                SettingsRow("$min min", selected = sleepMinutes == min && !sleepAtEpisodeEnd) { onSleep(min, false) }
+            }
+            if (hasNextEpisode) {
+                SettingsRow("end of episode", selected = sleepAtEpisodeEnd) { onSleep(0, true) }
+            }
         }
 
         Text("close", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp,

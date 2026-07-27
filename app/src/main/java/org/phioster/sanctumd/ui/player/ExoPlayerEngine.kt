@@ -147,33 +147,54 @@ class ExoPlayerEngine(private val context: Context) : MediaPlayerEngine {
         exo.trackSelectionParameters = builder.build()
     }
 
-    override fun autoSelectSubtitle(languages: List<String>): Boolean {
-        if (released) return false
-        val langs = languages.map { it.lowercase() }.toSet()
-        // Collect German subtitle candidates, tracking whether each is forced.
-        val matches = mutableListOf<Triple<Tracks.Group, Int, Boolean>>()
+    /** Text/audio tracks matching [langs] (by language tag or label), with their forced flag. */
+    private fun matches(type: Int, langs: Set<String>): List<Triple<Tracks.Group, Int, Boolean>> {
+        val out = mutableListOf<Triple<Tracks.Group, Int, Boolean>>()
         exo.currentTracks.groups.forEach { g ->
-            if (g.type != C.TRACK_TYPE_TEXT) return@forEach
+            if (g.type != type) return@forEach
             for (i in 0 until g.length) {
                 if (!g.isTrackSupported(i)) continue
                 val f = g.getTrackFormat(i)
                 val lang = f.language?.lowercase()
                 val label = f.label?.lowercase().orEmpty()
-                val isGerman = lang in langs || label.contains("deutsch") || label.contains("german")
-                if (!isGerman) continue
+                if (lang !in langs && langs.none { label.contains(it) }) continue
                 val forced = (f.selectionFlags and C.SELECTION_FLAG_FORCED) != 0 ||
                     label.contains("forced") || label.contains("erzwungen")
-                matches += Triple(g, i, forced)
+                out += Triple(g, i, forced)
             }
         }
-        // Prefer a forced German track; otherwise the first normal German track.
-        val pick = matches.firstOrNull { it.third } ?: matches.firstOrNull() ?: return false
-        exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
-            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-            .setOverrideForType(TrackSelectionOverride(pick.first.mediaTrackGroup, pick.second))
-            .build()
-        return true
+        return out
     }
+
+    override fun applyTrackPreferences(audioLang: String, subLang: String, subMode: String) {
+        if (released) return
+        var params = exo.trackSelectionParameters.buildUpon()
+        if (audioLang.isNotBlank()) {
+            matches(C.TRACK_TYPE_AUDIO, languageAliases(audioLang)).firstOrNull()?.let { (g, i, _) ->
+                params = params.setOverrideForType(TrackSelectionOverride(g.mediaTrackGroup, i))
+            }
+        }
+        val pick = if (subMode == "off" || subLang.isBlank()) {
+            null
+        } else {
+            val subs = matches(C.TRACK_TYPE_TEXT, languageAliases(subLang))
+            subs.firstOrNull { it.third } ?: subs.firstOrNull().takeIf { subMode == "any" }
+        }
+        params = if (pick != null) {
+            params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                .setOverrideForType(TrackSelectionOverride(pick.first.mediaTrackGroup, pick.second))
+        } else {
+            // Deliberately off: in "forced" mode a file whose forced track is missing shows nothing,
+            // instead of falling back to whatever track the file marks as default.
+            params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+        }
+        exo.trackSelectionParameters = params.build()
+    }
+
+    /** ExoPlayer here renders into a bare SurfaceView (no PlayerView/SubtitleView), so there is no
+     *  subtitle styling surface to talk to — mpv, the primary engine, handles both. */
+    override fun setSubtitleScale(scale: Float) = Unit
+    override fun setSubtitleDelay(delayMs: Long) = Unit
 
     override fun setSpeed(speed: Float) { exo.setPlaybackSpeed(speed) }
     override fun currentSpeed(): Float = exo.playbackParameters.speed
