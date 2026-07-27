@@ -221,6 +221,21 @@ internal fun ContentSection(vm: DashboardViewModel) {
     )
 }
 
+/** App-wide behaviour that doesn't belong to any one service. */
+@Composable
+internal fun GeneralSection(vm: DashboardViewModel) {
+    val start by vm.startScreen.collectAsState()
+    SettingsPickerRow(
+        "Open on",
+        listOf("dashboard" to "dashboard", "services" to "services list"),
+        start,
+    ) { vm.setStartScreen(it) }
+    Text(
+        "Which surface greets you on a cold start. The dashboard remembers its last tab either way.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
+    )
+}
+
 /** Playback preferences: track languages, subtitle look, autoplay, segment skipping, resume. */
 @Composable
 internal fun PlaybackSection(vm: DashboardViewModel) {
