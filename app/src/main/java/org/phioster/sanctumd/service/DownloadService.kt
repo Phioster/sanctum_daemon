@@ -187,6 +187,7 @@ class DownloadService : Service() {
                         val buf = ByteArray(64 * 1024)
                         var got = 0L
                         var lastUi = 0L
+                        var lastNotif = 0L
                         while (true) {
                             if (id in cancelled) throw DownloadCancelled
                             val n = input.read(buf)
@@ -194,9 +195,14 @@ class DownloadService : Service() {
                             output.write(buf, 0, n)
                             got += n
                             val now = System.currentTimeMillis()
-                            if (now - lastUi > 700) {
+                            // In-app progress: update often for a smooth bar. Notification: throttled
+                            // separately (~1s) so we don't hammer the system notifier.
+                            if (now - lastUi > 250) {
                                 lastUi = now
                                 store.update(id) { it.copy(downloadedBytes = got) }
+                            }
+                            if (now - lastNotif > 1000) {
+                                lastNotif = now
                                 val pct = if (total > 0) (got * 100 / total).toInt() else 0
                                 val label = if (total > 0) "$pct%  ·  $display" else "↓  $display"
                                 notify(buildNotification(label, pct, 100, total <= 0))
