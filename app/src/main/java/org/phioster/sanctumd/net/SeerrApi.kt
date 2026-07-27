@@ -128,6 +128,7 @@ internal interface SeerrApi {
     @GET("api/v1/discover/movies") suspend fun discoverMovies(@Query("page") page: Int = 1, @Query("genre") genre: Int? = null, @Query("sortBy") sortBy: String? = null): JsonObject
     @GET("api/v1/discover/tv") suspend fun discoverTv(@Query("page") page: Int = 1, @Query("genre") genre: Int? = null, @Query("sortBy") sortBy: String? = null): JsonObject
     @GET("api/v1/discover/watchlist") suspend fun watchlist(@Query("page") page: Int = 1): JsonObject
+    @POST("api/v1/watchlist") suspend fun addWatchlist(@Body body: JsonObject): Response<ResponseBody>
     @GET("api/v1/issue/{id}") suspend fun issueDetail(@Path("id") id: Int): JsonObject
     @POST("api/v1/issue/{id}/comment") suspend fun addComment(@Path("id") id: Int, @Body body: JsonObject): Response<ResponseBody>
     @POST("api/v1/issue/{id}/{status}") suspend fun setIssueStatus(@Path("id") id: Int, @Path("status") status: String): Response<ResponseBody>
@@ -290,6 +291,23 @@ suspend fun seerrDiscover(config: ServiceConfig, kind: String): List<SeerrDiscov
     }
     parseDiscoverItems(page, def)
 }
+
+/** Add a title to the (Jellyseerr) watchlist. */
+suspend fun seerrAddToWatchlist(config: ServiceConfig, tmdbId: Int, mediaType: String, title: String): String =
+    destructive("add $title to the Seerr watchlist") {
+        withContext(Dispatchers.IO) {
+            try {
+                val body = buildJsonObject {
+                    put("tmdbId", tmdbId)
+                    put("mediaType", mediaType)
+                    put("title", title)
+                }
+                okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).addWatchlist(body), "added to watchlist")
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
 
 /** Genre list for [kind] = "movies" | "tv" (id + name), for the discover genre rows. */
 suspend fun seerrGenres(config: ServiceConfig, kind: String): List<Pair<Int, String>> = withContext(Dispatchers.IO) {

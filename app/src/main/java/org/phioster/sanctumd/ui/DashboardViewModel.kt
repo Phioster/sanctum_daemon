@@ -859,6 +859,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         seerrDiscover(config, kind).let { if (hideAdult.value) it.filterNot { d -> d.adult } else it }
     suspend fun seerrWatchlistOf(config: ServiceConfig): List<org.phioster.sanctumd.model.SeerrDiscoverItem> =
         org.phioster.sanctumd.net.seerrWatchlist(config)
+    suspend fun seerrAddToWatchlistOf(config: ServiceConfig, tmdbId: Int, mediaType: String, title: String): String =
+        org.phioster.sanctumd.net.seerrAddToWatchlist(config, tmdbId, mediaType, title)
     suspend fun seerrGenresOf(config: ServiceConfig, kind: String): List<Pair<Int, String>> =
         org.phioster.sanctumd.net.seerrGenres(config, kind)
     suspend fun seerrDiscoverGenreOf(config: ServiceConfig, kind: String, genreId: Int, sortBy: String? = null, page: Int = 1): List<org.phioster.sanctumd.model.SeerrDiscoverItem> =

@@ -80,6 +80,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.Visibility
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -603,6 +604,13 @@ internal fun SeerrScreen(
                         val item = SeerrSearchItem(d.tmdbId, d.title, d.year, d.mediaType)
                         mediaDetail = null
                         confirmItem = item
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    SecondaryButton("watchlist", Modifier.fillMaxWidth(), icon = Icons.Filled.Visibility, accent = accent) {
+                        scope.launch {
+                            val res = vm.seerrAddToWatchlistOf(config, d.tmdbId, d.mediaType, d.title)
+                            android.widget.Toast.makeText(context, res, android.widget.Toast.LENGTH_SHORT).show()
+                        }
                     }
                     Spacer(Modifier.height(8.dp))
                     SecondaryButton("open in Seerr", Modifier.fillMaxWidth(), accent = accent) {
