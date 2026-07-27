@@ -775,6 +775,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         arrAdd(config, raw, qualityProfileId, rootFolderPath, monitored, metadataProfileId)
     suspend fun arrCutoffList(config: ServiceConfig): List<ArrMissingItem> = arrCutoff(config)
     suspend fun arrDetailOf(config: ServiceConfig, id: Int): ArrDetail = arrDetail(config, id)
+    suspend fun arrSetLibraryMonitored(config: ServiceConfig, id: Int, monitored: Boolean): String =
+        org.phioster.sanctumd.net.arrSetLibraryMonitored(config, id, monitored)
     suspend fun arrEpisodesOf(config: ServiceConfig, seriesId: Int): List<ArrEpisode> = arrEpisodes(config, seriesId)
     suspend fun arrSetEpisodeMonitored(config: ServiceConfig, episodeId: Int, monitored: Boolean): String =
         org.phioster.sanctumd.net.arrSetEpisodeMonitored(config, episodeId, monitored)

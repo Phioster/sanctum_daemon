@@ -189,7 +189,6 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                     Column(Modifier.weight(1f)) {
                         val chips = buildList {
                             d?.year?.takeIf { it > 0 }?.let { add("year" to it.toString()) }
-                            add("monitored" to if (d?.monitored == true) "yes" else "no")
                             d?.sizeMb?.takeIf { it > 0 }?.let { add("size" to if (it >= 1024) "%.1f GB".format(it / 1024.0) else "$it MB") }
                             d?.facts?.let { addAll(it) }
                         }
@@ -203,6 +202,22 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                                 }
                                 if (pair.size == 1) Spacer(Modifier.weight(1f))
                             }
+                        }
+                    }
+                }
+                if (d != null) {
+                    Spacer(Modifier.height(10.dp))
+                    // Whole-item monitor toggle. For Lidarr this is essential: albums are only searched
+                    // when the artist itself is monitored.
+                    SecondaryButton(
+                        if (d.monitored) "monitored" else "not monitored — tap to monitor",
+                        Modifier.fillMaxWidth(),
+                        icon = if (d.monitored) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                        accent = if (d.monitored) Color(0xFFFFAA00) else accent,
+                    ) {
+                        scope.launch {
+                            actionMsg = vm.arrSetLibraryMonitored(config, itemId, !d.monitored)
+                            detail = runCatching { vm.arrDetailOf(config, itemId) }.getOrNull() ?: detail
                         }
                     }
                 }

@@ -459,6 +459,24 @@ suspend fun arrCutoff(config: ServiceConfig): List<ArrMissingItem> = withContext
 }
 
 /** Detail for a movie (Radarr) or series (Sonarr). */
+/** Set the whole library item (movie / series / artist) monitored. Essential for Lidarr: albums are
+ *  only searched/downloaded when their artist is monitored too. GET the item, flip the flag, PUT back. */
+suspend fun arrSetLibraryMonitored(config: ServiceConfig, id: Int, monitored: Boolean): String =
+    destructive("set ${config.type.label} item $id monitored=$monitored") {
+        withContext(Dispatchers.IO) {
+            try {
+                val base = arrBase(config.type)
+                val path = arrItemPath(config.type)
+                val api = apiFor<ArrApi>(config, apiKeyHeader(config))
+                val raw = api.itemDetail("$base/$path/$id")
+                val body = JsonObject(raw.toMutableMap().apply { put("monitored", JsonPrimitive(monitored)) })
+                okOr(api.putUrl("$base/$path/$id", body), if (monitored) "monitoring" else "unmonitored")
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
+
 suspend fun arrDetail(config: ServiceConfig, id: Int): ArrDetail = withContext(Dispatchers.IO) {
     val base = arrBase(config.type)
     val path = arrItemPath(config.type)
