@@ -9,7 +9,13 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 
-/** One theme: the accent that carries the whole UI, plus the three surface levels behind it. */
+/**
+ * One theme.
+ *
+ * [accent] carries text and iconography — it is what the eye reads. [highlight] carries *action and
+ * value*: buttons, the FAB, active chips, section markers, the big stat numbers. Single-tone presets
+ * simply set it to the same colour.
+ */
 data class Palette(
     val id: String,
     val label: String,
@@ -17,6 +23,7 @@ data class Palette(
     val background: Color,
     val surface: Color,
     val surfaceHi: Color,
+    val highlight: Color = accent,
 )
 
 /**
@@ -26,14 +33,36 @@ data class Palette(
  * FAB), so it has to stay dark enough to read on a bright accent. Nord is closest to that limit.
  */
 val PALETTES: List<Palette> = listOf(
+    // Single-tone: the accent does everything.
     Palette("matrix", "Matrix", Color(0xFF00FF41), Color(0xFF141619), Color(0xFF1E2126), Color(0xFF262A30)),
-    Palette("synthwave", "Synthwave", Color(0xFFFF6AD5), Color(0xFF1A0B2E), Color(0xFF241040), Color(0xFF2F1553)),
-    Palette("neon", "Japan Neon", Color(0xFFFF2E97), Color(0xFF071016), Color(0xFF0E1B22), Color(0xFF15252E)),
     Palette("ae86", "AE86 Panda", Color(0xFFEDEDED), Color(0xFF0A0A0A), Color(0xFF16181A), Color(0xFF202326)),
     Palette("amber", "Amber CRT", Color(0xFFFFB000), Color(0xFF14100C), Color(0xFF1E1810), Color(0xFF282016)),
     Palette("ice", "Ice", Color(0xFF7DD3FC), Color(0xFF0B1220), Color(0xFF121C2E), Color(0xFF1A2740)),
-    Palette("nord", "Nord", Color(0xFF88C0D0), Color(0xFF2E3440), Color(0xFF3B4252), Color(0xFF434C5E)),
-    Palette("gruvbox", "Gruvbox", Color(0xFFFABD2F), Color(0xFF282828), Color(0xFF32302F), Color(0xFF3C3836)),
+    // Two-tone: reading colour + action colour.
+    Palette(
+        "synthwave", "Synthwave",
+        accent = Color(0xFFC77DFF), background = Color(0xFF14042B),
+        surface = Color(0xFF1D0A3D), surfaceHi = Color(0xFF281052),
+        highlight = Color(0xFF39FF14),
+    ),
+    Palette(
+        "neon", "Japan Neon",
+        accent = Color(0xFFFF2E97), background = Color(0xFF071016),
+        surface = Color(0xFF0E1B22), surfaceHi = Color(0xFF15252E),
+        highlight = Color(0xFF00F0FF),
+    ),
+    Palette(
+        "tron", "Tron",
+        accent = Color(0xFF00D9FF), background = Color(0xFF00080F),
+        surface = Color(0xFF04121C), surfaceHi = Color(0xFF082433),
+        highlight = Color(0xFFFF7A1A),
+    ),
+    Palette(
+        "toxic", "Toxic",
+        accent = Color(0xFFC6FF00), background = Color(0xFF0B0F00),
+        surface = Color(0xFF141A03), surfaceHi = Color(0xFF1D2408),
+        highlight = Color(0xFFB026FF),
+    ),
 )
 
 const val DEFAULT_PALETTE_ID = "matrix"
@@ -96,6 +125,9 @@ internal val MatrixGreen: Color get() = ThemeState.palette.accent
 internal val Black: Color get() = ThemeState.palette.background
 internal val Surface: Color get() = ThemeState.palette.surface
 internal val SurfaceHi: Color get() = ThemeState.palette.surfaceHi
+
+/** Action & value colour — equal to the accent unless the preset is two-tone. See [Palette]. */
+internal val AccentHi: Color get() = ThemeState.palette.highlight
 
 // Errors stay red in every theme — that is the one colour that must not blend in.
 internal val ErrRed = Color(0xFFFF5555)

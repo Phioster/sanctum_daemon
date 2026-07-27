@@ -253,7 +253,13 @@ internal fun ThemeSection() {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(shown.accent, shown.background, shown.surface).forEach { c ->
+                val swatches = buildList {
+                    add(shown.accent)
+                    if (shown.highlight != shown.accent) add(shown.highlight)
+                    add(shown.background)
+                    add(shown.surface)
+                }
+                swatches.forEach { c ->
                     Box(
                         Modifier.size(width = 22.dp, height = 22.dp)
                             .clip(RoundedCornerShape(4.dp))
@@ -263,7 +269,12 @@ internal fun ThemeSection() {
                 }
             }
             Spacer(Modifier.width(12.dp))
-            Text(p.label, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, modifier = Modifier.weight(1f))
+            Column(Modifier.weight(1f)) {
+                Text(p.label, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp)
+                if (p.highlight != p.accent) {
+                    Text("two-tone", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 10.sp)
+                }
+            }
             if (selected) Text("✓", fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp)
         }
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
@@ -283,6 +294,12 @@ internal fun ThemeSection() {
             "dark grey the app shipped with.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp,
         modifier = Modifier.padding(top = 4.dp),
+    )
+    Text(
+        "Two-tone presets read in the accent and act in the second colour: buttons, the add button, " +
+            "section markers and the big numbers pick it up.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp,
+        modifier = Modifier.padding(top = 8.dp),
     )
     Text(
         "Service colours (Jellyfin blue, Prowlarr orange…) and the red used for errors stay as they are.",

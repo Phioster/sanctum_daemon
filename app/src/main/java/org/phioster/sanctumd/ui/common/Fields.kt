@@ -38,6 +38,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.phioster.sanctumd.ui.theme.Black
+import org.phioster.sanctumd.ui.theme.AccentHi
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
@@ -136,7 +137,7 @@ internal fun ActionBtn(label: String, enabled: Boolean, onClick: () -> Unit) {
 /** The app-wide section header: a short accent tick + a bold mono label. Use this everywhere a
  *  screen labels a group of content, so every screen reads the same. */
 @Composable
-internal fun SectionHeader(label: String, accent: Color = MatrixGreen, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) {
+internal fun SectionHeader(label: String, accent: Color = AccentHi, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(width = 3.dp, height = 13.dp).clip(RoundedCornerShape(2.dp)).background(accent))
         Spacer(Modifier.size(8.dp))
@@ -156,7 +157,7 @@ internal fun Hint(text: String, modifier: Modifier = Modifier) {
 
 /** Filled accent button (dark ink) — the primary in-content action everywhere. */
 @Composable
-internal fun PrimaryButton(label: String, modifier: Modifier = Modifier, icon: ImageVector? = null, accent: Color = MatrixGreen, enabled: Boolean = true, onClick: () -> Unit) {
+internal fun PrimaryButton(label: String, modifier: Modifier = Modifier, icon: ImageVector? = null, accent: Color = AccentHi, enabled: Boolean = true, onClick: () -> Unit) {
     Row(
         modifier.clip(RoundedCornerShape(8.dp))
             .background(if (enabled) accent else accent.copy(alpha = 0.3f))
@@ -194,7 +195,7 @@ internal fun SecondaryButton(label: String, modifier: Modifier = Modifier, icon:
 
 /** A compact bordered action chip — the standard chip for inline actions (back / scan / filters). */
 @Composable
-internal fun AppChip(label: String, accent: Color = MatrixGreen, onClick: () -> Unit) {
+internal fun AppChip(label: String, accent: Color = AccentHi, onClick: () -> Unit) {
     Text(
         label, fontFamily = Mono, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
         modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(SurfaceHi)
