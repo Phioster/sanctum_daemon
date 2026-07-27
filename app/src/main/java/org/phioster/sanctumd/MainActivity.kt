@@ -246,7 +246,7 @@ internal fun SanctumdApp(vm: DashboardViewModel = viewModel()) {
             "service" -> allServicesForShortcuts.firstOrNull { it.id == p.serviceId }?.let {
                 detailFromSearch = p.itemId != null
                 // Reuse the search deep-link carrier so the Jellyfin screen opens that item's detail.
-                searchDeepLink = p.itemId?.let { id -> org.phioster.sanctumd.model.SearchResult(serviceId = it.id, serviceLabel = it.label, serviceType = it.type, title = "", subtitle = "", posterUrl = "", jellyItemId = id) }
+                searchDeepLink = p.itemId?.let { id -> org.phioster.sanctumd.ui.search.SearchDeepLink(jellyItemId = id) }
                 searchOpen = false; notifOpen = false; detail = it
             }
         }
