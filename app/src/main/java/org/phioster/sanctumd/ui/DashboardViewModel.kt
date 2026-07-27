@@ -861,8 +861,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.net.seerrWatchlist(config)
     suspend fun seerrAddToWatchlistOf(config: ServiceConfig, tmdbId: Int, mediaType: String, title: String): String =
         org.phioster.sanctumd.net.seerrAddToWatchlist(config, tmdbId, mediaType, title)
-    suspend fun seerrRemoveFromWatchlistOf(config: ServiceConfig, tmdbId: Int): String =
-        org.phioster.sanctumd.net.seerrRemoveFromWatchlist(config, tmdbId)
+    suspend fun seerrRemoveFromWatchlistOf(config: ServiceConfig, tmdbId: Int, mediaType: String): String =
+        org.phioster.sanctumd.net.seerrRemoveFromWatchlist(config, tmdbId, mediaType)
     suspend fun seerrGenresOf(config: ServiceConfig, kind: String): List<Pair<Int, String>> =
         org.phioster.sanctumd.net.seerrGenres(config, kind)
     suspend fun seerrDiscoverGenreOf(config: ServiceConfig, kind: String, genreId: Int, sortBy: String? = null, page: Int = 1): List<org.phioster.sanctumd.model.SeerrDiscoverItem> =

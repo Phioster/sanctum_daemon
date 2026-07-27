@@ -588,7 +588,7 @@ internal fun SeerrScreen(
                         }
                         Column(Modifier.weight(1f)) {
                             Text(d.title, fontFamily = Mono, color = MatrixGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                            val quick = buildList { if (d.year.isNotBlank()) add(d.year); addAll(d.facts.take(2).map { it.second }) }.joinToString("  ·  ")
+                            val quick = d.facts.take(3).joinToString("  ·  ") { it.second }
                             if (quick.isNotBlank()) {
                                 Spacer(Modifier.height(6.dp))
                                 Text(quick, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -619,7 +619,7 @@ internal fun SeerrScreen(
                         watchlistBusy = true
                         scope.launch {
                             val res = if (onWatchlist) {
-                                vm.seerrRemoveFromWatchlistOf(config, d.tmdbId)
+                                vm.seerrRemoveFromWatchlistOf(config, d.tmdbId, d.mediaType)
                             } else {
                                 vm.seerrAddToWatchlistOf(config, d.tmdbId, d.mediaType, d.title)
                             }

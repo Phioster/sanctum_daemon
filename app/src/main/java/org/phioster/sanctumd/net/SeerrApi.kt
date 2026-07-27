@@ -129,7 +129,7 @@ internal interface SeerrApi {
     @GET("api/v1/discover/tv") suspend fun discoverTv(@Query("page") page: Int = 1, @Query("genre") genre: Int? = null, @Query("sortBy") sortBy: String? = null): JsonObject
     @GET("api/v1/discover/watchlist") suspend fun watchlist(@Query("page") page: Int = 1): JsonObject
     @POST("api/v1/watchlist") suspend fun addWatchlist(@Body body: JsonObject): Response<ResponseBody>
-    @DELETE("api/v1/watchlist/{id}") suspend fun deleteWatchlist(@Path("id") tmdbId: Int): Response<ResponseBody>
+    @DELETE("api/v1/watchlist/{id}") suspend fun deleteWatchlist(@Path("id") tmdbId: Int, @Query("mediaType") mediaType: String): Response<ResponseBody>
     @GET("api/v1/issue/{id}") suspend fun issueDetail(@Path("id") id: Int): JsonObject
     @POST("api/v1/issue/{id}/comment") suspend fun addComment(@Path("id") id: Int, @Body body: JsonObject): Response<ResponseBody>
     @POST("api/v1/issue/{id}/{status}") suspend fun setIssueStatus(@Path("id") id: Int, @Path("status") status: String): Response<ResponseBody>
@@ -321,11 +321,11 @@ suspend fun seerrAddToWatchlist(config: ServiceConfig, tmdbId: Int, mediaType: S
     }
 
 /** Remove a title from the (Jellyseerr) watchlist. */
-suspend fun seerrRemoveFromWatchlist(config: ServiceConfig, tmdbId: Int): String =
+suspend fun seerrRemoveFromWatchlist(config: ServiceConfig, tmdbId: Int, mediaType: String): String =
     destructive("remove tmdb $tmdbId from the Seerr watchlist") {
         withContext(Dispatchers.IO) {
             try {
-                seerrOkOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).deleteWatchlist(tmdbId), "removed from watchlist")
+                seerrOkOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).deleteWatchlist(tmdbId, mediaType), "removed from watchlist")
             } catch (t: Throwable) {
                 "error: ${t.message ?: t.javaClass.simpleName}"
             }
