@@ -179,6 +179,7 @@ internal data class JfCounts(
     val Played: Boolean = false,
     val PlaybackPositionTicks: Long? = null, // resume position (100ns ticks)
     val UnplayedItemCount: Int? = null, // folders (Series/Season): episodes still unwatched
+    val IsFavorite: Boolean = false,
 )
 @Serializable internal data class JfItem(
     val Id: String = "",

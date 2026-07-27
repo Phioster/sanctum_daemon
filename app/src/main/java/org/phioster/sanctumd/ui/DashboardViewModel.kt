@@ -319,6 +319,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun jellyfinNextEpisode(config: ServiceConfig, itemId: String) =
         org.phioster.sanctumd.net.jellyfinNextEpisode(config, itemId)
     fun setDownloadsWifiOnly(enabled: Boolean) = viewModelScope.launch { dashStore.setDownloadsWifiOnly(enabled) }
+    val downloadsDeleteWatched: StateFlow<Boolean> =
+        dashStore.downloadsDeleteWatched.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
+    fun setDownloadsDeleteWatched(enabled: Boolean) = viewModelScope.launch { dashStore.setDownloadsDeleteWatched(enabled) }
     val hiddenLibraries: StateFlow<Map<String, List<String>>> =
         dashStore.hiddenLibraries.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, emptyMap())
     fun setHiddenLibraries(serviceId: String, hidden: List<String>) = viewModelScope.launch { dashStore.setHiddenLibraries(serviceId, hidden) }
@@ -527,8 +530,25 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         noAdult(jellyfinResume(config))
     suspend fun jellyfinRecent(config: ServiceConfig, parentId: String? = null): List<org.phioster.sanctumd.model.JellyMediaItem> =
         noAdult(jellyfinLatest(config, parentId))
-    suspend fun jellyfinItemList(config: ServiceConfig, parentId: String, seasonNumber: Int? = null): List<org.phioster.sanctumd.model.JellyMediaItem> =
-        noAdult(jellyfinItems(config, parentId, seasonNumber))
+    suspend fun jellyfinItemList(
+        config: ServiceConfig,
+        parentId: String,
+        seasonNumber: Int? = null,
+        sortBy: String = "IsFolder,SortName",
+        descending: Boolean = false,
+        unwatchedOnly: Boolean = false,
+    ): List<org.phioster.sanctumd.model.JellyMediaItem> =
+        noAdult(jellyfinItems(config, parentId, seasonNumber, sortBy, descending, unwatchedOnly))
+    suspend fun jellyfinFavoriteList(config: ServiceConfig): List<org.phioster.sanctumd.model.JellyMediaItem> =
+        noAdult(org.phioster.sanctumd.net.jellyfinFavorites(config))
+    suspend fun jellyfinSetFavorite(config: ServiceConfig, itemId: String, favorite: Boolean) =
+        org.phioster.sanctumd.net.jellyfinSetFavorite(config, itemId, favorite)
+    /** Which of these items the user has already watched (used to clear finished downloads). */
+    suspend fun jellyfinPlayedIds(config: ServiceConfig, ids: List<String>): Set<String> =
+        org.phioster.sanctumd.net.jellyfinPlayedIds(config, ids)
+    /** Hand an item to another Jellyfin client to play. */
+    suspend fun jellyfinPlayOn(config: ServiceConfig, sessionId: String, itemId: String): String =
+        org.phioster.sanctumd.net.jellyfinPlayOnSession(config, sessionId, itemId)
     suspend fun jellyfinMediaDetail(config: ServiceConfig, itemId: String): org.phioster.sanctumd.model.JellyMediaDetail =
         jellyfinItemDetail(config, itemId)
     // ---- Playback (streaming + progress reporting) ----

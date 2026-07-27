@@ -60,6 +60,7 @@ internal fun JfItem.toMediaItem(config: ServiceConfig, token: String) = JellyMed
     adult = isAdultRating(OfficialRating),
     played = UserData?.Played == true,
     unplayedCount = UserData?.UnplayedItemCount ?: 0,
+    favorite = UserData?.IsFavorite == true,
 )
 
 /** The user's libraries (Movies, Shows, Music, …). */
@@ -94,11 +95,23 @@ suspend fun jellyfinLatest(config: ServiceConfig, parentId: String? = null): Lis
  * When [seasonNumber] is given (parent is a season), episodes are also filtered to that exact
  * season, since Jellyfin otherwise merges Specials (season 0) into the season they aired within.
  */
-suspend fun jellyfinItems(config: ServiceConfig, parentId: String, seasonNumber: Int? = null): List<JellyMediaItem> = withContext(Dispatchers.IO) {
+suspend fun jellyfinItems(
+    config: ServiceConfig,
+    parentId: String,
+    seasonNumber: Int? = null,
+    sortBy: String = "IsFolder,SortName",
+    descending: Boolean = false,
+    unwatchedOnly: Boolean = false,
+): List<JellyMediaItem> = withContext(Dispatchers.IO) {
     val token = jellyfinAccessToken(config)
     val api = jfApi(config, token)
     val uid = jellyfinResolveUserId(config, api)
-    api.items(uid, parentId).Items
+    api.items(
+        uid, parentId,
+        sortBy = sortBy,
+        sortOrder = if (descending) "Descending" else "Ascending",
+        filters = if (unwatchedOnly) "IsUnplayed" else null,
+    ).Items
         .filter { it.LocationType != "Virtual" }
         .filter { seasonNumber == null || it.Type != "Episode" || it.ParentIndexNumber == seasonNumber }
         .map { it.toMediaItem(config, token) }
@@ -144,7 +157,50 @@ suspend fun jellyfinItemDetail(config: ServiceConfig, itemId: String): JellyMedi
         },
         played = d.UserData?.Played == true,
         unplayedCount = d.UserData?.UnplayedItemCount ?: 0,
+        favorite = d.UserData?.IsFavorite == true,
     )
+}
+
+/** The user's favourites across the whole library, newest names first. */
+suspend fun jellyfinFavorites(config: ServiceConfig): List<JellyMediaItem> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val api = jfApi(config, token)
+    val uid = jellyfinResolveUserId(config, api)
+    api.itemQuery(uid, filters = "IsFavorite", types = "Movie,Series,Episode,MusicAlbum", limit = 40)
+        .Items.map { it.toMediaItem(config, token) }
+}
+
+/** Ids among [ids] that the user has already watched — used to clean up finished downloads. */
+suspend fun jellyfinPlayedIds(config: ServiceConfig, ids: List<String>): Set<String> = withContext(Dispatchers.IO) {
+    if (ids.isEmpty()) return@withContext emptySet()
+    runCatching {
+        val token = jellyfinAccessToken(config)
+        val api = jfApi(config, token)
+        val uid = jellyfinResolveUserId(config, api)
+        api.itemQuery(uid, ids = ids.joinToString(","), limit = ids.size)
+            .Items.filter { it.UserData?.Played == true }.map { it.Id }.toSet()
+    }.getOrDefault(emptySet())
+}
+
+/** Add/remove a favourite. */
+suspend fun jellyfinSetFavorite(config: ServiceConfig, itemId: String, favorite: Boolean): Unit = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val api = jfApi(config, token)
+    val uid = jellyfinResolveUserId(config, api)
+    val resp = if (favorite) api.markFavorite(uid, itemId) else api.unmarkFavorite(uid, itemId)
+    if (!resp.isSuccessful) error("HTTP ${resp.code()}")
+}
+
+/** Start [itemId] on another Jellyfin client (the sessions list shows which can be controlled). */
+suspend fun jellyfinPlayOnSession(config: ServiceConfig, sessionId: String, itemId: String): String = destructive("play an item on session $sessionId") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).playOn(sessionId, itemId), "sent to the other device")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
 }
 
 /**

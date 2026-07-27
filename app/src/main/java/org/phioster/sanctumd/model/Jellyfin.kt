@@ -143,6 +143,7 @@ data class JellyMediaItem(
     val adult: Boolean = false, // official rating marks it as adult / XXX
     val played: Boolean = false, // fully watched (a Series/Season is played once every episode is)
     val unplayedCount: Int = 0, // folders: episodes still unwatched
+    val favorite: Boolean = false,
 )
 
 /** Full detail for a single media item. */
@@ -158,4 +159,5 @@ data class JellyMediaDetail(
     val subtitle: String = "", // episodes: "SeriesName · S01E02" (used for downloads/notifications)
     val played: Boolean = false, // fully watched
     val unplayedCount: Int = 0, // folders: episodes still unwatched
+    val favorite: Boolean = false,
 )

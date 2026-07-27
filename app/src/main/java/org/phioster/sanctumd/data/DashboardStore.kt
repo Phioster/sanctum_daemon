@@ -25,6 +25,7 @@ private val SWIPE_DRAWER_KEY = booleanPreferencesKey("swipe_drawer")
 private val DRAWER_BAND_KEY = floatPreferencesKey("drawer_band")
 private val SAFE_MODE_KEY = booleanPreferencesKey("safe_mode")
 private val DOWNLOADS_WIFI_ONLY_KEY = booleanPreferencesKey("downloads_wifi_only")
+private val DOWNLOADS_DELETE_WATCHED_KEY = booleanPreferencesKey("downloads_delete_watched")
 private val HIDDEN_LIBRARIES_KEY = stringPreferencesKey("hidden_libraries_json")
 private val MEDIA_ROW_STYLES_KEY = stringPreferencesKey("media_row_styles_json")
 private val PLAYER_SWIPE_MAG_KEY = floatPreferencesKey("player_swipe_magnitude")
@@ -121,6 +122,12 @@ class DashboardStore(private val context: Context) {
     val downloadsWifiOnly: Flow<Boolean> = context.dashboardDataStore.data.map { it[DOWNLOADS_WIFI_ONLY_KEY] ?: false }
     suspend fun setDownloadsWifiOnly(enabled: Boolean) {
         context.dashboardDataStore.edit { it[DOWNLOADS_WIFI_ONLY_KEY] = enabled }
+    }
+
+    /** Delete a finished download once the item counts as watched on the server. */
+    val downloadsDeleteWatched: Flow<Boolean> = context.dashboardDataStore.data.map { it[DOWNLOADS_DELETE_WATCHED_KEY] ?: false }
+    suspend fun setDownloadsDeleteWatched(enabled: Boolean) {
+        context.dashboardDataStore.edit { it[DOWNLOADS_DELETE_WATCHED_KEY] = enabled }
     }
 
     // Per Jellyfin service: library-view ids the user chose to hide from the media tab (e.g. Live TV).

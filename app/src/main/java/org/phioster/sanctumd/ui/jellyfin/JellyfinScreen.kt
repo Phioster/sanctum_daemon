@@ -67,6 +67,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -162,6 +164,7 @@ internal fun JellyfinScreen(
     var playRequest by remember { mutableStateOf<org.phioster.sanctumd.ui.player.PlayRequest?>(null) }
     val downloads by vm.downloads.collectAsState(initial = emptyMap())
     val wifiOnly by vm.downloadsWifiOnly.collectAsState()
+    val deleteWatched by vm.downloadsDeleteWatched.collectAsState()
     var downloadsManagerOpen by remember { mutableStateOf(false) }
     val hiddenLibs by vm.hiddenLibraries.collectAsState()
     val hiddenSet = hiddenLibs[config.id].orEmpty().toSet()
@@ -197,6 +200,23 @@ internal fun JellyfinScreen(
     var showAddProvider by remember { mutableStateOf(false) }
     var confirmDeleteTuner by remember { mutableStateOf<String?>(null) }
     var confirmDeleteProvider by remember { mutableStateOf<String?>(null) }
+
+    // Browse sorting/filtering, plus a client-side name filter over what's loaded.
+    var browseSort by remember { mutableStateOf("IsFolder,SortName") }
+    var browseDesc by remember { mutableStateOf(false) }
+    var browseUnwatched by remember { mutableStateOf(false) }
+    var browseFilter by remember { mutableStateOf("") }
+    var favorites by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
+    var castTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
+
+    /** Drop finished downloads whose item is watched on the server, when the user asked for that. */
+    suspend fun sweepWatchedDownloads() {
+        if (!vm.downloadsDeleteWatched.value) return
+        val done = downloads.values.filter { it.serviceId == config.id && it.state == org.phioster.sanctumd.model.DownloadEntry.STATE_DONE }
+        if (done.isEmpty()) return
+        val watched = runCatching { vm.jellyfinPlayedIds(config, done.map { it.itemId }) }.getOrDefault(emptySet())
+        watched.forEach { org.phioster.sanctumd.service.DownloadService.delete(context, it) }
+    }
 
     suspend fun loadSessions() {
         listError = null
@@ -235,13 +255,19 @@ internal fun JellyfinScreen(
             mediaViews = vm.jellyfinViews(config)
             resumeItems = vm.jellyfinContinue(config)
             latestItems = vm.jellyfinRecent(config, null)
+            favorites = runCatching { vm.jellyfinFavoriteList(config) }.getOrDefault(emptyList())
+            sweepWatchedDownloads()
         } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
     }
     suspend fun loadMediaFolder(parent: org.phioster.sanctumd.model.JellyMediaItem) {
         listError = null
         mediaContents = null
         try {
-            mediaContents = vm.jellyfinItemList(config, parent.id, if (parent.kind == "Season") parent.number else null)
+            mediaContents = vm.jellyfinItemList(
+                config, parent.id,
+                seasonNumber = if (parent.kind == "Season") parent.number else null,
+                sortBy = browseSort, descending = browseDesc, unwatchedOnly = browseUnwatched,
+            )
         } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
     }
     LaunchedEffect(mode) { dashSection = null; when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv(); else -> {} } }
@@ -252,7 +278,7 @@ internal fun JellyfinScreen(
     LaunchedEffect(actionMsg, restartInProgress) {
         if (actionMsg != null && !restartInProgress) { kotlinx.coroutines.delay(4000); actionMsg = null }
     }
-    LaunchedEffect(mode, browseStack) {
+    LaunchedEffect(mode, browseStack, browseSort, browseDesc, browseUnwatched) {
         if (mode == 3) { if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last()) }
     }
     BackHandler(enabled = mode == 3 && (mediaDetail != null || browseStack.isNotEmpty())) {
@@ -570,6 +596,15 @@ internal fun JellyfinScreen(
                                                 MediaPosterRow(res, config, styleAccent(sResume.accent), sResume, setWatched) { openMedia(it) }
                                             }
                                         }
+                                        val favs = favorites
+                                        if (!favs.isNullOrEmpty()) {
+                                            item {
+                                                Spacer(Modifier.height(16.dp))
+                                                MediaSectionHeader("FAVORITES", accent)
+                                                Spacer(Modifier.height(8.dp))
+                                                MediaPosterRow(favs, config, accent, org.phioster.sanctumd.model.MediaRowStyle(), setWatched) { openMedia(it) }
+                                            }
+                                        }
                                         if (!lat.isNullOrEmpty() && !sRecent.hidden) {
                                             item {
                                                 Spacer(Modifier.height(16.dp))
@@ -629,6 +664,15 @@ internal fun JellyfinScreen(
                                                     }
                                                 }
                                             }
+                                            val nextUnwatched = mediaContents.orEmpty().filter {
+                                                !it.isFolder && !it.played && it.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS && downloads[it.id]?.done != true
+                                            }.take(3)
+                                            if (nextUnwatched.size > 1) {
+                                                BrowseChip("⬇ next ${nextUnwatched.size} unwatched", MatrixGreen) {
+                                                    nextUnwatched.forEach { ep -> org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, ep.id, ep.name, ep.subtitle, ep.posterUrl, 0L) }
+                                                    actionMsg = "queued ${nextUnwatched.size} downloads"
+                                                }
+                                            }
                                             val toGet = mediaContents.orEmpty().filter { !it.isFolder && it.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS && downloads[it.id]?.done != true }
                                             if (toGet.isNotEmpty()) {
                                                 BrowseChip("⬇ all (${toGet.size})", MatrixGreen) {
@@ -638,10 +682,66 @@ internal fun JellyfinScreen(
                                             }
                                             BrowseChip("⟳ scan", MatrixGreen.copy(alpha = 0.85f)) { scope.launch { actionMsg = vm.jellyfinScanLibrary(config, here.id) } }
                                         }
-                                        Spacer(Modifier.height(10.dp))
+                                        Spacer(Modifier.height(8.dp))
+                                        // Sort + filter. Sorting and "unwatched only" are server-side
+                                        // (the folder may hold more than one page); the text box just
+                                        // narrows what's already loaded.
+                                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            listOf(
+                                                "IsFolder,SortName" to "name",
+                                                "DateCreated" to "added",
+                                                "PremiereDate" to "released",
+                                                "CommunityRating" to "rating",
+                                            ).forEach { (key, label) ->
+                                                val on = browseSort == key
+                                                Text(
+                                                    if (on) "$label ${if (browseDesc) "↓" else "↑"}" else label,
+                                                    fontFamily = Mono, fontSize = 12.sp,
+                                                    color = if (on) Black else MatrixGreen,
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(if (on) MatrixGreen else Color.Transparent)
+                                                        .border(1.dp, MatrixGreen.copy(alpha = if (on) 0f else 0.3f), RoundedCornerShape(6.dp))
+                                                        .clickable {
+                                                            if (on) browseDesc = !browseDesc
+                                                            else { browseSort = key; browseDesc = key != "IsFolder,SortName" }
+                                                        }
+                                                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                                                )
+                                            }
+                                            Text(
+                                                "unwatched",
+                                                fontFamily = Mono, fontSize = 12.sp,
+                                                color = if (browseUnwatched) Black else MatrixGreen,
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(if (browseUnwatched) MatrixGreen else Color.Transparent)
+                                                    .border(1.dp, MatrixGreen.copy(alpha = if (browseUnwatched) 0f else 0.3f), RoundedCornerShape(6.dp))
+                                                    .clickable { browseUnwatched = !browseUnwatched }
+                                                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                                            )
+                                        }
+                                        Spacer(Modifier.height(8.dp))
+                                        OutlinedTextField(
+                                            value = browseFilter,
+                                            onValueChange = { browseFilter = it },
+                                            placeholder = { Text("filter…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.4f), fontSize = 13.sp) },
+                                            singleLine = true,
+                                            textStyle = androidx.compose.ui.text.TextStyle(fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = MatrixGreen.copy(alpha = 0.6f),
+                                                unfocusedBorderColor = MatrixGreen.copy(alpha = 0.25f),
+                                                cursorColor = MatrixGreen,
+                                            ),
+                                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                                        )
+                                        Spacer(Modifier.height(6.dp))
                                         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
                                     }
-                                    val m = mediaContents
+                                    val m = mediaContents?.let { list ->
+                                        if (browseFilter.isBlank()) list
+                                        else list.filter { it.name.contains(browseFilter, ignoreCase = true) }
+                                    }
                                     when {
                                         m == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
                                         m.isEmpty() -> item { Text("empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
@@ -939,6 +1039,45 @@ internal fun JellyfinScreen(
                 }) { Text("Send", fontFamily = Mono, color = MatrixGreen) }
             },
             dismissButton = { TextButton(onClick = { messageFor = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    castTarget?.let { d ->
+        // Hand the item to another Jellyfin client. Only sessions that accept remote control and
+        // aren't this phone are useful here.
+        val targets = sessions.orEmpty().filter { it.canControl }
+        AlertDialog(
+            onDismissRequest = { castTarget = null },
+            containerColor = Surface,
+            title = { Text("play on…", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    if (sessions == null) {
+                        Text("loading devices…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 13.sp)
+                    } else if (targets.isEmpty()) {
+                        Text(
+                            "No other device is available. A client has to be open and allow remote control.",
+                            fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 13.sp,
+                        )
+                    } else {
+                        targets.forEach { t ->
+                            Column(
+                                Modifier.fillMaxWidth().clickable {
+                                    castTarget = null
+                                    scope.launch { actionMsg = vm.jellyfinPlayOn(config, t.id, d.id) }
+                                }.padding(vertical = 8.dp),
+                            ) {
+                                Text(t.device.ifBlank { t.client }, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp)
+                                Text(
+                                    listOfNotNull(t.user.takeIf { it.isNotBlank() }, t.client.takeIf { it.isNotBlank() }).joinToString(" · "),
+                                    fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp,
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { castTarget = null }) { Text("close", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
 
@@ -1261,6 +1400,30 @@ internal fun JellyfinScreen(
                         }
                         Spacer(Modifier.height(12.dp))
                     }
+                    // Favourite + cast, side by side above the watched toggle.
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SecondaryButton(
+                            if (d.favorite) "♥  favorite" else "♡  favorite",
+                            Modifier.weight(1f),
+                        ) {
+                            scope.launch {
+                                runCatching { vm.jellyfinSetFavorite(config, d.id, !d.favorite) }
+                                    .onSuccess {
+                                        actionMsg = if (d.favorite) "removed from favorites" else "added to favorites"
+                                        mediaDetail = runCatching { vm.jellyfinMediaDetail(config, d.id) }.getOrNull() ?: mediaDetail
+                                        favorites = runCatching { vm.jellyfinFavoriteList(config) }.getOrNull() ?: favorites
+                                    }
+                                    .onFailure { actionMsg = "could not update: ${it.message ?: "failed"}" }
+                            }
+                        }
+                        if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
+                            SecondaryButton("▶  play on…", Modifier.weight(1f)) {
+                                castTarget = d
+                                scope.launch { sessions = runCatching { vm.jellyfinSessionList(config) }.getOrNull() ?: sessions }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
                     // Watched toggle — the explicit counterpart to the poster badge (and the only way
                     // to mark something watched that has no badge yet).
                     if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS || d.kind in setOf("Series", "Season")) {
@@ -1413,6 +1576,8 @@ internal fun JellyfinScreen(
             accent = accent,
             wifiOnly = wifiOnly,
             onWifiOnly = { vm.setDownloadsWifiOnly(it) },
+            deleteWatched = deleteWatched,
+            onDeleteWatched = { vm.setDownloadsDeleteWatched(it); if (it) scope.launch { sweepWatchedDownloads() } },
             onPlay = { e -> downloadsManagerOpen = false; playDownload(e) },
             onDelete = { id -> org.phioster.sanctumd.service.DownloadService.delete(context, id) },
             onClearCompleted = { org.phioster.sanctumd.service.DownloadService.clearCompleted(context) },
@@ -1507,6 +1672,8 @@ private fun DownloadsManager(
     accent: Color,
     wifiOnly: Boolean,
     onWifiOnly: (Boolean) -> Unit,
+    deleteWatched: Boolean,
+    onDeleteWatched: (Boolean) -> Unit,
     onPlay: (org.phioster.sanctumd.model.DownloadEntry) -> Unit,
     onDelete: (String) -> Unit,
     onClearCompleted: () -> Unit,
@@ -1539,6 +1706,16 @@ private fun DownloadsManager(
                 if (doneCount > 0) Text("clear done", fontFamily = Mono, color = accent, fontSize = 12.sp, modifier = Modifier.clickable { onClearCompleted() }.padding(end = 14.dp))
                 if (entries.isNotEmpty()) Text("clear all", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.clickable { onClearAll() })
             }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                if (deleteWatched) "[x] delete when watched" else "[ ] delete when watched",
+                fontFamily = Mono, color = if (deleteWatched) MatrixGreen else MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp,
+                modifier = Modifier.clickable { onDeleteWatched(!deleteWatched) },
+            )
+            Text(
+                "Checked on every visit to the media tab: a finished download whose item counts as watched on the server is removed.",
+                fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 10.sp, modifier = Modifier.padding(top = 2.dp),
+            )
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
             if (entries.isEmpty()) {
