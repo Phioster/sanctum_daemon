@@ -257,8 +257,6 @@ internal interface JellyfinApi {
     @GET("Users/{uid}/Items/Latest") suspend fun latest(@Path("uid") uid: String, @Query("Limit") limit: Int = 20, @Query("ParentId") parentId: String? = null, @Query("Fields") fields: String = "OfficialRating"): List<JfItem>
     @GET("Users/{uid}/Items/Resume") suspend fun resume(@Path("uid") uid: String, @Query("Limit") limit: Int = 20, @Query("Fields") fields: String = "OfficialRating"): JfItemsResp
     @GET("Shows/NextUp") suspend fun nextUp(@Query("userId") uid: String, @Query("Limit") limit: Int = 20, @Query("Fields") fields: String = "OfficialRating"): JfItemsResp
-    /** The user behind the current token. Fails for an API key (which belongs to no user). */
-    @GET("Users/Me") suspend fun me(): JfUserFull
     @GET("Users/{uid}/Items") suspend fun items(
         @Path("uid") uid: String,
         @Query("ParentId") parentId: String,
