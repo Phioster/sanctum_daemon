@@ -20,8 +20,16 @@ import retrofit2.http.Query
 // ---- Playback: streaming source resolution + progress reporting ----
 
 /** One media source option the server offers for an item. */
+/** Only the fields we need: the video track's true frame rate, for display-mode matching. */
+@Serializable internal data class JfMediaStream(
+    val Type: String = "",
+    val RealFrameRate: Double? = null,
+    val AverageFrameRate: Double? = null,
+)
+
 @Serializable internal data class JfMediaSource(
     val Id: String = "",
+    val MediaStreams: List<JfMediaStream> = emptyList(),
     val Container: String? = null,
     val SupportsDirectPlay: Boolean = false,
     val SupportsDirectStream: Boolean = false,
@@ -69,6 +77,9 @@ data class PlaybackSource(
     val startPositionMs: Long, // resume position, 0 = start
     val runTimeMs: Long, // total duration, 0 = unknown
     val authHeaders: Map<String, String>, // X-Emby-Token for the player's HTTP data source
+    /** The video's frame rate as the server reports it, 0 when unknown. Known *before* playback
+     *  begins, which is what lets a TV switch its display mode without disturbing the decoder. */
+    val videoFps: Float = 0f,
 )
 
 private const val TICKS_PER_MS = 10_000L
@@ -170,6 +181,8 @@ suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String, maxBit
         startPositionMs = resumeTicks / TICKS_PER_MS,
         runTimeMs = (ms.RunTimeTicks ?: 0L) / TICKS_PER_MS,
         authHeaders = mapOf("X-Emby-Token" to token) + config.customHeaders,
+        videoFps = ms.MediaStreams.firstOrNull { it.Type == "Video" }
+            ?.let { it.RealFrameRate ?: it.AverageFrameRate }?.toFloat() ?: 0f,
     )
 }
 

@@ -42,6 +42,9 @@ private val NEXT_LEAD_KEY = intPreferencesKey("player_next_lead_seconds")
 private val SERVICE_VIEW_KEY = stringPreferencesKey("service_view_mode")
 private val COLLAPSED_GROUPS_KEY = stringPreferencesKey("collapsed_groups_json")
 private val START_SCREEN_KEY = stringPreferencesKey("start_screen")
+// TV client only: how the television plays video. Both default to the safe path.
+private val TV_MATCH_REFRESH_KEY = booleanPreferencesKey("tv_match_refresh")
+private val TV_DIRECT_OUTPUT_KEY = booleanPreferencesKey("tv_direct_output")
 private val json = Json { ignoreUnknownKeys = true }
 
 /** Persists the user's dashboard tabs (widget layout) as JSON in DataStore. */
@@ -122,6 +125,17 @@ class DashboardStore(private val context: Context) {
     suspend fun setAutoplayNext(v: Boolean) { context.dashboardDataStore.edit { it[AUTOPLAY_NEXT_KEY] = v } }
     suspend fun setAutoSkipSegments(v: Boolean) { context.dashboardDataStore.edit { it[AUTO_SKIP_KEY] = v } }
     suspend fun setAskResume(v: Boolean) { context.dashboardDataStore.edit { it[ASK_RESUME_KEY] = v } }
+
+    /** TV: ask the panel for a refresh rate that is a whole multiple of the film's frame rate.
+     *  Applied before playback starts — switching mid-stream tears the surface out from under
+     *  the decoder and corrupts the picture. */
+    val tvMatchRefresh: Flow<Boolean> = context.dashboardDataStore.data.map { it[TV_MATCH_REFRESH_KEY] ?: true }
+    suspend fun setTvMatchRefresh(v: Boolean) { context.dashboardDataStore.edit { it[TV_MATCH_REFRESH_KEY] = v } }
+
+    /** TV: hand decoded frames straight to the display instead of copying them through the GPU.
+     *  Much lighter on a stick, but mpv can no longer draw subtitles over the video. */
+    val tvDirectOutput: Flow<Boolean> = context.dashboardDataStore.data.map { it[TV_DIRECT_OUTPUT_KEY] ?: false }
+    suspend fun setTvDirectOutput(v: Boolean) { context.dashboardDataStore.edit { it[TV_DIRECT_OUTPUT_KEY] = v } }
     /** How early the "next episode" card shows when the server reports no outro segment. */
     val nextEpisodeLead: Flow<Int> = context.dashboardDataStore.data.map { it[NEXT_LEAD_KEY] ?: 45 }
     suspend fun setNextEpisodeLead(v: Int) { context.dashboardDataStore.edit { it[NEXT_LEAD_KEY] = v.coerceIn(10, 300) } }

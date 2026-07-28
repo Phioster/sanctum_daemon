@@ -74,6 +74,10 @@ fun applyRefreshRateFor(activity: Activity, fps: Float): DisplayModeInfo {
     return info.copy(requestedHz = best.refreshRate, switched = true)
 }
 
+/** What the panel is actually running at right now — read back after a switch to confirm it took. */
+fun currentRefreshRate(activity: Activity): Float =
+    activity.activeDisplay()?.mode?.refreshRate ?: 0f
+
 /** Hands the panel back to the system's own choice. */
 fun clearPreferredRefreshRate(activity: Activity) {
     activity.window.attributes = activity.window.attributes.apply { preferredDisplayModeId = 0 }

@@ -27,6 +27,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,7 +53,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.phioster.sanctumd.data.DashboardStore
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.net.MediaSegment
@@ -144,10 +147,18 @@ internal fun TvPlayerScreen(
     val view = LocalView.current
     val store = remember { DashboardStore(context) }
 
+    // The output mode is fixed when the engine is constructed, so it has to be known before the
+    // first frame — hence the blocking read, which also serves as the collect's initial value. Given
+    // a plain `false` initial, the engine would be built once wrongly and then immediately rebuilt,
+    // restarting playback in front of the user. Toggling it later *does* rebuild, deliberately.
+    val storedDirectOutput = remember { runBlocking { store.tvDirectOutput.first() } }
+    val directOutput by store.tvDirectOutput.collectAsState(storedDirectOutput)
+
     // libmpv first — that is the whole reason this client exists. ExoPlayer only steps in when the
     // native library refuses to load on this device's ABI.
-    val engine: MediaPlayerEngine = remember {
-        runCatching { MpvPlayerEngine(context, tvTuning = true) }.getOrElse { ExoPlayerEngine(context) }
+    val engine: MediaPlayerEngine = remember(directOutput) {
+        runCatching { MpvPlayerEngine(context, tvTuning = true, directOutput = directOutput) }
+            .getOrElse { ExoPlayerEngine(context) }
     }
 
     var curItem by remember(itemId) { mutableStateOf(itemId) }
@@ -178,6 +189,8 @@ internal fun TvPlayerScreen(
     val subLang by store.subtitleLanguage.collectAsState("de")
     val subMode by store.subtitleMode.collectAsState("forced")
     val autoplayNext by store.autoplayNext.collectAsState(true)
+    val matchRefresh by store.tvMatchRefresh.collectAsState(true)
+    val scope = rememberCoroutineScope()
 
     val keyFocus = remember { FocusRequester() }
 
@@ -195,28 +208,15 @@ internal fun TvPlayerScreen(
             view.keepScreenOn = false
             controller?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
             activity?.let { clearPreferredRefreshRate(it) }
-            engine.release()
         }
     }
 
-    // Once the file's frame rate is known, ask the panel for a refresh rate that is a whole multiple
-    // of it. 24 or 25 fps on a fixed 60 Hz output judders no matter how fast the decoder is.
-    LaunchedEffect(curItem) {
-        val activity = findActivity(context) ?: return@LaunchedEffect
-        repeat(40) {
-            val fps = engine.stats().let { if (it.containerFps > 0f) it.containerFps else it.fps }
-            if (fps > 0f) {
-                displayInfo = applyRefreshRateFor(activity, fps)
-                return@LaunchedEffect
-            }
-            delay(500)
-        }
-    }
+    DisposableEffect(engine) { onDispose { engine.release() } }
 
     LaunchedEffect(Unit) { runCatching { keyFocus.requestFocus() } }
 
     // Resolve the stream and start. Re-runs when autoplay advances to the next episode.
-    LaunchedEffect(curItem) {
+    LaunchedEffect(curItem, engine) {
         loadError = null
         segments = emptyList()
         skipped = emptySet()
@@ -224,6 +224,18 @@ internal fun TvPlayerScreen(
         runCatching {
             val src = jellyfinPlaybackSource(config, curItem)
             source = src
+
+            // Switch the panel *before* the decoder gets a surface. Doing this mid-stream tears the
+            // surface out from under MediaCodec — which corrupts the picture outright — and the
+            // resulting configuration change restarts the activity, so playback begins all over
+            // again. The frame rate comes from the server precisely so it is known this early.
+            val activity = findActivity(context)
+            if (matchRefresh && activity != null && src.videoFps > 0f) {
+                displayInfo = applyRefreshRateFor(activity, src.videoFps)
+                if (displayInfo.switched) delay(1500) // let the panel finish re-syncing
+                displayInfo = displayInfo.copy(currentHz = currentRefreshRate(activity))
+            }
+
             engine.prepare(src.url, src.isHls, src.startPositionMs, src.authHeaders)
             jellyfinReportStart(config, src, src.startPositionMs)
         }.onFailure { loadError = it.message ?: it.javaClass.simpleName }
@@ -345,7 +357,7 @@ internal fun TvPlayerScreen(
 
     // Track lists are read when the menu is opened, not on every recomposition — hence the nonce: a
     // list that reshuffled under the selection would be unusable.
-    val menuEntries: List<TvMenuEntry> = remember(menuNonce) {
+    val menuEntries: List<TvMenuEntry> = remember(menuNonce, matchRefresh, directOutput) {
         buildList {
             add(TvMenuEntry("audio", header = true))
             val audio = engine.tracks(TrackKind.AUDIO)
@@ -359,6 +371,13 @@ internal fun TvPlayerScreen(
             subs.forEach { t: TrackOption ->
                 add(TvMenuEntry("  ${t.label}", selected = t.selected) { engine.selectTrack(TrackKind.SUBTITLE, t.id) })
             }
+            add(TvMenuEntry("bild", header = true))
+            add(TvMenuEntry("  Bildrate an Film anpassen", selected = matchRefresh) {
+                scope.launch { store.setTvMatchRefresh(!matchRefresh) }
+            })
+            add(TvMenuEntry("  Direktausgabe — flüssiger, ohne Untertitel", selected = directOutput) {
+                scope.launch { store.setTvDirectOutput(!directOutput) }
+            })
         }
     }
 
@@ -622,7 +641,8 @@ private fun TvPlayerInfo(stats: PlaybackStats, display: DisplayModeInfo, transco
                 append("]")
             }
         },
-        "verworfene Bilder" to stats.droppedFrames.toString(),
+        "verworfen (zu langsam)" to stats.droppedFrames.toString(),
+        "verspätet (Kadenz)" to stats.delayedFrames.toString(),
         "Quelle" to if (transcoding) "Transkodierung (HLS)" else "Direktwiedergabe",
     )
     Box(Modifier.fillMaxSize().padding(TvSidePad), Alignment.TopStart) {

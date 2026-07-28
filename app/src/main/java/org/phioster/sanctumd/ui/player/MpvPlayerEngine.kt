@@ -16,7 +16,20 @@ import java.util.Locale
  * prebuilt `dev.jdtech.mpv:libmpv` AAR; created behind a runCatching in [PlayerScreen] so a missing
  * native lib falls back to ExoPlayer.
  */
-class MpvPlayerEngine(context: Context, tvTuning: Boolean = false) : MediaPlayerEngine {
+class MpvPlayerEngine(
+    context: Context,
+    tvTuning: Boolean = false,
+    /**
+     * Hand decoded frames straight to the Android surface instead of copying them out of the
+     * decoder and back through the GPU. On a TV stick that copy is the single most expensive thing
+     * in the pipeline. The cost of avoiding it: mpv no longer composites, so **subtitles and the
+     * on-screen display are not drawn**.
+     */
+    private val directOutput: Boolean = false,
+) : MediaPlayerEngine {
+
+    /** The video output mpv should use once a surface exists. */
+    private val videoOut = if (directOutput) "mediacodec_embed" else "gpu"
 
     private val mpv: MPVLib = MPVLib.create(context) ?: error("libmpv create failed")
 
@@ -54,10 +67,13 @@ class MpvPlayerEngine(context: Context, tvTuning: Boolean = false) : MediaPlayer
         }
         with(mpv) {
             setOptionString("config", "no")
-            setOptionString("vo", "gpu")
+            setOptionString("vo", videoOut)
             setOptionString("gpu-context", "android")
             setOptionString("opengl-es", "yes")
-            if (tvTuning) {
+            if (directOutput) {
+                // Zero-copy: MediaCodec renders into the surface itself, nothing round-trips.
+                setOptionString("hwdec", "mediacodec")
+            } else if (tvTuning) {
                 // TV sticks (Amlogic and friends) have a fraction of a phone's GPU and CPU. The
                 // defaults below are what makes 1080p play smoothly there instead of stuttering:
                 // decode through MediaCodec explicitly rather than letting `auto` pick software, and
@@ -149,8 +165,8 @@ class MpvPlayerEngine(context: Context, tvTuning: Boolean = false) : MediaPlayer
             fps = (mpv.getPropertyDouble("estimated-vf-fps") ?: mpv.getPropertyDouble("container-fps") ?: 0.0).toFloat(),
             bufferedPercent = (mpv.getPropertyInt("cache-buffering-state") ?: 0).coerceIn(0, 100),
             hwDecode = (mpv.getPropertyString("hwdec-current") ?: "").takeUnless { it == "no" }.orEmpty(),
-            droppedFrames = (mpv.getPropertyInt("frame-drop-count") ?: 0) +
-                (mpv.getPropertyInt("vo-delayed-frame-count") ?: 0),
+            droppedFrames = mpv.getPropertyInt("frame-drop-count") ?: 0,
+            delayedFrames = mpv.getPropertyInt("vo-delayed-frame-count") ?: 0,
             containerFps = (mpv.getPropertyDouble("container-fps") ?: 0.0).toFloat(),
         )
     }
@@ -242,7 +258,7 @@ class MpvPlayerEngine(context: Context, tvTuning: Boolean = false) : MediaPlayer
                             if (released) return
                             mpv.attachSurface(h.surface)
                             mpv.setOptionString("force-window", "yes")
-                            mpv.setOptionString("vo", "gpu")
+                            mpv.setOptionString("vo", videoOut)
                         }
                         override fun surfaceChanged(h: SurfaceHolder, format: Int, width: Int, height: Int) {
                             if (!released) mpv.setPropertyString("android-surface-size", "${width}x$height")
