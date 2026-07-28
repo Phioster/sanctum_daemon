@@ -132,9 +132,16 @@ class DashboardStore(private val context: Context) {
     val tvMatchRefresh: Flow<Boolean> = context.dashboardDataStore.data.map { it[TV_MATCH_REFRESH_KEY] ?: true }
     suspend fun setTvMatchRefresh(v: Boolean) { context.dashboardDataStore.edit { it[TV_MATCH_REFRESH_KEY] = v } }
 
-    /** TV: hand decoded frames straight to the display instead of copying them through the GPU.
-     *  Much lighter on a stick, but mpv can no longer draw subtitles over the video. */
-    val tvDirectOutput: Flow<Boolean> = context.dashboardDataStore.data.map { it[TV_DIRECT_OUTPUT_KEY] ?: false }
+    /**
+     * TV: hand decoded frames straight to the display instead of copying them out of the decoder and
+     * back through the GPU.
+     *
+     * **On by default**, on the evidence of the device itself: with the copy path a 1 Mbit/s H.264
+     * file still dropped 69 frames while reporting zero late ones, and HEVC came out as coloured
+     * noise — the copy is both too slow and mis-formatted on this class of hardware. The cost is
+     * that mpv no longer composites, so it cannot draw subtitles; turn this off when you need them.
+     */
+    val tvDirectOutput: Flow<Boolean> = context.dashboardDataStore.data.map { it[TV_DIRECT_OUTPUT_KEY] ?: true }
     suspend fun setTvDirectOutput(v: Boolean) { context.dashboardDataStore.edit { it[TV_DIRECT_OUTPUT_KEY] = v } }
     /** How early the "next episode" card shows when the server reports no outro segment. */
     val nextEpisodeLead: Flow<Int> = context.dashboardDataStore.data.map { it[NEXT_LEAD_KEY] ?: 45 }

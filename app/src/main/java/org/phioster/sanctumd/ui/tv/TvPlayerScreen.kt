@@ -366,6 +366,7 @@ internal fun TvPlayerScreen(
                 add(TvMenuEntry("  ${t.label}", selected = t.selected) { engine.selectTrack(TrackKind.AUDIO, t.id) })
             }
             add(TvMenuEntry("untertitel", header = true))
+            if (directOutput) add(TvMenuEntry("  (Direktausgabe zeigt keine Untertitel)", header = true))
             val subs = engine.tracks(TrackKind.SUBTITLE)
             add(TvMenuEntry("  aus", selected = subs.none { it.selected }) { engine.selectTrack(TrackKind.SUBTITLE, null) })
             subs.forEach { t: TrackOption ->
@@ -375,7 +376,7 @@ internal fun TvPlayerScreen(
             add(TvMenuEntry("  Bildrate an Film anpassen", selected = matchRefresh) {
                 scope.launch { store.setTvMatchRefresh(!matchRefresh) }
             })
-            add(TvMenuEntry("  Direktausgabe — flüssiger, ohne Untertitel", selected = directOutput) {
+            add(TvMenuEntry("  Direktausgabe (empfohlen) — ohne Untertitel", selected = directOutput) {
                 scope.launch { store.setTvDirectOutput(!directOutput) }
             })
         }
@@ -500,7 +501,14 @@ internal fun TvPlayerScreen(
 
         if (menuOpen) TvPlayerMenu(entries = menuEntries, selectedIndex = menuIndex)
 
-        if (infoOpen) TvPlayerInfo(stats = stats, display = displayInfo, transcoding = source?.isHls == true)
+        if (infoOpen) {
+            TvPlayerInfo(
+                stats = stats,
+                display = displayInfo,
+                transcoding = source?.isHls == true,
+                directOutput = directOutput,
+            )
+        }
 
         toast?.let {
             Box(Modifier.fillMaxSize().padding(top = 40.dp), Alignment.TopCenter) {
@@ -619,7 +627,12 @@ private fun TvPlayerControls(
  * does, which is exactly how you tell the two apart.
  */
 @Composable
-private fun TvPlayerInfo(stats: PlaybackStats, display: DisplayModeInfo, transcoding: Boolean) {
+private fun TvPlayerInfo(
+    stats: PlaybackStats,
+    display: DisplayModeInfo,
+    transcoding: Boolean,
+    directOutput: Boolean,
+) {
     val rows = listOf(
         "Bild" to buildString {
             append(if (stats.width > 0) "${stats.width}×${stats.height}" else "—")
@@ -643,6 +656,7 @@ private fun TvPlayerInfo(stats: PlaybackStats, display: DisplayModeInfo, transco
         },
         "verworfen (zu langsam)" to stats.droppedFrames.toString(),
         "verspätet (Kadenz)" to stats.delayedFrames.toString(),
+        "Ausgabe" to if (directOutput) "direkt (zero-copy)" else "Standard (GPU-Kopie)",
         "Quelle" to if (transcoding) "Transkodierung (HLS)" else "Direktwiedergabe",
     )
     Box(Modifier.fillMaxSize().padding(TvSidePad), Alignment.TopStart) {

@@ -70,34 +70,41 @@ class MpvPlayerEngine(
             setOptionString("vo", videoOut)
             setOptionString("gpu-context", "android")
             setOptionString("opengl-es", "yes")
-            if (directOutput) {
-                // Zero-copy: MediaCodec renders into the surface itself, nothing round-trips.
-                setOptionString("hwdec", "mediacodec")
-            } else if (tvTuning) {
-                // TV sticks (Amlogic and friends) have a fraction of a phone's GPU and CPU. The
-                // defaults below are what makes 1080p play smoothly there instead of stuttering:
-                // decode through MediaCodec explicitly rather than letting `auto` pick software, and
-                // strip every optional rendering nicety — none of them are visible from a sofa, but
-                // together they are the difference between smooth and dropped frames.
-                setOptionString("hwdec", "mediacodec-copy")
-                setOptionString("profile", "fast")
-                setOptionString("scale", "bilinear")
-                setOptionString("dscale", "bilinear")
-                setOptionString("cscale", "bilinear")
-                setOptionString("dither", "no")
-                setOptionString("deband", "no")
-                setOptionString("interpolation", "no")
-                setOptionString("correct-downscaling", "no")
-                setOptionString("sigmoid-upscaling", "no")
+            when {
+                // Zero-copy: MediaCodec renders into the surface itself, nothing round-trips through
+                // the GPU. Measured on the target stick, the copy path below dropped frames even on
+                // a 1 Mbit/s H.264 file and produced coloured noise for HEVC — so on a television
+                // this is the path that actually works, at the price of mpv-drawn subtitles.
+                directOutput -> setOptionString("hwdec", "mediacodec")
+
+                // GPU path on weak hardware: decode through MediaCodec explicitly rather than
+                // letting `auto` fall back to software, and strip every optional rendering nicety.
+                // None of them are visible from a sofa.
+                tvTuning -> {
+                    setOptionString("hwdec", "mediacodec-copy")
+                    setOptionString("profile", "fast")
+                    setOptionString("scale", "bilinear")
+                    setOptionString("dscale", "bilinear")
+                    setOptionString("cscale", "bilinear")
+                    setOptionString("dither", "no")
+                    setOptionString("deband", "no")
+                    setOptionString("interpolation", "no")
+                    setOptionString("correct-downscaling", "no")
+                    setOptionString("sigmoid-upscaling", "no")
+                }
+
+                else -> {
+                    setOptionString("hwdec", "auto")
+                    setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
+                }
+            }
+            if (tvTuning) {
+                // Applies to both television paths: a stick's wifi is the other half of the problem,
+                // so buffer generously enough that a dip in throughput never becomes a visible stall.
                 setOptionString("video-sync", "audio")
-                // A stick's wifi is the other half of the problem: buffer generously so a dip in
-                // throughput doesn't become a visible stall.
                 setOptionString("demuxer-max-bytes", "64MiB")
                 setOptionString("demuxer-readahead-secs", "20")
                 setOptionString("cache-secs", "30")
-            } else {
-                setOptionString("hwdec", "auto")
-                setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
             }
             setOptionString("ao", "audiotrack,opensles")
             if (caFile.exists() && caFile.length() > 0) {
