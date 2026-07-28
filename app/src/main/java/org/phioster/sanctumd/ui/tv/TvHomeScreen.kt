@@ -102,13 +102,24 @@ internal fun TvHomeScreen(
                 verticalArrangement = Arrangement.spacedBy(26.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 40.dp),
             ) {
+                // Libraries lead: that is where someone goes who knows what they want to watch.
                 // The first non-empty row owns the initial focus.
                 val focusOwner = when {
+                    data.libraries.isNotEmpty() -> "libraries"
                     data.resume.isNotEmpty() -> "resume"
                     data.nextUp.isNotEmpty() -> "nextUp"
                     data.latest.isNotEmpty() -> "latest"
-                    data.favorites.isNotEmpty() -> "favorites"
-                    else -> "libraries"
+                    else -> "favorites"
+                }
+                item {
+                    TvPosterRow(
+                        "mediathek",
+                        data.libraries,
+                        config,
+                        cardWidth = 168.dp,
+                        firstItemFocus = firstCardFocus.takeIf { focusOwner == "libraries" },
+                        onClick = onOpen,
+                    )
                 }
                 item {
                     TvPosterRow("weiter schauen", data.resume, config, firstItemFocus = firstCardFocus.takeIf { focusOwner == "resume" }, onClick = onOpen)
@@ -121,16 +132,6 @@ internal fun TvHomeScreen(
                 }
                 item {
                     TvPosterRow("favoriten", data.favorites, config, firstItemFocus = firstCardFocus.takeIf { focusOwner == "favorites" }, onClick = onOpen)
-                }
-                item {
-                    TvPosterRow(
-                        "bibliotheken",
-                        data.libraries,
-                        config,
-                        cardWidth = 168.dp,
-                        firstItemFocus = firstCardFocus.takeIf { focusOwner == "libraries" },
-                        onClick = onOpen,
-                    )
                 }
             }
         }

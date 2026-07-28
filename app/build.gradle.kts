@@ -30,8 +30,8 @@ android {
         applicationId = "org.phioster.nexarr"
         minSdk = 26
         targetSdk = 35
-        versionCode = 243
-        versionName = "1.45.0"
+        versionCode = 244
+        versionName = "1.46.0"
 
         // libmpv ships native libs for several ABIs; the phone is arm64, so bundle only that.
         // The tv flavour adds the 32-bit one (see below).

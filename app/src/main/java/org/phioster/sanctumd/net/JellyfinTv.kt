@@ -106,3 +106,38 @@ suspend fun jellyfinNextUp(config: ServiceConfig, limit: Int = 20): List<JellyMe
     val uid = jellyfinResolveUserId(config, api)
     api.nextUp(uid, limit).Items.map { it.toMediaItem(config, token) }
 }
+
+/**
+ * The episode a "play" button on a series or season should start.
+ *
+ * Asks the server what is next up for that series; if nothing comes back (nothing watched yet, or a
+ * season with everything already seen) it falls back to the first episode underneath, so the button
+ * always does something rather than sitting there dead.
+ */
+suspend fun jellyfinPlayableEpisode(
+    config: ServiceConfig,
+    folderId: String,
+    isSeason: Boolean,
+): JellyMediaItem? = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val api = jfApi(config, token)
+    val uid = jellyfinResolveUserId(config, api)
+
+    if (!isSeason) {
+        runCatching { api.nextUp(uid, limit = 1, seriesId = folderId).Items.firstOrNull() }
+            .getOrNull()?.let { return@withContext it.toMediaItem(config, token) }
+    }
+    // Fall back to the episodes themselves. A season's children *are* episodes; a series' children
+    // are seasons, so that one has to go through the flat per-series episode route instead.
+    val episodes = if (isSeason) {
+        runCatching {
+            api.items(uid, folderId, sortBy = "ParentIndexNumber,IndexNumber,SortName").Items
+        }.getOrDefault(emptyList())
+    } else {
+        runCatching { jfSegmentsApi(config, token).seriesEpisodes(folderId, uid).Items }
+            .getOrDefault(emptyList())
+    }.filter { it.Type == "Episode" && it.LocationType != "Virtual" }
+
+    val pick = episodes.firstOrNull { it.UserData?.Played != true } ?: episodes.firstOrNull()
+    pick?.toMediaItem(config, token)
+}

@@ -256,7 +256,12 @@ internal interface JellyfinApi {
     @GET("Users/{uid}/Views") suspend fun views(@Path("uid") uid: String): JfItemsResp
     @GET("Users/{uid}/Items/Latest") suspend fun latest(@Path("uid") uid: String, @Query("Limit") limit: Int = 20, @Query("ParentId") parentId: String? = null, @Query("Fields") fields: String = "OfficialRating"): List<JfItem>
     @GET("Users/{uid}/Items/Resume") suspend fun resume(@Path("uid") uid: String, @Query("Limit") limit: Int = 20, @Query("Fields") fields: String = "OfficialRating"): JfItemsResp
-    @GET("Shows/NextUp") suspend fun nextUp(@Query("userId") uid: String, @Query("Limit") limit: Int = 20, @Query("Fields") fields: String = "OfficialRating"): JfItemsResp
+    @GET("Shows/NextUp") suspend fun nextUp(
+        @Query("userId") uid: String,
+        @Query("Limit") limit: Int = 20,
+        @Query("Fields") fields: String = "OfficialRating",
+        @Query("seriesId") seriesId: String? = null,
+    ): JfItemsResp
     @GET("Users/{uid}/Items") suspend fun items(
         @Path("uid") uid: String,
         @Query("ParentId") parentId: String,

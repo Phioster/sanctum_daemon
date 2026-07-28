@@ -30,8 +30,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import org.phioster.sanctumd.model.JellyMediaDetail
+import org.phioster.sanctumd.model.JellyMediaItem
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.net.jellyfinItemDetail
+import org.phioster.sanctumd.net.jellyfinPlayableEpisode
 import org.phioster.sanctumd.net.jellyfinSetFavorite
 import org.phioster.sanctumd.net.jellyfinSetPlayed
 import org.phioster.sanctumd.ui.jellyfin.JellyPoster
@@ -40,8 +42,11 @@ import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
 
+/** Container kinds that get a "carry on watching" button instead of a plain play button. */
+internal val FOLDER_KINDS = setOf("Series", "Season")
+
 /**
- * One playable item: poster, facts, description, and the actions that belong on a remote control.
+ * One item: poster, facts, description, and the actions that belong on a remote control.
  *
  * "Play" is the first focused control on purpose — the overwhelmingly common intent is to press OK
  * once more and have the film start.
@@ -53,11 +58,16 @@ internal fun TvDetailScreen(
     fallbackTitle: String,
     refreshTick: Int,
     onPlay: (String, String) -> Unit,
+    onBrowse: (String, String) -> Unit,
 ) {
     var detail by remember { mutableStateOf<JellyMediaDetail?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var busyMsg by remember { mutableStateOf<String?>(null) }
     var reload by remember { mutableStateOf(0) }
+    // For a series or season: the episode the play button will start, resolved up front so the
+    // button can name it instead of making the user guess where it lands.
+    var upNext by remember(itemId) { mutableStateOf<JellyMediaItem?>(null) }
+    var resolvingNext by remember(itemId) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val playFocus = remember { FocusRequester() }
 
@@ -66,6 +76,15 @@ internal fun TvDetailScreen(
         runCatching { jellyfinItemDetail(config, itemId) }
             .onSuccess { detail = it }
             .onFailure { error = it.message ?: it.javaClass.simpleName }
+    }
+
+    // A folder's play button needs a target episode before it can do anything.
+    LaunchedEffect(itemId, refreshTick, reload, detail?.kind) {
+        val kind = detail?.kind ?: return@LaunchedEffect
+        if (kind !in FOLDER_KINDS) return@LaunchedEffect
+        resolvingNext = true
+        upNext = runCatching { jellyfinPlayableEpisode(config, itemId, isSeason = kind == "Season") }.getOrNull()
+        resolvingNext = false
     }
 
     LaunchedEffect(detail != null) {
@@ -127,8 +146,25 @@ internal fun TvDetailScreen(
                         Spacer(Modifier.height(22.dp))
                     }
 
+                    val isFolder = d.kind in FOLDER_KINDS
                     Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        TvButton("▶  abspielen", focusRequester = playFocus) { onPlay(d.id, d.name) }
+                        if (isFolder) {
+                            // The point of this button: start watching without first drilling through
+                            // seasons and episodes to find where you left off.
+                            val next = upNext
+                            TvButton(
+                                when {
+                                    next != null -> "▶  ${next.subtitle.ifBlank { next.name }}"
+                                    resolvingNext -> "▶  suche Folge…"
+                                    else -> "▶  keine Folge gefunden"
+                                },
+                                focusRequester = playFocus,
+                                enabled = next != null,
+                            ) { next?.let { onPlay(it.id, it.name) } }
+                            TvButton("Folgen") { onBrowse(d.id, d.name) }
+                        } else {
+                            TvButton("▶  abspielen", focusRequester = playFocus) { onPlay(d.id, d.name) }
+                        }
                         TvButton(if (d.played) "als ungesehen markieren" else "als gesehen markieren") {
                             scope.launch {
                                 busyMsg = null

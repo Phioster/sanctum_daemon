@@ -35,12 +35,17 @@ fun TvApp(vm: TvViewModel, onExit: () -> Unit) {
             config == null -> TvSetupScreen(onConfigured = { vm.saveServer(it) })
 
             else -> {
-                /** A folder drills in, anything playable opens its detail page. */
+                /**
+                 * Series and seasons open their detail page, not the grid — that page carries the
+                 * "carry on watching" button, so getting back into a show is one press rather than
+                 * a hunt through seasons for the episode you were on. Libraries and other containers
+                 * still drill straight in, and anything playable opens its own page.
+                 */
                 val open: (JellyMediaItem) -> Unit = { item ->
-                    if (item.isFolder) {
-                        vm.open(TvRoute.Browse(item.id, item.name))
-                    } else {
-                        vm.open(TvRoute.Detail(item.id, item.name))
+                    when {
+                        item.kind in FOLDER_KINDS -> vm.open(TvRoute.Detail(item.id, item.name))
+                        item.isFolder -> vm.open(TvRoute.Browse(item.id, item.name))
+                        else -> vm.open(TvRoute.Detail(item.id, item.name))
                     }
                 }
 
@@ -64,6 +69,7 @@ fun TvApp(vm: TvViewModel, onExit: () -> Unit) {
                         fallbackTitle = route.title,
                         refreshTick = vm.refreshTick,
                         onPlay = { id, name -> vm.playing = TvPlayRequest(id, name) },
+                        onBrowse = { id, name -> vm.open(TvRoute.Browse(id, name)) },
                     )
                 }
 

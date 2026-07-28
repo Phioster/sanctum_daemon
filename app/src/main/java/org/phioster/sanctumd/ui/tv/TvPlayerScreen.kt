@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -77,7 +78,11 @@ import org.phioster.sanctumd.ui.theme.Surface
 
 private const val SEEK_STEP_MS = 10_000L
 private const val SEEK_JUMP_MS = 30_000L
-private const val CONTROLS_TIMEOUT_MS = 4_000L
+private const val CONTROLS_TIMEOUT_MS = 5_000L
+
+/** The two focusable strips of the control bar. */
+private const val STRIP_SCRUB = 0
+private const val STRIP_BUTTONS = 1
 
 /** Fire-and-forget scope for the final "stopped" report, which must outlive this composable. */
 private val reportScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -100,7 +105,10 @@ private fun findActivity(context: Context): Activity? {
     return null
 }
 
-/** One line in the options menu. Headers are shown but skipped when moving the selection. */
+/** A button on the control bar's lower strip. */
+private data class BarButton(val label: String, val onClick: () -> Unit)
+
+/** One line in the track menu. Headers are shown but skipped when moving the selection. */
 private data class TvMenuEntry(
     val label: String,
     val header: Boolean = false,
@@ -113,12 +121,15 @@ private data class TvMenuEntry(
  *
  * Uses the same [MpvPlayerEngine] as the phone — which is the entire point of this client: libmpv
  * decodes in software whatever the TV stick's own codecs refuse (DTS/TrueHD audio, VC-1, 10-bit
- * HEVC, PGS/ASS subtitles), so the server never has to transcode and nothing silently fails to play.
+ * HEVC, PGS/ASS subtitles), so the server never has to transcode. It is created with the low-power
+ * tuning profile, because a stick's GPU cannot afford mpv's default rendering quality.
  * [ExoPlayerEngine] remains the fallback if the native library can't load on this ABI.
  *
- * All input is handled as raw key events rather than Compose focus traversal: a player has no
- * "next control to the right", it has verbs. Left/right seek, centre plays and pauses, up opens the
- * track menu, back leaves.
+ * **Input model.** With the overlay hidden, a key press does one thing: it brings the overlay up.
+ * Nothing seeks, nothing toggles — a stray press on a remote should never move the film. With the
+ * overlay up there are two strips: the progress bar, where left/right seek, and a row of buttons,
+ * where left/right move between them. Up and down switch strips. That is the whole grammar, and it
+ * keeps seeking somewhere you have deliberately navigated to.
  */
 @UnstableApi
 @Composable
@@ -135,7 +146,7 @@ internal fun TvPlayerScreen(
     // libmpv first — that is the whole reason this client exists. ExoPlayer only steps in when the
     // native library refuses to load on this device's ABI.
     val engine: MediaPlayerEngine = remember {
-        runCatching { MpvPlayerEngine(context) }.getOrElse { ExoPlayerEngine(context) }
+        runCatching { MpvPlayerEngine(context, tvTuning = true) }.getOrElse { ExoPlayerEngine(context) }
     }
 
     var curItem by remember(itemId) { mutableStateOf(itemId) }
@@ -146,7 +157,9 @@ internal fun TvPlayerScreen(
     var lastGoodPos by remember { mutableStateOf(0L) }
 
     var controlsVisible by remember { mutableStateOf(true) }
-    var controlsNonce by remember { mutableStateOf(0) } // bumped on input to restart the hide timer
+    var controlsNonce by remember { mutableStateOf(0) }
+    var strip by remember { mutableStateOf(STRIP_BUTTONS) }
+    var buttonIndex by remember { mutableStateOf(0) }
     var menuOpen by remember { mutableStateOf(false) }
     var menuIndex by remember { mutableStateOf(0) }
     var menuNonce by remember { mutableStateOf(0) }
@@ -163,7 +176,6 @@ internal fun TvPlayerScreen(
 
     val keyFocus = remember { FocusRequester() }
 
-    // Keep the panel awake and the system bars out of the way for as long as we are playing.
     DisposableEffect(Unit) {
         view.keepScreenOn = true
         val activity = findActivity(context)
@@ -194,20 +206,18 @@ internal fun TvPlayerScreen(
             source = src
             engine.prepare(src.url, src.isHls, src.startPositionMs, src.authHeaders)
             jellyfinReportStart(config, src, src.startPositionMs)
-            src
         }.onFailure { loadError = it.message ?: it.javaClass.simpleName }
         segments = runCatching { jellyfinMediaSegments(config, curItem) }.getOrDefault(emptyList())
         nextEpisode = runCatching { jellyfinNextEpisode(config, curItem) }.getOrNull()
     }
 
-    // Poll the engine for the UI.
     LaunchedEffect(Unit) {
         while (true) {
             val snap = engine.snapshot()
             state = snap
             if (snap.positionMs > 0) lastGoodPos = snap.positionMs
             if (snap.ended) controlsVisible = true
-            delay(400)
+            delay(500)
         }
     }
 
@@ -223,7 +233,6 @@ internal fun TvPlayerScreen(
         }
     }
 
-    // Apply the saved language preferences once tracks show up.
     LaunchedEffect(curItem, audioLang, subLang, subMode) {
         repeat(40) {
             if (engine.tracks(TrackKind.AUDIO).isNotEmpty() || engine.tracks(TrackKind.SUBTITLE).isNotEmpty()) {
@@ -272,7 +281,6 @@ internal fun TvPlayerScreen(
 
     fun poke() { controlsVisible = true; controlsNonce++ }
 
-    // Auto-hide the overlay again after a few idle seconds — but never while paused or menu-open.
     LaunchedEffect(controlsNonce, controlsVisible, menuOpen, state.isPlaying) {
         if (!controlsVisible || menuOpen || !state.isPlaying) return@LaunchedEffect
         delay(CONTROLS_TIMEOUT_MS)
@@ -280,10 +288,9 @@ internal fun TvPlayerScreen(
     }
 
     LaunchedEffect(toast) {
-        if (toast != null) { delay(2000); toast = null }
+        if (toast != null) { delay(2500); toast = null }
     }
 
-    // Auto-play the next episode when the file ends.
     LaunchedEffect(state.ended) {
         val next = nextEpisode
         if (state.ended && autoplayNext && next != null) {
@@ -297,9 +304,22 @@ internal fun TvPlayerScreen(
         state.positionMs in it.startMs until it.endMs && it.kind.equals("Intro", true)
     }
 
-    // Track lists are read from the engine when the menu is opened, not on every recomposition —
-    // hence the nonce: it is bumped just before opening so the list is current, and stays put while
-    // the menu is on screen (a list that reshuffles under the selection would be unusable).
+    val buttons: List<BarButton> = buildList {
+        add(BarButton(if (state.isPlaying) "❚❚  Pause" else "▶  Wiedergabe") { engine.togglePlay() })
+        add(BarButton("Ton & Untertitel") { menuNonce++; menuOpen = true })
+        if (activeSegment >= 0 && activeSegment !in skipped) {
+            add(BarButton("Intro überspringen") {
+                skipped = skipped + activeSegment
+                engine.seekTo(segments[activeSegment].endMs)
+            })
+        }
+        nextEpisode?.let { next -> add(BarButton("nächste Folge") { playNext(next) }) }
+        add(BarButton("beenden") { leave() })
+    }
+    val safeButtonIndex = buttonIndex.coerceIn(0, buttons.lastIndex)
+
+    // Track lists are read when the menu is opened, not on every recomposition — hence the nonce: a
+    // list that reshuffled under the selection would be unusable.
     val menuEntries: List<TvMenuEntry> = remember(menuNonce) {
         buildList {
             add(TvMenuEntry("audio", header = true))
@@ -317,7 +337,6 @@ internal fun TvPlayerScreen(
         }
     }
 
-    // Start on the currently active track, or the first real entry — never on a header.
     LaunchedEffect(menuOpen, menuEntries) {
         if (!menuOpen) return@LaunchedEffect
         val active = menuEntries.indexOfFirst { !it.header && it.selected }
@@ -349,47 +368,62 @@ internal fun TvPlayerScreen(
             .focusable()
             .onPreviewKeyEvent { ev ->
                 if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+
+                // Dedicated media keys act immediately, overlay or not — that is what they are for.
                 when (ev.key) {
-                    Key.DirectionUp -> {
-                        if (menuOpen) moveMenu(-1) else { menuNonce++; menuOpen = true; poke() }
-                        true
-                    }
-                    Key.DirectionDown -> {
-                        if (menuOpen) moveMenu(1) else poke()
-                        true
-                    }
-                    Key.DirectionLeft -> {
-                        if (menuOpen) { menuOpen = false } else { engine.seekBy(-SEEK_STEP_MS); poke() }
-                        true
-                    }
-                    Key.DirectionRight -> {
-                        if (!menuOpen) { engine.seekBy(SEEK_STEP_MS); poke() }
-                        true
-                    }
-                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
-                        if (menuOpen) {
+                    Key.MediaPlayPause -> { engine.togglePlay(); poke(); return@onPreviewKeyEvent true }
+                    Key.MediaPlay -> { engine.play(); poke(); return@onPreviewKeyEvent true }
+                    Key.MediaPause -> { engine.pause(); poke(); return@onPreviewKeyEvent true }
+                    Key.MediaFastForward -> { engine.seekBy(SEEK_JUMP_MS); poke(); return@onPreviewKeyEvent true }
+                    Key.MediaRewind -> { engine.seekBy(-SEEK_JUMP_MS); poke(); return@onPreviewKeyEvent true }
+                    Key.MediaStop -> { leave(); return@onPreviewKeyEvent true }
+                    Key.MediaNext -> { nextEpisode?.let { playNext(it) }; return@onPreviewKeyEvent true }
+                    else -> Unit
+                }
+
+                if (menuOpen) {
+                    when (ev.key) {
+                        Key.DirectionUp -> moveMenu(-1)
+                        Key.DirectionDown -> moveMenu(1)
+                        Key.DirectionLeft -> menuOpen = false
+                        Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
                             menuEntries.getOrNull(menuIndex)?.onSelect?.invoke()
                             menuOpen = false
-                        } else {
-                            engine.togglePlay(); poke()
+                            poke()
                         }
-                        true
+                        else -> return@onPreviewKeyEvent false
                     }
-                    Key.MediaPlayPause -> { engine.togglePlay(); poke(); true }
-                    Key.MediaPlay -> { engine.play(); poke(); true }
-                    Key.MediaPause -> { engine.pause(); poke(); true }
-                    Key.MediaFastForward -> { engine.seekBy(SEEK_JUMP_MS); poke(); true }
-                    Key.MediaRewind -> { engine.seekBy(-SEEK_JUMP_MS); poke(); true }
-                    Key.MediaStop -> { leave(); true }
-                    Key.MediaNext -> { nextEpisode?.let { playNext(it) }; true }
-                    Key.Menu -> {
-                        if (!menuOpen) menuNonce++
-                        menuOpen = !menuOpen
-                        poke()
-                        true
-                    }
-                    else -> false
+                    return@onPreviewKeyEvent true
                 }
+
+                // Overlay hidden: the first press only wakes it. Nothing may move the film by accident.
+                if (!controlsVisible) {
+                    poke()
+                    return@onPreviewKeyEvent true
+                }
+
+                when (ev.key) {
+                    Key.DirectionUp -> { strip = STRIP_SCRUB; poke() }
+                    Key.DirectionDown -> { strip = STRIP_BUTTONS; poke() }
+                    Key.DirectionLeft -> {
+                        if (strip == STRIP_SCRUB) engine.seekBy(-SEEK_STEP_MS)
+                        else buttonIndex = (safeButtonIndex - 1).coerceAtLeast(0)
+                        poke()
+                    }
+                    Key.DirectionRight -> {
+                        if (strip == STRIP_SCRUB) engine.seekBy(SEEK_STEP_MS)
+                        else buttonIndex = (safeButtonIndex + 1).coerceAtMost(buttons.lastIndex)
+                        poke()
+                    }
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                        if (strip == STRIP_SCRUB) engine.togglePlay()
+                        else buttons.getOrNull(safeButtonIndex)?.onClick?.invoke()
+                        poke()
+                    }
+                    Key.Menu -> { menuNonce++; menuOpen = true; poke() }
+                    else -> return@onPreviewKeyEvent false
+                }
+                true
             },
     ) {
         engine.VideoSurface(Modifier.fillMaxSize())
@@ -410,28 +444,17 @@ internal fun TvPlayerScreen(
             }
         }
 
-        // Skip-intro, when the server actually reports segments (needs the Intro Skipper plugin).
-        if (activeSegment >= 0 && activeSegment !in skipped) {
-            Box(Modifier.fillMaxSize().padding(bottom = 140.dp, end = TvSidePad), Alignment.BottomEnd) {
-                TvButton("Intro überspringen  ›") {
-                    skipped = skipped + activeSegment
-                    engine.seekTo(segments[activeSegment].endMs)
-                }
-            }
-        }
-
         if (controlsVisible && loadError == null) {
             TvPlayerControls(
                 title = curTitle,
                 state = state,
-                isBuffering = state.isBuffering,
-                hasNext = nextEpisode != null,
+                buttons = buttons,
+                strip = strip,
+                buttonIndex = safeButtonIndex,
             )
         }
 
-        if (menuOpen) {
-            TvPlayerMenu(entries = menuEntries, selectedIndex = menuIndex)
-        }
+        if (menuOpen) TvPlayerMenu(entries = menuEntries, selectedIndex = menuIndex)
 
         toast?.let {
             Box(Modifier.fillMaxSize().padding(top = 40.dp), Alignment.TopCenter) {
@@ -444,55 +467,98 @@ internal fun TvPlayerScreen(
     }
 }
 
-/** Bottom overlay: title, scrub bar, times and the key hints a remote needs spelled out once. */
+/** Bottom overlay: title, the seekable progress strip, and the button strip below it. */
 @Composable
 private fun TvPlayerControls(
     title: String,
     state: PlaybackState,
-    isBuffering: Boolean,
-    hasNext: Boolean,
+    buttons: List<BarButton>,
+    strip: Int,
+    buttonIndex: Int,
 ) {
     val progress = if (state.durationMs > 0) {
         (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
     } else {
         0f
     }
+    val scrubActive = strip == STRIP_SCRUB
     Column(
-        Modifier
-            .fillMaxSize()
-            .padding(horizontal = TvSidePad, vertical = 34.dp),
+        Modifier.fillMaxSize().padding(horizontal = TvSidePad, vertical = 34.dp),
         verticalArrangement = Arrangement.Bottom,
     ) {
         Text(title, color = MatrixGreen, fontFamily = Mono, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(14.dp))
+
+        // The progress strip is a focus target in its own right: when it is selected, and only then,
+        // left and right seek.
         Box(
-            Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp))
-                .background(MatrixGreen.copy(alpha = 0.22f)),
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .border(
+                    2.dp,
+                    if (scrubActive) MatrixGreen else Color.Transparent,
+                    RoundedCornerShape(8.dp),
+                )
+                .padding(horizontal = 8.dp, vertical = 7.dp),
         ) {
-            Box(Modifier.fillMaxWidth(progress).fillMaxHeight().background(MatrixGreen))
+            Box(
+                Modifier.fillMaxWidth().height(if (scrubActive) 8.dp else 6.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(MatrixGreen.copy(alpha = 0.22f)),
+            ) {
+                Box(Modifier.fillMaxWidth(progress).fillMaxHeight().background(MatrixGreen))
+            }
         }
+
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(formatTime(state.positionMs), color = MatrixGreen, fontFamily = Mono, fontSize = 14.sp)
             Spacer(Modifier.width(12.dp))
             Text(
                 when {
-                    isBuffering -> "puffert…"
+                    state.isBuffering -> "puffert…"
                     state.ended -> "ende"
-                    state.isPlaying -> "▶ läuft"
-                    else -> "❚❚ pausiert"
+                    state.isPlaying -> "läuft"
+                    else -> "pausiert"
                 },
                 color = MatrixGreen.copy(alpha = 0.75f), fontFamily = Mono, fontSize = 14.sp,
             )
-            Spacer(Modifier.width(12.dp))
             Box(Modifier.weight(1f))
             Text(formatTime(state.durationMs), color = MatrixGreen, fontFamily = Mono, fontSize = 14.sp)
         }
+
+        Spacer(Modifier.height(16.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            buttons.forEachIndexed { index, button ->
+                val active = strip == STRIP_BUTTONS && index == buttonIndex
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(if (active) MatrixGreen else Color.Transparent)
+                        .border(
+                            1.dp,
+                            MatrixGreen.copy(alpha = if (active) 1f else 0.4f),
+                            RoundedCornerShape(6.dp),
+                        )
+                        .padding(horizontal = 18.dp, vertical = 10.dp),
+                ) {
+                    Text(
+                        button.label,
+                        color = if (active) Black else MatrixGreen,
+                        fontFamily = Mono,
+                        fontSize = 14.sp,
+                    )
+                }
+            }
+        }
+
         Spacer(Modifier.height(12.dp))
         Text(
-            buildString {
-                append("OK = Play/Pause   ◀ ▶ = 10 s   ▲ = Ton & Untertitel   Zurück = beenden")
-                if (hasNext) append("   ⏭ = nächste Folge")
+            if (scrubActive) {
+                "◀ ▶ = 10 s spulen   ▼ = zu den Tasten   OK = Play/Pause   Zurück = beenden"
+            } else {
+                "◀ ▶ = Taste wählen   ▲ = zur Fortschrittsleiste   OK = auswählen   Zurück = beenden"
             },
             color = MatrixGreen.copy(alpha = 0.45f), fontFamily = Mono, fontSize = 12.sp,
         )
@@ -513,8 +579,8 @@ private fun TvPlayerMenu(entries: List<TvMenuEntry>, selectedIndex: Int) {
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             entries.forEachIndexed { index, entry ->
-                when {
-                    entry.header -> Text(
+                if (entry.header) {
+                    Text(
                         entry.label.uppercase(),
                         color = MatrixGreen.copy(alpha = 0.5f),
                         fontFamily = Mono,
@@ -522,22 +588,21 @@ private fun TvPlayerMenu(entries: List<TvMenuEntry>, selectedIndex: Int) {
                         letterSpacing = 2.sp,
                         modifier = Modifier.padding(top = if (index == 0) 0.dp else 10.dp),
                     )
-                    else -> {
-                        val focused = index == selectedIndex
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(if (focused) MatrixGreen else Color.Transparent)
-                                .padding(horizontal = 10.dp, vertical = 8.dp),
-                        ) {
-                            Text(
-                                (if (entry.selected) "● " else "○ ") + entry.label.trim(),
-                                color = if (focused) Black else MatrixGreen,
-                                fontFamily = Mono,
-                                fontSize = 15.sp,
-                            )
-                        }
+                } else {
+                    val active = index == selectedIndex
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(if (active) MatrixGreen else Color.Transparent)
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                    ) {
+                        Text(
+                            (if (entry.selected) "● " else "○ ") + entry.label.trim(),
+                            color = if (active) Black else MatrixGreen,
+                            fontFamily = Mono,
+                            fontSize = 15.sp,
+                        )
                     }
                 }
             }

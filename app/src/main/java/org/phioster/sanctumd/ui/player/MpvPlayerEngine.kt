@@ -16,7 +16,7 @@ import java.util.Locale
  * prebuilt `dev.jdtech.mpv:libmpv` AAR; created behind a runCatching in [PlayerScreen] so a missing
  * native lib falls back to ExoPlayer.
  */
-class MpvPlayerEngine(context: Context) : MediaPlayerEngine {
+class MpvPlayerEngine(context: Context, tvTuning: Boolean = false) : MediaPlayerEngine {
 
     private val mpv: MPVLib = MPVLib.create(context) ?: error("libmpv create failed")
 
@@ -57,8 +57,32 @@ class MpvPlayerEngine(context: Context) : MediaPlayerEngine {
             setOptionString("vo", "gpu")
             setOptionString("gpu-context", "android")
             setOptionString("opengl-es", "yes")
-            setOptionString("hwdec", "auto")
-            setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
+            if (tvTuning) {
+                // TV sticks (Amlogic and friends) have a fraction of a phone's GPU and CPU. The
+                // defaults below are what makes 1080p play smoothly there instead of stuttering:
+                // decode through MediaCodec explicitly rather than letting `auto` pick software, and
+                // strip every optional rendering nicety — none of them are visible from a sofa, but
+                // together they are the difference between smooth and dropped frames.
+                setOptionString("hwdec", "mediacodec-copy")
+                setOptionString("profile", "fast")
+                setOptionString("scale", "bilinear")
+                setOptionString("dscale", "bilinear")
+                setOptionString("cscale", "bilinear")
+                setOptionString("dither", "no")
+                setOptionString("deband", "no")
+                setOptionString("interpolation", "no")
+                setOptionString("correct-downscaling", "no")
+                setOptionString("sigmoid-upscaling", "no")
+                setOptionString("video-sync", "audio")
+                // A stick's wifi is the other half of the problem: buffer generously so a dip in
+                // throughput doesn't become a visible stall.
+                setOptionString("demuxer-max-bytes", "64MiB")
+                setOptionString("demuxer-readahead-secs", "20")
+                setOptionString("cache-secs", "30")
+            } else {
+                setOptionString("hwdec", "auto")
+                setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
+            }
             setOptionString("ao", "audiotrack,opensles")
             if (caFile.exists() && caFile.length() > 0) {
                 setOptionString("tls-verify", "yes")

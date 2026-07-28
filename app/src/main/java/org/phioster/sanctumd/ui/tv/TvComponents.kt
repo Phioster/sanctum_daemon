@@ -179,7 +179,19 @@ internal fun TvSectionTitle(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** Poster tile. [width] drives the whole card; posters are 2:3, the way Jellyfin serves them. */
+/**
+ * Poster tile. [width] drives the whole card; posters are 2:3, the way Jellyfin serves them.
+ *
+ * Two things here exist to keep focus movement calm, and both matter more than they look:
+ *
+ * The card has a **fixed height** — the caption always reserves two lines, even when the item has no
+ * subtitle. Cards of differing heights make `bringIntoView` request a differently-sized rectangle for
+ * each neighbour, and the enclosing list then nudges itself vertically every time you move sideways.
+ *
+ * The **focus ring is drawn inside a padded box**. The scale-up is a draw effect that spills past the
+ * layout bounds, and a list clips its items — so at the top of the screen the ring was being sliced
+ * off by the bar above it. The padding gives the growth somewhere to go.
+ */
 @Composable
 internal fun TvPosterCard(
     item: JellyMediaItem,
@@ -190,7 +202,7 @@ internal fun TvPosterCard(
     onClick: () -> Unit,
 ) {
     val posterHeight = width * 1.5f
-    Column(modifier.width(width)) {
+    Column(modifier.width(width).padding(vertical = 10.dp)) {
         TvFocusSurface(
             onClick = onClick,
             modifier = Modifier.width(width).height(posterHeight),
@@ -260,16 +272,16 @@ internal fun TvPosterCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        if (item.subtitle.isNotBlank()) {
-            Text(
-                item.subtitle,
-                color = MatrixGreen.copy(alpha = 0.5f),
-                fontFamily = Mono,
-                fontSize = 10.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        // Always rendered, blank or not: an absent second line would make this card shorter than its
+        // neighbours and set the list jittering vertically as focus moves along the row.
+        Text(
+            item.subtitle,
+            color = MatrixGreen.copy(alpha = 0.5f),
+            fontFamily = Mono,
+            fontSize = 10.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
