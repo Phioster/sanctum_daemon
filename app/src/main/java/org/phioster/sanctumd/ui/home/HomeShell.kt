@@ -87,7 +87,6 @@ import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.ErrRed
-import org.phioster.sanctumd.ui.theme.AccentHi
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
@@ -225,7 +224,7 @@ internal fun HomeShell(
             }
         },
         floatingActionButton = {
-            if (editMode) FloatingActionButton(onClick = { showAddCard = true }, containerColor = AccentHi, contentColor = Black) { Icon(Icons.Filled.Add, contentDescription = "Add card") }
+            if (editMode) FloatingActionButton(onClick = { showAddCard = true }, containerColor = MatrixGreen, contentColor = Black) { Icon(Icons.Filled.Add, contentDescription = "Add card") }
         },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
@@ -397,7 +396,7 @@ internal fun ServicesDrawer(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAdd, containerColor = AccentHi, contentColor = Black) { Icon(Icons.Filled.Add, contentDescription = "Add service") }
+            FloatingActionButton(onClick = onAdd, containerColor = MatrixGreen, contentColor = Black) { Icon(Icons.Filled.Add, contentDescription = "Add service") }
         },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {

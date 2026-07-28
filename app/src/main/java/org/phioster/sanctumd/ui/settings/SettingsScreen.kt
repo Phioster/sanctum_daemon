@@ -253,13 +253,7 @@ internal fun ThemeSection() {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                val swatches = buildList {
-                    add(shown.accent)
-                    if (shown.highlight != shown.accent) add(shown.highlight)
-                    add(shown.background)
-                    add(shown.surface)
-                }
-                swatches.forEach { c ->
+                listOf(shown.accent, shown.background, shown.surface).forEach { c ->
                     Box(
                         Modifier.size(width = 22.dp, height = 22.dp)
                             .clip(RoundedCornerShape(4.dp))
@@ -269,12 +263,7 @@ internal fun ThemeSection() {
                 }
             }
             Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(p.label, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp)
-                if (p.highlight != p.accent) {
-                    Text("two-tone", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 10.sp)
-                }
-            }
+            Text(p.label, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, modifier = Modifier.weight(1f))
             if (selected) Text("✓", fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp)
         }
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
@@ -296,8 +285,8 @@ internal fun ThemeSection() {
         modifier = Modifier.padding(top = 4.dp),
     )
     Text(
-        "Two-tone presets keep every text in the accent; the second colour is for the things you " +
-            "press or scan for: buttons, the add button, section markers.",
+        "The accent colours everything you see — text, numbers, buttons. The preset's own colour " +
+            "tints the background and the cards behind it.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp,
         modifier = Modifier.padding(top = 8.dp),
     )

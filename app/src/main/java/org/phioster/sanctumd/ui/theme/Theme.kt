@@ -12,9 +12,9 @@ import androidx.compose.ui.text.font.FontFamily
 /**
  * One theme.
  *
- * [accent] carries text and iconography — it is what the eye reads. [highlight] carries *action and
- * value*: buttons, the FAB, active chips, section markers, the big stat numbers. Single-tone presets
- * simply set it to the same colour.
+ * [accent] is everything you see: text, icons, buttons, markers. The three surface levels carry the
+ * theme's base colour — that tint is where the variation between presets comes from, not from a
+ * second ink colour (tried that, it only made buttons disagree with their labels).
  */
 data class Palette(
     val id: String,
@@ -23,48 +23,40 @@ data class Palette(
     val background: Color,
     val surface: Color,
     val surfaceHi: Color,
-    val highlight: Color = accent,
 )
 
 /**
  * Fixed presets — no free colour picker on purpose.
  *
  * NB for future additions: [Palette.background] doubles as the *ink* on the accent (chips, buttons,
- * FAB), so it has to stay dark enough to read on a bright accent. Nord is closest to that limit.
+ * FAB), so it has to stay dark enough to read on a bright accent. Nord was closest to that limit.
  */
 val PALETTES: List<Palette> = listOf(
-    // Single-tone: the accent does everything.
     Palette("matrix", "Matrix", Color(0xFF00FF41), Color(0xFF141619), Color(0xFF1E2126), Color(0xFF262A30)),
     Palette("ae86", "AE86 Panda", Color(0xFFEDEDED), Color(0xFF0A0A0A), Color(0xFF16181A), Color(0xFF202326)),
     Palette("amber", "Amber CRT", Color(0xFFFFB000), Color(0xFF14100C), Color(0xFF1E1810), Color(0xFF282016)),
     Palette("ice", "Ice", Color(0xFF7DD3FC), Color(0xFF0B1220), Color(0xFF121C2E), Color(0xFF1A2740)),
-    // Two-tone: the base colour tints the surfaces *and* the buttons, the second colour is what you
-    // read. Near-black surfaces made these look interchangeable — the tint is what sets them apart.
-    // Purple is the *base* here (backgrounds and cards), green is what you read — that is what
-    // "purple with green accents" means in practice, not green-tinted furniture on purple text.
+    // Tinted surfaces: the base colour lives in the background and the cards, the accent stays the
+    // ink. "Purple with green accents" means green text and green buttons on purple furniture.
     Palette(
         "synthwave", "Synthwave",
         accent = Color(0xFF39FF14), background = Color(0xFF1B0733),
         surface = Color(0xFF2A0F52), surfaceHi = Color(0xFF38156B),
-        highlight = Color(0xFFC77DFF),
     ),
     Palette(
         "neon", "Japan Neon",
         accent = Color(0xFFFF2E97), background = Color(0xFF071A22),
         surface = Color(0xFF0C2B36), surfaceHi = Color(0xFF123A48),
-        highlight = Color(0xFF00F0FF),
     ),
     Palette(
         "tron", "Tron",
         accent = Color(0xFF00D9FF), background = Color(0xFF04121F),
         surface = Color(0xFF0A2236), surfaceHi = Color(0xFF0F2F49),
-        highlight = Color(0xFFFF7A1A),
     ),
     Palette(
         "toxic", "Toxic",
         accent = Color(0xFFC6FF00), background = Color(0xFF10160A),
         surface = Color(0xFF1B2410), surfaceHi = Color(0xFF253116),
-        highlight = Color(0xFF9B5DE5),
     ),
 )
 
@@ -128,9 +120,6 @@ internal val MatrixGreen: Color get() = ThemeState.palette.accent
 internal val Black: Color get() = ThemeState.palette.background
 internal val Surface: Color get() = ThemeState.palette.surface
 internal val SurfaceHi: Color get() = ThemeState.palette.surfaceHi
-
-/** Action & value colour — equal to the accent unless the preset is two-tone. See [Palette]. */
-internal val AccentHi: Color get() = ThemeState.palette.highlight
 
 // Errors stay red in every theme — that is the one colour that must not blend in.
 internal val ErrRed = Color(0xFFFF5555)
