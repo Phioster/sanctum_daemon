@@ -45,8 +45,8 @@ val PALETTES: List<Palette> = listOf(
     ),
     Palette(
         "neon", "Japan Neon",
-        accent = Color(0xFF00D5FF), background = Color(0xFF3B0A26),
-        surface = Color(0xFF5A1240), surfaceHi = Color(0xFF6E1750),
+        accent = Color(0xFF00D5FF), background = Color(0xFF2A0619),
+        surface = Color(0xFF400C2C), surfaceHi = Color(0xFF4F1038),
     ),
     Palette(
         "tron", "Tron",
