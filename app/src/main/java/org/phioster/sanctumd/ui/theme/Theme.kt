@@ -39,11 +39,13 @@ val PALETTES: List<Palette> = listOf(
     Palette("amber", "Amber CRT", Color(0xFFFFB000), Color(0xFF14100C), Color(0xFF1E1810), Color(0xFF282016)),
     Palette("ice", "Ice", Color(0xFF7DD3FC), Color(0xFF0B1220), Color(0xFF121C2E), Color(0xFF1A2740)),
     // Two-tone: reading colour + action colour.
+    // Purple is the *base* here (backgrounds and cards), green is what you read — that is what
+    // "purple with green accents" means in practice, not green-tinted furniture on purple text.
     Palette(
         "synthwave", "Synthwave",
-        accent = Color(0xFFC77DFF), background = Color(0xFF14042B),
-        surface = Color(0xFF1D0A3D), surfaceHi = Color(0xFF281052),
-        highlight = Color(0xFF39FF14),
+        accent = Color(0xFF39FF14), background = Color(0xFF1B0733),
+        surface = Color(0xFF2A0F52), surfaceHi = Color(0xFF38156B),
+        highlight = Color(0xFFC77DFF),
     ),
     Palette(
         "neon", "Japan Neon",
