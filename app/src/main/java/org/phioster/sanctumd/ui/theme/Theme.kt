@@ -38,7 +38,8 @@ val PALETTES: List<Palette> = listOf(
     Palette("ae86", "AE86 Panda", Color(0xFFEDEDED), Color(0xFF0A0A0A), Color(0xFF16181A), Color(0xFF202326)),
     Palette("amber", "Amber CRT", Color(0xFFFFB000), Color(0xFF14100C), Color(0xFF1E1810), Color(0xFF282016)),
     Palette("ice", "Ice", Color(0xFF7DD3FC), Color(0xFF0B1220), Color(0xFF121C2E), Color(0xFF1A2740)),
-    // Two-tone: reading colour + action colour.
+    // Two-tone: the base colour tints the surfaces *and* the buttons, the second colour is what you
+    // read. Near-black surfaces made these look interchangeable — the tint is what sets them apart.
     // Purple is the *base* here (backgrounds and cards), green is what you read — that is what
     // "purple with green accents" means in practice, not green-tinted furniture on purple text.
     Palette(
@@ -49,20 +50,20 @@ val PALETTES: List<Palette> = listOf(
     ),
     Palette(
         "neon", "Japan Neon",
-        accent = Color(0xFFFF2E97), background = Color(0xFF071016),
-        surface = Color(0xFF0E1B22), surfaceHi = Color(0xFF15252E),
+        accent = Color(0xFFFF2E97), background = Color(0xFF071A22),
+        surface = Color(0xFF0C2B36), surfaceHi = Color(0xFF123A48),
         highlight = Color(0xFF00F0FF),
     ),
     Palette(
         "tron", "Tron",
-        accent = Color(0xFF00D9FF), background = Color(0xFF00080F),
-        surface = Color(0xFF04121C), surfaceHi = Color(0xFF082433),
+        accent = Color(0xFF00D9FF), background = Color(0xFF04121F),
+        surface = Color(0xFF0A2236), surfaceHi = Color(0xFF0F2F49),
         highlight = Color(0xFFFF7A1A),
     ),
     Palette(
         "toxic", "Toxic",
-        accent = Color(0xFFC6FF00), background = Color(0xFF0B0F00),
-        surface = Color(0xFF141A03), surfaceHi = Color(0xFF1D2408),
+        accent = Color(0xFFC6FF00), background = Color(0xFF10160A),
+        surface = Color(0xFF1B2410), surfaceHi = Color(0xFF253116),
         highlight = Color(0xFF9B5DE5),
     ),
 )
