@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The `tv` flavour: a standalone Jellyfin streaming client.
+
+  This manifest is merged over src/main and its job is mostly *subtraction*. The phone app's
+  MainActivity, its widgets, its background services and their permissions are all removed, so the
+  TV build has exactly one launchable component — TvActivity — and no way to reach the service list,
+  the dashboard or the onboarding flow. Those screens are still on the classpath (one source tree),
+  but nothing can start them.
+
+  TvActivity declares LEANBACK_LAUNCHER *and* LAUNCHER on purpose: manufacturer launchers (Telekom's
+  among them) list apps from the plain LAUNCHER category, and an app that only declares the leanback
+  one can end up unlaunchable — or, worse, the wrong activity gets launched.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <!-- Nothing here posts a notification, runs in the background or starts at boot. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" tools:node="remove" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" tools:node="remove" />
+
+    <application
+        android:label="Sanctumd TV"
+        android:banner="@drawable/tv_banner"
+        tools:replace="android:label">
+
+        <activity
+            android:name=".ui.tv.TvActivity"
+            android:exported="true"
+            android:banner="@drawable/tv_banner"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|navigation|uiMode">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- The homelab console and everything hanging off it. -->
+        <activity android:name=".MainActivity" tools:node="remove" />
+        <activity android:name=".widget.ShortcutWidgetConfigActivity" tools:node="remove" />
+        <activity android:name=".widget.QuickActionsConfigActivity" tools:node="remove" />
+
+        <service android:name=".service.DownloadService" tools:node="remove" />
+        <service android:name=".service.MusicService" tools:node="remove" />
+        <service android:name=".notify.NtfyStreamService" tools:node="remove" />
+
+        <receiver android:name=".notify.BootReceiver" tools:node="remove" />
+        <receiver android:name=".widget.ShortcutsWidgetReceiver" tools:node="remove" />
+        <receiver android:name=".widget.ShortcutIconWidgetReceiver" tools:node="remove" />
+        <receiver android:name=".widget.StatusWidgetReceiver" tools:node="remove" />
+        <receiver android:name=".widget.ResumeWidgetReceiver" tools:node="remove" />
+        <receiver android:name=".widget.CalendarWidgetReceiver" tools:node="remove" />
+        <receiver android:name=".widget.StackHealthWidgetReceiver" tools:node="remove" />
+        <receiver android:name=".widget.QueueTileWidgetReceiver" tools:node="remove" />
+        <receiver android:name=".widget.SeerrTileWidgetReceiver" tools:node="remove" />
+        <receiver android:name=".widget.LibraryTileWidgetReceiver" tools:node="remove" />
+        <receiver android:name=".widget.QuickActionsWidgetReceiver" tools:node="remove" />
+
+        <provider android:name="androidx.core.content.FileProvider" tools:node="remove" />
+    </application>
+
+</manifest>

@@ -26,8 +26,11 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
+      # Flavour-qualified task names: with productFlavors there is no plain `testDebugUnitTest`.
+      # The two flavours share every source file, so testing one variant covers the code; the tv
+      # variant's compilation is still checked by assembleDebug below.
       - name: Unit tests
-        run: gradle testDebugUnitTest --no-daemon
+        run: gradle testPhoneDebugUnitTest --no-daemon
 
       - name: Upload test report
         if: failure()
@@ -41,7 +44,7 @@ jobs:
         run: gradle detekt --no-daemon --stacktrace
 
       - name: Android Lint
-        run: gradle lintDebug --no-daemon --stacktrace
+        run: gradle lintPhoneDebug --no-daemon --stacktrace
 
       - name: Upload analysis reports
         if: failure()
@@ -57,5 +60,5 @@ jobs:
       # Compiles the debug variant as a build-health check. The APK itself is NOT uploaded — we never
       # install it (debug key ≠ release key; installs come from release.yml), so keeping it only ate
       # into the 0.5 GB free Actions-storage quota.
-      - name: Build debug APK
+      - name: Build debug APKs (phone + tv)
         run: gradle assembleDebug --no-daemon --stacktrace
