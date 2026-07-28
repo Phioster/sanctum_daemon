@@ -330,13 +330,13 @@ private fun AuthStep(
             quickAvailable = false
             return@LaunchedEffect
         }
-        quickCode = started.Code
+        quickCode = started.code
         // The code expires server-side; ~5 minutes of polling is well past that, and the user can
         // always ask for a fresh one.
         repeat(150) {
             delay(2000)
-            if (jellyfinQuickConnectApproved(baseUrl, started.Secret)) {
-                runCatching { jellyfinQuickConnectFinish(baseUrl, started.Secret) }
+            if (jellyfinQuickConnectApproved(baseUrl, started.secret)) {
+                runCatching { jellyfinQuickConnectFinish(baseUrl, started.secret) }
                     .onSuccess { finish(it.accessToken, it.userId, it.userName) }
                     .onFailure { error = it.message ?: it.javaClass.simpleName }
                 return@LaunchedEffect

@@ -56,6 +56,9 @@ private fun tvAuthApi(baseUrl: String): JellyfinTvAuthApi {
 /** A completed sign-in: the token goes into [ServiceConfig.apiKey], the id into [ServiceConfig.userId]. */
 data class TvAuth(val accessToken: String, val userId: String, val userName: String)
 
+/** A Quick Connect attempt in flight: [code] is shown on screen, [secret] identifies it to the server. */
+data class QuickConnectAttempt(val code: String, val secret: String)
+
 /** Reachability + identity check for a typed-in server address. Throws when the URL isn't a Jellyfin. */
 suspend fun jellyfinTvPublicInfo(baseUrl: String): JfPublicInfo = withContext(Dispatchers.IO) {
     tvAuthApi(baseUrl).publicInfo()
@@ -66,10 +69,12 @@ suspend fun jellyfinQuickConnectAvailable(baseUrl: String): Boolean = withContex
     runCatching { tvAuthApi(baseUrl).quickConnectEnabled() }.getOrDefault(false)
 }
 
-/** Starts a Quick Connect attempt; the returned [JfQuickConnectState.Code] is what the user types in. */
-suspend fun jellyfinQuickConnectStart(baseUrl: String): JfQuickConnectState = withContext(Dispatchers.IO) {
+/** Starts a Quick Connect attempt; the returned [QuickConnectAttempt.code] is what the user types in. */
+suspend fun jellyfinQuickConnectStart(baseUrl: String): QuickConnectAttempt = withContext(Dispatchers.IO) {
     val api = tvAuthApi(baseUrl)
-    runCatching { api.initiatePost() }.getOrElse { api.initiateGet() }
+    val state = runCatching { api.initiatePost() }.getOrElse { api.initiateGet() }
+    if (state.Code.isBlank() || state.Secret.isBlank()) error("server returned no Quick Connect code")
+    QuickConnectAttempt(state.Code, state.Secret)
 }
 
 /** True once the user has approved the code elsewhere. Polled by the setup screen. */
