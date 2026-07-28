@@ -45,17 +45,19 @@ val PALETTES: List<Palette> = listOf(
     ),
     Palette(
         "neon", "Japan Neon",
-        accent = Color(0xFFFF2E97), background = Color(0xFF071A22),
-        surface = Color(0xFF0C2B36), surfaceHi = Color(0xFF123A48),
+        accent = Color(0xFF00D5FF), background = Color(0xFF3B0A26),
+        surface = Color(0xFF5A1240), surfaceHi = Color(0xFF6E1750),
     ),
     Palette(
         "tron", "Tron",
-        accent = Color(0xFF00D9FF), background = Color(0xFF04121F),
+        accent = Color(0xFFFF7A1A), background = Color(0xFF04121F),
         surface = Color(0xFF0A2236), surfaceHi = Color(0xFF0F2F49),
     ),
+    // The violet is lifted from #9B5DE5: as a button fill it was fine, as body text on olive it
+    // sat too close to the background to read comfortably.
     Palette(
         "toxic", "Toxic",
-        accent = Color(0xFFC6FF00), background = Color(0xFF10160A),
+        accent = Color(0xFFBE8CFF), background = Color(0xFF10160A),
         surface = Color(0xFF1B2410), surfaceHi = Color(0xFF253116),
     ),
 )
