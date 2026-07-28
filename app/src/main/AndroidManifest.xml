@@ -11,6 +11,14 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!--
+      Android TV support. Both are `required="false"` so this stays one APK: a phone has no leanback
+      launcher and a TV has no touchscreen, and neither may exclude the other from installing.
+      Declaring the touchscreen optional is what makes the app installable on a TV device at all.
+    -->
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
     <!-- So getLaunchIntentForPackage can see the companion apps on Android 11+. -->
     <queries>
         <package android:name="org.jellyfin.mobile" />
@@ -29,6 +37,7 @@
         android:label="Sanctumd"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
+        android:banner="@drawable/tv_banner"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Sanctumd">
@@ -40,6 +49,26 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          The television front door. LEANBACK_LAUNCHER is what an Android TV launcher lists, and
+          MainActivity deliberately does not declare it — so the TV shows only this activity and a
+          phone shows only MainActivity, from the same installed package.
+
+          configChanges keeps the activity alive across the size/orientation churn a TV emits when
+          the player takes over the screen; without it playback state is destroyed mid-file.
+        -->
+        <activity
+            android:name=".ui.tv.TvActivity"
+            android:exported="true"
+            android:banner="@drawable/tv_banner"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|navigation|uiMode">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
 

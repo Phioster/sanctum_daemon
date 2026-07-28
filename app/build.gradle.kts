@@ -30,12 +30,14 @@ android {
         applicationId = "org.phioster.nexarr"
         minSdk = 26
         targetSdk = 35
-        versionCode = 241
-        versionName = "1.43.1"
+        versionCode = 242
+        versionName = "1.44.0"
 
-        // libmpv ships native libs for several ABIs; the target device is arm64, so bundle only that
-        // to keep the APK small (drop this filter to support 32-bit / x86 devices).
-        ndk { abiFilters += "arm64-v8a" }
+        // libmpv ships native libs for several ABIs. arm64 covers the phone; armeabi-v7a is here for
+        // Android TV sticks, plenty of which still run a 32-bit userspace on a 64-bit chip and would
+        // otherwise fail to load libmpv entirely (the player would silently drop to ExoPlayer — i.e.
+        // back to the codec gaps this client exists to avoid). x86 is left out on purpose.
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
 
     signingConfigs {
