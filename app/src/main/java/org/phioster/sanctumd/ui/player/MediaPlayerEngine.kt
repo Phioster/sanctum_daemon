@@ -76,6 +76,11 @@ data class PlaybackStats(
     val fps: Float = 0f,
     val bufferedPercent: Int = 0,
     val hwDecode: String = "",
+    /** Frames the decoder threw away plus frames the output stage showed late. The number that
+     *  tells stuttering apart from judder: judder drops nothing, an overloaded device drops a lot. */
+    val droppedFrames: Int = 0,
+    /** The file's own frame rate, as opposed to [fps] which is what is actually being rendered. */
+    val containerFps: Float = 0f,
 )
 
 /**

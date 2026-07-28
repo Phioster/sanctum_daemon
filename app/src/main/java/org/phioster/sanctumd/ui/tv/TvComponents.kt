@@ -79,12 +79,20 @@ internal fun TvFocusSurface(
     val scale by animateFloatAsState(if (focused) scaleUp else 1f, tween(120), label = "tvFocusScale")
     Box(
         modifier
-            .scale(scale)
             .then(focusRequester?.let { Modifier.focusRequester(it) } ?: Modifier)
             .onFocusChanged { focused = it.isFocused }
+            .clickable { onClick() }
+            // The scale goes *after* the focus target, and that ordering is the whole trick.
+            //
+            // Modifiers apply outside-in, so a scale placed first puts the focusable inside the
+            // scaled layer — and the rectangle `bringIntoView` then asks the enclosing list to
+            // reveal is the *grown* one, which no longer fits the row. The list dutifully scrolled
+            // to accommodate it, and since the scale animates on every focus change, moving sideways
+            // made the whole page bob up and down. Placed here, the focus node keeps its true
+            // bounds and only the drawing grows.
+            .scale(scale)
             .clip(shape)
-            .border(2.dp, if (focused) MatrixGreen else Color.Transparent, shape)
-            .clickable { onClick() },
+            .border(2.dp, if (focused) MatrixGreen else Color.Transparent, shape),
         // Explicit receiver: `content` is a BoxScope extension, so the Box's own scope has to be
         // handed to it for `Modifier.align` to resolve inside callers.
         content = { this.content(focused) },

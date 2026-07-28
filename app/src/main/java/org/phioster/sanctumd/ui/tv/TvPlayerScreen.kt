@@ -68,6 +68,7 @@ import org.phioster.sanctumd.ui.player.ExoPlayerEngine
 import org.phioster.sanctumd.ui.player.MediaPlayerEngine
 import org.phioster.sanctumd.ui.player.MpvPlayerEngine
 import org.phioster.sanctumd.ui.player.PlaybackState
+import org.phioster.sanctumd.ui.player.PlaybackStats
 import org.phioster.sanctumd.ui.player.TrackKind
 import org.phioster.sanctumd.ui.player.TrackOption
 import org.phioster.sanctumd.ui.theme.Black
@@ -169,6 +170,10 @@ internal fun TvPlayerScreen(
     var skipped by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var nextEpisode by remember { mutableStateOf<NextEpisode?>(null) }
 
+    var infoOpen by remember { mutableStateOf(false) }
+    var stats by remember { mutableStateOf(PlaybackStats()) }
+    var displayInfo by remember { mutableStateOf(DisplayModeInfo()) }
+
     val audioLang by store.audioLanguage.collectAsState("de")
     val subLang by store.subtitleLanguage.collectAsState("de")
     val subMode by store.subtitleMode.collectAsState("forced")
@@ -189,7 +194,22 @@ internal fun TvPlayerScreen(
         onDispose {
             view.keepScreenOn = false
             controller?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            activity?.let { clearPreferredRefreshRate(it) }
             engine.release()
+        }
+    }
+
+    // Once the file's frame rate is known, ask the panel for a refresh rate that is a whole multiple
+    // of it. 24 or 25 fps on a fixed 60 Hz output judders no matter how fast the decoder is.
+    LaunchedEffect(curItem) {
+        val activity = findActivity(context) ?: return@LaunchedEffect
+        repeat(40) {
+            val fps = engine.stats().let { if (it.containerFps > 0f) it.containerFps else it.fps }
+            if (fps > 0f) {
+                displayInfo = applyRefreshRateFor(activity, fps)
+                return@LaunchedEffect
+            }
+            delay(500)
         }
     }
 
@@ -217,6 +237,7 @@ internal fun TvPlayerScreen(
             state = snap
             if (snap.positionMs > 0) lastGoodPos = snap.positionMs
             if (snap.ended) controlsVisible = true
+            if (infoOpen) stats = engine.stats()
             delay(500)
         }
     }
@@ -314,6 +335,10 @@ internal fun TvPlayerScreen(
             })
         }
         nextEpisode?.let { next -> add(BarButton("nächste Folge") { playNext(next) }) }
+        add(BarButton(if (infoOpen) "Technik aus" else "Technik") {
+            infoOpen = !infoOpen
+            if (infoOpen) stats = engine.stats()
+        })
         add(BarButton("beenden") { leave() })
     }
     val safeButtonIndex = buttonIndex.coerceIn(0, buttons.lastIndex)
@@ -456,6 +481,8 @@ internal fun TvPlayerScreen(
 
         if (menuOpen) TvPlayerMenu(entries = menuEntries, selectedIndex = menuIndex)
 
+        if (infoOpen) TvPlayerInfo(stats = stats, display = displayInfo, transcoding = source?.isHls == true)
+
         toast?.let {
             Box(Modifier.fillMaxSize().padding(top = 40.dp), Alignment.TopCenter) {
                 Box(
@@ -562,6 +589,66 @@ private fun TvPlayerControls(
             },
             color = MatrixGreen.copy(alpha = 0.45f), fontFamily = Mono, fontSize = 12.sp,
         )
+    }
+}
+
+/**
+ * Technical readout, so a report of "it stutters" can be answered with numbers rather than another
+ * guess. The two lines that matter: **hwdec** (blank means it is decoding in software and the device
+ * probably cannot keep up) and **Bild/Panel** — a frame rate that is not a whole fraction of the
+ * panel's refresh rate judders however fast the decoder is, and dropped frames stay at zero while it
+ * does, which is exactly how you tell the two apart.
+ */
+@Composable
+private fun TvPlayerInfo(stats: PlaybackStats, display: DisplayModeInfo, transcoding: Boolean) {
+    val rows = listOf(
+        "Bild" to buildString {
+            append(if (stats.width > 0) "${stats.width}×${stats.height}" else "—")
+            if (stats.videoCodec.isNotBlank()) append("  ${stats.videoCodec}")
+            if (stats.bitrateKbps > 0) append("  ${stats.bitrateKbps} kbit/s")
+        },
+        "Ton" to stats.audioCodec.ifBlank { "—" },
+        "hwdec" to stats.hwDecode.ifBlank { "SOFTWARE (kein Hardware-Decoder!)" },
+        "Bildrate" to buildString {
+            append(if (stats.containerFps > 0f) "%.3f fps".format(stats.containerFps) else "—")
+            if (stats.fps > 0f) append("  (gerendert %.1f)".format(stats.fps))
+        },
+        "Panel" to buildString {
+            append(if (display.currentHz > 0f) "%.2f Hz".format(display.currentHz) else "—")
+            if (display.switched) append("  → angefordert %.2f Hz".format(display.requestedHz))
+            if (display.available.size > 1) {
+                append("  [")
+                append(display.available.joinToString(", ") { "%.0f".format(it) })
+                append("]")
+            }
+        },
+        "verworfene Bilder" to stats.droppedFrames.toString(),
+        "Quelle" to if (transcoding) "Transkodierung (HLS)" else "Direktwiedergabe",
+    )
+    Box(Modifier.fillMaxSize().padding(TvSidePad), Alignment.TopStart) {
+        Column(
+            Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(Black.copy(alpha = 0.85f))
+                .padding(horizontal = 22.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                "TECHNIK",
+                color = MatrixGreen.copy(alpha = 0.5f), fontFamily = Mono,
+                fontSize = 12.sp, letterSpacing = 2.sp,
+            )
+            rows.forEach { (label, value) ->
+                Row {
+                    Text(
+                        label.padEnd(18),
+                        color = MatrixGreen.copy(alpha = 0.55f),
+                        fontFamily = Mono, fontSize = 14.sp,
+                    )
+                    Text(value, color = MatrixGreen, fontFamily = Mono, fontSize = 14.sp)
+                }
+            }
+        }
     }
 }
 

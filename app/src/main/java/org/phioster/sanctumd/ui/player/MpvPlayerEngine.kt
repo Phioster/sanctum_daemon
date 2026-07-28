@@ -149,6 +149,9 @@ class MpvPlayerEngine(context: Context, tvTuning: Boolean = false) : MediaPlayer
             fps = (mpv.getPropertyDouble("estimated-vf-fps") ?: mpv.getPropertyDouble("container-fps") ?: 0.0).toFloat(),
             bufferedPercent = (mpv.getPropertyInt("cache-buffering-state") ?: 0).coerceIn(0, 100),
             hwDecode = (mpv.getPropertyString("hwdec-current") ?: "").takeUnless { it == "no" }.orEmpty(),
+            droppedFrames = (mpv.getPropertyInt("frame-drop-count") ?: 0) +
+                (mpv.getPropertyInt("vo-delayed-frame-count") ?: 0),
+            containerFps = (mpv.getPropertyDouble("container-fps") ?: 0.0).toFloat(),
         )
     }
 
