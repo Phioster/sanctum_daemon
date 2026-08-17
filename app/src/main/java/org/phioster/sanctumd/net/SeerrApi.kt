@@ -30,6 +30,7 @@ import org.phioster.sanctumd.model.SeerrDiscoverItem
 import org.phioster.sanctumd.model.SeerrIssueDetail
 import org.phioster.sanctumd.model.SeerrIssueItem
 import org.phioster.sanctumd.model.SeerrRequestItem
+import org.phioster.sanctumd.model.SeerrRootFolder
 import org.phioster.sanctumd.model.SeerrMediaDetail
 import org.phioster.sanctumd.model.SeerrSearchItem
 import org.phioster.sanctumd.model.SeerrUserInfo
@@ -96,6 +97,16 @@ import retrofit2.http.Query
 
 @Serializable internal data class SeerrGenreDto(val id: Int = 0, val name: String = "")
 
+/** One Radarr/Sonarr server as Seerr has it configured. */
+@Serializable internal data class SeerrServiceServer(
+    val id: Int = 0,
+    val name: String = "",
+    val isDefault: Boolean = false,
+    val activeDirectory: String = "", // the root folder a request lands in when none is chosen
+)
+@Serializable internal data class SeerrServiceRootFolder(val id: Int = 0, val path: String = "")
+@Serializable internal data class SeerrServiceDetail(val rootFolders: List<SeerrServiceRootFolder> = emptyList())
+
 internal interface SeerrApi {
     @GET("api/v1/request/count") suspend fun counts(): SeerrCounts
     @GET("api/v1/genres/movie") suspend fun genresMovie(): List<SeerrGenreDto>
@@ -130,6 +141,8 @@ internal interface SeerrApi {
     @GET("api/v1/discover/watchlist") suspend fun watchlist(@Query("page") page: Int = 1): JsonObject
     @POST("api/v1/watchlist") suspend fun addWatchlist(@Body body: JsonObject): Response<ResponseBody>
     @DELETE("api/v1/watchlist/{id}") suspend fun deleteWatchlist(@Path("id") tmdbId: Int, @Query("mediaType") mediaType: String): Response<ResponseBody>
+    @GET("api/v1/service/{type}") suspend fun services(@Path("type") type: String): List<SeerrServiceServer>
+    @GET("api/v1/service/{type}/{id}") suspend fun serviceDetail(@Path("type") type: String, @Path("id") id: Int): SeerrServiceDetail
     @GET("api/v1/issue/{id}") suspend fun issueDetail(@Path("id") id: Int): JsonObject
     @POST("api/v1/issue/{id}/comment") suspend fun addComment(@Path("id") id: Int, @Body body: JsonObject): Response<ResponseBody>
     @POST("api/v1/issue/{id}/{status}") suspend fun setIssueStatus(@Path("id") id: Int, @Path("status") status: String): Response<ResponseBody>
@@ -426,8 +439,36 @@ suspend fun seerrUsers(config: ServiceConfig): List<SeerrUserInfo> = withContext
     }
 }
 
-/** Create a request; [seasons] null = movie or all seasons, else the chosen season numbers. */
-suspend fun seerrRequest(config: ServiceConfig, tmdbId: Int, mediaType: String, seasons: List<Int>?): String = destructive("create a Seerr request for tmdb $tmdbId") {
+/**
+ * The root folders Seerr offers for [mediaType] ("movie" → Radarr, anything else → Sonarr).
+ *
+ * Empty when Seerr has no server of that kind configured, which the caller reads as
+ * "no choice to offer" rather than as an error.
+ */
+suspend fun seerrRootFolders(config: ServiceConfig, mediaType: String): List<SeerrRootFolder> = withContext(Dispatchers.IO) {
+    val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
+    val kind = if (mediaType == "movie") "radarr" else "sonarr"
+    val servers = api.services(kind)
+    val server = servers.firstOrNull { it.isDefault } ?: servers.firstOrNull() ?: return@withContext emptyList()
+    api.serviceDetail(kind, server.id).rootFolders.map {
+        SeerrRootFolder(path = it.path, serverId = server.id, isDefault = it.path == server.activeDirectory)
+    }
+}
+
+/**
+ * Create a request; [seasons] null = movie or all seasons, else the chosen season numbers.
+ *
+ * [rootFolder] steers the media into a specific library folder. It is only sent when the user
+ * picked one — otherwise the body stays exactly as Seerr's own default handling expects it.
+ */
+suspend fun seerrRequest(
+    config: ServiceConfig,
+    tmdbId: Int,
+    mediaType: String,
+    seasons: List<Int>?,
+    rootFolder: String? = null,
+    serverId: Int? = null,
+): String = destructive("create a Seerr request for tmdb $tmdbId") {
     withContext(Dispatchers.IO) {
         try {
             val body = buildJsonObject {
@@ -436,6 +477,10 @@ suspend fun seerrRequest(config: ServiceConfig, tmdbId: Int, mediaType: String, 
                 if (mediaType == "tv") {
                     if (seasons.isNullOrEmpty()) put("seasons", "all")
                     else putJsonArray("seasons") { seasons.forEach { add(it) } }
+                }
+                if (rootFolder != null) {
+                    put("rootFolder", rootFolder)
+                    if (serverId != null) put("serverId", serverId)
                 }
             }
             val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).createRequest(body)

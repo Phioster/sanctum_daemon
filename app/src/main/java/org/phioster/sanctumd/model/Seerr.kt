@@ -27,6 +27,19 @@ data class SeerrSearchItem(
     val adult: Boolean = false, // TMDB adult (porn) flag
 )
 
+/**
+ * One root folder a Seerr request can be steered into.
+ *
+ * The list comes from Seerr's own service config rather than from Radarr/Sonarr directly:
+ * the value travels back to Seerr, so it has to be a path Seerr knows, and reading it here
+ * works even when the *arr service itself is not configured in Sanctumd.
+ */
+data class SeerrRootFolder(
+    val path: String,
+    val serverId: Int,
+    val isDefault: Boolean, // the server's activeDirectory — what a request uses when nothing is picked
+)
+
 /** A discover/trending browse item. */
 data class SeerrDiscoverItem(
     val tmdbId: Int,
