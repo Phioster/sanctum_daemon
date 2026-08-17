@@ -18,6 +18,8 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import org.phioster.sanctumd.model.ArrCastMember
+import org.phioster.sanctumd.model.JellyFileInfo
+import org.phioster.sanctumd.model.JellyStream
 import org.phioster.sanctumd.model.JellyWatchStat
 import org.phioster.sanctumd.model.JellyMediaDetail
 import org.phioster.sanctumd.model.JellyMediaItem
@@ -158,8 +160,38 @@ suspend fun jellyfinItemDetail(config: ServiceConfig, itemId: String): JellyMedi
         played = d.UserData?.Played == true,
         unplayedCount = d.UserData?.UnplayedItemCount ?: 0,
         favorite = d.UserData?.IsFavorite == true,
+        fileInfo = d.MediaSources.firstOrNull()?.toFileInfo(),
     )
 }
+
+/** The first media source turned into what the FILE section renders. */
+private fun JfDetailMediaSource.toFileInfo() = JellyFileInfo(
+    container = Container?.substringBefore(',').orEmpty(),
+    sizeBytes = Size ?: 0L,
+    path = Path.orEmpty(),
+    bitrate = Bitrate ?: 0,
+    streams = MediaStreams.map { s ->
+        JellyStream(
+            type = s.Type,
+            codec = s.Codec.orEmpty(),
+            profile = s.Profile.orEmpty(),
+            language = s.DisplayLanguage ?: s.Language.orEmpty(),
+            displayTitle = s.DisplayTitle.orEmpty(),
+            width = s.Width ?: 0,
+            height = s.Height ?: 0,
+            frameRate = s.AverageFrameRate ?: s.RealFrameRate ?: 0.0,
+            bitDepth = s.BitDepth ?: 0,
+            bitrate = s.BitRate ?: 0,
+            channels = s.Channels ?: 0,
+            channelLayout = s.ChannelLayout.orEmpty(),
+            sampleRate = s.SampleRate ?: 0,
+            videoRange = s.VideoRange.orEmpty(),
+            isDefault = s.IsDefault,
+            isForced = s.IsForced,
+            isExternal = s.IsExternal,
+        )
+    },
+)
 
 /** The user's favourites across the whole library, newest names first. */
 suspend fun jellyfinFavorites(config: ServiceConfig): List<JellyMediaItem> = withContext(Dispatchers.IO) {

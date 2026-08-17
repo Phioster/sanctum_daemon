@@ -206,6 +206,37 @@ internal data class JfCounts(
     val PrimaryImageTag: String? = null,
 )
 @Serializable internal data class JfStudio(val Name: String = "")
+
+/** A single track of a media source; every field is optional on the server side. */
+@Serializable internal data class JfMediaStream(
+    val Type: String = "",
+    val Codec: String? = null,
+    val Profile: String? = null,
+    val Language: String? = null,
+    val DisplayLanguage: String? = null,
+    val DisplayTitle: String? = null,
+    val Width: Int? = null,
+    val Height: Int? = null,
+    val AverageFrameRate: Double? = null,
+    val RealFrameRate: Double? = null,
+    val BitDepth: Int? = null,
+    val BitRate: Int? = null,
+    val Channels: Int? = null,
+    val ChannelLayout: String? = null,
+    val SampleRate: Int? = null,
+    val VideoRange: String? = null,
+    val IsDefault: Boolean = false,
+    val IsForced: Boolean = false,
+    val IsExternal: Boolean = false,
+)
+/** The media source as it comes with the item detail — no extra PlaybackInfo round trip needed. */
+@Serializable internal data class JfDetailMediaSource(
+    val Container: String? = null,
+    val Size: Long? = null,
+    val Path: String? = null,
+    val Bitrate: Int? = null,
+    val MediaStreams: List<JfMediaStream> = emptyList(),
+)
 @Serializable internal data class JfItemDetail(
     val Id: String = "",
     val Name: String = "",
@@ -226,6 +257,7 @@ internal data class JfCounts(
     val People: List<JfPerson> = emptyList(),
     val ImageTags: Map<String, String>? = null,
     val UserData: JfUserData? = null, // watched state / resume position for this user
+    val MediaSources: List<JfDetailMediaSource> = emptyList(),
 )
 
 @Serializable internal data class JfAuthReq(val Username: String, val Pw: String)
