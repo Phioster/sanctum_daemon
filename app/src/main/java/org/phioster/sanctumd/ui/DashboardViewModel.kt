@@ -978,8 +978,16 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun seerrUserList(config: ServiceConfig): List<org.phioster.sanctumd.model.SeerrUserInfo> = seerrUsers(config)
     suspend fun seerrSeasonsList(config: ServiceConfig, tmdbId: Int): List<org.phioster.sanctumd.model.SeerrSeason> =
         seerrSeasons(config, tmdbId)
-    suspend fun seerrRequestMedia(config: ServiceConfig, tmdbId: Int, mediaType: String, seasons: List<Int>?): String =
-        seerrRequest(config, tmdbId, mediaType, seasons)
+    suspend fun seerrRequestMedia(
+        config: ServiceConfig,
+        tmdbId: Int,
+        mediaType: String,
+        seasons: List<Int>?,
+        rootFolder: String? = null,
+        serverId: Int? = null,
+    ): String = seerrRequest(config, tmdbId, mediaType, seasons, rootFolder, serverId)
+    suspend fun seerrRootFoldersOf(config: ServiceConfig, mediaType: String): List<org.phioster.sanctumd.model.SeerrRootFolder> =
+        org.phioster.sanctumd.net.seerrRootFolders(config, mediaType)
     suspend fun seerrIssueDetailOf(config: ServiceConfig, id: Int): org.phioster.sanctumd.model.SeerrIssueDetail =
         seerrIssueDetail(config, id)
     suspend fun seerrComment(config: ServiceConfig, id: Int, message: String): String =

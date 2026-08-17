@@ -152,6 +152,8 @@ internal fun SeerrScreen(
     var searchTerm by remember { mutableStateOf("") }
     var searchResults by remember { mutableStateOf<List<SeerrSearchItem>?>(null) }
     var confirmItem by remember { mutableStateOf<SeerrSearchItem?>(null) }
+    var rootFolders by remember { mutableStateOf<List<org.phioster.sanctumd.model.SeerrRootFolder>>(emptyList()) }
+    var chosenFolder by remember { mutableStateOf<org.phioster.sanctumd.model.SeerrRootFolder?>(null) }
     var mediaDetail by remember { mutableStateOf<org.phioster.sanctumd.model.SeerrMediaDetail?>(null) }
     var mediaDetailLoading by remember { mutableStateOf(initialDetail != null) }
     // Deep link from search: open the media-detail dialog right away.
@@ -479,6 +481,16 @@ internal fun SeerrScreen(
     LaunchedEffect(confirmItem) {
         val ci = confirmItem
         seasons = null; selectedSeasons = emptySet()
+        rootFolders = emptyList(); chosenFolder = null
+        if (ci != null) {
+            // Only worth offering when there is something to choose between; a single-folder
+            // setup keeps the dialog exactly as it was.
+            val f = runCatching { vm.seerrRootFoldersOf(config, ci.mediaType) }.getOrDefault(emptyList())
+            if (f.size > 1) {
+                rootFolders = f
+                chosenFolder = f.firstOrNull { it.isDefault } ?: f.first()
+            }
+        }
         if (ci != null && ci.mediaType == "tv") {
             val s = runCatching { vm.seerrSeasonsList(config, ci.tmdbId) }.getOrDefault(emptyList())
             seasons = s
@@ -497,6 +509,14 @@ internal fun SeerrScreen(
                         "${if (isTv) "Series" else "Movie"}${if (item.year.isNotBlank()) " (${item.year})" else ""}",
                         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 13.sp,
                     )
+                    if (rootFolders.size > 1) {
+                        Spacer(Modifier.height(10.dp))
+                        DropdownField(
+                            "Folder",
+                            chosenFolder?.path?.substringAfterLast('/').orEmpty(),
+                            rootFolders.map { it.path },
+                        ) { i -> chosenFolder = rootFolders[i] }
+                    }
                     if (isTv) {
                         Spacer(Modifier.height(8.dp))
                         val ss = seasons
@@ -538,9 +558,11 @@ internal fun SeerrScreen(
                     onClick = {
                         val tmdb = item.tmdbId; val type = item.mediaType
                         val chosen = if (!isTv) null else selectedSeasons.toList().sorted()
+                        // Only send a folder when the user steered away from Seerr's default.
+                        val folder = chosenFolder?.takeIf { !it.isDefault }
                         confirmItem = null
                         scope.launch {
-                            actionMsg = vm.seerrRequestMedia(config, tmdb, type, chosen)
+                            actionMsg = vm.seerrRequestMedia(config, tmdb, type, chosen, folder?.path, folder?.serverId)
                             loadRequests()
                             vm.refreshAll()
                         }
