@@ -146,6 +146,41 @@ data class JellyMediaItem(
     val favorite: Boolean = false,
 )
 
+/**
+ * One track inside a media file, exactly as Jellyfin reports it.
+ *
+ * Everything is optional on the server side, so absent values arrive as empty/zero and the
+ * UI simply leaves those rows out rather than printing "unknown".
+ */
+data class JellyStream(
+    val type: String, // "Video" / "Audio" / "Subtitle"
+    val codec: String = "",
+    val profile: String = "",
+    val language: String = "",
+    val displayTitle: String = "",
+    val width: Int = 0,
+    val height: Int = 0,
+    val frameRate: Double = 0.0,
+    val bitDepth: Int = 0,
+    val bitrate: Int = 0,
+    val channels: Int = 0,
+    val channelLayout: String = "",
+    val sampleRate: Int = 0,
+    val videoRange: String = "",
+    val isDefault: Boolean = false,
+    val isForced: Boolean = false,
+    val isExternal: Boolean = false,
+)
+
+/** The file behind a playable item: container, size and every track in it. */
+data class JellyFileInfo(
+    val container: String,
+    val sizeBytes: Long,
+    val path: String,
+    val bitrate: Int,
+    val streams: List<JellyStream>,
+)
+
 /** Full detail for a single media item. */
 data class JellyMediaDetail(
     val id: String,
@@ -160,4 +195,5 @@ data class JellyMediaDetail(
     val played: Boolean = false, // fully watched
     val unplayedCount: Int = 0, // folders: episodes still unwatched
     val favorite: Boolean = false,
+    val fileInfo: JellyFileInfo? = null, // null for folders (Series/Season) and anything without a media source
 )

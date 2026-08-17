@@ -1492,6 +1492,10 @@ internal fun JellyfinScreen(
                         Spacer(Modifier.height(12.dp))
                         Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp, lineHeight = 17.sp)
                     }
+                    d.fileInfo?.let { fi ->
+                        Spacer(Modifier.height(16.dp))
+                        FileInfoSection(fi, accent)
+                    }
                     if (d.cast.isNotEmpty()) {
                         Spacer(Modifier.height(16.dp))
                         MediaSectionHeader("CAST", accent)
