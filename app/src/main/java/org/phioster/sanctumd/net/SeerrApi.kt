@@ -249,22 +249,6 @@ suspend fun seerrSearch(config: ServiceConfig, query: String): List<SeerrSearchI
         }
 }
 
-suspend fun seerrCreateRequest(config: ServiceConfig, item: SeerrSearchItem): String = destructive("create a Seerr request") {
-    withContext(Dispatchers.IO) {
-        try {
-            val body = buildJsonObject {
-                put("mediaType", item.mediaType)
-                put("mediaId", item.tmdbId)
-                if (item.mediaType == "tv") put("seasons", "all")
-            }
-            val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).createRequest(body)
-            if (r.isSuccessful) "requested" else "error: HTTP ${r.code()}"
-        } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
-        }
-    }
-}
-
 internal fun seerrMediaStatusText(status: Int?) = when (status) {
     2 -> "pending"
     3 -> "processing"

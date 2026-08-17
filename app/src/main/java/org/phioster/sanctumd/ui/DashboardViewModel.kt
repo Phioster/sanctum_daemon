@@ -73,7 +73,6 @@ import org.phioster.sanctumd.net.runNzbRate
 import org.phioster.sanctumd.net.seerrApprove
 import org.phioster.sanctumd.net.seerrDecline
 import org.phioster.sanctumd.net.seerrAddComment
-import org.phioster.sanctumd.net.seerrCreateRequest
 import org.phioster.sanctumd.net.seerrDeleteIssueById
 import org.phioster.sanctumd.net.seerrDiscover
 import org.phioster.sanctumd.net.seerrIssueDetail
@@ -958,8 +957,6 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun seerrDeclineReq(config: ServiceConfig, id: Int): String = seerrDecline(config, id)
     suspend fun seerrSearchList(config: ServiceConfig, query: String): List<SeerrSearchItem> =
         seerrSearch(config, query).let { if (hideAdult.value) it.filterNot { r -> r.adult } else it }
-    suspend fun seerrRequestItem(config: ServiceConfig, item: SeerrSearchItem): String =
-        seerrCreateRequest(config, item)
     suspend fun seerrDiscoverList(config: ServiceConfig, kind: String): List<org.phioster.sanctumd.model.SeerrDiscoverItem> =
         seerrDiscover(config, kind).let { if (hideAdult.value) it.filterNot { d -> d.adult } else it }
     suspend fun seerrWatchlistOf(config: ServiceConfig): List<org.phioster.sanctumd.model.SeerrDiscoverItem> =
