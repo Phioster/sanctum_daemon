@@ -141,6 +141,19 @@ internal fun ArrScreen(
     var importScanning by remember { mutableStateOf(false) }
     var importSelected by remember { mutableStateOf<Set<Int>>(emptySet()) }
 
+
+    // Assigning a target movie to an unmatched manual-import row (Radarr).
+    var assignRow by remember { mutableStateOf<Int?>(null) }
+    var assignEpisodeRow by remember { mutableStateOf<Int?>(null) }
+    var blockedQueue by remember { mutableStateOf<List<org.phioster.sanctumd.model.ArrQueueItem>>(emptyList()) }
+    var assignLibrary by remember { mutableStateOf<List<ArrLibraryItem>?>(null) }
+    var assignQuery by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf("") }
+    var sortBy by remember { mutableStateOf(0) } // 0=Title, 1=Year, 2=Size
+    var sortMenu by remember { mutableStateOf(false) }
+    var listError by remember { mutableStateOf<String?>(null) }
+    var actionMsg by remember { mutableStateOf<String?>(null) }
+
     suspend fun runImportScan() {
         importScanning = true; importItems = null; importSelected = emptySet()
         importItems = runCatching { vm.arrManualScan(config, importFolder.trim()) }.getOrElse {
@@ -161,17 +174,6 @@ internal fun ArrScreen(
         importAutoScan = true
     }
 
-    // Assigning a target movie to an unmatched manual-import row (Radarr).
-    var assignRow by remember { mutableStateOf<Int?>(null) }
-    var assignEpisodeRow by remember { mutableStateOf<Int?>(null) }
-    var blockedQueue by remember { mutableStateOf<List<org.phioster.sanctumd.model.ArrQueueItem>>(emptyList()) }
-    var assignLibrary by remember { mutableStateOf<List<ArrLibraryItem>?>(null) }
-    var assignQuery by remember { mutableStateOf("") }
-    var query by remember { mutableStateOf("") }
-    var sortBy by remember { mutableStateOf(0) } // 0=Title, 1=Year, 2=Size
-    var sortMenu by remember { mutableStateOf(false) }
-    var listError by remember { mutableStateOf<String?>(null) }
-    var actionMsg by remember { mutableStateOf<String?>(null) }
     var refreshing by remember { mutableStateOf(false) }
     LaunchedEffect(actionMsg) { if (actionMsg != null) { kotlinx.coroutines.delay(4000); actionMsg = null } }
     var barMenu by remember { mutableStateOf(false) }
