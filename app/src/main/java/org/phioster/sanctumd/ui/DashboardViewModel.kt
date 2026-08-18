@@ -948,6 +948,12 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrSearchAllItems(config: ServiceConfig, cutoff: Boolean): String = arrSearchAll(config, cutoff)
     suspend fun arrRssSyncNow(config: ServiceConfig): String = org.phioster.sanctumd.net.arrRssSync(config)
     suspend fun arrSystemInfo(config: ServiceConfig): org.phioster.sanctumd.model.ArrSystemInfo = arrSystem(config)
+    suspend fun jellyfinDelete(config: ServiceConfig, itemId: String): String =
+        org.phioster.sanctumd.net.jellyfinDeleteItem(config, itemId)
+    suspend fun arrFindByIds(config: ServiceConfig, tmdbId: String?, tvdbId: String?): org.phioster.sanctumd.model.ArrLibraryItem? =
+        org.phioster.sanctumd.net.arrFindByProviderId(config, tmdbId, tvdbId)
+    suspend fun arrDeleteItem(config: ServiceConfig, id: Int, deleteFiles: Boolean, addImportExclusion: Boolean): String =
+        org.phioster.sanctumd.net.arrDelete(config, id, deleteFiles, addImportExclusion)
     suspend fun arrBlockedQueue(config: ServiceConfig): List<org.phioster.sanctumd.model.ArrQueueItem> =
         org.phioster.sanctumd.net.arrBlockedQueueItems(config)
     suspend fun arrBrowsePath(config: ServiceConfig, path: String): org.phioster.sanctumd.model.ArrFsListing =
