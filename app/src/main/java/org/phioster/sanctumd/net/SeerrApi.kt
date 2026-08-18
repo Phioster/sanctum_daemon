@@ -549,6 +549,7 @@ internal suspend fun seerrSearchResults(config: ServiceConfig, term: String): Li
             mediaType = d.mediaType,
             year = d.year.toIntOrNull() ?: 0,
             inLibrary = d.status == "available",
+            adult = d.adult,
         )
     }
 }

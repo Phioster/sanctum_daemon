@@ -15,4 +15,7 @@ data class SearchResult(
     val tmdbId: Int = 0, // Seerr: TMDB id for the media-detail dialog
     val mediaType: String = "", // Seerr: "movie" / "tv"
     val jellyItemId: String = "", // Jellyfin: item id for the media-detail dialog
+    /** Pornography only (see [org.phioster.sanctumd.net.ADULT_RATINGS]); mainstream 18/R/NC-17
+     *  stay false on purpose, so 18-rated horror keeps showing up. */
+    val adult: Boolean = false,
 )
