@@ -71,6 +71,8 @@ import org.phioster.sanctumd.ui.services.*
 import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 // Downloads and the music bar: self-contained pieces of the Media screen, kept out of
 // JellyfinScreen.kt so that file is about browsing rather than everything at once.
