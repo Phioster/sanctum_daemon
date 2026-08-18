@@ -61,7 +61,7 @@ class FileInfoSectionLayoutTest {
         show()
         val height = sectionHeight()
         // A correct header is ~30dp. The bug produced 13 wrapped lines, well past 100dp.
-        assertTrue("collapsed section is $height tall", height < 80.dp)
+        assertTrue("MESSUNG: collapsed section is $height tall", height < 1.dp)
     }
 
     @Test
