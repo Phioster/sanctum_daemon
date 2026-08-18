@@ -948,6 +948,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrSearchAllItems(config: ServiceConfig, cutoff: Boolean): String = arrSearchAll(config, cutoff)
     suspend fun arrRssSyncNow(config: ServiceConfig): String = org.phioster.sanctumd.net.arrRssSync(config)
     suspend fun arrSystemInfo(config: ServiceConfig): org.phioster.sanctumd.model.ArrSystemInfo = arrSystem(config)
+    suspend fun arrBrowsePath(config: ServiceConfig, path: String): org.phioster.sanctumd.model.ArrFsListing =
+        org.phioster.sanctumd.net.arrBrowse(config, path)
     suspend fun arrManualScan(config: ServiceConfig, folder: String): List<org.phioster.sanctumd.model.ArrImportItem> =
         arrManualImportScan(config, folder)
     suspend fun arrManualImport(config: ServiceConfig, rawItems: List<String>): String =

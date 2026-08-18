@@ -580,7 +580,7 @@ internal fun ArrScreen(
             title = { Text("Manual import", fontFamily = Mono, color = MatrixGreen) },
             text = {
                 Column {
-                    Field("Folder path on server", importFolder) { importFolder = it }
+                    ArrFolderBrowser(vm, config, accent, importFolder) { importFolder = it }
                     Spacer(Modifier.height(8.dp))
                     OutlinedButton(
                         onClick = {
