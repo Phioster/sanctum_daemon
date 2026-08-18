@@ -31,6 +31,7 @@ private val HIDDEN_LIBRARIES_KEY = stringPreferencesKey("hidden_libraries_json")
 private val MEDIA_ROW_STYLES_KEY = stringPreferencesKey("media_row_styles_json")
 private val PLAYER_SWIPE_MAG_KEY = floatPreferencesKey("player_swipe_magnitude")
 private val PLAYER_SWIPE_MARGIN_KEY = floatPreferencesKey("player_swipe_margin")
+private val IMPORT_LAST_PATH_KEY = stringPreferencesKey("import_last_path")
 private val AUDIO_LANG_KEY = stringPreferencesKey("player_audio_lang")
 private val SUB_LANG_KEY = stringPreferencesKey("player_sub_lang")
 private val SUB_MODE_KEY = stringPreferencesKey("player_sub_mode")
@@ -108,6 +109,8 @@ class DashboardStore(private val context: Context) {
     // ── Playback preferences ──────────────────────────────────────────────────────────────────
     // Language codes are ISO-639 ("de"/"en"/…); [subtitleMode] is "forced" (only a forced track for
     // the chosen language, else nothing), "any" (forced first, then a normal track) or "off".
+    /** Where the last manual import was scanned — the browser starts there instead of at "/". */
+    val lastImportPath: Flow<String> = context.dashboardDataStore.data.map { it[IMPORT_LAST_PATH_KEY] ?: "" }
     val audioLanguage: Flow<String> = context.dashboardDataStore.data.map { it[AUDIO_LANG_KEY] ?: "de" }
     val subtitleLanguage: Flow<String> = context.dashboardDataStore.data.map { it[SUB_LANG_KEY] ?: "de" }
     val subtitleMode: Flow<String> = context.dashboardDataStore.data.map { it[SUB_MODE_KEY] ?: "forced" }
@@ -115,6 +118,7 @@ class DashboardStore(private val context: Context) {
     val autoplayNext: Flow<Boolean> = context.dashboardDataStore.data.map { it[AUTOPLAY_NEXT_KEY] ?: true }
     val autoSkipSegments: Flow<Boolean> = context.dashboardDataStore.data.map { it[AUTO_SKIP_KEY] ?: false }
     val askResume: Flow<Boolean> = context.dashboardDataStore.data.map { it[ASK_RESUME_KEY] ?: true }
+    suspend fun setLastImportPath(v: String) { context.dashboardDataStore.edit { it[IMPORT_LAST_PATH_KEY] = v } }
     suspend fun setAudioLanguage(v: String) { context.dashboardDataStore.edit { it[AUDIO_LANG_KEY] = v } }
     suspend fun setSubtitleLanguage(v: String) { context.dashboardDataStore.edit { it[SUB_LANG_KEY] = v } }
     suspend fun setSubtitleMode(v: String) { context.dashboardDataStore.edit { it[SUB_MODE_KEY] = v } }
