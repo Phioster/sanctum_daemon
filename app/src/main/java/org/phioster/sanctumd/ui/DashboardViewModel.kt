@@ -948,6 +948,18 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrSearchAllItems(config: ServiceConfig, cutoff: Boolean): String = arrSearchAll(config, cutoff)
     suspend fun arrRssSyncNow(config: ServiceConfig): String = org.phioster.sanctumd.net.arrRssSync(config)
     suspend fun arrSystemInfo(config: ServiceConfig): org.phioster.sanctumd.model.ArrSystemInfo = arrSystem(config)
+    suspend fun jellyfinIdentifySearch(
+        config: ServiceConfig,
+        itemId: String,
+        kind: String,
+        name: String,
+        year: Int?,
+    ): List<org.phioster.sanctumd.model.JellyIdentifyCandidate> =
+        org.phioster.sanctumd.net.jellyfinIdentifyCandidates(config, itemId, kind, name, year)
+    suspend fun jellyfinIdentifyApply(config: ServiceConfig, itemId: String, rawCandidate: String): String =
+        org.phioster.sanctumd.net.jellyfinApplyIdentify(
+            config, itemId, org.phioster.sanctumd.net.JellyIdentifyCandidateRaw(rawCandidate),
+        )
     suspend fun jellyfinDelete(config: ServiceConfig, itemId: String): String =
         org.phioster.sanctumd.net.jellyfinDeleteItem(config, itemId)
     suspend fun arrFindByIds(config: ServiceConfig, tmdbId: String?, tvdbId: String?): org.phioster.sanctumd.model.ArrLibraryItem? =
