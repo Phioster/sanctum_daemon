@@ -40,6 +40,23 @@ data class SeerrRootFolder(
     val isDefault: Boolean, // the server's activeDirectory — what a request uses when nothing is picked
 )
 
+/** A quality profile a Seerr request can be steered to. */
+data class SeerrProfile(val id: Int, val name: String)
+
+/**
+ * Everything the request dialog needs from Seerr's *arr configuration, fetched in one pass.
+ *
+ * Folders and profiles come from the same two calls, so asking for them separately would double
+ * the round trips for no gain.
+ */
+data class SeerrServiceOptions(
+    val serverId: Int,
+    val rootFolders: List<SeerrRootFolder>,
+    val profiles: List<SeerrProfile>,
+    /** The server's own default — what a request uses when nothing is chosen. */
+    val defaultProfileId: Int,
+)
+
 /** A discover/trending browse item. */
 data class SeerrDiscoverItem(
     val tmdbId: Int,

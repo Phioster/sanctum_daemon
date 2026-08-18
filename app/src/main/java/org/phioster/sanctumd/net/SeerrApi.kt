@@ -30,7 +30,9 @@ import org.phioster.sanctumd.model.SeerrDiscoverItem
 import org.phioster.sanctumd.model.SeerrIssueDetail
 import org.phioster.sanctumd.model.SeerrIssueItem
 import org.phioster.sanctumd.model.SeerrRequestItem
+import org.phioster.sanctumd.model.SeerrProfile
 import org.phioster.sanctumd.model.SeerrRootFolder
+import org.phioster.sanctumd.model.SeerrServiceOptions
 import org.phioster.sanctumd.model.SeerrMediaDetail
 import org.phioster.sanctumd.model.SeerrSearchItem
 import org.phioster.sanctumd.model.SeerrUserInfo
@@ -103,9 +105,14 @@ import retrofit2.http.Query
     val name: String = "",
     val isDefault: Boolean = false,
     val activeDirectory: String = "", // the root folder a request lands in when none is chosen
+    val activeProfileId: Int = 0, // the quality profile a request uses when none is chosen
 )
 @Serializable internal data class SeerrServiceRootFolder(val id: Int = 0, val path: String = "")
-@Serializable internal data class SeerrServiceDetail(val rootFolders: List<SeerrServiceRootFolder> = emptyList())
+@Serializable internal data class SeerrServiceProfile(val id: Int = 0, val name: String = "")
+@Serializable internal data class SeerrServiceDetail(
+    val rootFolders: List<SeerrServiceRootFolder> = emptyList(),
+    val profiles: List<SeerrServiceProfile> = emptyList(),
+)
 
 internal interface SeerrApi {
     @GET("api/v1/request/count") suspend fun counts(): SeerrCounts
@@ -144,6 +151,7 @@ internal interface SeerrApi {
     @GET("api/v1/service/{type}") suspend fun services(@Path("type") type: String): List<SeerrServiceServer>
     @GET("api/v1/service/{type}/{id}") suspend fun serviceDetail(@Path("type") type: String, @Path("id") id: Int): SeerrServiceDetail
     @GET("api/v1/issue/{id}") suspend fun issueDetail(@Path("id") id: Int): JsonObject
+    @DELETE("api/v1/request/{id}") suspend fun deleteRequest(@Path("id") id: Int): Response<ResponseBody>
     @POST("api/v1/issue") suspend fun createIssue(@Body body: JsonObject): Response<ResponseBody>
     @POST("api/v1/issue/{id}/comment") suspend fun addComment(@Path("id") id: Int, @Body body: JsonObject): Response<ResponseBody>
     @POST("api/v1/issue/{id}/{status}") suspend fun setIssueStatus(@Path("id") id: Int, @Path("status") status: String): Response<ResponseBody>
@@ -155,6 +163,7 @@ internal fun seerrStatusText(status: Int) = when (status) {
     2 -> "approved"
     3 -> "declined"
     4 -> "failed"
+    5 -> "completed" // every finished request carries this; unmapped it rendered as "?"
     else -> "?"
 }
 
@@ -425,20 +434,45 @@ suspend fun seerrUsers(config: ServiceConfig): List<SeerrUserInfo> = withContext
 }
 
 /**
- * The root folders Seerr offers for [mediaType] ("movie" → Radarr, anything else → Sonarr).
+ * What Seerr offers for [mediaType] ("movie" → Radarr, anything else → Sonarr): its root
+ * folders and quality profiles, plus which of each is the default.
  *
- * Empty when Seerr has no server of that kind configured, which the caller reads as
- * "no choice to offer" rather than as an error.
+ * Read from Seerr's own service config rather than from Radarr/Sonarr directly — the values
+ * travel back to Seerr, so they have to be ones Seerr knows, and this works even when the *arr
+ * service is not configured in Sanctumd at all.
+ *
+ * Empty when Seerr has no server of that kind, which the caller reads as "no choice to offer"
+ * rather than as an error.
  */
-suspend fun seerrRootFolders(config: ServiceConfig, mediaType: String): List<SeerrRootFolder> = withContext(Dispatchers.IO) {
-    val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
-    val kind = if (mediaType == "movie") "radarr" else "sonarr"
-    val servers = api.services(kind)
-    val server = servers.firstOrNull { it.isDefault } ?: servers.firstOrNull() ?: return@withContext emptyList()
-    api.serviceDetail(kind, server.id).rootFolders.map {
-        SeerrRootFolder(path = it.path, serverId = server.id, isDefault = it.path == server.activeDirectory)
+suspend fun seerrServiceOptions(config: ServiceConfig, mediaType: String): SeerrServiceOptions =
+    withContext(Dispatchers.IO) {
+        val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
+        val kind = if (mediaType == "movie") "radarr" else "sonarr"
+        val servers = api.services(kind)
+        val server = servers.firstOrNull { it.isDefault } ?: servers.firstOrNull()
+            ?: return@withContext SeerrServiceOptions(0, emptyList(), emptyList(), 0)
+        val detail = api.serviceDetail(kind, server.id)
+        SeerrServiceOptions(
+            serverId = server.id,
+            rootFolders = detail.rootFolders.map {
+                SeerrRootFolder(it.path, server.id, isDefault = it.path == server.activeDirectory)
+            },
+            profiles = detail.profiles.map { SeerrProfile(it.id, it.name) },
+            defaultProfileId = server.activeProfileId,
+        )
     }
-}
+
+/** Removes a request entirely — the only way back once it has been approved. */
+suspend fun seerrDeleteRequest(config: ServiceConfig, id: Int): String =
+    destructive("delete Seerr request $id") {
+        withContext(Dispatchers.IO) {
+            try {
+                okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).deleteRequest(id), "deleted")
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
 
 /**
  * Create a request; [seasons] null = movie or all seasons, else the chosen season numbers.
@@ -453,6 +487,7 @@ suspend fun seerrRequest(
     seasons: List<Int>?,
     rootFolder: String? = null,
     serverId: Int? = null,
+    profileId: Int? = null,
 ): String = destructive("create a Seerr request for tmdb $tmdbId") {
     withContext(Dispatchers.IO) {
         try {
@@ -467,6 +502,7 @@ suspend fun seerrRequest(
                     put("rootFolder", rootFolder)
                     if (serverId != null) put("serverId", serverId)
                 }
+                if (profileId != null) put("profileId", profileId)
             }
             val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).createRequest(body)
             if (r.isSuccessful) "requested" else "error: HTTP ${r.code()}"
