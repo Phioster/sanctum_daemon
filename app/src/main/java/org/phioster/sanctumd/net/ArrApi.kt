@@ -27,6 +27,8 @@ import org.phioster.sanctumd.model.ArrTrack
 import org.phioster.sanctumd.model.ArrDetail
 import org.phioster.sanctumd.model.ArrEpisode
 import org.phioster.sanctumd.model.ArrIndexerItem
+import org.phioster.sanctumd.model.ArrFsEntry
+import org.phioster.sanctumd.model.ArrFsListing
 import org.phioster.sanctumd.model.ArrHistoryItem
 import org.phioster.sanctumd.model.ArrImportItem
 import org.phioster.sanctumd.model.ArrLibraryItem
@@ -184,6 +186,17 @@ internal interface LidarrApi {
     val disabledTill: String? = null,
 )
 
+@Serializable internal data class ArrFsNode(
+    val name: String = "",
+    val path: String = "",
+    val size: Long? = null,
+)
+@Serializable internal data class ArrFsResp(
+    val parent: String? = null,
+    val directories: List<ArrFsNode> = emptyList(),
+    val files: List<ArrFsNode> = emptyList(),
+)
+
 internal interface ArrApi {
     @GET suspend fun missing(@Url url: String): ArrMissingPage
     @GET suspend fun queue(@Url url: String): ArrQueuePage
@@ -209,6 +222,7 @@ internal interface ArrApi {
     @GET suspend fun systemStatus(@Url url: String): ArrSystemStatusRec
     @GET suspend fun healthChecks(@Url url: String): List<ArrHealthRecord>
     @GET suspend fun manualImport(@Url url: String): List<JsonObject>
+    @GET suspend fun filesystem(@Url url: String): ArrFsResp
     @GET suspend fun indexers(@Url url: String): List<ArrIndexerRecord>
     @GET suspend fun indexerStatus(@Url url: String): List<ArrIndexerStatusRecord>
     @POST suspend fun postEmpty(@Url url: String): Response<ResponseBody>
@@ -678,6 +692,26 @@ suspend fun arrSystem(config: ServiceConfig): ArrSystemInfo = withContext(Dispat
         }
         ArrSystemInfo(version = versionD.await(), health = healthD.await(), disks = disksD.await())
     }
+}
+
+/**
+ * Lists one folder on the server so the manual import can be pointed at it by tapping rather
+ * than by typing an absolute path on a phone keyboard.
+ *
+ * Files are requested too, not just folders: without them you cannot tell whether the folder
+ * you are standing in is the one holding the release.
+ */
+suspend fun arrBrowse(config: ServiceConfig, path: String): ArrFsListing = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    val encoded = java.net.URLEncoder.encode(path, "UTF-8")
+    val resp = apiFor<ArrApi>(config, apiKeyHeader(config))
+        .filesystem("$base/filesystem?path=$encoded&includeFiles=true")
+    ArrFsListing(
+        parent = resp.parent?.takeIf { it.isNotBlank() },
+        // Folders first: browsing is the point, files are only there to confirm the location.
+        entries = resp.directories.map { ArrFsEntry(it.name, it.path, isDirectory = true) } +
+            resp.files.map { ArrFsEntry(it.name, it.path, isDirectory = false, size = it.size ?: 0L) },
+    )
 }
 
 /** Scans a folder for manually-importable files (Radarr/Sonarr). */
