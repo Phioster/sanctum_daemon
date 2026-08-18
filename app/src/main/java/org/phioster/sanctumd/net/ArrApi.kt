@@ -7,6 +7,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
@@ -281,6 +282,62 @@ internal suspend fun arrSearchResults(config: ServiceConfig, term: String): List
 suspend fun arrProfiles(config: ServiceConfig): List<ArrProfile> = withContext(Dispatchers.IO) {
     apiFor<ArrApi>(config, apiKeyHeader(config)).profiles("${arrBase(config.type)}/qualityprofile")
         .map { ArrProfile(it.id, it.name) }
+}
+
+/**
+ * Creates an unrestricted copy of an existing quality profile.
+ *
+ * The point is a fallback for releases that only exist in one language: a custom-format profile
+ * rejects them because they never reach its required score, whatever their quality. The clone
+ * allows every quality and drops the score floor.
+ *
+ * Two deliberate choices:
+ *  - **Clone, never hand-assemble.** The schema (items, formatItems, cutoff) comes from the
+ *    server's own working profile, so it cannot be malformed by our guesswork.
+ *  - **Never modify the source.** It may be managed by Recyclarr, which would silently revert
+ *    an edit on its next sync and leave a profile that works some days and not others.
+ */
+suspend fun arrCloneProfileUnrestricted(
+    config: ServiceConfig,
+    sourceId: Int,
+    newName: String,
+): String = destructive("create quality profile '$newName' on ${config.label}") {
+    withContext(Dispatchers.IO) {
+        try {
+            val base = arrBase(config.type)
+            val api = apiFor<ArrApi>(config, apiKeyHeader(config))
+            val src = api.itemDetail("$base/qualityprofile/$sourceId")
+            val body = buildJsonObject {
+                src.forEach { (k, v) ->
+                    when (k) {
+                        "id" -> {} // a create must not carry the source's id
+                        "name" -> put("name", newName)
+                        "minFormatScore", "cutoffFormatScore" -> put(k, 0)
+                        "items" -> put(k, allowEveryQuality(v))
+                        else -> put(k, v)
+                    }
+                }
+            }
+            okOr(api.add("$base/qualityprofile", body), "created")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
+}
+
+/** Flips every quality (and every quality inside a group) to allowed. */
+private fun allowEveryQuality(items: JsonElement): JsonElement = when (items) {
+    is JsonArray -> JsonArray(items.map { allowEveryQuality(it) })
+    is JsonObject -> buildJsonObject {
+        items.forEach { (k, v) ->
+            when (k) {
+                "allowed" -> put("allowed", true)
+                "items" -> put(k, allowEveryQuality(v)) // grouped qualities nest one level deeper
+                else -> put(k, v)
+            }
+        }
+    }
+    else -> items
 }
 
 suspend fun arrRootFolders(config: ServiceConfig): List<String> = withContext(Dispatchers.IO) {
