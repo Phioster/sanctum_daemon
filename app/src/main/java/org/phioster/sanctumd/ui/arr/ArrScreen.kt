@@ -136,7 +136,11 @@ internal fun ArrScreen(
     var showImport by remember { mutableStateOf(false) }
     val rememberedPath by vm.lastImportPath.collectAsState()
     var importFolder by remember { mutableStateOf("") }
-    var importAutoScan by remember { mutableStateOf(false) }
+    // A counter, not a flag: a LaunchedEffect is cancelled the moment its key changes, so an
+    // effect that cleared its own boolean key killed the very scan it had just started
+    // ("The coroutine scope left the composition"). Bumping a token the effect never writes
+    // keeps the key stable for the whole run.
+    var scanRequest by remember { mutableStateOf(0) }
     var importItems by remember { mutableStateOf<List<org.phioster.sanctumd.model.ArrImportItem>?>(null) }
     var importScanning by remember { mutableStateOf(false) }
     var importSelected by remember { mutableStateOf<Set<Int>>(emptySet()) }
@@ -171,7 +175,7 @@ internal fun ArrScreen(
         importItems = null
         importSelected = emptySet()
         showImport = true
-        importAutoScan = true
+        scanRequest++
     }
 
     var refreshing by remember { mutableStateOf(false) }
@@ -616,11 +620,8 @@ internal fun ArrScreen(
         )
     }
 
-    LaunchedEffect(showImport, importAutoScan) {
-        if (showImport && importAutoScan) {
-            importAutoScan = false
-            runImportScan()
-        }
+    LaunchedEffect(scanRequest) {
+        if (scanRequest > 0 && showImport) runImportScan()
     }
 
     if (showImport) {
