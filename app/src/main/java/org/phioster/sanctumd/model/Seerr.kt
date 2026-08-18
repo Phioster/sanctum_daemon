@@ -64,6 +64,9 @@ data class SeerrMediaDetail(
     val status: String, // "available" / "processing" / … / "" (not requested)
     val cast: List<ArrCastMember>,
     val onWatchlist: Boolean = false,
+    /** Seerr's own media id — NOT the TMDB id. 0 when the title is not in Seerr's library yet;
+     *  issues can only be opened against a title Seerr actually knows. */
+    val mediaId: Int = 0,
 )
 
 /** A Seerr user, for the admin user list. */

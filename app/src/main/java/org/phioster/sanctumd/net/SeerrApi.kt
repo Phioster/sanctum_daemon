@@ -632,6 +632,9 @@ suspend fun seerrMediaDetail(config: ServiceConfig, tmdbId: Int, mediaType: Stri
         status = seerrMediaStatusText(statusInt),
         cast = cast,
         onWatchlist = jsBool(o, "onUserWatchlist") ?: false,
+        // Seerr's own id, not the TMDB one — issues are filed against this. Absent until the
+        // title exists in Seerr's library, which is also when an issue would make no sense.
+        mediaId = (o["mediaInfo"] as? JsonObject)?.let { jsInt(it, "id") } ?: 0,
     )
 }
 
