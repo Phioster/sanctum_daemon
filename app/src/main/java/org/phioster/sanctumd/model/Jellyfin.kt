@@ -199,3 +199,18 @@ data class JellyMediaDetail(
     /** Tmdb/Imdb/Tvdb ids — how a Jellyfin item is matched to its Radarr/Sonarr entry exactly. */
     val providerIds: Map<String, String> = emptyMap(),
 )
+
+/**
+ * One metadata candidate offered when re-identifying an item.
+ *
+ * [raw] is the provider's own result object, kept verbatim: Jellyfin wants it handed straight
+ * back to pin the item, and re-assembling it from parsed fields would drop whatever the
+ * provider sent that we did not model.
+ */
+data class JellyIdentifyCandidate(
+    val name: String,
+    val year: Int,
+    val provider: String,
+    val imageUrl: String,
+    val raw: String,
+)
