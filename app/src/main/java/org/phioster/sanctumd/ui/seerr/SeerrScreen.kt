@@ -172,6 +172,7 @@ internal fun SeerrScreen(
     var selectedSeasons by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var issueDetailId by remember { mutableStateOf<Int?>(null) }
     var reportFor by remember { mutableStateOf<Pair<Int, String>?>(null) }
+    var requestDetail by remember { mutableStateOf<org.phioster.sanctumd.model.SeerrRequestDetail?>(null) }
     var issueDetail by remember { mutableStateOf<org.phioster.sanctumd.model.SeerrIssueDetail?>(null) }
     var commentText by remember { mutableStateOf("") }
 
@@ -364,13 +365,13 @@ internal fun SeerrScreen(
                                     r == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     r.isEmpty() -> item { Text("no requests", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     else -> items(r) { req ->
-                                        SeerrRequestRow(
-                                            item = req,
-                                            accent = accent,
-                                            onApprove = { act { vm.seerrApproveReq(config, req.id) } },
-                                            onDecline = { act { vm.seerrDeclineReq(config, req.id) } },
-                                            onDelete = { act { vm.seerrDeleteReq(config, req.id) } },
-                                        )
+                                        SeerrRequestRow(req, accent) {
+                                            requestDetail = null
+                                            scope.launch {
+                                                requestDetail = runCatching { vm.seerrRequestDetailOf(config, req.id) }.getOrNull()
+                                                if (requestDetail == null) actionMsg = "could not load request ${req.id}"
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -603,6 +604,14 @@ internal fun SeerrScreen(
             text = { Text("", fontFamily = Mono) },
             confirmButton = { TextButton(onClick = { mediaDetailLoading = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
+    }
+
+    requestDetail?.let { d ->
+        SeerrRequestDetailDialog(vm, config, d, accent, onDismiss = { requestDetail = null }) { msg ->
+            requestDetail = null
+            actionMsg = msg
+            scope.launch { loadRequests(); vm.refreshAll() }
+        }
     }
 
     reportFor?.let { (mid, title) ->
@@ -931,14 +940,7 @@ internal fun SeerrScreen(
 }
 
 @Composable
-internal fun SeerrRequestRow(
-    item: SeerrRequestItem,
-    accent: Color,
-    onApprove: () -> Unit,
-    onDecline: () -> Unit,
-    onDelete: () -> Unit = {},
-) {
-    var menu by remember { mutableStateOf(false) }
+internal fun SeerrRequestRow(item: SeerrRequestItem, accent: Color, onOpen: () -> Unit) {
     val statusColor = when (item.status) {
         "approved" -> MatrixGreen
         "declined" -> ErrRed
@@ -949,7 +951,8 @@ internal fun SeerrRequestRow(
         Column(
             Modifier
                 .fillMaxWidth()
-                .clickable(enabled = item.pending) { menu = true }
+                // Always: a settled request still has settings worth seeing and a delete to run.
+                .clickable { onOpen() }
                 .padding(vertical = 8.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -971,16 +974,6 @@ internal fun SeerrRequestRow(
             }
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
-        }
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            DropdownMenuItem(text = { Text("Approve", fontFamily = Mono) }, onClick = { menu = false; onApprove() })
-            DropdownMenuItem(text = { Text("Decline", fontFamily = Mono) }, onClick = { menu = false; onDecline() })
-            // Approve/Decline stop applying once a request is settled; removing it is then the
-            // only action left, and there was none.
-            DropdownMenuItem(
-                text = { Text("Delete request", fontFamily = Mono, color = ErrRed) },
-                onClick = { menu = false; onDelete() },
-            )
         }
     }
 }
