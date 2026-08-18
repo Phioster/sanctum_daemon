@@ -949,6 +949,10 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrSearchAllItems(config: ServiceConfig, cutoff: Boolean): String = arrSearchAll(config, cutoff)
     suspend fun arrRssSyncNow(config: ServiceConfig): String = org.phioster.sanctumd.net.arrRssSync(config)
     suspend fun arrSystemInfo(config: ServiceConfig): org.phioster.sanctumd.model.ArrSystemInfo = arrSystem(config)
+    suspend fun jellyfinSubtitles(config: ServiceConfig, itemId: String, language: String): List<org.phioster.sanctumd.model.JellySubtitle> =
+        org.phioster.sanctumd.net.jellyfinSubtitleCandidates(config, itemId, language)
+    suspend fun jellyfinGetSubtitle(config: ServiceConfig, itemId: String, subtitleId: String): String =
+        org.phioster.sanctumd.net.jellyfinDownloadSubtitle(config, itemId, subtitleId)
     suspend fun jellyfinIdentifySearch(
         config: ServiceConfig,
         itemId: String,

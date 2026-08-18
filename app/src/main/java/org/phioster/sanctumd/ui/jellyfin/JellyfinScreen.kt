@@ -162,6 +162,7 @@ internal fun JellyfinScreen(
     var mediaDetail by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
     var deleteTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
     var identifyTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
+    var subtitleTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
     var playRequest by remember { mutableStateOf<org.phioster.sanctumd.ui.player.PlayRequest?>(null) }
     val downloads by vm.downloads.collectAsState(initial = emptyMap())
     val wifiOnly by vm.downloadsWifiOnly.collectAsState()
@@ -283,6 +284,16 @@ internal fun JellyfinScreen(
     LaunchedEffect(mode, browseStack, browseSort, browseDesc, browseUnwatched) {
         if (mode == 3) { if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last()) }
     }
+    subtitleTarget?.let { target ->
+        JellyfinSubtitlesDialog(
+            vm, config, target, accent,
+            onDismiss = { subtitleTarget = null },
+        ) { msg ->
+            subtitleTarget = null
+            actionMsg = msg
+        }
+    }
+
     identifyTarget?.let { target ->
         JellyfinIdentifyDialog(
             vm, config, target, accent,
@@ -1497,6 +1508,8 @@ internal fun JellyfinScreen(
                             if (folder) confirmWatched = Triple(d.id, d.name, !d.played)
                             else applyWatched(d.id, d.name, !d.played)
                         }
+                        Spacer(Modifier.height(8.dp))
+                        SecondaryButton("subtitles", Modifier.fillMaxWidth()) { subtitleTarget = d }
                         Spacer(Modifier.height(8.dp))
                         SecondaryButton("identify", Modifier.fillMaxWidth()) { identifyTarget = d }
                         Spacer(Modifier.height(8.dp))

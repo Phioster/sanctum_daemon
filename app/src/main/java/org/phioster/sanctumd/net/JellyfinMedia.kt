@@ -23,6 +23,7 @@ import org.phioster.sanctumd.model.JellyIdentifyCandidate
 import org.phioster.sanctumd.model.JellyStream
 import org.phioster.sanctumd.model.JellyWatchStat
 import org.phioster.sanctumd.model.JellyMediaDetail
+import org.phioster.sanctumd.model.JellySubtitle
 import org.phioster.sanctumd.model.JellyMediaItem
 import org.phioster.sanctumd.model.ServiceConfig
 
@@ -378,6 +379,53 @@ suspend fun jellyfinApplyIdentify(
             val token = jellyfinAccessToken(config)
             val body = json.parseToJsonElement(candidate.json).jsonObject
             okOr(jfApi(config, token).applyRemoteSearch(itemId, replaceAllImages = true, body = body), "identified")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
+}
+
+// ---- Subtitles ----
+//
+// Jellyfin fetches these itself, per title. That covers what a dedicated subtitle service would
+// do, without another process on a phone-sized server.
+
+/**
+ * Subtitle candidates for [itemId] in [language] (three-letter ISO, e.g. "ger").
+ *
+ * Ordered by usefulness rather than by whatever the provider returned: a hash match was made
+ * for this exact file and will be in sync, so it goes first; after that the most downloaded,
+ * which is the best available proxy for "not a broken rip".
+ */
+suspend fun jellyfinSubtitleCandidates(
+    config: ServiceConfig,
+    itemId: String,
+    language: String,
+): List<JellySubtitle> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    jfApi(config, token).subtitleSearch(itemId, language).map { o ->
+        JellySubtitle(
+            id = jsStr(o, "Id") ?: "",
+            provider = jsStr(o, "ProviderName") ?: "",
+            name = jsStr(o, "Name") ?: "",
+            format = jsStr(o, "Format") ?: "",
+            downloads = jsInt(o, "DownloadCount") ?: 0,
+            hashMatch = jsBool(o, "IsHashMatch") == true,
+            forced = jsBool(o, "IsForced") == true,
+        )
+    }.sortedWith(compareByDescending<JellySubtitle> { it.hashMatch }.thenByDescending { it.downloads })
+}
+
+/** Downloads a chosen subtitle onto the item. */
+suspend fun jellyfinDownloadSubtitle(
+    config: ServiceConfig,
+    itemId: String,
+    subtitleId: String,
+): String = destructive("download a subtitle for Jellyfin item $itemId") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).subtitleDownload(itemId, subtitleId), "downloaded")
         } catch (t: Throwable) {
             "error: ${t.message ?: t.javaClass.simpleName}"
         }

@@ -214,3 +214,15 @@ data class JellyIdentifyCandidate(
     val imageUrl: String,
     val raw: String,
 )
+
+/** One subtitle a provider offers for an item. */
+data class JellySubtitle(
+    val id: String,
+    val provider: String,
+    val name: String,
+    val format: String,
+    val downloads: Int,
+    /** Made for this exact file — the one that will actually be in sync. */
+    val hashMatch: Boolean,
+    val forced: Boolean,
+)
