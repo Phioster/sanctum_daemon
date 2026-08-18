@@ -28,6 +28,7 @@ import org.phioster.sanctumd.model.ArrTrack
 import org.phioster.sanctumd.model.ArrDetail
 import org.phioster.sanctumd.model.ArrEpisode
 import org.phioster.sanctumd.model.ArrIndexerItem
+import org.phioster.sanctumd.model.ArrBlocklistItem
 import org.phioster.sanctumd.model.ArrFsEntry
 import org.phioster.sanctumd.model.ArrFsListing
 import org.phioster.sanctumd.model.ArrHistoryItem
@@ -229,6 +230,7 @@ internal interface ArrApi {
     @GET suspend fun healthChecks(@Url url: String): List<ArrHealthRecord>
     @GET suspend fun manualImport(@Url url: String): List<JsonObject>
     @GET suspend fun filesystem(@Url url: String): ArrFsResp
+    @GET suspend fun blocklist(@Url url: String): ArrBlocklistPage
     @GET suspend fun indexers(@Url url: String): List<ArrIndexerRecord>
     @GET suspend fun indexerStatus(@Url url: String): List<ArrIndexerStatusRecord>
     @POST suspend fun postEmpty(@Url url: String): Response<ResponseBody>
@@ -494,12 +496,49 @@ suspend fun arrSearchItem(config: ServiceConfig, id: Int): String = destructive(
     }
 }
 
-suspend fun arrQueueRemove(config: ServiceConfig, id: Int): String = destructive("remove queue item $id on ${config.type.label}") {
+/**
+ * Removes a queue item. [blocklist] additionally tells the app never to grab that release
+ * again — the way out of the loop where a flaky indexer keeps serving the same broken file.
+ */
+@Serializable internal data class ArrBlocklistRecord(
+    val id: Int = 0,
+    val sourceTitle: String = "",
+    val date: String = "",
+)
+@Serializable internal data class ArrBlocklistPage(val records: List<ArrBlocklistRecord> = emptyList())
+
+/** Releases this app refuses to grab again. */
+suspend fun arrBlocklist(config: ServiceConfig): List<ArrBlocklistItem> = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    apiFor<ArrApi>(config, apiKeyHeader(config))
+        .blocklist("$base/blocklist?page=1&pageSize=50&sortKey=date&sortDirection=descending")
+        .records.map { ArrBlocklistItem(it.id, it.sourceTitle, it.date.take(10)) }
+}
+
+/** Lifts a blocklist entry — without this a release blocked by mistake stays blocked forever. */
+suspend fun arrBlocklistRemove(config: ServiceConfig, id: Int): String =
+    destructive("unblock release $id on ${config.label}") {
+        withContext(Dispatchers.IO) {
+            try {
+                val base = arrBase(config.type)
+                val r = apiFor<ArrApi>(config, apiKeyHeader(config)).deleteQueue("$base/blocklist/$id")
+                if (r.isSuccessful) "removed" else "error: HTTP ${r.code()}"
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
+
+suspend fun arrQueueRemove(
+    config: ServiceConfig,
+    id: Int,
+    blocklist: Boolean = false,
+): String = destructive("remove queue item $id on ${config.type.label}") {
     withContext(Dispatchers.IO) {
         try {
             val base = arrBase(config.type)
             val r = apiFor<ArrApi>(config, apiKeyHeader(config))
-                .deleteQueue("$base/queue/$id?removeFromClient=true&blocklist=false")
+                .deleteQueue("$base/queue/$id?removeFromClient=true&blocklist=$blocklist")
             if (r.isSuccessful) "removed" else "error: HTTP ${r.code()}"
         } catch (t: Throwable) {
             "error: ${t.message ?: t.javaClass.simpleName}"

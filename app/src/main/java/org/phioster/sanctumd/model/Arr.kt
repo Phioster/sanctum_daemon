@@ -175,3 +175,10 @@ data class ArrFsListing(
     val parent: String?,
     val entries: List<ArrFsEntry>,
 )
+
+/** A release the app was told never to grab again. */
+data class ArrBlocklistItem(
+    val id: Int,
+    val title: String,
+    val date: String,
+)
