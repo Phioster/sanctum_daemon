@@ -41,20 +41,25 @@ class SeerrRootFolderTest {
         useLogin = false,
     )
 
+    private fun enqueueService() {
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":0,"name":"Radarr","isDefault":true,"activeDirectory":"/media/Movies","activeProfileId":9}]""",
+            ),
+        )
+        server.enqueue(
+            MockResponse().setBody(
+                """{"rootFolders":[{"id":4,"path":"/media/Movies"},{"id":5,"path":"/media/Archive/Movies"}],
+                    "profiles":[{"id":9,"name":"[German] HD Bluray + WEB"},{"id":10,"name":"Any"}]}""",
+            ),
+        )
+    }
+
     @Test
     fun `root folders come from the default server for that media type`() = runBlocking {
-        server.enqueue(
-            MockResponse().setBody(
-                """[{"id":0,"name":"Radarr","isDefault":true,"activeDirectory":"/media/Movies"}]""",
-            ),
-        )
-        server.enqueue(
-            MockResponse().setBody(
-                """{"rootFolders":[{"id":4,"path":"/media/Movies"},{"id":5,"path":"/media/Archive/Movies"}]}""",
-            ),
-        )
+        enqueueService()
 
-        val folders = seerrRootFolders(config(), "movie")
+        val folders = seerrServiceOptions(config(), "movie").rootFolders
 
         assertEquals(listOf("/media/Movies", "/media/Archive/Movies"), folders.map { it.path })
         assertTrue("the server's activeDirectory is the default", folders[0].isDefault)
@@ -62,12 +67,26 @@ class SeerrRootFolderTest {
         assertEquals(0, folders[1].serverId)
     }
 
+    /**
+     * A request that cannot choose its quality profile always lands on the default one — which
+     * here demands a German custom-format score, so an English-only film is rejected outright.
+     */
+    @Test
+    fun `the same call also yields the quality profiles and which is default`() = runBlocking {
+        enqueueService()
+
+        val opts = seerrServiceOptions(config(), "movie")
+
+        assertEquals(listOf("[German] HD Bluray + WEB", "Any"), opts.profiles.map { it.name })
+        assertEquals(9, opts.defaultProfileId)
+    }
+
     @Test
     fun `tv requests read the sonarr service, not radarr`() = runBlocking {
         server.enqueue(MockResponse().setBody("""[{"id":2,"name":"Sonarr","isDefault":true,"activeDirectory":"/media/Series"}]"""))
-        server.enqueue(MockResponse().setBody("""{"rootFolders":[{"id":2,"path":"/media/Series"}]}"""))
+        server.enqueue(MockResponse().setBody("""{"rootFolders":[{"id":2,"path":"/media/Series"}],"profiles":[]}"""))
 
-        seerrRootFolders(config(), "tv")
+        seerrServiceOptions(config(), "tv")
 
         assertEquals("/api/v1/service/sonarr", server.takeRequest().path)
         assertEquals("/api/v1/service/sonarr/2", server.takeRequest().path)
@@ -82,6 +101,48 @@ class SeerrRootFolderTest {
         val body = server.takeRequest().body.readUtf8()
         assertTrue("got $body", body.contains(""""rootFolder":"/media/Archive/Movies""""))
         assertTrue("got $body", body.contains(""""serverId":0"""))
+    }
+
+    @Test
+    fun `a chosen quality profile travels in the request body`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(201).setBody("{}"))
+
+        seerrRequest(config(), tmdbId = 42, mediaType = "movie", seasons = null, profileId = 10)
+
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue("got $body", body.contains(""""profileId":10"""))
+    }
+
+    @Test
+    fun `without a chosen profile the body carries no profile`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(201).setBody("{}"))
+
+        seerrRequest(config(), tmdbId = 42, mediaType = "movie", seasons = null)
+
+        assertFalse(server.takeRequest().body.readUtf8().contains("profileId"))
+    }
+
+    @Test
+    fun `a completed request is named, not shown as a question mark`() {
+        assertEquals("pending", seerrStatusText(1))
+        assertEquals("approved", seerrStatusText(2))
+        assertEquals("declined", seerrStatusText(3))
+        assertEquals("failed", seerrStatusText(4))
+        // Status 5 is what every finished request carries; it used to render as "?".
+        assertEquals("completed", seerrStatusText(5))
+        assertEquals("?", seerrStatusText(99))
+    }
+
+    @Test
+    fun `a request can be deleted`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(204))
+
+        val result = seerrDeleteRequest(config(), id = 20)
+
+        val req = server.takeRequest()
+        assertEquals("DELETE", req.method)
+        assertTrue("got ${req.path}", req.path!!.endsWith("/api/v1/request/20"))
+        assertEquals("deleted", result)
     }
 
     @Test
