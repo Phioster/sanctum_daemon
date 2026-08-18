@@ -159,3 +159,17 @@ data class ArrIndexerItem(
 ) {
     val failing: Boolean get() = disabledTill != null
 }
+
+/** One entry when browsing the server's filesystem (manual import). */
+data class ArrFsEntry(
+    val name: String,
+    val path: String,
+    val isDirectory: Boolean,
+    val size: Long = 0L,
+)
+
+/** A folder's contents. [parent] is null at the top, where there is nowhere to go up to. */
+data class ArrFsListing(
+    val parent: String?,
+    val entries: List<ArrFsEntry>,
+)
