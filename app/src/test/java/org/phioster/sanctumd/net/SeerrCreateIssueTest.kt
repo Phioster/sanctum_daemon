@@ -58,6 +58,37 @@ class SeerrCreateIssueTest {
         assertEquals("other", seerrIssueType(4))
     }
 
+    /**
+     * The issue endpoint wants Seerr's **internal** media id, not the TMDB id. They are
+     * different numbers, and posting the TMDB one would open issues against unrelated titles
+     * or fail outright — so the detail has to carry it.
+     */
+    @Test
+    fun `the media detail carries Seerr's own media id`() = runBlocking {
+        server.enqueue(
+            MockResponse()
+                .setBody("""{"id":603,"title":"The Matrix","releaseDate":"1999-03-30",
+                             "mediaInfo":{"id":88,"status":5}}""")
+                .setHeader("Content-Type", "application/json"),
+        )
+
+        val detail = seerrMediaDetail(config(), tmdbId = 603, mediaType = "movie")
+
+        assertEquals(88, detail.mediaId)
+        assertEquals(603, detail.tmdbId)
+    }
+
+    @Test
+    fun `a title that is not in the library has no media id`() = runBlocking {
+        server.enqueue(
+            MockResponse()
+                .setBody("""{"id":603,"title":"The Matrix","releaseDate":"1999-03-30"}""")
+                .setHeader("Content-Type", "application/json"),
+        )
+
+        assertEquals(0, seerrMediaDetail(config(), tmdbId = 603, mediaType = "movie").mediaId)
+    }
+
     @Test
     fun `a failure is reported rather than swallowed`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(500))
