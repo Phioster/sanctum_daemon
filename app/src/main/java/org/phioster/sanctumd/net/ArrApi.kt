@@ -104,6 +104,9 @@ internal interface LidarrApi {
     val status: String = "",
     val size: Double = 0.0,
     val sizeleft: Double = 0.0,
+    // "importBlocked" after a download the app refuses to import by itself. Absent on older
+    // versions, which must read as "not blocked" rather than as a cleanup prompt.
+    val trackedDownloadState: String? = null,
 )
 @Serializable internal data class ArrQueuePage(val records: List<ArrQueueRecord> = emptyList())
 
@@ -391,11 +394,23 @@ suspend fun arrCalendarRange(config: ServiceConfig, start: java.time.Instant, en
     }.filter { it.date.isNotBlank() }.sortedBy { it.date }
 }
 
+/**
+ * Queue entries stuck on `importBlocked` — what a hand-assigned manual import leaves behind.
+ *
+ * The import itself succeeds, but the queue entry stays and the source file remains on disk a
+ * second time (download folder and library are different filesystems here, so no hardlink).
+ * Deliberately a list to show rather than something to clear automatically: which entry belongs
+ * to which imported file can only be guessed from title similarity, and these are exactly the
+ * German release names that defeat such matching in the first place.
+ */
+suspend fun arrBlockedQueueItems(config: ServiceConfig): List<ArrQueueItem> =
+    arrQueue(config).filter { it.blocked }
+
 suspend fun arrQueue(config: ServiceConfig): List<ArrQueueItem> = withContext(Dispatchers.IO) {
     val base = arrBase(config.type)
     apiFor<ArrApi>(config, apiKeyHeader(config)).queue("$base/queue?pageSize=100").records.map { r ->
         val prog = if (r.size > 0) ((r.size - r.sizeleft) / r.size).toFloat().coerceIn(0f, 1f) else 0f
-        ArrQueueItem(r.id, r.title, r.status, prog)
+        ArrQueueItem(r.id, r.title, r.status, prog, blocked = r.trackedDownloadState == "importBlocked")
     }
 }
 

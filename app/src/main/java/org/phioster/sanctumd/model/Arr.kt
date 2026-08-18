@@ -23,6 +23,8 @@ data class ArrQueueItem(
     val title: String,
     val status: String,
     val progress: Float,
+    /** Downloaded but the app refuses to import it — needs a hand, and leaves the file lying twice. */
+    val blocked: Boolean = false,
 )
 
 /** A library entry (movie/series/artist). */
