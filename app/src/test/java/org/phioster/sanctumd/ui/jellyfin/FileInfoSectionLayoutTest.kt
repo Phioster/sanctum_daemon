@@ -3,11 +3,12 @@ package org.phioster.sanctumd.ui.jellyfin
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
@@ -46,14 +47,19 @@ class FileInfoSectionLayoutTest {
         ),
     )
 
+    // Measured on a tagged wrapper, not on onRoot(): the root reports the host window's
+    // bounds, which stay constant however tall the content grows — a measurement that cannot
+    // fail is worse than none.
     private fun show() = compose.setContent {
-        Column(Modifier.width(400.dp)) { FileInfoSection(info, MatrixGreen) }
+        Column(Modifier.width(400.dp).testTag("section")) { FileInfoSection(info, MatrixGreen) }
     }
+
+    private fun sectionHeight() = compose.onNodeWithTag("section").getUnclippedBoundsInRoot().height
 
     @Test
     fun `collapsed the section stays about one line tall`() {
         show()
-        val height = compose.onRoot().getUnclippedBoundsInRoot().height
+        val height = sectionHeight()
         // A correct header is ~30dp. The bug produced 13 wrapped lines, well past 100dp.
         assertTrue("collapsed section is $height tall", height < 80.dp)
     }
@@ -67,9 +73,9 @@ class FileInfoSectionLayoutTest {
     @Test
     fun `expanding reveals the tracks and grows the section`() {
         show()
-        val collapsed = compose.onRoot().getUnclippedBoundsInRoot().height
+        val collapsed = sectionHeight()
         compose.onNodeWithText("FILE").performClick()
         compose.onNodeWithText("AUDIO").assertIsDisplayed()
-        assertTrue(compose.onRoot().getUnclippedBoundsInRoot().height > collapsed)
+        assertTrue(sectionHeight() > collapsed)
     }
 }
