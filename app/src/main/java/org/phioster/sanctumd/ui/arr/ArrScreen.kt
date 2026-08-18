@@ -137,6 +137,9 @@ internal fun ArrScreen(
     val rememberedPath by vm.lastImportPath.collectAsState()
     var importFolder by remember { mutableStateOf("") }
     var importAutoScan by remember { mutableStateOf(false) }
+    var importItems by remember { mutableStateOf<List<org.phioster.sanctumd.model.ArrImportItem>?>(null) }
+    var importScanning by remember { mutableStateOf(false) }
+    var importSelected by remember { mutableStateOf<Set<Int>>(emptySet()) }
 
     suspend fun runImportScan() {
         importScanning = true; importItems = null; importSelected = emptySet()
@@ -157,9 +160,7 @@ internal fun ArrScreen(
         showImport = true
         importAutoScan = true
     }
-    var importItems by remember { mutableStateOf<List<org.phioster.sanctumd.model.ArrImportItem>?>(null) }
-    var importScanning by remember { mutableStateOf(false) }
-    var importSelected by remember { mutableStateOf<Set<Int>>(emptySet()) }
+
     // Assigning a target movie to an unmatched manual-import row (Radarr).
     var assignRow by remember { mutableStateOf<Int?>(null) }
     var assignEpisodeRow by remember { mutableStateOf<Int?>(null) }
