@@ -502,7 +502,7 @@ suspend fun seerrRequestDetail(config: ServiceConfig, id: Int): SeerrRequestDeta
         )
     }
 
-/** Removes a request entirely/** Removes a request entirely — the only way back once it has been approved. */
+/** Removes a request entirely — the only way back once it has been approved. */
 suspend fun seerrDeleteRequest(config: ServiceConfig, id: Int): String =
     destructive("delete Seerr request $id") {
         withContext(Dispatchers.IO) {
