@@ -19,6 +19,7 @@ import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import org.phioster.sanctumd.model.ArrCastMember
 import org.phioster.sanctumd.model.JellyFileInfo
+import org.phioster.sanctumd.model.JellyIdentifyCandidate
 import org.phioster.sanctumd.model.JellyStream
 import org.phioster.sanctumd.model.JellyWatchStat
 import org.phioster.sanctumd.model.JellyMediaDetail
@@ -315,5 +316,70 @@ suspend fun jellyfinTopWatchers(config: ServiceConfig, limit: Int = 3): List<Jel
         val name = row.getOrNull(0)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
         val secs = row.getOrNull(1)?.toDoubleOrNull()?.toLong() ?: 0L
         JellyWatchStat(name, secs)
+    }
+}
+
+// ---- Identify: pinning an item to the right metadata entry ----
+//
+// A plain refresh would only re-derive the same wrong guess from the same filename, which is
+// why this is a two-step: ask the providers what they have, then pin the chosen one.
+
+/** Wraps the provider's own result object so it can be handed back to Jellyfin verbatim. */
+data class JellyIdentifyCandidateRaw(val json: String)
+
+/**
+ * Metadata candidates for [itemId]. [kind] is the Jellyfin item type — a series must not be
+ * looked up against the movie database, so it decides the endpoint.
+ */
+suspend fun jellyfinIdentifyCandidates(
+    config: ServiceConfig,
+    itemId: String,
+    kind: String,
+    name: String,
+    year: Int?,
+): List<JellyIdentifyCandidate> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val api = jfApi(config, token)
+    val endpoint = when (kind) {
+        "Series" -> "Series"
+        "Episode" -> "Episode"
+        "MusicAlbum" -> "MusicAlbum"
+        else -> "Movie"
+    }
+    val body = buildJsonObject {
+        putJsonObject("SearchInfo") {
+            put("Name", name)
+            if (year != null) put("Year", year)
+            put("ItemId", itemId)
+        }
+        put("ItemId", itemId)
+        // Ask everything that is configured; a disabled provider is usually why nothing matched.
+        put("IncludeDisabledProviders", true)
+    }
+    api.remoteSearch(endpoint, body).map { o ->
+        JellyIdentifyCandidate(
+            name = jsStr(o, "Name") ?: "?",
+            year = jsInt(o, "ProductionYear") ?: 0,
+            provider = jsStr(o, "SearchProviderName") ?: "",
+            imageUrl = jsStr(o, "ImageUrl") ?: "",
+            raw = json.encodeToString(JsonObject.serializer(), o),
+        )
+    }
+}
+
+/** Pins [itemId] to the chosen candidate and pulls its artwork along with it. */
+suspend fun jellyfinApplyIdentify(
+    config: ServiceConfig,
+    itemId: String,
+    candidate: JellyIdentifyCandidateRaw,
+): String = destructive("re-identify Jellyfin item $itemId") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            val body = json.parseToJsonElement(candidate.json).jsonObject
+            okOr(jfApi(config, token).applyRemoteSearch(itemId, replaceAllImages = true, body = body), "identified")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }

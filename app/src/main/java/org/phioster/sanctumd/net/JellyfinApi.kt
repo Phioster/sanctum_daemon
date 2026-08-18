@@ -334,6 +334,12 @@ internal interface JellyfinApi {
     ): JfItemsResp
     @POST("Items/{id}/Refresh") suspend fun refreshItem(@Path("id") id: String): Response<ResponseBody>
     @DELETE("Items/{id}") suspend fun deleteItem(@Path("id") id: String): Response<ResponseBody>
+    @POST("Items/RemoteSearch/{kind}") suspend fun remoteSearch(@Path("kind") kind: String, @Body body: JsonObject): List<JsonObject>
+    @POST("Items/RemoteSearch/Apply/{id}") suspend fun applyRemoteSearch(
+        @Path("id") id: String,
+        @Query("replaceAllImages") replaceAllImages: Boolean,
+        @Body body: JsonObject,
+    ): Response<ResponseBody>
     @POST("Sessions/{id}/Playing/{cmd}") suspend fun playCommand(@Path("id") id: String, @Path("cmd") cmd: String): Response<ResponseBody>
     @POST("Sessions/{id}/Message") suspend fun message(@Path("id") id: String, @Body body: JfMessageReq): Response<ResponseBody>
     @POST("Library/Refresh") suspend fun refreshLibrary(): Response<ResponseBody>
