@@ -913,8 +913,15 @@ internal fun reportArrPush(resp: Response<ResponseBody>, label: String): String 
 // next Prowlarr sync would overwrite it anyway. What it offers is the one thing Prowlarr
 // cannot do for you — clearing the *arr app's own failure lockout.
 
-/** The service's own indexers, each carrying its lockout state (null = healthy). */
-suspend fun arrIndexers(config: ServiceConfig): List<ArrIndexerItem> = withContext(Dispatchers.IO) {
+/**
+ * The service's own indexers, each carrying its lockout state (null = healthy).
+ *
+ * [now] is injectable so the expiry rule can be tested; callers use the default.
+ */
+suspend fun arrIndexers(
+    config: ServiceConfig,
+    now: java.time.Instant = java.time.Instant.now(),
+): List<ArrIndexerItem> = withContext(Dispatchers.IO) {
     val api = apiFor<ArrApi>(config, apiKeyHeader(config))
     val base = arrBase(config.type)
     val records = api.indexers("$base/indexer")
@@ -922,8 +929,14 @@ suspend fun arrIndexers(config: ServiceConfig): List<ArrIndexerItem> = withConte
     // worth more than knowing nothing.
     val disabledTill = runCatching {
         api.indexerStatus("$base/indexerstatus")
-            .filter { it.disabledTill != null }
-            .associate { it.indexerId to it.disabledTill!! }
+            .mapNotNull { st ->
+                // The status row outlives the lockout: the apps keep it so the escalation level
+                // survives and repeated failures back off faster. Only a timestamp still in the
+                // future means the indexer is actually locked out right now.
+                val till = st.disabledTill?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
+                if (till != null && till.isAfter(now)) st.indexerId to st.disabledTill else null
+            }
+            .toMap()
     }.getOrDefault(emptyMap())
     records.map {
         ArrIndexerItem(

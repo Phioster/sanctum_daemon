@@ -131,6 +131,7 @@ internal fun ArrScreen(
     val supportsDetail = config.type == ServiceType.RADARR || config.type == ServiceType.SONARR || config.type == ServiceType.LIDARR
     val supportsImport = config.type == ServiceType.RADARR || config.type == ServiceType.SONARR
     var showSystem by remember { mutableStateOf(false) }
+    var showIndexers by remember { mutableStateOf(false) }
     var arrSys by remember { mutableStateOf<org.phioster.sanctumd.model.ArrSystemInfo?>(null) }
     var showImport by remember { mutableStateOf(false) }
     var importFolder by remember { mutableStateOf("") }
@@ -283,6 +284,7 @@ internal fun ArrScreen(
                                     scope.launch { arrSys = runCatching { vm.arrSystemInfo(config) }.getOrNull() }
                                 })
                             }
+                            DropdownMenuItem(text = { Text("Indexers", fontFamily = Mono) }, onClick = { barMenu = false; showIndexers = true })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
                         }
@@ -526,6 +528,10 @@ internal fun ArrScreen(
             },
             dismissButton = { TextButton(onClick = { selected = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
+    }
+
+    if (showIndexers) {
+        ArrIndexersDialog(vm, config, accent) { showIndexers = false }
     }
 
     if (showSystem) {

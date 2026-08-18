@@ -851,6 +851,18 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun sendReleaseToArr(arrConfig: ServiceConfig, release: ProwlarrRelease): String =
         arrPushRelease(arrConfig, release)
     /** Configured Radarr/Sonarr services, for the "send to" menu. */
+    suspend fun arrIndexersOf(config: ServiceConfig): List<org.phioster.sanctumd.model.ArrIndexerItem> =
+        org.phioster.sanctumd.net.arrIndexers(config)
+    suspend fun arrTestIndexers(config: ServiceConfig): String =
+        org.phioster.sanctumd.net.arrTestAllIndexers(config)
+
+    /** Every Servarr app that owns indexers — a lockout normally hits all of them at once. */
+    fun indexerServices(): List<ServiceConfig> = _services.value.filter {
+        it.type == ServiceType.RADARR || it.type == ServiceType.SONARR || it.type == ServiceType.LIDARR
+    }
+    suspend fun arrRepairAllIndexers(): List<Pair<String, String>> =
+        org.phioster.sanctumd.net.arrRepairIndexers(indexerServices())
+
     fun arrTargets(): List<ServiceConfig> =
         _services.value.filter { it.type == ServiceType.RADARR || it.type == ServiceType.SONARR }
     suspend fun nzbgetPause(config: ServiceConfig): String = runNzbgetPause(config)
