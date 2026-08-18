@@ -1038,6 +1038,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.net.seerrCreateIssue(config, mediaId, issueType, message)
     suspend fun seerrOptionsOf(config: ServiceConfig, mediaType: String): org.phioster.sanctumd.model.SeerrServiceOptions =
         org.phioster.sanctumd.net.seerrServiceOptions(config, mediaType)
+    suspend fun seerrRequestDetailOf(config: ServiceConfig, id: Int): org.phioster.sanctumd.model.SeerrRequestDetail =
+        org.phioster.sanctumd.net.seerrRequestDetail(config, id)
     suspend fun seerrDeleteReq(config: ServiceConfig, id: Int): String =
         org.phioster.sanctumd.net.seerrDeleteRequest(config, id)
     suspend fun seerrIssueDetailOf(config: ServiceConfig, id: Int): org.phioster.sanctumd.model.SeerrIssueDetail =

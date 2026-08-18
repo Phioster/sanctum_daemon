@@ -29,6 +29,7 @@ import org.phioster.sanctumd.model.SearchResult
 import org.phioster.sanctumd.model.SeerrDiscoverItem
 import org.phioster.sanctumd.model.SeerrIssueDetail
 import org.phioster.sanctumd.model.SeerrIssueItem
+import org.phioster.sanctumd.model.SeerrRequestDetail
 import org.phioster.sanctumd.model.SeerrRequestItem
 import org.phioster.sanctumd.model.SeerrProfile
 import org.phioster.sanctumd.model.SeerrRootFolder
@@ -150,6 +151,7 @@ internal interface SeerrApi {
     @DELETE("api/v1/watchlist/{id}") suspend fun deleteWatchlist(@Path("id") tmdbId: Int, @Query("mediaType") mediaType: String): Response<ResponseBody>
     @GET("api/v1/service/{type}") suspend fun services(@Path("type") type: String): List<SeerrServiceServer>
     @GET("api/v1/service/{type}/{id}") suspend fun serviceDetail(@Path("type") type: String, @Path("id") id: Int): SeerrServiceDetail
+    @GET("api/v1/request/{id}") suspend fun requestDetail(@Path("id") id: Int): JsonObject
     @GET("api/v1/issue/{id}") suspend fun issueDetail(@Path("id") id: Int): JsonObject
     @DELETE("api/v1/request/{id}") suspend fun deleteRequest(@Path("id") id: Int): Response<ResponseBody>
     @POST("api/v1/issue") suspend fun createIssue(@Body body: JsonObject): Response<ResponseBody>
@@ -459,6 +461,44 @@ suspend fun seerrServiceOptions(config: ServiceConfig, mediaType: String): Seerr
             },
             profiles = detail.profiles.map { SeerrProfile(it.id, it.name) },
             defaultProfileId = server.activeProfileId,
+        )
+    }
+
+/**
+ * The settings one request was made with, for the detail view behind a row.
+ *
+ * Resolves the quality profile to its name only when one was actually chosen — an unsteered
+ * request needs no service lookup, so the common case stays at two calls instead of four.
+ */
+suspend fun seerrRequestDetail(config: ServiceConfig, id: Int): SeerrRequestDetail =
+    withContext(Dispatchers.IO) {
+        val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
+        val o = api.requestDetail(id)
+        val media = o["media"] as? JsonObject ?: JsonObject(emptyMap())
+        val type = jsStr(o, "type") ?: jsStr(media, "mediaType") ?: "movie"
+        val tmdb = jsInt(media, "tmdbId") ?: 0
+        val title = api.resolveTitle(SeerrMedia(tmdb, type), type)
+        val who = (o["requestedBy"] as? JsonObject)?.let {
+            jsStr(it, "jellyfinUsername") ?: jsStr(it, "plexUsername") ?: jsStr(it, "username") ?: jsStr(it, "email")
+        }
+        val profileId = jsInt(o, "profileId")
+        val profileName = profileId?.let { wanted ->
+            runCatching { seerrServiceOptions(config, type).profiles.firstOrNull { it.id == wanted }?.name }
+                .getOrNull() ?: "#$wanted"
+        } ?: "default"
+        val status = jsInt(o, "status") ?: 0
+        SeerrRequestDetail(
+            id = jsInt(o, "id") ?: id,
+            title = title,
+            status = seerrStatusText(status),
+            mediaType = type,
+            requestedBy = who.orEmpty(),
+            created = jsStr(o, "createdAt").orEmpty().take(19).replace('T', ' '),
+            rootFolder = jsStr(o, "rootFolder")?.takeIf { it.isNotBlank() } ?: "default",
+            profile = profileName,
+            seasonCount = jsInt(o, "seasonCount") ?: 0,
+            is4k = jsBool(o, "is4k") == true,
+            pending = status == 1,
         )
     }
 

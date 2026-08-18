@@ -86,6 +86,26 @@ data class SeerrMediaDetail(
     val mediaId: Int = 0,
 )
 
+/**
+ * What one request was actually made with — the settings behind a row.
+ *
+ * [rootFolder] and [profile] read "default" when the request took the server's own, which is
+ * the common case and must not look like missing data.
+ */
+data class SeerrRequestDetail(
+    val id: Int,
+    val title: String,
+    val status: String,
+    val mediaType: String,
+    val requestedBy: String,
+    val created: String,
+    val rootFolder: String,
+    val profile: String,
+    val seasonCount: Int,
+    val is4k: Boolean,
+    val pending: Boolean,
+)
+
 /** A Seerr user, for the admin user list. */
 data class SeerrUserInfo(
     val name: String,
