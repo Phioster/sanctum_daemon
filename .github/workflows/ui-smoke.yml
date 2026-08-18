@@ -43,6 +43,18 @@ jobs:
           curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
+      # The emulator died on start with "Not enough space to create userdata partition:
+      # available 7150 MB, need 7372 MB" — 222 MB short. The "Timeout waiting for emulator to
+      # boot" that followed was only the consequence. The runner ships several toolchains this
+      # job never touches; dropping them frees tens of GB.
+      - name: Free disk space
+        run: |
+          echo "before:"; df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost \
+            /usr/local/lib/android/sdk/ndk "$AGENT_TOOLSDIRECTORY/CodeQL" || true
+          sudo apt-get clean
+          echo "after:"; df -h / | tail -1
+
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -58,6 +70,7 @@ jobs:
           profile: pixel_5
           cores: 2
           ram-size: 4096M
+          disk-size: 6G
           disable-animations: true
           emulator-boot-timeout: 600
           emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none
