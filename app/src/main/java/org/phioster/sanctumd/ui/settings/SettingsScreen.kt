@@ -72,7 +72,6 @@ import org.phioster.sanctumd.ui.seerr.*
 import org.phioster.sanctumd.ui.services.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
-import org.phioster.sanctumd.ui.common.*
 import org.phioster.sanctumd.showUnlockPrompt
 
 /** Dedicated settings hub: categories on the first level, one section per screen. */
