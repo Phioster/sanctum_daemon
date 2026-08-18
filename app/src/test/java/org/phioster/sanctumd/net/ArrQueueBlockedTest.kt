@@ -51,6 +51,35 @@ class ArrQueueBlockedTest {
         assertEquals("Jackass.5.Einer.geht.noch", blocked[0].title)
     }
 
+    /**
+     * The folder a blocked download landed in is already in the queue response. Carrying it
+     * means the manual import can be opened straight at it — the alternative is the user
+     * clicking down a nested tree for a path they do not know by heart.
+     */
+    @Test
+    fun `a queue entry carries the folder its download landed in`() = runBlocking {
+        queue(
+            """{"records":[{"id":1,"title":"Slaughtered.Vomit.Dolls.SiCK.2006.DVDRip.XviD-RatedG",
+                 "status":"completed","trackedDownloadState":"importBlocked",
+                 "outputPath":"/opt/nzbget/downloads/completed/Movies/Slaughtered.Vomit.Dolls.SiCK.2006.DVDRip.XviD-RatedG"}]}""",
+        )
+
+        val blocked = arrBlockedQueueItems(config())
+
+        assertEquals(
+            "/opt/nzbget/downloads/completed/Movies/Slaughtered.Vomit.Dolls.SiCK.2006.DVDRip.XviD-RatedG",
+            blocked[0].outputPath,
+        )
+    }
+
+    /** Without a path there is nothing to open, and the action must not be offered. */
+    @Test
+    fun `an entry without an output path reports none`() = runBlocking {
+        queue("""{"records":[{"id":1,"title":"X","status":"completed","trackedDownloadState":"importBlocked"}]}""")
+
+        assertEquals("", arrBlockedQueueItems(config())[0].outputPath)
+    }
+
     /** A healthy queue must produce an empty list, not a prompt to clean up nothing. */
     @Test
     fun `a queue with nothing blocked yields nothing`() = runBlocking {
