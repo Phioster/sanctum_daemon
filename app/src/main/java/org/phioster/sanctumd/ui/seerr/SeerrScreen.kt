@@ -153,6 +153,9 @@ internal fun SeerrScreen(
     var confirmItem by remember { mutableStateOf<SeerrSearchItem?>(null) }
     var rootFolders by remember { mutableStateOf<List<org.phioster.sanctumd.model.SeerrRootFolder>>(emptyList()) }
     var chosenFolder by remember { mutableStateOf<org.phioster.sanctumd.model.SeerrRootFolder?>(null) }
+    var profiles by remember { mutableStateOf<List<org.phioster.sanctumd.model.SeerrProfile>>(emptyList()) }
+    var chosenProfile by remember { mutableStateOf<org.phioster.sanctumd.model.SeerrProfile?>(null) }
+    var defaultProfileId by remember { mutableStateOf(0) }
     var mediaDetail by remember { mutableStateOf<org.phioster.sanctumd.model.SeerrMediaDetail?>(null) }
     var mediaDetailLoading by remember { mutableStateOf(initialDetail != null) }
     // Deep link from search: open the media-detail dialog right away.
@@ -366,6 +369,7 @@ internal fun SeerrScreen(
                                             accent = accent,
                                             onApprove = { act { vm.seerrApproveReq(config, req.id) } },
                                             onDecline = { act { vm.seerrDeclineReq(config, req.id) } },
+                                            onDelete = { act { vm.seerrDeleteReq(config, req.id) } },
                                         )
                                     }
                                 }
@@ -482,13 +486,21 @@ internal fun SeerrScreen(
         val ci = confirmItem
         seasons = null; selectedSeasons = emptySet()
         rootFolders = emptyList(); chosenFolder = null
+        profiles = emptyList(); chosenProfile = null; defaultProfileId = 0
         if (ci != null) {
-            // Only worth offering when there is something to choose between; a single-folder
+            // Only worth offering when there is something to choose between; a single-option
             // setup keeps the dialog exactly as it was.
-            val f = runCatching { vm.seerrRootFoldersOf(config, ci.mediaType) }.getOrDefault(emptyList())
-            if (f.size > 1) {
-                rootFolders = f
-                chosenFolder = f.firstOrNull { it.isDefault } ?: f.first()
+            val opts = runCatching { vm.seerrOptionsOf(config, ci.mediaType) }.getOrNull()
+            if (opts != null) {
+                if (opts.rootFolders.size > 1) {
+                    rootFolders = opts.rootFolders
+                    chosenFolder = opts.rootFolders.firstOrNull { it.isDefault } ?: opts.rootFolders.first()
+                }
+                if (opts.profiles.size > 1) {
+                    profiles = opts.profiles
+                    defaultProfileId = opts.defaultProfileId
+                    chosenProfile = opts.profiles.firstOrNull { it.id == opts.defaultProfileId } ?: opts.profiles.first()
+                }
             }
         }
         if (ci != null && ci.mediaType == "tv") {
@@ -516,6 +528,14 @@ internal fun SeerrScreen(
                             chosenFolder?.path?.substringAfterLast('/').orEmpty(),
                             rootFolders.map { it.path },
                         ) { i -> chosenFolder = rootFolders[i] }
+                    }
+                    if (profiles.size > 1) {
+                        Spacer(Modifier.height(8.dp))
+                        DropdownField(
+                            "Quality",
+                            chosenProfile?.name.orEmpty(),
+                            profiles.map { it.name },
+                        ) { i -> chosenProfile = profiles[i] }
                     }
                     if (isTv) {
                         Spacer(Modifier.height(8.dp))
@@ -560,9 +580,11 @@ internal fun SeerrScreen(
                         val chosen = if (!isTv) null else selectedSeasons.toList().sorted()
                         // Only send a folder when the user steered away from Seerr's default.
                         val folder = chosenFolder?.takeIf { !it.isDefault }
+                        // Same rule as the folder: only send it when steered off the default.
+                        val profile = chosenProfile?.takeIf { it.id != defaultProfileId }
                         confirmItem = null
                         scope.launch {
-                            actionMsg = vm.seerrRequestMedia(config, tmdb, type, chosen, folder?.path, folder?.serverId)
+                            actionMsg = vm.seerrRequestMedia(config, tmdb, type, chosen, folder?.path, folder?.serverId, profile?.id)
                             loadRequests()
                             vm.refreshAll()
                         }
@@ -909,7 +931,13 @@ internal fun SeerrScreen(
 }
 
 @Composable
-internal fun SeerrRequestRow(item: SeerrRequestItem, accent: Color, onApprove: () -> Unit, onDecline: () -> Unit) {
+internal fun SeerrRequestRow(
+    item: SeerrRequestItem,
+    accent: Color,
+    onApprove: () -> Unit,
+    onDecline: () -> Unit,
+    onDelete: () -> Unit = {},
+) {
     var menu by remember { mutableStateOf(false) }
     val statusColor = when (item.status) {
         "approved" -> MatrixGreen
@@ -947,6 +975,12 @@ internal fun SeerrRequestRow(item: SeerrRequestItem, accent: Color, onApprove: (
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(text = { Text("Approve", fontFamily = Mono) }, onClick = { menu = false; onApprove() })
             DropdownMenuItem(text = { Text("Decline", fontFamily = Mono) }, onClick = { menu = false; onDecline() })
+            // Approve/Decline stop applying once a request is settled; removing it is then the
+            // only action left, and there was none.
+            DropdownMenuItem(
+                text = { Text("Delete request", fontFamily = Mono, color = ErrRed) },
+                onClick = { menu = false; onDelete() },
+            )
         }
     }
 }

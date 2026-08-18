@@ -1032,11 +1032,14 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         seasons: List<Int>?,
         rootFolder: String? = null,
         serverId: Int? = null,
-    ): String = seerrRequest(config, tmdbId, mediaType, seasons, rootFolder, serverId)
+        profileId: Int? = null,
+    ): String = seerrRequest(config, tmdbId, mediaType, seasons, rootFolder, serverId, profileId)
     suspend fun seerrReportIssue(config: ServiceConfig, mediaId: Int, issueType: Int, message: String): String =
         org.phioster.sanctumd.net.seerrCreateIssue(config, mediaId, issueType, message)
-    suspend fun seerrRootFoldersOf(config: ServiceConfig, mediaType: String): List<org.phioster.sanctumd.model.SeerrRootFolder> =
-        org.phioster.sanctumd.net.seerrRootFolders(config, mediaType)
+    suspend fun seerrOptionsOf(config: ServiceConfig, mediaType: String): org.phioster.sanctumd.model.SeerrServiceOptions =
+        org.phioster.sanctumd.net.seerrServiceOptions(config, mediaType)
+    suspend fun seerrDeleteReq(config: ServiceConfig, id: Int): String =
+        org.phioster.sanctumd.net.seerrDeleteRequest(config, id)
     suspend fun seerrIssueDetailOf(config: ServiceConfig, id: Int): org.phioster.sanctumd.model.SeerrIssueDetail =
         seerrIssueDetail(config, id)
     suspend fun seerrComment(config: ServiceConfig, id: Int, message: String): String =
