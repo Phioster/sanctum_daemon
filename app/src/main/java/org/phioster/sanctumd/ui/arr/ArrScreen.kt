@@ -141,6 +141,7 @@ internal fun ArrScreen(
     // Assigning a target movie to an unmatched manual-import row (Radarr).
     var assignRow by remember { mutableStateOf<Int?>(null) }
     var assignEpisodeRow by remember { mutableStateOf<Int?>(null) }
+    var blockedQueue by remember { mutableStateOf<List<org.phioster.sanctumd.model.ArrQueueItem>>(emptyList()) }
     var assignLibrary by remember { mutableStateOf<List<ArrLibraryItem>?>(null) }
     var assignQuery by remember { mutableStateOf("") }
     var query by remember { mutableStateOf("") }
@@ -649,11 +650,50 @@ internal fun ArrScreen(
                         scope.launch {
                             actionMsg = vm.arrManualImport(config, chosen)
                             vm.refreshAll()
+                            // A hand-assigned import leaves its queue entry on importBlocked and the
+                            // source file on disk twice; surface those rather than leaving them to rot.
+                            blockedQueue = runCatching { vm.arrBlockedQueue(config) }.getOrDefault(emptyList())
                         }
                     },
                 ) { Text("Import (${importSelected.size})", fontFamily = Mono, color = MatrixGreen) }
             },
             dismissButton = { TextButton(onClick = { showImport = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    if (blockedQueue.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { blockedQueue = emptyList() },
+            containerColor = Surface,
+            title = { Text("Blocked in queue", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+                    Text(
+                        "These finished downloads were never imported automatically. Removing them " +
+                            "also deletes the leftover copy from the download client.",
+                        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    blockedQueue.forEach { q ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                q.title, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp,
+                                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                            )
+                            TextButton(onClick = {
+                                scope.launch {
+                                    actionMsg = vm.arrRemove(config, q.id)
+                                    blockedQueue = runCatching { vm.arrBlockedQueue(config) }.getOrDefault(emptyList())
+                                    vm.refreshAll()
+                                }
+                            }) { Text("remove", fontFamily = Mono, color = ErrRed, fontSize = 11.sp) }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { blockedQueue = emptyList() }) { Text("Close", fontFamily = Mono, color = MatrixGreen) }
+            },
         )
     }
 
