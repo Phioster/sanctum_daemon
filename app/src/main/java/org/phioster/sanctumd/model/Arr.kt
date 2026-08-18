@@ -25,6 +25,11 @@ data class ArrQueueItem(
     val progress: Float,
     /** Downloaded but the app refuses to import it — needs a hand, and leaves the file lying twice. */
     val blocked: Boolean = false,
+    /**
+     * The folder the download landed in. Empty when the service did not report one, and then
+     * there is nothing to open — the manual-import shortcut must not be offered.
+     */
+    val outputPath: String = "",
 )
 
 /** A library entry (movie/series/artist). */

@@ -134,10 +134,14 @@ internal fun ArrScreen(
     var showBlocklist by remember { mutableStateOf(false) }
     var arrSys by remember { mutableStateOf<org.phioster.sanctumd.model.ArrSystemInfo?>(null) }
     var showImport by remember { mutableStateOf(false) }
+    val rememberedPath by vm.lastImportPath.collectAsState()
     var importFolder by remember { mutableStateOf("") }
+    var importAutoScan by remember { mutableStateOf(false) }
     var importItems by remember { mutableStateOf<List<org.phioster.sanctumd.model.ArrImportItem>?>(null) }
     var importScanning by remember { mutableStateOf(false) }
     var importSelected by remember { mutableStateOf<Set<Int>>(emptySet()) }
+
+
     // Assigning a target movie to an unmatched manual-import row (Radarr).
     var assignRow by remember { mutableStateOf<Int?>(null) }
     var assignEpisodeRow by remember { mutableStateOf<Int?>(null) }
@@ -149,6 +153,27 @@ internal fun ArrScreen(
     var sortMenu by remember { mutableStateOf(false) }
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
+
+    suspend fun runImportScan() {
+        importScanning = true; importItems = null; importSelected = emptySet()
+        importItems = runCatching { vm.arrManualScan(config, importFolder.trim()) }.getOrElse {
+            actionMsg = "error: ${it.message}"; emptyList()
+        }
+        importSelected = importItems!!.mapIndexedNotNull { i, it -> if (it.importable) i else null }.toSet()
+        importScanning = false
+        // Next time the browser opens here rather than at the root.
+        if (importFolder.isNotBlank()) vm.rememberImportPath(importFolder.trim())
+    }
+
+    /** Opens the manual import already pointed at [path] and scans it — no browsing needed. */
+    fun openImportAt(path: String) {
+        importFolder = path
+        importItems = null
+        importSelected = emptySet()
+        showImport = true
+        importAutoScan = true
+    }
+
     var refreshing by remember { mutableStateOf(false) }
     LaunchedEffect(actionMsg) { if (actionMsg != null) { kotlinx.coroutines.delay(4000); actionMsg = null } }
     var barMenu by remember { mutableStateOf(false) }
@@ -278,6 +303,7 @@ internal fun ArrScreen(
                             if (supportsImport) {
                                 DropdownMenuItem(text = { Text("Manual import", fontFamily = Mono) }, onClick = {
                                     barMenu = false; showImport = true; importItems = null; importSelected = emptySet()
+                                    importFolder = rememberedPath
                                 })
                             }
                             if (supportsDetail) {
@@ -431,6 +457,7 @@ internal fun ArrScreen(
                                                 qi,
                                                 onRemove = { act { vm.arrRemove(config, qi.id) } },
                                                 onBlocklist = { act { vm.arrRemoveAndBlock(config, qi.id) } },
+                                                onImport = { openImportAt(qi.outputPath) },
                                             )
                                         }
                                     }
@@ -589,6 +616,13 @@ internal fun ArrScreen(
         )
     }
 
+    LaunchedEffect(showImport, importAutoScan) {
+        if (showImport && importAutoScan) {
+            importAutoScan = false
+            runImportScan()
+        }
+    }
+
     if (showImport) {
         val items = importItems
         AlertDialog(
@@ -600,16 +634,7 @@ internal fun ArrScreen(
                     ArrFolderBrowser(vm, config, accent, importFolder) { importFolder = it }
                     Spacer(Modifier.height(8.dp))
                     OutlinedButton(
-                        onClick = {
-                            importScanning = true; importItems = null; importSelected = emptySet()
-                            scope.launch {
-                                importItems = runCatching { vm.arrManualScan(config, importFolder.trim()) }.getOrElse {
-                                    actionMsg = "error: ${it.message}"; emptyList()
-                                }
-                                importSelected = importItems!!.mapIndexedNotNull { i, it -> if (it.importable) i else null }.toSet()
-                                importScanning = false
-                            }
-                        },
+                        onClick = { scope.launch { runImportScan() } },
                         enabled = importFolder.isNotBlank() && !importScanning,
                     ) { Text(if (importScanning) "scanning…" else "Scan", fontFamily = Mono) }
                     Spacer(Modifier.height(8.dp))
@@ -696,6 +721,11 @@ internal fun ArrScreen(
                                 q.title, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp,
                                 maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
                             )
+                            if (q.outputPath.isNotBlank()) {
+                                TextButton(onClick = { blockedQueue = emptyList(); openImportAt(q.outputPath) }) {
+                                    Text("import", fontFamily = Mono, color = accent, fontSize = 11.sp)
+                                }
+                            }
                             TextButton(onClick = {
                                 scope.launch {
                                     actionMsg = vm.arrRemove(config, q.id)
@@ -873,7 +903,12 @@ internal fun ArrMissingRow(item: ArrMissingItem, accent: Color, onSearch: () -> 
 }
 
 @Composable
-internal fun ArrQueueRow(item: ArrQueueItem, onRemove: () -> Unit, onBlocklist: () -> Unit = {}) {
+internal fun ArrQueueRow(
+    item: ArrQueueItem,
+    onRemove: () -> Unit,
+    onBlocklist: () -> Unit = {},
+    onImport: () -> Unit = {},
+) {
     var menu by remember { mutableStateOf(false) }
     Box {
         Column(Modifier.fillMaxWidth().clickable { menu = true }.padding(vertical = 8.dp)) {
@@ -886,6 +921,14 @@ internal fun ArrQueueRow(item: ArrQueueItem, onRemove: () -> Unit, onBlocklist: 
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            // The queue already knows where the download landed; browsing to it by hand means
+            // clicking down a nested tree for a path nobody remembers.
+            if (item.outputPath.isNotBlank()) {
+                DropdownMenuItem(
+                    text = { Text("Import this", fontFamily = Mono) },
+                    onClick = { menu = false; onImport() },
+                )
+            }
             DropdownMenuItem(text = { Text("Remove", fontFamily = Mono) }, onClick = { menu = false; onRemove() })
             // Removing alone lets the same broken release be grabbed again on the next search.
             DropdownMenuItem(

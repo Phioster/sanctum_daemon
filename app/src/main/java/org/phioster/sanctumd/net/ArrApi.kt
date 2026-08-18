@@ -109,6 +109,8 @@ internal interface LidarrApi {
     // "importBlocked" after a download the app refuses to import by itself. Absent on older
     // versions, which must read as "not blocked" rather than as a cleanup prompt.
     val trackedDownloadState: String? = null,
+    // Where the download actually landed — what a manual import needs to be pointed at.
+    val outputPath: String? = null,
 )
 @Serializable internal data class ArrQueuePage(val records: List<ArrQueueRecord> = emptyList())
 
@@ -470,7 +472,14 @@ suspend fun arrQueue(config: ServiceConfig): List<ArrQueueItem> = withContext(Di
     val base = arrBase(config.type)
     apiFor<ArrApi>(config, apiKeyHeader(config)).queue("$base/queue?pageSize=100").records.map { r ->
         val prog = if (r.size > 0) ((r.size - r.sizeleft) / r.size).toFloat().coerceIn(0f, 1f) else 0f
-        ArrQueueItem(r.id, r.title, r.status, prog, blocked = r.trackedDownloadState == "importBlocked")
+        ArrQueueItem(
+            id = r.id,
+            title = r.title,
+            status = r.status,
+            progress = prog,
+            blocked = r.trackedDownloadState == "importBlocked",
+            outputPath = r.outputPath.orEmpty(),
+        )
     }
 }
 

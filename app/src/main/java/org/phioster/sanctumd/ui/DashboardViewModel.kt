@@ -292,6 +292,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     fun setPlayerSwipeMargin(v: Float) = viewModelScope.launch { dashStore.setPlayerSwipeMargin(v) }
 
     /** Playback preferences (track languages, subtitle look, autoplay, segment skipping, resume). */
+    /** Where the last manual import was scanned; the folder browser opens there. */
+    val lastImportPath: StateFlow<String> =
+        dashStore.lastImportPath.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, "")
+    fun rememberImportPath(path: String) { viewModelScope.launch { dashStore.setLastImportPath(path) } }
+
     val audioLanguage: StateFlow<String> =
         dashStore.audioLanguage.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, "de")
     val subtitleLanguage: StateFlow<String> =
