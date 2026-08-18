@@ -131,6 +131,7 @@ internal fun ArrScreen(
     var showSystem by remember { mutableStateOf(false) }
     var showIndexers by remember { mutableStateOf(false) }
     var showProfiles by remember { mutableStateOf(false) }
+    var showBlocklist by remember { mutableStateOf(false) }
     var arrSys by remember { mutableStateOf<org.phioster.sanctumd.model.ArrSystemInfo?>(null) }
     var showImport by remember { mutableStateOf(false) }
     var importFolder by remember { mutableStateOf("") }
@@ -287,6 +288,7 @@ internal fun ArrScreen(
                             }
                             DropdownMenuItem(text = { Text("Indexers", fontFamily = Mono) }, onClick = { barMenu = false; showIndexers = true })
                             DropdownMenuItem(text = { Text("Quality profiles", fontFamily = Mono) }, onClick = { barMenu = false; showProfiles = true })
+                            DropdownMenuItem(text = { Text("Blocklist", fontFamily = Mono) }, onClick = { barMenu = false; showBlocklist = true })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
                         }
@@ -424,7 +426,13 @@ internal fun ArrScreen(
                                             }
                                         }
                                         val shown = q.filter { activeFilter.isEmpty() || it.status == activeFilter }
-                                        items(shown) { qi -> ArrQueueRow(qi) { act { vm.arrRemove(config, qi.id) } } }
+                                        items(shown) { qi ->
+                                            ArrQueueRow(
+                                                qi,
+                                                onRemove = { act { vm.arrRemove(config, qi.id) } },
+                                                onBlocklist = { act { vm.arrRemoveAndBlock(config, qi.id) } },
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -530,6 +538,10 @@ internal fun ArrScreen(
             },
             dismissButton = { TextButton(onClick = { selected = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
+    }
+
+    if (showBlocklist) {
+        ArrBlocklistDialog(vm, config, accent, onDismiss = { showBlocklist = false }) { actionMsg = it }
     }
 
     if (showProfiles) {
@@ -861,7 +873,7 @@ internal fun ArrMissingRow(item: ArrMissingItem, accent: Color, onSearch: () -> 
 }
 
 @Composable
-internal fun ArrQueueRow(item: ArrQueueItem, onRemove: () -> Unit) {
+internal fun ArrQueueRow(item: ArrQueueItem, onRemove: () -> Unit, onBlocklist: () -> Unit = {}) {
     var menu by remember { mutableStateOf(false) }
     Box {
         Column(Modifier.fillMaxWidth().clickable { menu = true }.padding(vertical = 8.dp)) {
@@ -875,6 +887,11 @@ internal fun ArrQueueRow(item: ArrQueueItem, onRemove: () -> Unit) {
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(text = { Text("Remove", fontFamily = Mono) }, onClick = { menu = false; onRemove() })
+            // Removing alone lets the same broken release be grabbed again on the next search.
+            DropdownMenuItem(
+                text = { Text("Remove + blocklist", fontFamily = Mono, color = ErrRed) },
+                onClick = { menu = false; onBlocklist() },
+            )
         }
     }
 }

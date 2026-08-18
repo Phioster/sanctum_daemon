@@ -971,6 +971,12 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.net.arrFindByProviderId(config, tmdbId, tvdbId)
     suspend fun arrDeleteItem(config: ServiceConfig, id: Int, deleteFiles: Boolean, addImportExclusion: Boolean): String =
         org.phioster.sanctumd.net.arrDelete(config, id, deleteFiles, addImportExclusion)
+    suspend fun arrRemoveAndBlock(config: ServiceConfig, id: Int): String =
+        org.phioster.sanctumd.net.arrQueueRemove(config, id, blocklist = true)
+    suspend fun arrBlocklistOf(config: ServiceConfig): List<org.phioster.sanctumd.model.ArrBlocklistItem> =
+        org.phioster.sanctumd.net.arrBlocklist(config)
+    suspend fun arrUnblock(config: ServiceConfig, id: Int): String =
+        org.phioster.sanctumd.net.arrBlocklistRemove(config, id)
     suspend fun arrCloneProfile(config: ServiceConfig, sourceId: Int, newName: String): String =
         org.phioster.sanctumd.net.arrCloneProfileUnrestricted(config, sourceId, newName)
     suspend fun arrBlockedQueue(config: ServiceConfig): List<org.phioster.sanctumd.model.ArrQueueItem> =
