@@ -12,6 +12,7 @@ import org.junit.Before
 import org.junit.Test
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
+import java.time.Instant
 
 /**
  * Sonarr and Radarr keep their own indexer failure counters, separate from Prowlarr's: when
@@ -37,17 +38,35 @@ class ArrIndexerTest {
     private fun respond(body: String) =
         server.enqueue(MockResponse().setBody(body).setHeader("Content-Type", "application/json"))
 
+    private val now: Instant = Instant.parse("2026-08-17T01:30:00Z")
+
     @Test
     fun `a locked out indexer reports until when it is disabled`() = runBlocking {
         respond("""[{"id":3,"name":"treasure-maps (Prowlarr)","protocol":"usenet","priority":25,
                     "enableRss":true,"enableAutomaticSearch":true,"enableInteractiveSearch":true}]""")
         respond("""[{"indexerId":3,"disabledTill":"2026-08-17T02:03:39Z","mostRecentFailure":"2026-08-17T01:03:39Z"}]""")
 
-        val indexers = arrIndexers(config())
+        val indexers = arrIndexers(config(), now)
 
         assertEquals(1, indexers.size)
         assertTrue(indexers[0].failing)
         assertEquals("2026-08-17T02:03:39Z", indexers[0].disabledTill)
+    }
+
+    /**
+     * The *arr apps keep the status row after a lockout expires, because the escalation level
+     * has to survive so repeated failures back off faster. Reading "row exists" as "locked out"
+     * would therefore paint an indexer red forever after its first bad day.
+     */
+    @Test
+    fun `a lockout that has already expired is not a lockout`() = runBlocking {
+        respond("""[{"id":3,"name":"treasure-maps (Prowlarr)","protocol":"usenet","enableRss":true}]""")
+        respond("""[{"indexerId":3,"disabledTill":"2026-08-17T01:00:00Z","mostRecentFailure":"2026-08-17T00:00:00Z"}]""")
+
+        val indexers = arrIndexers(config(), now)
+
+        assertFalse(indexers[0].failing)
+        assertNull(indexers[0].disabledTill)
     }
 
     @Test
@@ -55,7 +74,7 @@ class ArrIndexerTest {
         respond("""[{"id":3,"name":"treasure-maps (Prowlarr)","protocol":"usenet","enableRss":true}]""")
         respond("""[]""")
 
-        val indexers = arrIndexers(config())
+        val indexers = arrIndexers(config(), now)
 
         assertFalse(indexers[0].failing)
         assertNull(indexers[0].disabledTill)
@@ -66,7 +85,7 @@ class ArrIndexerTest {
         respond("""[{"id":3,"name":"treasure-maps (Prowlarr)","protocol":"usenet","enableRss":true}]""")
         server.enqueue(MockResponse().setResponseCode(500))
 
-        val indexers = arrIndexers(config())
+        val indexers = arrIndexers(config(), now)
 
         assertEquals(1, indexers.size)
         assertFalse(indexers[0].failing)
