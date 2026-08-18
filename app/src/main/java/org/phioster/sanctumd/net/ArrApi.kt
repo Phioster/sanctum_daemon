@@ -167,7 +167,11 @@ internal interface LidarrApi {
     val totalSpace: Long = 0,
 )
 @Serializable internal data class ArrSystemStatusRec(val version: String = "")
-@Serializable internal data class ArrHealthRecord(val type: String = "", val message: String = "")
+@Serializable internal data class ArrHealthRecord(
+    val type: String = "",
+    val message: String = "",
+    val source: String = "", // e.g. "IndexerStatusCheck"
+)
 
 @Serializable internal data class ArrGrabReq(val guid: String, val indexerId: Int)
 
@@ -187,10 +191,6 @@ internal interface LidarrApi {
     val enableRss: Boolean = false,
     val enableAutomaticSearch: Boolean = false,
     val enableInteractiveSearch: Boolean = false,
-)
-@Serializable internal data class ArrIndexerStatusRecord(
-    val indexerId: Int = 0,
-    val disabledTill: String? = null,
 )
 
 @Serializable internal data class ArrFsNode(
@@ -232,7 +232,6 @@ internal interface ArrApi {
     @GET suspend fun filesystem(@Url url: String): ArrFsResp
     @GET suspend fun blocklist(@Url url: String): ArrBlocklistPage
     @GET suspend fun indexers(@Url url: String): List<ArrIndexerRecord>
-    @GET suspend fun indexerStatus(@Url url: String): List<ArrIndexerStatusRecord>
     @POST suspend fun postEmpty(@Url url: String): Response<ResponseBody>
 }
 
@@ -1109,30 +1108,27 @@ internal fun reportArrPush(resp: Response<ResponseBody>, label: String): String 
 // cannot do for you — clearing the *arr app's own failure lockout.
 
 /**
- * The service's own indexers, each carrying its lockout state (null = healthy).
+ * The service's own indexers, with whether each is currently locked out.
  *
- * [now] is injectable so the expiry rule can be tested; callers use the default.
+ * The state comes from the **health check**, not from an `indexerstatus` endpoint: that one
+ * returns 404 on Radarr 6.3 and Sonarr 4.0 (measured against live instances), and only Prowlarr
+ * has it. A locked-out indexer shows up as a health warning from `IndexerStatusCheck` naming
+ * the affected indexers — the same source the web UI uses. No expiry time is available there,
+ * only the fact.
+ *
+ * If health cannot be read the indexers come back with [ArrIndexerItem.statusUnknown] rather
+ * than as healthy; the list still loads, because knowing the indexers exist beats knowing
+ * nothing, but it must not claim they are fine.
  */
-suspend fun arrIndexers(
-    config: ServiceConfig,
-    now: java.time.Instant = java.time.Instant.now(),
-): List<ArrIndexerItem> = withContext(Dispatchers.IO) {
+suspend fun arrIndexers(config: ServiceConfig): List<ArrIndexerItem> = withContext(Dispatchers.IO) {
     val api = apiFor<ArrApi>(config, apiKeyHeader(config))
     val base = arrBase(config.type)
     val records = api.indexers("$base/indexer")
-    // A missing status endpoint must not hide the indexer list — knowing they exist is still
-    // worth more than knowing nothing.
-    val disabledTill = runCatching {
-        api.indexerStatus("$base/indexerstatus")
-            .mapNotNull { st ->
-                // The status row outlives the lockout: the apps keep it so the escalation level
-                // survives and repeated failures back off faster. Only a timestamp still in the
-                // future means the indexer is actually locked out right now.
-                val till = st.disabledTill?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
-                if (till != null && till.isAfter(now)) st.indexerId to st.disabledTill else null
-            }
-            .toMap()
-    }.getOrDefault(emptyMap())
+    val warning = runCatching {
+        api.healthChecks("$base/health")
+            .filter { it.source == "IndexerStatusCheck" || it.message.contains(INDEXERS_UNAVAILABLE, true) }
+            .joinToString(" ") { it.message }
+    }
     records.map {
         ArrIndexerItem(
             id = it.id,
@@ -1142,10 +1138,15 @@ suspend fun arrIndexers(
             enableRss = it.enableRss,
             enableAutomaticSearch = it.enableAutomaticSearch,
             enableInteractiveSearch = it.enableInteractiveSearch,
-            disabledTill = disabledTill[it.id],
+            // The warning lists the indexers by name; substring is what the message gives us.
+            failing = warning.getOrNull()?.contains(it.name, ignoreCase = true) == true,
+            statusUnknown = warning.isFailure,
         )
     }
 }
+
+/** Matched as a fallback in case a future version renames the check's source. */
+private const val INDEXERS_UNAVAILABLE = "Indexers unavailable due to failures"
 
 /**
  * Tests every indexer of one service. A successful test makes the app record a success, which

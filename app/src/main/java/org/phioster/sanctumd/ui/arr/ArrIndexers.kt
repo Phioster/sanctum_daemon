@@ -36,25 +36,6 @@ import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-
-/**
- * How long an indexer is still locked out, in the reader's own timezone.
- *
- * Empty when there is nothing to say — no lockout, an expired one, or a timestamp the server
- * phrased in a way we cannot parse. A wrong time here would be worse than none, because the
- * whole point is deciding whether to wait or to act.
- */
-internal fun lockoutLabel(disabledTill: String?, now: Instant, zone: ZoneId): String {
-    val till = disabledTill?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return ""
-    if (!till.isAfter(now)) return ""
-    val local = till.atZone(zone)
-    val sameDay = local.toLocalDate() == now.atZone(zone).toLocalDate()
-    val pattern = if (sameDay) "HH:mm" else "dd.MM. HH:mm"
-    return "locked until " + local.format(DateTimeFormatter.ofPattern(pattern))
-}
 
 /**
  * The indexers of one Servarr app, with the one repair that matters.
@@ -74,7 +55,6 @@ internal fun ArrIndexersDialog(
     var indexers by remember { mutableStateOf<List<ArrIndexerItem>?>(null) }
     var msg by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
-    val zone = remember { ZoneId.systemDefault() }
 
     suspend fun reload() {
         indexers = runCatching { vm.arrIndexersOf(config) }.getOrDefault(emptyList())
@@ -92,7 +72,7 @@ internal fun ArrIndexersDialog(
                     else -> if (list.isEmpty()) {
                         Text("no indexers configured", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                     } else {
-                        list.forEach { ix -> ArrIndexerRow(ix, accent, lockoutLabel(ix.disabledTill, Instant.now(), zone)) }
+                        list.forEach { ix -> ArrIndexerRow(ix, accent) }
                     }
                 }
                 msg?.let {
@@ -136,19 +116,33 @@ internal fun ArrIndexersDialog(
 }
 
 @Composable
-private fun ArrIndexerRow(item: ArrIndexerItem, accent: Color, lockout: String) {
-    val stateColor = if (item.failing) ErrRed else MatrixGreen
+private fun ArrIndexerRow(item: ArrIndexerItem, accent: Color) {
+    val stateColor = when {
+        item.failing -> ErrRed
+        item.statusUnknown -> Color(0xFFFFAA00)
+        else -> MatrixGreen
+    }
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(
                 item.name, fontFamily = Mono, color = stateColor, fontSize = 13.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
             )
-            Text(if (item.failing) "failing" else item.protocol, fontFamily = Mono, color = stateColor, fontSize = 11.sp)
+            Text(
+                when {
+                    item.failing -> "failing"
+                    item.statusUnknown -> "state unknown"
+                    else -> item.protocol
+                },
+                fontFamily = Mono, color = stateColor, fontSize = 11.sp,
+            )
         }
-        if (lockout.isNotBlank()) {
+        if (item.statusUnknown) {
             Spacer(Modifier.height(2.dp))
-            Text(lockout, fontFamily = Mono, color = ErrRed, fontSize = 11.sp)
+            Text(
+                "health check unreachable — cannot tell",
+                fontFamily = Mono, color = Color(0xFFFFAA00), fontSize = 10.sp,
+            )
         }
         Spacer(Modifier.height(2.dp))
         Text(

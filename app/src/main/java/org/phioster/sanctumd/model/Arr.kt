@@ -157,10 +157,15 @@ data class ArrIndexerItem(
     val enableRss: Boolean,
     val enableAutomaticSearch: Boolean,
     val enableInteractiveSearch: Boolean,
-    val disabledTill: String? = null, // ISO timestamp; null when the indexer is healthy
-) {
-    val failing: Boolean get() = disabledTill != null
-}
+    /** Locked out right now, per the service's own health check. */
+    val failing: Boolean = false,
+    /**
+     * The health check could not be read, so nothing is known about this indexer's state.
+     * Kept distinct from [failing] and from healthy on purpose: reporting an unreachable
+     * status source as "fine" is how the previous version lied with a straight face.
+     */
+    val statusUnknown: Boolean = false,
+)
 
 /** One entry when browsing the server's filesystem (manual import). */
 data class ArrFsEntry(
