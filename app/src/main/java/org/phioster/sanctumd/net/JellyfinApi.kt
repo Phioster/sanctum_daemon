@@ -258,6 +258,7 @@ internal data class JfCounts(
     val ImageTags: Map<String, String>? = null,
     val UserData: JfUserData? = null, // watched state / resume position for this user
     val MediaSources: List<JfDetailMediaSource> = emptyList(),
+    val ProviderIds: Map<String, String>? = null, // Tmdb/Imdb/Tvdb — the exact link to the *arr side
 )
 
 @Serializable internal data class JfAuthReq(val Username: String, val Pw: String)
@@ -332,6 +333,7 @@ internal interface JellyfinApi {
         @Query("Fields") fields: String = "OfficialRating",
     ): JfItemsResp
     @POST("Items/{id}/Refresh") suspend fun refreshItem(@Path("id") id: String): Response<ResponseBody>
+    @DELETE("Items/{id}") suspend fun deleteItem(@Path("id") id: String): Response<ResponseBody>
     @POST("Sessions/{id}/Playing/{cmd}") suspend fun playCommand(@Path("id") id: String, @Path("cmd") cmd: String): Response<ResponseBody>
     @POST("Sessions/{id}/Message") suspend fun message(@Path("id") id: String, @Body body: JfMessageReq): Response<ResponseBody>
     @POST("Library/Refresh") suspend fun refreshLibrary(): Response<ResponseBody>
