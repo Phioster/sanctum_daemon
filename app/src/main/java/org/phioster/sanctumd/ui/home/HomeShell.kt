@@ -104,7 +104,6 @@ import org.phioster.sanctumd.ui.services.*
 import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
-import org.phioster.sanctumd.ui.common.*
 
 /** Wraps a set of tab pages in a finger-following HorizontalPager (drags with the finger,
  *  snaps on release), kept in sync with the caller's [tab]. Nested horizontally-scrolling

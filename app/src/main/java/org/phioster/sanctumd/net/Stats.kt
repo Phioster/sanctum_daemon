@@ -24,13 +24,6 @@ suspend fun arrDiskSpace(config: ServiceConfig): List<DiskInfo> = withContext(Di
         .map { DiskInfo(it.path, it.freeSpace, it.totalSpace) }
 }
 
-/** Grabs per indexer for a Prowlarr instance. */
-suspend fun prowlarrIndexerGrabs(config: ServiceConfig): List<Pair<String, Int>> = withContext(Dispatchers.IO) {
-    apiFor<ProwlarrApi>(config, apiKeyHeader(config)).statsFull().indexers
-        .filter { it.indexerName.isNotBlank() }
-        .map { it.indexerName to it.numberOfGrabs }
-}
-
 /** Queries + grabs per indexer for a Prowlarr instance: (name, queries, grabs). */
 suspend fun prowlarrIndexerStats(config: ServiceConfig): List<Triple<String, Int, Int>> = withContext(Dispatchers.IO) {
     apiFor<ProwlarrApi>(config, apiKeyHeader(config)).statsFull().indexers
@@ -42,10 +35,4 @@ suspend fun prowlarrIndexerStats(config: ServiceConfig): List<Triple<String, Int
 suspend fun arrHealthCount(config: ServiceConfig): Int = withContext(Dispatchers.IO) {
     val base = arrBase(config.type)
     apiFor<ArrApi>(config, apiKeyHeader(config)).healthChecks("$base/health").size
-}
-
-/** Total item count for an *arr library ("*arr" = Radarr/Sonarr/Lidarr). */
-suspend fun arrLibraryCount(config: ServiceConfig): Int = withContext(Dispatchers.IO) {
-    if (config.type !in setOf(ServiceType.RADARR, ServiceType.SONARR, ServiceType.LIDARR)) 0
-    else arrLibrary(config).size
 }

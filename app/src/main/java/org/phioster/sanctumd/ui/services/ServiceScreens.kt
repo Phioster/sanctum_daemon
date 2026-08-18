@@ -80,7 +80,6 @@ import org.phioster.sanctumd.ui.seerr.*
 import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
-import org.phioster.sanctumd.ui.common.*
 import org.phioster.sanctumd.ServiceLogo
 
 /** Compact, tidy status error for the service cards — the raw DNS/connection exception is verbose and

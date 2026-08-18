@@ -67,7 +67,6 @@ import org.phioster.sanctumd.ui.services.*
 import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
-import org.phioster.sanctumd.ui.common.*
 
 @Composable
 internal fun DashSessionRow(item: org.phioster.sanctumd.model.JellySession, accent: Color, density: String = "") {

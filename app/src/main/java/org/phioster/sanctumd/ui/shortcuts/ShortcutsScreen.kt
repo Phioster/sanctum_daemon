@@ -63,7 +63,6 @@ import org.phioster.sanctumd.ui.seerr.*
 import org.phioster.sanctumd.ui.services.*
 import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.theme.*
-import org.phioster.sanctumd.ui.common.*
 import org.phioster.sanctumd.ServiceLogo
 
 /** HTTP-shortcuts service screen: fire one-tap requests (tap again to confirm). */
