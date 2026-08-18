@@ -83,6 +83,9 @@ android {
         // The parsers under test are plain Kotlin; anything that does touch an Android
         // stub should get a default rather than the usual "not mocked" exception.
         unitTests.isReturnDefaultValues = true
+        // Compose layout tests run on Robolectric in the normal (fast, emulator-free) unit
+        // test job rather than as instrumented tests — they need real resources for that.
+        unitTests.isIncludeAndroidResources = true
     }
 
     lint {
@@ -162,4 +165,12 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+
+    // Compose layout tests. A pure unit test cannot see that a composable measures to the
+    // wrong size, which is how a section once grew into a screen-high empty block while every
+    // test stayed green. Robolectric keeps these in the fast job — no emulator involved.
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation(platform("androidx.compose:compose-bom:2024.12.01"))
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
