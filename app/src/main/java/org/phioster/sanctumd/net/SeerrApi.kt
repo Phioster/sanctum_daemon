@@ -144,6 +144,7 @@ internal interface SeerrApi {
     @GET("api/v1/service/{type}") suspend fun services(@Path("type") type: String): List<SeerrServiceServer>
     @GET("api/v1/service/{type}/{id}") suspend fun serviceDetail(@Path("type") type: String, @Path("id") id: Int): SeerrServiceDetail
     @GET("api/v1/issue/{id}") suspend fun issueDetail(@Path("id") id: Int): JsonObject
+    @POST("api/v1/issue") suspend fun createIssue(@Body body: JsonObject): Response<ResponseBody>
     @POST("api/v1/issue/{id}/comment") suspend fun addComment(@Path("id") id: Int, @Body body: JsonObject): Response<ResponseBody>
     @POST("api/v1/issue/{id}/{status}") suspend fun setIssueStatus(@Path("id") id: Int, @Path("status") status: String): Response<ResponseBody>
     @DELETE("api/v1/issue/{id}") suspend fun deleteIssue(@Path("id") id: Int): Response<ResponseBody>
@@ -475,6 +476,30 @@ suspend fun seerrRequest(
     }
 }
 
+/**
+ * Opens an issue on a title. [issueType] is Seerr's own numbering — see [seerrIssueType]:
+ * 1 video, 2 audio, 3 subtitle, 4 other.
+ */
+suspend fun seerrCreateIssue(
+    config: ServiceConfig,
+    mediaId: Int,
+    issueType: Int,
+    message: String,
+): String = destructive("report a Seerr issue on media $mediaId") {
+    withContext(Dispatchers.IO) {
+        try {
+            val body = buildJsonObject {
+                put("issueType", issueType)
+                put("message", message)
+                put("mediaId", mediaId)
+            }
+            okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).createIssue(body), "reported")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
+}
+
 suspend fun seerrIssueDetail(config: ServiceConfig, id: Int): SeerrIssueDetail = withContext(Dispatchers.IO) {
     val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
     val o = api.issueDetail(id)
@@ -607,6 +632,9 @@ suspend fun seerrMediaDetail(config: ServiceConfig, tmdbId: Int, mediaType: Stri
         status = seerrMediaStatusText(statusInt),
         cast = cast,
         onWatchlist = jsBool(o, "onUserWatchlist") ?: false,
+        // Seerr's own id, not the TMDB one — issues are filed against this. Absent until the
+        // title exists in Seerr's library, which is also when an issue would make no sense.
+        mediaId = (o["mediaInfo"] as? JsonObject)?.let { jsInt(it, "id") } ?: 0,
     )
 }
 

@@ -168,6 +168,7 @@ internal fun SeerrScreen(
     var seasons by remember { mutableStateOf<List<org.phioster.sanctumd.model.SeerrSeason>?>(null) }
     var selectedSeasons by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var issueDetailId by remember { mutableStateOf<Int?>(null) }
+    var reportFor by remember { mutableStateOf<Pair<Int, String>?>(null) }
     var issueDetail by remember { mutableStateOf<org.phioster.sanctumd.model.SeerrIssueDetail?>(null) }
     var commentText by remember { mutableStateOf("") }
 
@@ -582,6 +583,14 @@ internal fun SeerrScreen(
         )
     }
 
+    reportFor?.let { (mid, title) ->
+        SeerrReportIssueDialog(vm, config, mid, title, accent, onDismiss = { reportFor = null }) { msg ->
+            reportFor = null
+            actionMsg = msg
+            scope.launch { loadIssues() }
+        }
+    }
+
     mediaDetail?.let { d ->
         BackHandler { mediaDetail = null }
         var onWatchlist by remember(d.tmdbId) { mutableStateOf(d.onWatchlist) }
@@ -670,6 +679,15 @@ internal fun SeerrScreen(
                     if (d.genres.isNotBlank()) {
                         Spacer(Modifier.height(2.dp))
                         Text(d.genres, fontFamily = Mono, color = accent.copy(alpha = 0.85f), fontSize = 11.sp)
+                    }
+                    // Only for titles Seerr already knows — an issue is filed against its own id.
+                    if (d.mediaId > 0) {
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "report an issue",
+                            fontFamily = Mono, color = accent, fontSize = 12.sp,
+                            modifier = Modifier.clickable { reportFor = d.mediaId to d.title }.padding(vertical = 4.dp),
+                        )
                     }
                     if (d.overview.isNotBlank()) {
                         Spacer(Modifier.height(12.dp))
