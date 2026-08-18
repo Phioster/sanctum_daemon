@@ -820,6 +820,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                 .map { cfg -> async { serviceSearch(cfg, term) } }
                 .awaitAll()
                 .flatten()
+                .let { if (hideAdult.value) it.filterNot { r -> r.adult } else it }
         }
 
     suspend fun searchMissing(config: ServiceConfig): String = runSearchMissing(config)

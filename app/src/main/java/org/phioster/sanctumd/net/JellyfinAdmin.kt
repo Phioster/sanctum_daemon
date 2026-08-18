@@ -53,6 +53,7 @@ internal suspend fun jellyfinSearchResults(config: ServiceConfig, term: String):
             jellyItemId = it.Id,
             year = it.ProductionYear ?: 0,
             inLibrary = true, // it's on the Jellyfin server
+            adult = isAdultRating(it.OfficialRating),
         )
     }
 }
