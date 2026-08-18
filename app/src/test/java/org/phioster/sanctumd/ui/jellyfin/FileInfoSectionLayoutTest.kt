@@ -23,12 +23,17 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Guards the FILE section's *size*, which no unit test could see.
+ * Behaviour tests for the FILE section: it renders, it summarises when collapsed, it reveals
+ * the tracks when opened.
  *
- * It once collapsed into a screen-high empty block: the header is a fillMaxWidth Row, and
- * nesting it inside another Row left the summary text ~0 width, so it wrapped to one character
- * per line and inflated the row. Everything compiled, all 120 unit tests passed, and the screen
- * was unusable. A height assertion is what catches that class of defect.
+ * **These do NOT guard against the layout bug that prompted them**, and that was measured, not
+ * assumed: with the original defect restored, the collapsed section still measured 43dp here
+ * instead of the screen-high block it produced on a device. Robolectric does not do real text
+ * shaping, so the "one character per line" wrap that inflated the row never happens — the whole
+ * defect class is invisible to it. A size guard needs an instrumented test on a real emulator.
+ *
+ * Keeping them anyway: they catch crashes, missing content and broken expand/collapse — for
+ * free, in the fast job.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -55,14 +60,6 @@ class FileInfoSectionLayoutTest {
     }
 
     private fun sectionHeight() = compose.onNodeWithTag("section").getUnclippedBoundsInRoot().height
-
-    @Test
-    fun `collapsed the section stays about one line tall`() {
-        show()
-        val height = sectionHeight()
-        // A correct header is ~30dp. The bug produced 13 wrapped lines, well past 100dp.
-        assertTrue("MESSUNG: collapsed section is $height tall", height < 1.dp)
-    }
 
     @Test
     fun `collapsed it summarises the file instead of hiding everything`() {

@@ -98,18 +98,14 @@ internal fun streamDetails(s: JellyStream): List<Pair<String, String>> = buildLi
 internal fun FileInfoSection(info: JellyFileInfo, accent: Color) {
     var expanded by remember { mutableStateOf(false) }
 
-    // TEMPORARY: the original defect, restored to prove the layout test catches it.
-    Row(
-        Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 4.dp),
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    // SectionHeader is itself a fillMaxWidth Row and offers a trailing slot for exactly this.
+    // Nesting it inside another Row leaves the siblings no width, and an unbounded Text then
+    // wraps to one character per line and inflates the row to a screen-high empty block.
+    MediaSectionHeader(
+        "FILE",
+        accent,
+        Modifier.clickable { expanded = !expanded }.padding(vertical = 6.dp),
     ) {
-        MediaSectionHeader("FILE", accent)
-        Spacer(Modifier.width(8.dp))
-        Text(
-            if (expanded) "▾" else "▸",
-            fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp,
-            modifier = Modifier.weight(1f),
-        )
         if (!expanded) {
             Text(
                 listOfNotNull(
@@ -117,8 +113,14 @@ internal fun FileInfoSection(info: JellyFileInfo, accent: Color) {
                     formatFileSize(info.sizeBytes).ifBlank { null },
                 ).joinToString(" · "),
                 fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
+            Spacer(Modifier.width(8.dp))
         }
+        Text(
+            if (expanded) "▾" else "▸",
+            fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp,
+        )
     }
 
     if (!expanded) return
