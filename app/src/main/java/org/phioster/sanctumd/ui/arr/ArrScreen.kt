@@ -140,6 +140,7 @@ internal fun ArrScreen(
     var importSelected by remember { mutableStateOf<Set<Int>>(emptySet()) }
     // Assigning a target movie to an unmatched manual-import row (Radarr).
     var assignRow by remember { mutableStateOf<Int?>(null) }
+    var assignEpisodeRow by remember { mutableStateOf<Int?>(null) }
     var assignLibrary by remember { mutableStateOf<List<ArrLibraryItem>?>(null) }
     var assignQuery by remember { mutableStateOf("") }
     var query by remember { mutableStateOf("") }
@@ -620,9 +621,14 @@ internal fun ArrScreen(
                                             fontFamily = Mono, color = accent, fontSize = 11.sp,
                                             modifier = Modifier
                                                 .clickable {
-                                                    assignRow = i; assignQuery = ""
-                                                    if (assignLibrary == null) scope.launch {
-                                                        assignLibrary = runCatching { vm.arrLibraryList(config) }.getOrDefault(emptyList())
+                                                    // Sonarr needs episode ids, not just a series — its own two-step picker.
+                                                    if (config.type == ServiceType.SONARR) {
+                                                        assignEpisodeRow = i
+                                                    } else {
+                                                        assignRow = i; assignQuery = ""
+                                                        if (assignLibrary == null) scope.launch {
+                                                            assignLibrary = runCatching { vm.arrLibraryList(config) }.getOrDefault(emptyList())
+                                                        }
                                                     }
                                                 }
                                                 .padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
@@ -649,6 +655,20 @@ internal fun ArrScreen(
             },
             dismissButton = { TextButton(onClick = { showImport = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
+    }
+
+    assignEpisodeRow?.let { rowIdx ->
+        SonarrAssignDialog(vm, config, accent, onDismiss = { assignEpisodeRow = null }) { a ->
+            val current = importItems
+            if (current != null) {
+                val patched = vm.arrAssignImportEpisodes(current[rowIdx].rawJson, a.seriesId, a.seriesTitle, a.episodeIds)
+                importItems = current.toMutableList().also { l ->
+                    l[rowIdx] = l[rowIdx].copy(rawJson = patched, importable = true, matchedTitle = a.label, rejection = "")
+                }
+                importSelected = importSelected + rowIdx
+            }
+            assignEpisodeRow = null
+        }
     }
 
     assignRow?.let { rowIdx ->

@@ -11,6 +11,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonArray
+import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
@@ -755,6 +756,29 @@ fun arrImportAssignMovie(rawJson: String, movieId: Int, title: String): String {
     return json.encodeToString(JsonObject.serializer(), buildJsonObject {
         o.forEach { (k, v) -> if (k != "movie" && k != "rejections") put(k, v) }
         putJsonObject("movie") { put("id", movieId); put("title", title) }
+        putJsonArray("rejections") {}
+    })
+}
+
+/**
+ * The Sonarr counterpart of [arrImportAssignMovie].
+ *
+ * A series alone is not enough: [arrManualImportExecute] sends `seriesId` **and** `episodeIds`,
+ * and Sonarr refuses a file it cannot pin to concrete episodes. Assigning through the movie
+ * helper on Sonarr therefore produced a command carrying neither — an import the user could
+ * trigger and that silently did nothing.
+ */
+fun arrImportAssignEpisodes(
+    rawJson: String,
+    seriesId: Int,
+    seriesTitle: String,
+    episodeIds: List<Int>,
+): String {
+    val o = json.parseToJsonElement(rawJson).jsonObject
+    return json.encodeToString(JsonObject.serializer(), buildJsonObject {
+        o.forEach { (k, v) -> if (k != "series" && k != "episodes" && k != "rejections") put(k, v) }
+        putJsonObject("series") { put("id", seriesId); put("title", seriesTitle) }
+        putJsonArray("episodes") { episodeIds.forEach { id -> addJsonObject { put("id", id) } } }
         putJsonArray("rejections") {}
     })
 }

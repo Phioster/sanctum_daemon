@@ -955,6 +955,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     /** Patches a scanned manual-import row to target [movieId] (Radarr, unmatched files). */
     fun arrAssignImportMovie(rawJson: String, movieId: Int, title: String): String =
         org.phioster.sanctumd.net.arrImportAssignMovie(rawJson, movieId, title)
+    /** Patches a scanned manual-import row to target concrete episodes (Sonarr, unmatched files). */
+    fun arrAssignImportEpisodes(rawJson: String, seriesId: Int, seriesTitle: String, episodeIds: List<Int>): String =
+        org.phioster.sanctumd.net.arrImportAssignEpisodes(rawJson, seriesId, seriesTitle, episodeIds)
     suspend fun arrCast(tmdbId: Int, isTv: Boolean): List<org.phioster.sanctumd.model.ArrCastMember> {
         val seerr = _services.value.firstOrNull { it.type == ServiceType.SEERR } ?: return emptyList()
         return seerrCast(seerr, tmdbId, isTv)
