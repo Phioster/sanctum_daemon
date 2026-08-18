@@ -9,6 +9,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
@@ -68,7 +69,15 @@ internal fun basicHeader(config: ServiceConfig) =
 
 // ---- Jellyfin ----
 
-internal fun jsStr(o: JsonObject, key: String) = (o[key] as? JsonPrimitive)?.content
+/**
+ * A string field, or null when it is absent **or JSON null**.
+ *
+ * `contentOrNull` rather than `content`: `JsonNull` is itself a `JsonPrimitive`, and its
+ * `content` is the literal text `"null"`. Reading `.content` therefore turned every JSON null
+ * into a four-character string that is not blank, so the usual `isNotBlank()` guards passed it
+ * through and it reached the UI.
+ */
+internal fun jsStr(o: JsonObject, key: String) = (o[key] as? JsonPrimitive)?.contentOrNull
 internal fun jsInt(o: JsonObject, key: String) = (o[key] as? JsonPrimitive)?.intOrNull
 internal fun jsLong(o: JsonObject, key: String) = (o[key] as? JsonPrimitive)?.content?.toLongOrNull()
 internal fun jsBool(o: JsonObject, key: String) = (o[key] as? JsonPrimitive)?.content?.toBoolean()
