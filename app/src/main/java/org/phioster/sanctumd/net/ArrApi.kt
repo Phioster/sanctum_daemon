@@ -123,6 +123,8 @@ internal interface LidarrApi {
     val sizeOnDisk: Long = 0,
     val statistics: ArrStats? = null,
     val images: List<ArrImageRec> = emptyList(),
+    val tmdbId: Int = 0, // Radarr (and newer Sonarr)
+    val tvdbId: Int = 0, // Sonarr
 )
 
 @Serializable internal data class ArrProfileRecord(val id: Int = 0, val name: String = "")
@@ -469,6 +471,25 @@ suspend fun arrLibrary(config: ServiceConfig): List<ArrLibraryItem> = withContex
 }
 
 /** Search at the library level (whole movie/series/artist). */
+/**
+ * The library entry matching a Jellyfin item, found by provider id rather than by title.
+ *
+ * Title matching is exactly what fails on this setup — a German release name rarely equals the
+ * *arr title — so an id match or nothing. Returning null means "offer no paired deletion",
+ * never "offer the closest thing".
+ */
+suspend fun arrFindByProviderId(config: ServiceConfig, tmdbId: String?, tvdbId: String?): ArrLibraryItem? =
+    withContext(Dispatchers.IO) {
+        val tmdb = tmdbId?.toIntOrNull()
+        val tvdb = tvdbId?.toIntOrNull()
+        if (tmdb == null && tvdb == null) return@withContext null
+        val base = arrBase(config.type)
+        val path = arrItemPath(config.type)
+        apiFor<ArrApi>(config, apiKeyHeader(config)).library("$base/$path")
+            .firstOrNull { (tmdb != null && it.tmdbId == tmdb) || (tvdb != null && it.tvdbId == tvdb) }
+            ?.let { ArrLibraryItem(id = it.id, title = it.title, subtitle = "", year = it.year, sizeMb = 0L) }
+    }
+
 suspend fun arrLibrarySearch(config: ServiceConfig, id: Int): String = destructive("search library item $id on ${config.type.label}") {
     withContext(Dispatchers.IO) {
         try {
@@ -843,13 +864,18 @@ suspend fun arrGrab(config: ServiceConfig, guid: String, indexerId: Int): String
     }
 }
 
-suspend fun arrDelete(config: ServiceConfig, id: Int, deleteFiles: Boolean): String = destructive("delete ${config.type.label} item $id (files: $deleteFiles)") {
+suspend fun arrDelete(
+    config: ServiceConfig,
+    id: Int,
+    deleteFiles: Boolean,
+    addImportExclusion: Boolean = false,
+): String = destructive("delete ${config.type.label} item $id (files: $deleteFiles)") {
     withContext(Dispatchers.IO) {
         try {
             val base = arrBase(config.type)
             val path = arrItemPath(config.type)
             val r = apiFor<ArrApi>(config, apiKeyHeader(config))
-                .deleteItem("$base/$path/$id?deleteFiles=$deleteFiles&addImportExclusion=false")
+                .deleteItem("$base/$path/$id?deleteFiles=$deleteFiles&addImportExclusion=$addImportExclusion")
             if (r.isSuccessful) "deleted" else "error: HTTP ${r.code()}"
         } catch (t: Throwable) {
             "error: ${t.message ?: t.javaClass.simpleName}"

@@ -196,4 +196,6 @@ data class JellyMediaDetail(
     val unplayedCount: Int = 0, // folders: episodes still unwatched
     val favorite: Boolean = false,
     val fileInfo: JellyFileInfo? = null, // null for folders (Series/Season) and anything without a media source
+    /** Tmdb/Imdb/Tvdb ids — how a Jellyfin item is matched to its Radarr/Sonarr entry exactly. */
+    val providerIds: Map<String, String> = emptyMap(),
 )

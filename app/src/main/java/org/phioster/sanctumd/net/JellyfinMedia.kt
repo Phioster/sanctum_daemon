@@ -161,8 +161,30 @@ suspend fun jellyfinItemDetail(config: ServiceConfig, itemId: String): JellyMedi
         unplayedCount = d.UserData?.UnplayedItemCount ?: 0,
         favorite = d.UserData?.IsFavorite == true,
         fileInfo = d.MediaSources.firstOrNull()?.toFileInfo(),
+        providerIds = d.ProviderIds.orEmpty(),
     )
 }
+
+/**
+ * Deletes an item and its file from Jellyfin.
+ *
+ * On its own this is only half a deletion in an *arr setup: Radarr/Sonarr still hold the entry,
+ * notice the missing file on their next scan and re-download it while it stays monitored. The
+ * caller is expected to offer the paired removal — see [arrFindByProviderId].
+ */
+suspend fun jellyfinDeleteItem(config: ServiceConfig, itemId: String): String =
+    destructive("delete Jellyfin item $itemId (removes the file)") {
+        withContext(Dispatchers.IO) {
+            try {
+                val token = jellyfinAccessToken(config)
+                val api = jfApi(config, token)
+                jellyfinResolveUserId(config, api) // fails fast with a clear error if auth is broken
+                okOr(api.deleteItem(itemId), "deleted")
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
 
 /** The first media source turned into what the FILE section renders. */
 private fun JfDetailMediaSource.toFileInfo() = JellyFileInfo(

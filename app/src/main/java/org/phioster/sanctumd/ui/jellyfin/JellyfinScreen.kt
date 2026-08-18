@@ -161,6 +161,7 @@ internal fun JellyfinScreen(
     var latestItems by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
     var browseStack by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>>(emptyList()) }
     var mediaDetail by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
+    var deleteTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
     var playRequest by remember { mutableStateOf<org.phioster.sanctumd.ui.player.PlayRequest?>(null) }
     val downloads by vm.downloads.collectAsState(initial = emptyMap())
     val wifiOnly by vm.downloadsWifiOnly.collectAsState()
@@ -282,6 +283,18 @@ internal fun JellyfinScreen(
     LaunchedEffect(mode, browseStack, browseSort, browseDesc, browseUnwatched) {
         if (mode == 3) { if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last()) }
     }
+    deleteTarget?.let { target ->
+        JellyfinDeleteDialog(
+            vm, config, target, accent,
+            onDismiss = { deleteTarget = null },
+        ) { msg ->
+            deleteTarget = null
+            mediaDetail = null // the item is gone; its sheet must not linger
+            actionMsg = msg
+            scope.launch { vm.refreshAll() }
+        }
+    }
+
     BackHandler(enabled = mode == 3 && (mediaDetail != null || browseStack.isNotEmpty())) {
         if (mediaDetail != null) mediaDetail = null else browseStack = browseStack.dropLast(1)
     }
@@ -1469,6 +1482,8 @@ internal fun JellyfinScreen(
                             if (folder) confirmWatched = Triple(d.id, d.name, !d.played)
                             else applyWatched(d.id, d.name, !d.played)
                         }
+                        Spacer(Modifier.height(8.dp))
+                        SecondaryButton("delete", Modifier.fillMaxWidth()) { deleteTarget = d }
                         Spacer(Modifier.height(12.dp))
                     }
                     if (d.facts.isNotEmpty()) {
