@@ -25,6 +25,7 @@ import org.phioster.sanctumd.model.ArrAlbum
 import org.phioster.sanctumd.model.ArrTrack
 import org.phioster.sanctumd.model.ArrDetail
 import org.phioster.sanctumd.model.ArrEpisode
+import org.phioster.sanctumd.model.ArrIndexerItem
 import org.phioster.sanctumd.model.ArrHistoryItem
 import org.phioster.sanctumd.model.ArrImportItem
 import org.phioster.sanctumd.model.ArrLibraryItem
@@ -168,6 +169,20 @@ internal interface LidarrApi {
 )
 @Serializable internal data class ArrHistoryPage(val records: List<ArrHistoryRec> = emptyList())
 
+@Serializable internal data class ArrIndexerRecord(
+    val id: Int = 0,
+    val name: String = "",
+    val protocol: String = "",
+    val priority: Int = 0,
+    val enableRss: Boolean = false,
+    val enableAutomaticSearch: Boolean = false,
+    val enableInteractiveSearch: Boolean = false,
+)
+@Serializable internal data class ArrIndexerStatusRecord(
+    val indexerId: Int = 0,
+    val disabledTill: String? = null,
+)
+
 internal interface ArrApi {
     @GET suspend fun missing(@Url url: String): ArrMissingPage
     @GET suspend fun queue(@Url url: String): ArrQueuePage
@@ -193,6 +208,9 @@ internal interface ArrApi {
     @GET suspend fun systemStatus(@Url url: String): ArrSystemStatusRec
     @GET suspend fun healthChecks(@Url url: String): List<ArrHealthRecord>
     @GET suspend fun manualImport(@Url url: String): List<JsonObject>
+    @GET suspend fun indexers(@Url url: String): List<ArrIndexerRecord>
+    @GET suspend fun indexerStatus(@Url url: String): List<ArrIndexerStatusRecord>
+    @POST suspend fun postEmpty(@Url url: String): Response<ResponseBody>
 }
 
 internal fun arrBase(type: ServiceType) = if (type == ServiceType.LIDARR) "api/v1" else "api/v3"
@@ -888,3 +906,58 @@ internal fun reportArrPush(resp: Response<ResponseBody>, label: String): String 
         else -> "sent to $label"
     }
 }
+
+// ---- Indexers ----
+//
+// Prowlarr owns the indexer definitions, so this deliberately offers no add/edit/delete: the
+// next Prowlarr sync would overwrite it anyway. What it offers is the one thing Prowlarr
+// cannot do for you — clearing the *arr app's own failure lockout.
+
+/** The service's own indexers, each carrying its lockout state (null = healthy). */
+suspend fun arrIndexers(config: ServiceConfig): List<ArrIndexerItem> = withContext(Dispatchers.IO) {
+    val api = apiFor<ArrApi>(config, apiKeyHeader(config))
+    val base = arrBase(config.type)
+    val records = api.indexers("$base/indexer")
+    // A missing status endpoint must not hide the indexer list — knowing they exist is still
+    // worth more than knowing nothing.
+    val disabledTill = runCatching {
+        api.indexerStatus("$base/indexerstatus")
+            .filter { it.disabledTill != null }
+            .associate { it.indexerId to it.disabledTill!! }
+    }.getOrDefault(emptyMap())
+    records.map {
+        ArrIndexerItem(
+            id = it.id,
+            name = it.name,
+            protocol = it.protocol,
+            priority = it.priority,
+            enableRss = it.enableRss,
+            enableAutomaticSearch = it.enableAutomaticSearch,
+            enableInteractiveSearch = it.enableInteractiveSearch,
+            disabledTill = disabledTill[it.id],
+        )
+    }
+}
+
+/**
+ * Tests every indexer of one service. A successful test makes the app record a success, which
+ * is what clears the failure lockout — the same thing a Test on its settings page does.
+ */
+suspend fun arrTestAllIndexers(config: ServiceConfig): String = withContext(Dispatchers.IO) {
+    try {
+        okOr(
+            apiFor<ArrApi>(config, apiKeyHeader(config)).postEmpty("${arrBase(config.type)}/indexer/testall"),
+            "tested",
+        )
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+/**
+ * The cross-service repair: tests the indexers of every given service in turn and reports one
+ * outcome per service. Sequential on purpose — these all end up querying the same indexer, and
+ * hammering it in parallel is what triggers the lockout in the first place.
+ */
+suspend fun arrRepairIndexers(configs: List<ServiceConfig>): List<Pair<String, String>> =
+    configs.map { it.label to arrTestAllIndexers(it) }

@@ -137,3 +137,25 @@ data class ArrHistoryItem(
     val date: String,
     val quality: String,
 )
+
+/**
+ * An indexer as Sonarr/Radarr/Lidarr sees it — which is not the same view Prowlarr has.
+ *
+ * Each *arr app keeps its own failure counter: when Prowlarr answers a query with
+ * "429 Indexer is disabled till …", the app records that as a failure and locks the indexer
+ * out on its own side, with its own escalating backoff. So an indexer can be healthy in
+ * Prowlarr and still dead in Sonarr, which is why [disabledTill] is worth showing: it is the
+ * difference between "recovers on its own at 02:03" and "needs a hand".
+ */
+data class ArrIndexerItem(
+    val id: Int,
+    val name: String,
+    val protocol: String, // "usenet" or "torrent"
+    val priority: Int,
+    val enableRss: Boolean,
+    val enableAutomaticSearch: Boolean,
+    val enableInteractiveSearch: Boolean,
+    val disabledTill: String? = null, // ISO timestamp; null when the indexer is healthy
+) {
+    val failing: Boolean get() = disabledTill != null
+}
