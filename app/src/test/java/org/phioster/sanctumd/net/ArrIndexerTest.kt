@@ -6,26 +6,34 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
-import java.time.Instant
 
 /**
- * Sonarr and Radarr keep their own indexer failure counters, separate from Prowlarr's: when
- * Prowlarr answers 429 they lock the indexer out on their side too, and it stays locked until
- * a successful test resets it. That repair is what this covers — including telling a temporary
- * lockout (recovers by itself) apart from a permanently broken indexer.
+ * Sonarr and Radarr keep their own indexer failure counters: when Prowlarr answers 429 they lock
+ * the indexer out on their side too, and it stays locked until a successful test resets it.
+ *
+ * **They expose that through the health check, not through an indexerstatus endpoint** — that
+ * endpoint returns 404 on Radarr 6.3 and Sonarr 4.0 (measured on a live instance). The earlier
+ * implementation called it anyway and swallowed the failure, so every indexer always looked
+ * healthy. The tests passed because MockWebServer will happily serve an endpoint that does not
+ * exist; that is the trap these tests now guard against.
  */
 class ArrIndexerTest {
 
     private lateinit var server: MockWebServer
 
-    @Before fun start() { server = MockWebServer().also { it.start() } }
-    @After fun stop() { server.shutdown() }
+    @Before fun start() {
+        server = MockWebServer().also { it.start() }
+        SafeMode.enabled = false
+    }
+    @After fun stop() {
+        server.shutdown()
+        SafeMode.enabled = false
+    }
 
     private fun config(type: ServiceType = ServiceType.SONARR, label: String = type.label) = ServiceConfig(
         id = "svc-${label.lowercase()}",
@@ -38,57 +46,73 @@ class ArrIndexerTest {
     private fun respond(body: String) =
         server.enqueue(MockResponse().setBody(body).setHeader("Content-Type", "application/json"))
 
-    private val now: Instant = Instant.parse("2026-08-17T01:30:00Z")
+    private val oneIndexer =
+        """[{"id":3,"name":"treasure-maps (Prowlarr)","protocol":"usenet","priority":25,
+             "enableRss":true,"enableAutomaticSearch":true,"enableInteractiveSearch":true}]"""
 
     @Test
-    fun `a locked out indexer reports until when it is disabled`() = runBlocking {
-        respond("""[{"id":3,"name":"treasure-maps (Prowlarr)","protocol":"usenet","priority":25,
-                    "enableRss":true,"enableAutomaticSearch":true,"enableInteractiveSearch":true}]""")
-        respond("""[{"indexerId":3,"disabledTill":"2026-08-17T02:03:39Z","mostRecentFailure":"2026-08-17T01:03:39Z"}]""")
+    fun `a health warning naming the indexer marks it failing`() = runBlocking {
+        respond(oneIndexer)
+        respond(
+            """[{"source":"IndexerStatusCheck","type":"warning",
+                 "message":"Indexers unavailable due to failures: treasure-maps (Prowlarr)"}]""",
+        )
 
-        val indexers = arrIndexers(config(), now)
+        val indexers = arrIndexers(config())
 
-        assertEquals(1, indexers.size)
         assertTrue(indexers[0].failing)
-        assertEquals("2026-08-17T02:03:39Z", indexers[0].disabledTill)
+        assertFalse(indexers[0].statusUnknown)
+    }
+
+    @Test
+    fun `an indexer the warning does not name stays healthy`() = runBlocking {
+        respond(oneIndexer)
+        respond(
+            """[{"source":"IndexerStatusCheck","type":"warning",
+                 "message":"Indexers unavailable due to failures: some-other-indexer"}]""",
+        )
+
+        assertFalse(arrIndexers(config())[0].failing)
+    }
+
+    @Test
+    fun `an unrelated health warning does not mark anything failing`() = runBlocking {
+        respond(oneIndexer)
+        respond("""[{"source":"UpdateCheck","type":"warning","message":"New update is available"}]""")
+
+        assertFalse(arrIndexers(config())[0].failing)
+    }
+
+    @Test
+    fun `a healthy service reports nothing failing`() = runBlocking {
+        respond(oneIndexer)
+        respond("[]")
+
+        val ix = arrIndexers(config())[0]
+        assertFalse(ix.failing)
+        assertFalse(ix.statusUnknown)
     }
 
     /**
-     * The *arr apps keep the status row after a lockout expires, because the escalation level
-     * has to survive so repeated failures back off faster. Reading "row exists" as "locked out"
-     * would therefore paint an indexer red forever after its first bad day.
+     * The defect this replaces: an unreachable status source was reported as "all healthy".
+     * Unknown has to stay distinguishable from fine, or the view lies with a straight face.
      */
     @Test
-    fun `a lockout that has already expired is not a lockout`() = runBlocking {
-        respond("""[{"id":3,"name":"treasure-maps (Prowlarr)","protocol":"usenet","enableRss":true}]""")
-        respond("""[{"indexerId":3,"disabledTill":"2026-08-17T01:00:00Z","mostRecentFailure":"2026-08-17T00:00:00Z"}]""")
+    fun `an unreadable health check yields unknown, never healthy`() = runBlocking {
+        respond(oneIndexer)
+        server.enqueue(MockResponse().setResponseCode(404))
 
-        val indexers = arrIndexers(config(), now)
-
-        assertFalse(indexers[0].failing)
-        assertNull(indexers[0].disabledTill)
+        val ix = arrIndexers(config())[0]
+        assertTrue("status must be flagged as unknown", ix.statusUnknown)
+        assertFalse("unknown is not the same as failing", ix.failing)
     }
 
     @Test
-    fun `an indexer without a status entry counts as healthy`() = runBlocking {
-        respond("""[{"id":3,"name":"treasure-maps (Prowlarr)","protocol":"usenet","enableRss":true}]""")
-        respond("""[]""")
-
-        val indexers = arrIndexers(config(), now)
-
-        assertFalse(indexers[0].failing)
-        assertNull(indexers[0].disabledTill)
-    }
-
-    @Test
-    fun `the indexer list still loads when the status endpoint fails`() = runBlocking {
-        respond("""[{"id":3,"name":"treasure-maps (Prowlarr)","protocol":"usenet","enableRss":true}]""")
+    fun `the indexer list still loads when the health check fails`() = runBlocking {
+        respond(oneIndexer)
         server.enqueue(MockResponse().setResponseCode(500))
 
-        val indexers = arrIndexers(config(), now)
-
-        assertEquals(1, indexers.size)
-        assertFalse(indexers[0].failing)
+        assertEquals(1, arrIndexers(config()).size)
     }
 
     @Test
