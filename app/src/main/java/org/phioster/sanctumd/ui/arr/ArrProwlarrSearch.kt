@@ -1,6 +1,8 @@
 package org.phioster.sanctumd.ui.arr
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,8 +23,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
+import org.phioster.sanctumd.ui.theme.ErrRed
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import org.phioster.sanctumd.model.ArrParsedRelease
 import org.phioster.sanctumd.model.ProwlarrRelease
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
@@ -68,13 +76,22 @@ internal fun ArrProwlarrSearchDialog(
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf(initialQuery) }
     var results by remember { mutableStateOf<List<ProwlarrRelease>?>(null) }
+    var judged by remember { mutableStateOf<Map<String, ArrParsedRelease>>(emptyMap()) }
     var busy by remember { mutableStateOf(false) }
 
     suspend fun search() {
         busy = true
-        results = runCatching { vm.prowlarrSearchList(prowlarr, query.trim(), prowlarrCategoryFor(target.type)) }
+        judged = emptyMap()
+        val found = runCatching { vm.prowlarrSearchList(prowlarr, query.trim(), prowlarrCategoryFor(target.type)) }
             .getOrDefault(emptyList())
+        results = found
         busy = false
+        // The indexer's listing says nothing about whether a release is worth taking — the
+        // service does. Judged after the list is shown, concurrently, so the results are not
+        // held back by it, and a service that cannot answer simply leaves the line out.
+        judged = coroutineScope {
+            found.take(12).map { r -> async { r.title to vm.arrParse(target, r.title) } }.awaitAll()
+        }.mapNotNull { (t, v) -> v?.let { t to it } }.toMap()
     }
     LaunchedEffect(Unit) { search() }
 
@@ -109,6 +126,7 @@ internal fun ArrProwlarrSearchDialog(
                                 onGrab = { scope.launch { onResult(vm.sendReleaseToArr(target, rel)) } },
                                 onSendTo = { t -> scope.launch { onResult(vm.sendReleaseToArr(t, rel)) } },
                             )
+                            judged[rel.title]?.let { v -> Verdict(v, target.label) }
                         }
                     }
                 }
@@ -118,4 +136,36 @@ internal fun ArrProwlarrSearchDialog(
             TextButton(onClick = { if (!busy) onDismiss() }) { Text("Close", fontFamily = Mono, color = MatrixGreen) }
         },
     )
+}
+
+/**
+ * What the target service makes of this release: its quality and its custom-format score.
+ *
+ * The score is coloured, because its sign is the whole message — a negative one means the
+ * profile actively rejects something in the name, which the name itself does not advertise.
+ */
+@Composable
+private fun Verdict(v: ArrParsedRelease, serviceLabel: String) {
+    Row(Modifier.padding(start = 4.dp, bottom = 8.dp)) {
+        Text(
+            buildList {
+                if (v.quality.isNotBlank()) add(v.quality)
+                if (v.languages.isNotBlank()) add(v.languages)
+            }.joinToString(" · ").ifBlank { serviceLabel },
+            fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.75f), fontSize = 10.sp,
+        )
+        Text("  score ", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 10.sp)
+        Text(
+            v.score.toString(),
+            fontFamily = Mono, fontSize = 10.sp,
+            color = if (v.score < 0) ErrRed else MatrixGreen,
+        )
+        if (v.formats.isNotBlank()) {
+            Text(
+                "  " + v.formats,
+                fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 10.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
 }
