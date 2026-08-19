@@ -38,13 +38,21 @@ import org.phioster.sanctumd.ui.theme.Surface
 /**
  * Which service owns a Jellyfin item of this kind.
  *
- * Episodes and seasons return null on purpose: their counterpart is the whole series, and acting
- * on it would reach far past the thing the user is looking at.
+ * An episode and a season reach Sonarr through their series. Excluding them — the first version
+ * did — left the bridge working on films and quietly missing everywhere else, which is worse than
+ * the risk it was avoiding. The risk is handled by [counterpartScopeNote] instead: say what the
+ * actions reach rather than hide them.
  */
 internal fun arrServiceTypeFor(kind: String): ServiceType? = when (kind) {
     "Movie" -> ServiceType.RADARR
-    "Series" -> ServiceType.SONARR
+    "Series", "Season", "Episode" -> ServiceType.SONARR
     else -> null
+}
+
+/** Warns when the actions reach past the item on screen. Empty when they do not. */
+internal fun counterpartScopeNote(kind: String): String = when (kind) {
+    "Season", "Episode" -> "These actions apply to the whole series, not to this one item."
+    else -> ""
 }
 
 /**
@@ -110,6 +118,10 @@ internal fun JellyfinArrBridgeDialog(
                             fontFamily = Mono, color = accent, fontSize = 12.sp,
                             maxLines = 2, overflow = TextOverflow.Ellipsis,
                         )
+                        counterpartScopeNote(detail.kind).takeIf { it.isNotBlank() }?.let { note ->
+                            Spacer(Modifier.height(6.dp))
+                            Text(note, fontFamily = Mono, color = Color(0xFFFFAA00), fontSize = 10.sp)
+                        }
                         Spacer(Modifier.height(12.dp))
                         Action("Search for a better version", busy) {
                             run(svc.label) { vm.arrLibSearch(svc, item.id) }
