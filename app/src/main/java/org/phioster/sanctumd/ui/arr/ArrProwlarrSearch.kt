@@ -1,8 +1,6 @@
 package org.phioster.sanctumd.ui.arr
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,7 +21,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.sp
 import org.phioster.sanctumd.ui.theme.ErrRed
 import kotlinx.coroutines.async
@@ -125,8 +125,9 @@ internal fun ArrProwlarrSearchDialog(
                                 arrTargets = listOf(target),
                                 onGrab = { scope.launch { onResult(vm.sendReleaseToArr(target, rel)) } },
                                 onSendTo = { t -> scope.launch { onResult(vm.sendReleaseToArr(t, rel)) } },
+                                detail = judged[rel.title]?.let { v -> { Verdict(v) } },
                             )
-                            judged[rel.title]?.let { v -> Verdict(v, target.label) }
+
                         }
                     }
                 }
@@ -138,34 +139,40 @@ internal fun ArrProwlarrSearchDialog(
     )
 }
 
+/** Quality and language, with the "Unknown" a service returns when it could not tell dropped. */
+internal fun verdictPrefix(v: ArrParsedRelease): String = buildList {
+    if (v.quality.isNotBlank()) add(v.quality)
+    v.languages.split(",").map { it.trim() }
+        .filter { it.isNotBlank() && !it.equals("Unknown", true) }
+        .takeIf { it.isNotEmpty() }?.let { add(it.joinToString(", ")) }
+}.joinToString(" · ")
+
 /**
- * What the target service makes of this release: its quality and its custom-format score.
+ * What the target service makes of this release: quality, language, score and the custom formats
+ * behind it.
  *
- * The score is coloured, because its sign is the whole message — a negative one means the
- * profile actively rejects something in the name, which the name itself does not advertise.
+ * One wrapping Text rather than a Row of them — on a phone the format list runs past the edge,
+ * and a row of fixed cells clips it away instead of breaking. The score keeps its own colour
+ * through an annotated span, because its sign is the whole message.
  */
 @Composable
-private fun Verdict(v: ArrParsedRelease, serviceLabel: String) {
-    Row(Modifier.padding(start = 4.dp, bottom = 8.dp)) {
-        Text(
-            buildList {
-                if (v.quality.isNotBlank()) add(v.quality)
-                if (v.languages.isNotBlank()) add(v.languages)
-            }.joinToString(" · ").ifBlank { serviceLabel },
-            fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.75f), fontSize = 10.sp,
-        )
-        Text("  score ", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 10.sp)
-        Text(
-            v.score.toString(),
-            fontFamily = Mono, fontSize = 10.sp,
-            color = if (v.score < 0) ErrRed else MatrixGreen,
-        )
-        if (v.formats.isNotBlank()) {
-            Text(
-                "  " + v.formats,
-                fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 10.sp,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
+private fun Verdict(v: ArrParsedRelease) {
+    val prefix = verdictPrefix(v)
+    Text(
+        buildAnnotatedString {
+            if (prefix.isNotBlank()) {
+                withStyle(SpanStyle(color = MatrixGreen.copy(alpha = 0.75f))) { append(prefix) }
+                append("  ")
+            }
+            withStyle(SpanStyle(color = MatrixGreen.copy(alpha = 0.45f))) { append("score ") }
+            withStyle(SpanStyle(color = if (v.score < 0) ErrRed else MatrixGreen)) { append(v.score.toString()) }
+            if (v.formats.isNotBlank()) {
+                withStyle(SpanStyle(color = MatrixGreen.copy(alpha = 0.45f))) { append("  " + v.formats) }
+            }
+        },
+        fontFamily = Mono,
+        fontSize = 10.sp,
+        lineHeight = 14.sp,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
