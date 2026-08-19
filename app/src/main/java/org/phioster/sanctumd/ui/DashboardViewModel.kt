@@ -985,6 +985,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.net.arrBlocklist(config)
     suspend fun arrUnblock(config: ServiceConfig, id: Int): String =
         org.phioster.sanctumd.net.arrBlocklistRemove(config, id)
+    suspend fun arrMoveItem(config: ServiceConfig, id: Int, rootFolderPath: String): String =
+        org.phioster.sanctumd.net.arrMoveToRootFolder(config, id, rootFolderPath)
     suspend fun arrCloneProfile(config: ServiceConfig, sourceId: Int, newName: String): String =
         org.phioster.sanctumd.net.arrCloneProfileUnrestricted(config, sourceId, newName)
     suspend fun arrBlockedQueue(config: ServiceConfig): List<org.phioster.sanctumd.model.ArrQueueItem> =
