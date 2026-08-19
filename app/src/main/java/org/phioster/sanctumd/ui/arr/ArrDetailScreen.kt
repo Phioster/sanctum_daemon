@@ -100,6 +100,9 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
     var loadError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var barMenu by remember { mutableStateOf(false) }
+    var showMove by remember { mutableStateOf(false) }
+    var moveTargets by remember { mutableStateOf<List<String>?>(null) }
+    var moving by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var deleteFiles by remember { mutableStateOf(false) }
     // release picker: null=closed; loading when releases==null
@@ -154,6 +157,12 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                                     barMenu = false; openReleases(movieId = itemId, episodeId = null, title = detail?.title ?: "")
                                 })
                             }
+                            DropdownMenuItem(text = { Text("Move to folder", fontFamily = Mono) }, onClick = {
+                                barMenu = false
+                                moveTargets = null
+                                showMove = true
+                                scope.launch { moveTargets = runCatching { vm.arrRootFoldersList(config) }.getOrDefault(emptyList()) }
+                            })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; deleteFiles = false; confirmDelete = true })
                         }
                     }
@@ -359,6 +368,51 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                 }) { Text("Search releases", fontFamily = Mono, color = MatrixGreen) }
             },
             dismissButton = { TextButton(onClick = { trackAlbum = null }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
+    if (showMove) {
+        AlertDialog(
+            onDismissRequest = { if (!moving) showMove = false },
+            containerColor = Surface,
+            title = { Text("Move to folder", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column {
+                    Text(
+                        "The files move with the entry. Nothing is re-downloaded.",
+                        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    when (val folders = moveTargets) {
+                        null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        else -> if (folders.isEmpty()) {
+                            Text("no root folders", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        } else folders.forEach { path ->
+                            Text(
+                                path,
+                                fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(enabled = !moving) {
+                                        moving = true
+                                        scope.launch {
+                                            actionMsg = vm.arrMoveItem(config, itemId, path)
+                                            detail = runCatching { vm.arrDetailOf(config, itemId) }.getOrNull() ?: detail
+                                            moving = false
+                                            showMove = false
+                                        }
+                                    }
+                                    .padding(vertical = 9.dp),
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { if (!moving) showMove = false }) {
+                    Text(if (moving) "moving…" else "Cancel", fontFamily = Mono, color = MatrixGreen)
+                }
+            },
         )
     }
 
