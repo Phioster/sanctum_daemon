@@ -869,6 +869,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrRepairAllIndexers(): List<Pair<String, String>> =
         org.phioster.sanctumd.net.arrRepairIndexers(indexerServices())
 
+    /** The configured Prowlarr, if there is one — the text-search counterpart to [arrTargets]. */
+    fun prowlarrService(): ServiceConfig? = _services.value.firstOrNull { it.type == ServiceType.PROWLARR }
+
     fun arrTargets(): List<ServiceConfig> =
         _services.value.filter { it.type == ServiceType.RADARR || it.type == ServiceType.SONARR }
     suspend fun nzbgetPause(config: ServiceConfig): String = runNzbgetPause(config)

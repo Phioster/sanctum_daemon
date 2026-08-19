@@ -132,6 +132,8 @@ internal fun ArrScreen(
     var showIndexers by remember { mutableStateOf(false) }
     var showProfiles by remember { mutableStateOf(false) }
     var showBlocklist by remember { mutableStateOf(false) }
+    val prowlarr = remember { vm.prowlarrService() }
+    var prowlarrSearchFor by remember { mutableStateOf<String?>(null) }
     var arrSys by remember { mutableStateOf<org.phioster.sanctumd.model.ArrSystemInfo?>(null) }
     var showImport by remember { mutableStateOf(false) }
     val rememberedPath by vm.lastImportPath.collectAsState()
@@ -431,6 +433,7 @@ internal fun ArrScreen(
                                             accent = accent,
                                             onSearch = { act { vm.arrSearch(config, mi.id) } },
                                             onCustomSearch = { openCustomSearch(mi) },
+                                            onProwlarrSearch = prowlarr?.let { { prowlarrSearchFor = mi.title } },
                                         )
                                     }
                                 }
@@ -569,6 +572,16 @@ internal fun ArrScreen(
             },
             dismissButton = { TextButton(onClick = { selected = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
+    }
+
+    prowlarrSearchFor?.let { term ->
+        prowlarr?.let { pw ->
+            ArrProwlarrSearchDialog(vm, pw, config, term, accent, onDismiss = { prowlarrSearchFor = null }) { msg ->
+                prowlarrSearchFor = null
+                actionMsg = msg
+                scope.launch { vm.refreshAll() }
+            }
+        }
     }
 
     if (showBlocklist) {
@@ -884,7 +897,13 @@ internal fun ArrPoster(url: String, width: androidx.compose.ui.unit.Dp = 46.dp, 
 }
 
 @Composable
-internal fun ArrMissingRow(item: ArrMissingItem, accent: Color, onSearch: () -> Unit, onCustomSearch: () -> Unit) {
+internal fun ArrMissingRow(
+    item: ArrMissingItem,
+    accent: Color,
+    onSearch: () -> Unit,
+    onCustomSearch: () -> Unit,
+    onProwlarrSearch: (() -> Unit)? = null,
+) {
     var menu by remember { mutableStateOf(false) }
     Box {
         Column(Modifier.fillMaxWidth().clickable { menu = true }.padding(vertical = 10.dp)) {
@@ -899,6 +918,10 @@ internal fun ArrMissingRow(item: ArrMissingItem, accent: Color, onSearch: () -> 
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(text = { Text("Automatic search", fontFamily = Mono) }, onClick = { menu = false; onSearch() })
             DropdownMenuItem(text = { Text("Custom search", fontFamily = Mono) }, onClick = { menu = false; onCustomSearch() })
+            // The service searches by id; when the indexer has the wrong one, only text finds it.
+            onProwlarrSearch?.let { go ->
+                DropdownMenuItem(text = { Text("Search on Prowlarr", fontFamily = Mono) }, onClick = { menu = false; go() })
+            }
         }
     }
 }
