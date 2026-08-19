@@ -139,6 +139,8 @@ data class ArrSystemInfo(
 
 /** A history event in a Servarr app. */
 data class ArrHistoryItem(
+    /** The history entry's own id — what blocking a past release is addressed to. */
+    val id: Int,
     val title: String,
     val eventType: String,
     val date: String,
