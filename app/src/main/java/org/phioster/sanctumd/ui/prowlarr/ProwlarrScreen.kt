@@ -644,6 +644,9 @@ internal fun ProwlarrReleaseRow(
     arrTargets: List<ServiceConfig>,
     onGrab: () -> Unit,
     onSendTo: (ServiceConfig) -> Unit,
+    /** Extra line for this release, drawn **inside** the row — after the divider it would read
+     *  as a heading for the next one. */
+    detail: (@Composable () -> Unit)? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     val meta = buildString {
@@ -665,6 +668,10 @@ internal fun ProwlarrReleaseRow(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(meta, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 Text(item.categories, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            detail?.let {
+                Spacer(Modifier.height(4.dp))
+                it()
             }
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
