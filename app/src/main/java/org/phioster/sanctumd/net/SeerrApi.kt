@@ -655,7 +655,32 @@ internal suspend fun seerrSearchResults(config: ServiceConfig, term: String): Li
     }
 }
 
-/** Resolves cast for a tmdbId via a Seerr/Overseerr TMDB proxy. */
+/** Common ISO 639-1 codes to a readable name; anything else falls back to the code itself. */
+private val LANGUAGE_NAMES = mapOf(
+    "en" to "English", "de" to "German", "fr" to "French", "es" to "Spanish",
+    "it" to "Italian", "ja" to "Japanese", "ko" to "Korean", "zh" to "Chinese",
+    "ru" to "Russian", "pt" to "Portuguese", "nl" to "Dutch", "sv" to "Swedish",
+    "da" to "Danish", "no" to "Norwegian", "fi" to "Finnish", "pl" to "Polish",
+    "tr" to "Turkish", "cs" to "Czech", "hu" to "Hungarian", "el" to "Greek",
+)
+
+/**
+ * The film's original language, for an audio track that carries no language of its own.
+ *
+ * An inference about the title rather than a fact about the file, so the caller labels it. Empty
+ * when Seerr does not report one — nothing is invented to fill the gap.
+ */
+suspend fun seerrOriginalLanguage(seerrConfig: ServiceConfig, tmdbId: Int, isTv: Boolean): String =
+    withContext(Dispatchers.IO) {
+        if (tmdbId <= 0) return@withContext ""
+        val api = apiFor<SeerrApi>(seerrConfig, apiKeyHeader(seerrConfig))
+        val detail = runCatching { if (isTv) api.tvRaw(tmdbId) else api.movieRaw(tmdbId) }.getOrNull()
+            ?: return@withContext ""
+        val code = jsStr(detail, "originalLanguage")?.trim().orEmpty()
+        if (code.isBlank()) "" else LANGUAGE_NAMES[code.lowercase()] ?: code.uppercase()
+    }
+
+/** Resolves cast for a tmdbId via a Seerr/Overseerr TMDB proxy. *//** Resolves cast for a tmdbId via a Seerr/Overseerr TMDB proxy. */
 suspend fun seerrCast(seerrConfig: ServiceConfig, tmdbId: Int, isTv: Boolean): List<ArrCastMember> = withContext(Dispatchers.IO) {
     if (tmdbId <= 0) return@withContext emptyList()
     val api = apiFor<SeerrApi>(seerrConfig, apiKeyHeader(seerrConfig))

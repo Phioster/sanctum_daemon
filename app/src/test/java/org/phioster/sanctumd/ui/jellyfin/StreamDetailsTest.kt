@@ -50,6 +50,31 @@ class StreamDetailsTest {
         assertEquals("Deutsch · EAC3 · 5.1", streamHeadline(untaggedMp3.copy(codec = "eac3", language = "Deutsch", channelLayout = "5.1")))
     }
 
+    /**
+     * An untagged track can borrow the film's original language — but it is an inference about
+     * the film, not a fact about the track, so it is labelled. Without the label it would look
+     * exactly like the real thing read out of an MKV, and a dual-language rip with no tags would
+     * be quietly mislabelled.
+     */
+    @Test fun `an untagged audio track can borrow the original language, marked as assumed`() {
+        val rows = streamDetails(untaggedMp3, assumedLanguage = "English")
+        assertEquals("English (assumed)", rows.first { it.first == "language" }.second)
+    }
+
+    @Test fun `a track that states its own language does not get the assumption`() {
+        val rows = streamDetails(untaggedMp3.copy(language = "Deutsch"), assumedLanguage = "English")
+        assertFalse(rows.map { it.first }.contains("language"))
+    }
+
+    @Test fun `without an original language nothing is invented`() {
+        assertFalse(streamDetails(untaggedMp3).map { it.first }.contains("language"))
+    }
+
+    @Test fun `only audio borrows it — a video track has no language to speak of`() {
+        val rows = streamDetails(untaggedMp3.copy(type = "Video"), assumedLanguage = "English")
+        assertFalse(rows.map { it.first }.contains("language"))
+    }
+
     @Test fun `the remaining audio facts survive`() {
         val labels = streamDetails(untaggedMp3).map { it.first }
         assertTrue(labels.containsAll(listOf("sample rate", "channels", "bitrate", "title")))
