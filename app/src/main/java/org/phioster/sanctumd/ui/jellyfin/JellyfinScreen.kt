@@ -164,6 +164,7 @@ internal fun JellyfinScreen(
     var identifyTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
     var subtitleTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
     var manageTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
+    var detailMenu by remember { mutableStateOf(false) }
     var playRequest by remember { mutableStateOf<org.phioster.sanctumd.ui.player.PlayRequest?>(null) }
     val downloads by vm.downloads.collectAsState(initial = emptyMap())
     val wifiOnly by vm.downloadsWifiOnly.collectAsState()
@@ -1517,18 +1518,6 @@ internal fun JellyfinScreen(
                             if (folder) confirmWatched = Triple(d.id, d.name, !d.played)
                             else applyWatched(d.id, d.name, !d.played)
                         }
-                        Spacer(Modifier.height(8.dp))
-                        // Only where the other side has an entry of its own; an episode's
-                        // counterpart is the whole series.
-                        if (arrServiceTypeFor(d.kind) != null) {
-                            SecondaryButton("manage in Radarr / Sonarr", Modifier.fillMaxWidth()) { manageTarget = d }
-                            Spacer(Modifier.height(8.dp))
-                        }
-                        SecondaryButton("subtitles", Modifier.fillMaxWidth()) { subtitleTarget = d }
-                        Spacer(Modifier.height(8.dp))
-                        SecondaryButton("identify", Modifier.fillMaxWidth()) { identifyTarget = d }
-                        Spacer(Modifier.height(8.dp))
-                        SecondaryButton("delete", Modifier.fillMaxWidth()) { deleteTarget = d }
                         Spacer(Modifier.height(12.dp))
                     }
                     if (d.facts.isNotEmpty()) {
@@ -1596,6 +1585,33 @@ internal fun JellyfinScreen(
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { openExternal(context, jellyfinAppPackages, "${config.normalizedBaseUrl}web/#/details?id=${d.id}") }) {
                     Icon(Icons.Filled.OpenInNew, contentDescription = "Open in Jellyfin", tint = accent)
+                }
+                // The rarely-used and the destructive live here rather than as eight stacked
+                // buttons: the list had grown into a wall you had to read to find "play".
+                Box {
+                    IconButton(onClick = { detailMenu = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen)
+                    }
+                    DropdownMenu(expanded = detailMenu, onDismissRequest = { detailMenu = false }) {
+                        if (arrServiceTypeFor(d.kind) != null) {
+                            DropdownMenuItem(
+                                text = { Text("Manage in Radarr / Sonarr", fontFamily = Mono) },
+                                onClick = { detailMenu = false; manageTarget = d },
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text("Subtitles", fontFamily = Mono) },
+                            onClick = { detailMenu = false; subtitleTarget = d },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Identify", fontFamily = Mono) },
+                            onClick = { detailMenu = false; identifyTarget = d },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete", fontFamily = Mono, color = ErrRed) },
+                            onClick = { detailMenu = false; deleteTarget = d },
+                        )
+                    }
                 }
             }
         }
