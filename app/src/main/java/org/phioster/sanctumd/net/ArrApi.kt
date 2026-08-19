@@ -321,7 +321,13 @@ suspend fun arrCloneProfileUnrestricted(
                         // Keeping the source's cutoff would contradict the point of the copy:
                         // every film on it would count as "cutoff unmet" forever and the app
                         // would keep hunting upgrades it is not supposed to care about.
-                        "cutoff" -> lowestAllowedQualityId(items)?.let { put("cutoff", it) } ?: put(k, v)
+                        "cutoff" -> {
+                            // Not an elvis chain: JsonObjectBuilder.put returns the *previous*
+                            // value, which is null here, so `put(...) ?: put(k, v)` would always
+                            // fall through and put the source value back.
+                            val lowest = lowestAllowedQualityId(items)
+                            if (lowest != null) put("cutoff", lowest) else put(k, v)
+                        }
                         else -> put(k, v)
                     }
                 }
