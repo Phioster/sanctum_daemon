@@ -310,13 +310,24 @@ suspend fun arrCloneProfileUnrestricted(
             val base = arrBase(config.type)
             val api = apiFor<ArrApi>(config, apiKeyHeader(config))
             val src = api.itemDetail("$base/qualityprofile/$sourceId")
+            val items = allowEveryQuality(src["items"] ?: JsonArray(emptyList()))
             val body = buildJsonObject {
                 src.forEach { (k, v) ->
                     when (k) {
                         "id" -> {} // a create must not carry the source's id
                         "name" -> put("name", newName)
                         "minFormatScore", "cutoffFormatScore" -> put(k, 0)
-                        "items" -> put(k, allowEveryQuality(v))
+                        "items" -> put(k, items)
+                        // Keeping the source's cutoff would contradict the point of the copy:
+                        // every film on it would count as "cutoff unmet" forever and the app
+                        // would keep hunting upgrades it is not supposed to care about.
+                        "cutoff" -> {
+                            // Not an elvis chain: JsonObjectBuilder.put returns the *previous*
+                            // value, which is null here, so `put(...) ?: put(k, v)` would always
+                            // fall through and put the source value back.
+                            val lowest = lowestAllowedQualityId(items)
+                            if (lowest != null) put("cutoff", lowest) else put(k, v)
+                        }
                         else -> put(k, v)
                     }
                 }
@@ -326,6 +337,18 @@ suspend fun arrCloneProfileUnrestricted(
             "error: ${t.message ?: t.javaClass.simpleName}"
         }
     }
+}
+
+/**
+ * The id of the lowest-ranked allowed entry — Servarr lists qualities worst first, so that is
+ * simply the first one. Groups carry their own id and are referenced by it.
+ */
+private fun lowestAllowedQualityId(items: JsonElement): Int? {
+    val list = (items as? JsonArray) ?: return null
+    val first = list.firstOrNull { (it as? JsonObject)?.get("allowed")?.toString() == "true" } as? JsonObject
+        ?: return null
+    (first["quality"] as? JsonObject)?.let { q -> return jsInt(q, "id") }
+    return jsInt(first, "id")
 }
 
 /** Flips every quality (and every quality inside a group) to allowed. */
