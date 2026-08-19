@@ -35,6 +35,7 @@ import org.phioster.sanctumd.model.ArrHistoryItem
 import org.phioster.sanctumd.model.ArrImportItem
 import org.phioster.sanctumd.model.ArrLibraryItem
 import org.phioster.sanctumd.model.ArrLookupItem
+import org.phioster.sanctumd.model.ArrParsedRelease
 import org.phioster.sanctumd.model.ArrMissingItem
 import org.phioster.sanctumd.model.ArrProfile
 import org.phioster.sanctumd.model.ArrQueueItem
@@ -234,6 +235,7 @@ internal interface ArrApi {
     @GET suspend fun manualImport(@Url url: String): List<JsonObject>
     @GET suspend fun filesystem(@Url url: String): ArrFsResp
     @GET suspend fun blocklist(@Url url: String): ArrBlocklistPage
+    @GET suspend fun parseRelease(@Url url: String): JsonObject
     @GET suspend fun indexers(@Url url: String): List<ArrIndexerRecord>
     @POST suspend fun postEmpty(@Url url: String): Response<ResponseBody>
 }
@@ -932,6 +934,37 @@ suspend fun arrBrowse(config: ServiceConfig, path: String): ArrFsListing = withC
             resp.files.map { ArrFsEntry(it.name, it.path, isDirectory = false, size = it.size ?: 0L) },
     )
 }
+
+/**
+ * Asks the service what it makes of a release name — quality, custom formats and their score.
+ *
+ * Prowlarr can only report what the indexer said; whether a release is worth taking is the
+ * *arr app's judgement, and it is not visible in the name. Returns null when the service cannot
+ * answer, so the caller shows nothing rather than a misleading zero.
+ */
+suspend fun arrParseRelease(config: ServiceConfig, title: String): ArrParsedRelease? =
+    withContext(Dispatchers.IO) {
+        val base = arrBase(config.type)
+        val encoded = java.net.URLEncoder.encode(title, "UTF-8")
+        val o = runCatching { apiFor<ArrApi>(config, apiKeyHeader(config)).parseRelease("$base/parse?title=$encoded") }
+            .getOrNull() ?: return@withContext null
+        val parsed = o["parsedMovieInfo"] as? JsonObject ?: o["parsedEpisodeInfo"] as? JsonObject
+        val quality = ((parsed?.get("quality") as? JsonObject)?.get("quality") as? JsonObject)
+            ?.let { jsStr(it, "name") }.orEmpty()
+        val formats = (o["customFormats"] as? JsonArray)
+            ?.mapNotNull { (it as? JsonObject)?.let { f -> jsStr(f, "name") } }.orEmpty()
+        val languages = (parsed?.get("languages") as? JsonArray)
+            ?.mapNotNull { (it as? JsonObject)?.let { l -> jsStr(l, "name") } }.orEmpty()
+        val matched = (o["movie"] as? JsonObject ?: o["series"] as? JsonObject)
+            ?.let { jsStr(it, "title") }.orEmpty()
+        ArrParsedRelease(
+            quality = quality,
+            score = jsInt(o, "customFormatScore") ?: 0,
+            formats = formats.joinToString(", "),
+            languages = languages.joinToString(", "),
+            matchedTitle = matched,
+        )
+    }
 
 /** Scans a folder for manually-importable files (Radarr/Sonarr). */
 suspend fun arrManualImportScan(config: ServiceConfig, folder: String): List<ArrImportItem> = withContext(Dispatchers.IO) {

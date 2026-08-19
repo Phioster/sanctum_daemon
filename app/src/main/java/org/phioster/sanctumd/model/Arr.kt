@@ -194,3 +194,19 @@ data class ArrBlocklistItem(
     val title: String,
     val date: String,
 )
+
+/**
+ * What a Servarr app makes of a release name: the quality it parses out, and what its own custom
+ * formats score it at.
+ *
+ * The indexer's listing says none of this. A name can look like a clean 1080p Bluray and still be
+ * scored far below zero because a marker in it — "MD" for mic-dubbed, say — is one the profile
+ * penalises. That is exactly the judgement worth seeing before picking a file.
+ */
+data class ArrParsedRelease(
+    val quality: String,
+    val score: Int,
+    val formats: String, // joined custom-format names, "" if none
+    val languages: String,
+    val matchedTitle: String, // which title the app thinks this release belongs to
+)
