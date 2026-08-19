@@ -41,8 +41,8 @@ class ArrQualityProfileTest {
 
     private val source = """{"id":7,"name":"[German] HD Bluray + WEB","upgradeAllowed":true,"cutoff":9,
         "minFormatScore":100,"cutoffFormatScore":200,
-        "items":[{"quality":{"id":9,"name":"HDTV-1080p"},"allowed":true},
-                 {"quality":{"id":3,"name":"WEBDL-480p"},"allowed":false}],
+        "items":[{"quality":{"id":3,"name":"WEBDL-480p"},"allowed":false},
+                 {"quality":{"id":9,"name":"HDTV-1080p"},"allowed":true}],
         "formatItems":[{"format":1,"name":"German","score":100}]}"""
 
     private fun cloneWith(name: String) = runBlocking {
@@ -66,6 +66,19 @@ class ArrQualityProfileTest {
         val body = post.body.readUtf8()
         assertTrue("got $body", body.contains("\"minFormatScore\":0"))
         assertTrue("got $body", body.contains("\"cutoffFormatScore\":0"))
+    }
+
+    /**
+     * A copy that allows everything but keeps the source's cutoff is self-contradictory: every
+     * film on it counts as "cutoff unmet" forever, and Radarr keeps hunting upgrades. Here the
+     * only better-scoring candidates were releases the indexer had mis-tagged, so the profile
+     * would have pulled in the wrong film again on its own.
+     */
+    @Test fun `the cutoff drops to the lowest allowed quality`() {
+        val (_, _, post) = cloneWith("Any")
+        val body = post.body.readUtf8()
+        // Source cutoff was 9 (HDTV-1080p); the lowest item in the list is WEBDL-480p, id 3.
+        assertTrue("got $body", body.contains("\"cutoff\":3"))
     }
 
     @Test fun `the clone is created under the new name and without the source id`() {
