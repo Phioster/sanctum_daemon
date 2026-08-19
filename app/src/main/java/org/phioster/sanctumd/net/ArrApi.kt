@@ -617,6 +617,42 @@ suspend fun arrFindByProviderId(config: ServiceConfig, tmdbId: String?, tvdbId: 
             ?.let { ArrLibraryItem(id = it.id, title = it.title, subtitle = "", year = it.year, sizeMb = 0L) }
     }
 
+/**
+ * Moves an item to another root folder, taking its files along.
+ *
+ * Each service names the route and the id field after its own kind — and getting either wrong
+ * fails **quietly**: the editor endpoint answers `202` for an empty selection, so a body with the
+ * wrong field name is indistinguishable from a move that worked. Hence the per-type mapping here
+ * rather than a shared "ids" guess.
+ *
+ * `moveFiles` is not optional in practice: without it the entry points at the new folder while
+ * the files stay in the old one.
+ */
+suspend fun arrMoveToRootFolder(
+    config: ServiceConfig,
+    id: Int,
+    rootFolderPath: String,
+): String = destructive("move ${config.type.label} item $id to $rootFolderPath") {
+    withContext(Dispatchers.IO) {
+        try {
+            val base = arrBase(config.type)
+            val (path, idField) = when (config.type) {
+                ServiceType.SONARR -> "series" to "seriesIds"
+                ServiceType.LIDARR -> "artist" to "artistIds"
+                else -> "movie" to "movieIds"
+            }
+            val body = buildJsonObject {
+                putJsonArray(idField) { add(id) }
+                put("rootFolderPath", rootFolderPath)
+                put("moveFiles", true)
+            }
+            okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).putUrl("$base/$path/editor", body), "moved")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
+}
+
 suspend fun arrLibrarySearch(config: ServiceConfig, id: Int): String = destructive("search library item $id on ${config.type.label}") {
     withContext(Dispatchers.IO) {
         try {
