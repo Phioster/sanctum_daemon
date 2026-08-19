@@ -72,7 +72,11 @@ internal fun streamHeadline(s: JellyStream): String = buildList {
 /** Every remaining detail Jellyfin gave us, as label/value rows. Absent values are dropped. */
 internal fun streamDetails(s: JellyStream): List<Pair<String, String>> = buildList {
     if (s.profile.isNotBlank()) add("profile" to s.profile)
-    if (s.videoRange.isNotBlank()) add("range" to s.videoRange)
+    // Jellyfin reports VideoRange on audio streams too, as "Unknown". Printing it put a
+    // meaningless `range Unknown` row under every audio track.
+    if (s.type == "Video" && s.videoRange.isNotBlank() && !s.videoRange.equals("Unknown", true)) {
+        add("range" to s.videoRange)
+    }
     formatFrameRate(s.frameRate).takeIf { it.isNotBlank() }?.let { add("framerate" to it) }
     if (s.bitDepth > 0) add("bit depth" to "${s.bitDepth} bit")
     if (s.sampleRate > 0) add("sample rate" to "${s.sampleRate} Hz")
