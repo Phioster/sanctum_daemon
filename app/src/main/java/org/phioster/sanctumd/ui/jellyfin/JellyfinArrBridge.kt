@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import org.phioster.sanctumd.model.ArrLibraryItem
 import org.phioster.sanctumd.model.JellyMediaDetail
+import org.phioster.sanctumd.model.JellyMediaItem
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
 import org.phioster.sanctumd.ui.DashboardViewModel
@@ -48,6 +49,16 @@ internal fun arrServiceTypeFor(kind: String): ServiceType? = when (kind) {
     "Series", "Season", "Episode" -> ServiceType.SONARR
     else -> null
 }
+
+/**
+ * The series in the current browse path, or null outside one.
+ *
+ * Browsing goes library → series → season, and only the series has a counterpart in Sonarr —
+ * a season carries no provider ids of its own — so acting from a season means acting on the
+ * series above it.
+ */
+internal fun seriesInStack(stack: List<JellyMediaItem>): JellyMediaItem? =
+    stack.lastOrNull { it.kind == "Series" }
 
 /** Warns when the actions reach past the item on screen. Empty when they do not. */
 internal fun counterpartScopeNote(kind: String): String = when (kind) {

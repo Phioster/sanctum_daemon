@@ -730,6 +730,17 @@ internal fun JellyfinScreen(
                                                     actionMsg = "queued ${toGet.size} downloads"
                                                 }
                                             }
+                                            // Same reach as the detail sheet: from a season this
+                                            // acts on the series above it, which is the only level
+                                            // Sonarr has an entry for.
+                                            seriesInStack(browseStack)?.let { series ->
+                                                BrowseChip("↗ Sonarr", accent) {
+                                                    scope.launch {
+                                                        manageTarget = runCatching { vm.jellyfinMediaDetail(config, series.id) }.getOrNull()
+                                                        if (manageTarget == null) actionMsg = "could not load ${series.name}"
+                                                    }
+                                                }
+                                            }
                                             BrowseChip("⟳ scan", MatrixGreen.copy(alpha = 0.85f)) { scope.launch { actionMsg = vm.jellyfinScanLibrary(config, here.id) } }
                                         }
                                         Spacer(Modifier.height(8.dp))
