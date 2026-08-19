@@ -163,6 +163,7 @@ internal fun JellyfinScreen(
     var deleteTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
     var identifyTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
     var subtitleTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
+    var manageTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
     var playRequest by remember { mutableStateOf<org.phioster.sanctumd.ui.player.PlayRequest?>(null) }
     val downloads by vm.downloads.collectAsState(initial = emptyMap())
     val wifiOnly by vm.downloadsWifiOnly.collectAsState()
@@ -284,6 +285,14 @@ internal fun JellyfinScreen(
     LaunchedEffect(mode, browseStack, browseSort, browseDesc, browseUnwatched) {
         if (mode == 3) { if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last()) }
     }
+    manageTarget?.let { target ->
+        JellyfinArrBridgeDialog(vm, target, accent, onDismiss = { manageTarget = null }) { msg ->
+            manageTarget = null
+            actionMsg = msg
+            scope.launch { vm.refreshAll() }
+        }
+    }
+
     subtitleTarget?.let { target ->
         JellyfinSubtitlesDialog(
             vm, config, target, accent,
@@ -1509,6 +1518,12 @@ internal fun JellyfinScreen(
                             else applyWatched(d.id, d.name, !d.played)
                         }
                         Spacer(Modifier.height(8.dp))
+                        // Only where the other side has an entry of its own; an episode's
+                        // counterpart is the whole series.
+                        if (arrServiceTypeFor(d.kind) != null) {
+                            SecondaryButton("manage in Radarr / Sonarr", Modifier.fillMaxWidth()) { manageTarget = d }
+                            Spacer(Modifier.height(8.dp))
+                        }
                         SecondaryButton("subtitles", Modifier.fillMaxWidth()) { subtitleTarget = d }
                         Spacer(Modifier.height(8.dp))
                         SecondaryButton("identify", Modifier.fillMaxWidth()) { identifyTarget = d }
