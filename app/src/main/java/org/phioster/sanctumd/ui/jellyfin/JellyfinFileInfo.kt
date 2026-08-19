@@ -70,7 +70,13 @@ internal fun streamHeadline(s: JellyStream): String = buildList {
 }.joinToString(" · ").ifBlank { s.type }
 
 /** Every remaining detail Jellyfin gave us, as label/value rows. Absent values are dropped. */
-internal fun streamDetails(s: JellyStream): List<Pair<String, String>> = buildList {
+internal fun streamDetails(s: JellyStream, assumedLanguage: String = ""): List<Pair<String, String>> = buildList {
+    // An untagged track can borrow the film's original language, but it stays labelled: it is an
+    // inference about the film, not something read out of this file. Unlabelled it would be
+    // indistinguishable from a real tag, and a dual-language rip would be quietly mislabelled.
+    if (s.type == "Audio" && s.language.isBlank() && assumedLanguage.isNotBlank()) {
+        add("language" to "$assumedLanguage (assumed)")
+    }
     if (s.profile.isNotBlank()) add("profile" to s.profile)
     // Jellyfin reports VideoRange on audio streams too, as "Unknown". Printing it put a
     // meaningless `range Unknown` row under every audio track.
@@ -99,7 +105,7 @@ internal fun streamDetails(s: JellyStream): List<Pair<String, String>> = buildLi
  * information, not something you read on every visit.
  */
 @Composable
-internal fun FileInfoSection(info: JellyFileInfo, accent: Color) {
+internal fun FileInfoSection(info: JellyFileInfo, accent: Color, assumedLanguage: String = "") {
     var expanded by remember { mutableStateOf(false) }
 
     // SectionHeader is itself a fillMaxWidth Row and offers a trailing slot for exactly this.
@@ -154,7 +160,7 @@ internal fun FileInfoSection(info: JellyFileInfo, accent: Color) {
         tracks.forEach { s ->
             Spacer(Modifier.height(6.dp))
             Text(streamHeadline(s), fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
-            InfoRows(streamDetails(s), indent = 10.dp)
+            InfoRows(streamDetails(s, assumedLanguage), indent = 10.dp)
         }
     }
 }

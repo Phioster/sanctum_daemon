@@ -1002,6 +1002,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         val seerr = _services.value.firstOrNull { it.type == ServiceType.SEERR } ?: return emptyList()
         return seerrCast(seerr, tmdbId, isTv)
     }
+    /** The film's original language via Seerr, or "" when there is no Seerr or no answer. */
+    suspend fun originalLanguage(tmdbId: Int, isTv: Boolean): String {
+        val seerr = _services.value.firstOrNull { it.type == ServiceType.SEERR } ?: return ""
+        return runCatching { org.phioster.sanctumd.net.seerrOriginalLanguage(seerr, tmdbId, isTv) }.getOrDefault("")
+    }
     fun hasSeerr(): Boolean = _services.value.any { it.type == ServiceType.SEERR }
 
     suspend fun seerrList(config: ServiceConfig, filter: String): List<SeerrRequestItem> =

@@ -1538,8 +1538,17 @@ internal fun JellyfinScreen(
                         Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp, lineHeight = 17.sp)
                     }
                     d.fileInfo?.let { fi ->
+                        // Only worth a lookup when a track actually lacks a language of its own.
+                        val needsLanguage = fi.streams.any { it.type == "Audio" && it.language.isBlank() }
+                        var assumedLanguage by remember(d.id) { mutableStateOf("") }
+                        LaunchedEffect(d.id, needsLanguage) {
+                            assumedLanguage = if (!needsLanguage) "" else {
+                                val tmdb = d.providerIds["Tmdb"]?.toIntOrNull() ?: 0
+                                vm.originalLanguage(tmdb, isTv = d.kind == "Series" || d.kind == "Episode")
+                            }
+                        }
                         Spacer(Modifier.height(16.dp))
-                        FileInfoSection(fi, accent)
+                        FileInfoSection(fi, accent, assumedLanguage)
                     }
                     if (d.cast.isNotEmpty()) {
                         Spacer(Modifier.height(16.dp))
