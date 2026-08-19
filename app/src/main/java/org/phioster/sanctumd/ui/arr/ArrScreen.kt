@@ -475,7 +475,9 @@ internal fun ArrScreen(
                                 when {
                                     h == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     h.isEmpty() -> item { Text("no history", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(h) { ev -> ArrHistoryRow(ev, accent) }
+                                    else -> items(h) { ev ->
+                                        ArrHistoryRow(ev, accent) { act { vm.arrBlockFromHistory(config, ev.id) } }
+                                    }
                                 }
                             }
                         }
@@ -964,21 +966,36 @@ internal fun ArrQueueRow(
 }
 
 @Composable
-internal fun ArrHistoryRow(item: ArrHistoryItem, accent: Color) {
+internal fun ArrHistoryRow(item: ArrHistoryItem, accent: Color, onBlocklist: () -> Unit = {}) {
+    var menu by remember { mutableStateOf(false) }
+    // Only a grab can be blocked — an import or a deletion is not a release.
+    val blockable = item.eventType.equals("grabbed", true) || item.eventType.equals("downloadFailed", true)
     val evColor = when (item.eventType) {
         "grabbed" -> MatrixGreen
         "downloadFolderImported" -> accent.copy(alpha = 0.9f)
         "downloadFailed", "episodeFileDeleted", "movieFileDeleted" -> ErrRed
         else -> MatrixGreen.copy(alpha = 0.6f)
     }
-    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
-        Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(2.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("${item.eventType} · ${item.date}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            if (item.quality.isNotBlank()) Text(item.quality, fontFamily = Mono, color = evColor, fontSize = 10.sp)
+    Box {
+        Column(
+            Modifier.fillMaxWidth()
+                .let { m -> if (blockable) m.clickable { menu = true } else m }
+                .padding(vertical = 10.dp),
+        ) {
+            Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(2.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("${item.eventType} · ${item.date}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                if (item.quality.isNotBlank()) Text(item.quality, fontFamily = Mono, color = evColor, fontSize = 10.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
         }
-        Spacer(Modifier.height(8.dp))
-        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(
+                text = { Text("Blocklist this release", fontFamily = Mono, color = ErrRed) },
+                onClick = { menu = false; onBlocklist() },
+            )
+        }
     }
 }

@@ -178,6 +178,7 @@ internal interface LidarrApi {
 @Serializable internal data class ArrGrabReq(val guid: String, val indexerId: Int)
 
 @Serializable internal data class ArrHistoryRec(
+    val id: Int = 0,
     val eventType: String = "",
     val date: String = "",
     val sourceTitle: String = "",
@@ -545,6 +546,25 @@ suspend fun arrBlocklist(config: ServiceConfig): List<ArrBlocklistItem> = withCo
         .blocklist("$base/blocklist?page=1&pageSize=50&sortKey=date&sortDirection=descending")
         .records.map { ArrBlocklistItem(it.id, it.sourceTitle, it.date.take(10)) }
 }
+
+/**
+ * Blocks a release that is no longer in the queue, by marking its history entry as failed.
+ *
+ * The queue-based route only works while a download is running. When an indexer serves several
+ * wrongly-tagged releases for one title, that would mean waiting for each to be grabbed before it
+ * could be blocked — one download at a time.
+ */
+suspend fun arrBlocklistFromHistory(config: ServiceConfig, id: Int): String =
+    destructive("blocklist history entry $id on ${config.label}") {
+        withContext(Dispatchers.IO) {
+            try {
+                val base = arrBase(config.type)
+                okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).postEmpty("$base/history/failed/$id"), "blocklisted")
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
 
 /** Lifts a blocklist entry — without this a release blocked by mistake stays blocked forever. */
 suspend fun arrBlocklistRemove(config: ServiceConfig, id: Int): String =
@@ -1051,6 +1071,7 @@ suspend fun arrHistory(config: ServiceConfig): List<ArrHistoryItem> = withContex
     val url = "$base/history?page=1&pageSize=50&sortKey=date&sortDirection=descending"
     apiFor<ArrApi>(config, apiKeyHeader(config)).history(url).records.map { h ->
         ArrHistoryItem(
+            id = h.id,
             title = h.sourceTitle,
             eventType = h.eventType,
             date = h.date.take(16).replace('T', ' '),
