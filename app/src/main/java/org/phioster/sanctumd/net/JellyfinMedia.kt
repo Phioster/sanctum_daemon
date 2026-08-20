@@ -162,6 +162,7 @@ suspend fun jellyfinItemDetail(config: ServiceConfig, itemId: String): JellyMedi
         played = d.UserData?.Played == true,
         unplayedCount = d.UserData?.UnplayedItemCount ?: 0,
         favorite = d.UserData?.IsFavorite == true,
+        number = d.IndexNumber,
         fileInfo = d.MediaSources.firstOrNull()?.toFileInfo(),
         providerIds = d.ProviderIds.orEmpty(),
     )
