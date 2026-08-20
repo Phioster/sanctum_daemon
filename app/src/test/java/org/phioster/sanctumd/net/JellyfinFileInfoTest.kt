@@ -80,7 +80,29 @@ class JellyfinFileInfoTest {
         assertTrue(info.streams[2].isForced)
     }
 
+    /**
+     * A season has to carry its own number: the episode query filters on it, and without the
+     * filter Jellyfin folds the season-0 Specials into the aired season. The detail never kept
+     * the number, which only mattered once the sheet started listing a season's episodes.
+     */
     @Test
+    fun `a season keeps its own number`() = runBlocking {
+        enqueueUser()
+        server.enqueue(MockResponse().setBody("""{"Id":"s2","Name":"Staffel 1","Type":"Season","IndexNumber":1}"""))
+
+        assertEquals(1, jellyfinItemDetail(config(), "s2").number)
+    }
+
+    @Test
+    fun `an item with no number of its own reports none`() = runBlocking {
+        enqueueUser()
+        server.enqueue(MockResponse().setBody("""{"Id":"m1","Name":"Coraline","Type":"Movie"}"""))
+
+        assertNull(jellyfinItemDetail(config(), "m1").number)
+    }
+
+    @Test
+    fun `an item without media sources has no file info at all`() = runBlocking {    @Test
     fun `an item without media sources has no file info at all`() = runBlocking {
         enqueueUser()
         server.enqueue(MockResponse().setBody("""{"Id":"s1","Name":"Some Series","Type":"Series"}"""))
