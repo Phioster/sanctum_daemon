@@ -73,6 +73,7 @@ internal fun ArrCounterpartDialog(
     var folders by remember { mutableStateOf<List<String>?>(null) }
     var showFolders by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    var queued by remember { mutableStateOf<List<org.phioster.sanctumd.model.ArrQueueItem>>(emptyList()) }
 
     LaunchedEffect(target) {
         pair = vm.indexerServices().firstOrNull { it.type == target.serviceType }?.let { svc ->
@@ -80,6 +81,9 @@ internal fun ArrCounterpartDialog(
                 .getOrNull()?.let { svc to it }
         }
         lookupDone = true
+        // The counterpart is already resolved here, so asking what is downloading for it costs
+        // one more call and answers the question that usually follows: "is it on its way?"
+        pair?.let { (svc, item) -> queued = vm.arrQueueForLibraryItem(svc, item.id) }
     }
 
     fun run(label: String, call: suspend () -> String) {
@@ -111,6 +115,21 @@ internal fun ArrCounterpartDialog(
                             fontFamily = Mono, color = accent, fontSize = 12.sp,
                             maxLines = 2, overflow = TextOverflow.Ellipsis,
                         )
+                        queued.forEach { q ->
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                if (q.blocked) "⚠  downloaded, waiting to be imported"
+                                else "⬇  ${(q.progress * 100).toInt()}%  ·  ${q.status.lowercase()}",
+                                fontFamily = Mono,
+                                color = if (q.blocked) Color(0xFFFFAA00) else MatrixGreen,
+                                fontSize = 11.sp,
+                            )
+                            Text(
+                                q.title,
+                                fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 10.sp,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                         target.scopeNote.takeIf { it.isNotBlank() }?.let { note ->
                             Spacer(Modifier.height(6.dp))
                             Text(note, fontFamily = Mono, color = Color(0xFFFFAA00), fontSize = 10.sp)

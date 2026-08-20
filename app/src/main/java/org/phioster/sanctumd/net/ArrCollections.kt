@@ -10,6 +10,8 @@ import kotlinx.serialization.json.putJsonObject
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ArrCollection
 import org.phioster.sanctumd.model.ArrCollectionMovie
+import org.phioster.sanctumd.model.ArrQueueItem
+import org.phioster.sanctumd.model.ServiceType
 
 /**
  * Reads one entry of Radarr's `/api/v3/collection`.
@@ -89,3 +91,41 @@ suspend fun arrAddCollectionMovie(
         }
     }
 }
+
+/**
+ * Which query names "this library item" in each service's queue.
+ *
+ * Radarr keys its queue by movie, Sonarr by series. Getting it wrong returns the whole queue
+ * unfiltered, which would show a stranger's download on this item's page.
+ */
+internal fun queueFilterParam(type: ServiceType): String? = when (type) {
+    ServiceType.RADARR -> "movieId"
+    ServiceType.SONARR -> "seriesId"
+    else -> null
+}
+
+/**
+ * What is downloading right now for one library item.
+ *
+ * Uses `queue/details`, the endpoint made for this question — verified present on the live
+ * Radarr 6.3 and Sonarr 4.0 (both answer 200 with `[]` on an empty queue). The records are the
+ * same shape `/queue` returns, which is why [ArrQueueRecord] is reused rather than a second model.
+ */
+suspend fun arrQueueForItem(config: ServiceConfig, itemId: Int): List<ArrQueueItem> =
+    withContext(Dispatchers.IO) {
+        val param = queueFilterParam(config.type) ?: return@withContext emptyList()
+        runCatching {
+            apiFor<ArrApi>(config, apiKeyHeader(config))
+                .queueDetails("${arrBase(config.type)}/queue/details?$param=$itemId")
+                .map { r ->
+                    ArrQueueItem(
+                        id = r.id,
+                        title = r.title,
+                        status = r.status,
+                        progress = if (r.size > 0) ((r.size - r.sizeleft) / r.size).toFloat().coerceIn(0f, 1f) else 0f,
+                        blocked = r.trackedDownloadState == "importBlocked",
+                        outputPath = r.outputPath.orEmpty(),
+                    )
+                }
+        }.getOrDefault(emptyList())
+    }
