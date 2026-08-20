@@ -238,7 +238,7 @@ internal fun JellyfinDetailSheet(
                     Spacer(Modifier.height(12.dp))
                     Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp, lineHeight = 17.sp)
                 }
-                if (d.kind == "Series" || d.kind == "Season") {
+                if (opensAsDetail(d.kind)) {
                     DetailChildren(d, vm, config, accent, downloads, onMessage) { child ->
                         scope.launch {
                             runCatching { vm.jellyfinMediaDetail(config, child.id) }.getOrNull()?.let { state.open(it) }

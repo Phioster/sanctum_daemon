@@ -27,10 +27,11 @@ import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import kotlinx.coroutines.launch
 
-/** The heading a container's contents sit under — seasons for a series, episodes for a season. */
+/** The heading a container's contents sit under — seasons for a series, films for a collection. */
 internal fun childSectionTitle(kind: String): String = when (kind) {
     "Series" -> "SEASONS"
     "Season" -> "EPISODES"
+    "BoxSet" -> "FILMS"
     else -> "CONTENTS"
 }
 
