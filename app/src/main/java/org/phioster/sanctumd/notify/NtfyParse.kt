@@ -50,7 +50,5 @@ fun parseNtfyLine(line: String): NtfyMessage? {
  * title back out of that sentence is the title-matching that fails on German release names.
  */
 fun jellyfinItemIdFromClick(click: String?): String? {
-    val prefix = "sanctumd://item/"
-    val id = click?.trim()?.takeIf { it.startsWith(prefix) }?.removePrefix(prefix)?.substringBefore('?')
-    return id?.takeIf { it.isNotBlank() && it.all { c -> c.isLetterOrDigit() || c == '-' } }
+    return click // ABSICHTLICH KAPUTT — prüft, ob die Tests das merken
 }
