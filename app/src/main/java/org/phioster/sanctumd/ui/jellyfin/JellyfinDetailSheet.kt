@@ -238,7 +238,7 @@ internal fun JellyfinDetailSheet(
                     Spacer(Modifier.height(12.dp))
                     Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp, lineHeight = 17.sp)
                 }
-                if (d.kind == "Series" || d.kind == "Season") {
+                if (opensAsDetail(d.kind)) {
                     DetailChildren(d, vm, config, accent, downloads, onMessage) { child ->
                         scope.launch {
                             runCatching { vm.jellyfinMediaDetail(config, child.id) }.getOrNull()?.let { state.open(it) }
@@ -301,6 +301,14 @@ internal fun JellyfinDetailSheet(
                         DropdownMenuItem(
                             text = { Text("Manage in Radarr / Sonarr", fontFamily = Mono) },
                             onClick = { state.menuOpen = false; state.manage = d },
+                        )
+                    }
+                    // A collection joins to Radarr by its TMDB *collection* id, not a film id —
+                    // a different lookup than the one above, so it gets its own entry.
+                    if (d.kind == "BoxSet" && d.providerIds["Tmdb"] != null) {
+                        DropdownMenuItem(
+                            text = { Text("Missing films in Radarr", fontFamily = Mono) },
+                            onClick = { state.menuOpen = false; state.collection = d },
                         )
                     }
                     DropdownMenuItem(

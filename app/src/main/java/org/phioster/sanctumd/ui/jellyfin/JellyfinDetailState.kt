@@ -48,6 +48,9 @@ internal class JellyfinDetailState {
 
     // Each of these holds the item a dialog was opened for — null means that dialog is closed.
     var manage by mutableStateOf<JellyMediaDetail?>(null)
+
+    /** A Jellyfin collection whose Radarr counterpart is open. */
+    var collection by mutableStateOf<JellyMediaDetail?>(null)
     var subtitles by mutableStateOf<JellyMediaDetail?>(null)
     var identify by mutableStateOf<JellyMediaDetail?>(null)
     var delete by mutableStateOf<JellyMediaDetail?>(null)
@@ -63,7 +66,7 @@ internal class JellyfinDetailState {
     /** Closes the sheet and every dialog belonging to it. */
     fun closeAll() {
         stack = emptyList()
-        menuOpen = false
+        menuOpen = false; collection = null
         manage = null
         subtitles = null
         identify = null

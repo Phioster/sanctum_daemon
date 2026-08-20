@@ -218,6 +218,19 @@ internal fun JellyfinScreen(
         }
     }
 
+    ds.collection?.let { target ->
+        val tmdb = target.providerIds["Tmdb"]?.toIntOrNull()
+        if (tmdb != null) {
+            org.phioster.sanctumd.ui.arr.ArrCollectionDialog(
+                vm, tmdb, accent,
+                onDismiss = { ds.collection = null },
+            ) { msg ->
+                actionMsg = msg
+                scope.launch { vm.refreshAll() }
+            }
+        }
+    }
+
     ds.subtitles?.let { target ->
         JellyfinSubtitlesDialog(
             vm, config, target, accent,

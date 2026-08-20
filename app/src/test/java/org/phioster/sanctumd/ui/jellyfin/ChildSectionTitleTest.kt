@@ -12,4 +12,8 @@ class ChildSectionTitleTest {
     @Test fun `anything else gets a neutral heading`() {
         assertEquals("CONTENTS", childSectionTitle("MusicAlbum"))
     }
+
+    @Test fun `a collection lists films`() {
+        assertEquals("FILMS", childSectionTitle("BoxSet"))
+    }
 }

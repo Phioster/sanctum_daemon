@@ -60,9 +60,11 @@ internal fun counterpartScopeNote(kind: String): String = when (kind) {
  * Whether tapping a folder should open a detail sheet rather than descend the browse list.
  *
  * Jellyfin's own apps treat a series and a season as *things* with artwork, a synopsis and
- * actions — you tap the series, read about it, and its seasons sit inside that page. Only the
- * library roots ("movies"/"tvshows"/"music") are plain containers with nothing to say about
- * themselves, so those stay in the browse list. Music albums keep their list too: the album
- * screen is a track list, and folding it into a sheet would lose the queue controls.
+ * actions — you tap the series, read about it, and its seasons sit inside that page. A collection
+ * (`BoxSet`) is the same shape one level up: its own artwork, and the films of the run inside it.
+ * Only the library roots ("movies"/"tvshows"/"music"/"boxsets") are plain containers with nothing
+ * to say about themselves, so those stay in the browse list. Music albums keep their list too:
+ * the album screen is a track list, and folding it into a sheet would lose the queue controls.
  */
-internal fun opensAsDetail(kind: String): Boolean = kind == "Series" || kind == "Season"
+internal fun opensAsDetail(kind: String): Boolean =
+    kind == "Series" || kind == "Season" || kind == "BoxSet"
