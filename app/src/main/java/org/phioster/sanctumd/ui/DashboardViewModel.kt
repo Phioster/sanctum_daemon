@@ -975,6 +975,14 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         )
     suspend fun jellyfinDelete(config: ServiceConfig, itemId: String): String =
         org.phioster.sanctumd.net.jellyfinDeleteItem(config, itemId)
+    suspend fun arrCollectionOf(config: ServiceConfig, tmdbCollectionId: Int): org.phioster.sanctumd.model.ArrCollection? =
+        org.phioster.sanctumd.net.arrCollectionByTmdb(config, tmdbCollectionId)
+    suspend fun arrAddFromCollection(
+        config: ServiceConfig,
+        collection: org.phioster.sanctumd.model.ArrCollection,
+        movie: org.phioster.sanctumd.model.ArrCollectionMovie,
+        searchNow: Boolean,
+    ): String = org.phioster.sanctumd.net.arrAddCollectionMovie(config, collection, movie, searchNow)
     suspend fun arrFindByIds(config: ServiceConfig, tmdbId: String?, tvdbId: String?): org.phioster.sanctumd.model.ArrLibraryItem? =
         org.phioster.sanctumd.net.arrFindByProviderId(config, tmdbId, tvdbId)
     suspend fun arrDeleteItem(config: ServiceConfig, id: Int, deleteFiles: Boolean, addImportExclusion: Boolean): String =

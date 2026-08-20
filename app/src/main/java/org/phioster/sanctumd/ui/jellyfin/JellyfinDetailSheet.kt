@@ -303,6 +303,14 @@ internal fun JellyfinDetailSheet(
                             onClick = { state.menuOpen = false; state.manage = d },
                         )
                     }
+                    // A collection joins to Radarr by its TMDB *collection* id, not a film id —
+                    // a different lookup than the one above, so it gets its own entry.
+                    if (d.kind == "BoxSet" && d.providerIds["Tmdb"] != null) {
+                        DropdownMenuItem(
+                            text = { Text("Missing films in Radarr", fontFamily = Mono) },
+                            onClick = { state.menuOpen = false; state.collection = d },
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text("Subtitles", fontFamily = Mono) },
                         onClick = { state.menuOpen = false; state.subtitles = d },
