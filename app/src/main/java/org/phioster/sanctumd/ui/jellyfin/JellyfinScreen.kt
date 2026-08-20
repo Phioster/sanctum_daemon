@@ -1,62 +1,55 @@
 package org.phioster.sanctumd.ui.jellyfin
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.border
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.VideoLibrary
-import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -66,9 +59,9 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -85,28 +78,39 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.phioster.sanctumd.ServiceLogo
+import org.phioster.sanctumd.model.DownloadEntry
+import org.phioster.sanctumd.model.JellyMediaItem
+import org.phioster.sanctumd.model.MediaRowStyle
 import org.phioster.sanctumd.model.ServiceConfig
+import org.phioster.sanctumd.net.MusicTrack
+import org.phioster.sanctumd.service.DownloadService
 import org.phioster.sanctumd.ui.DashboardViewModel
-import org.phioster.sanctumd.ui.theme.Black
-import org.phioster.sanctumd.ui.theme.ErrRed
-import org.phioster.sanctumd.ui.theme.MatrixGreen
-import org.phioster.sanctumd.ui.theme.Mono
-import org.phioster.sanctumd.ui.theme.Surface
-import org.phioster.sanctumd.ui.common.*
 import org.phioster.sanctumd.ui.arr.*
+import org.phioster.sanctumd.ui.common.*
 import org.phioster.sanctumd.ui.dashboard.*
 import org.phioster.sanctumd.ui.home.*
 import org.phioster.sanctumd.ui.ntfy.*
 import org.phioster.sanctumd.ui.nzbget.*
 import org.phioster.sanctumd.ui.onboarding.*
+import org.phioster.sanctumd.ui.player.MusicController
+import org.phioster.sanctumd.ui.player.PlayRequest
+import org.phioster.sanctumd.ui.player.PlayerScreen
 import org.phioster.sanctumd.ui.prowlarr.*
 import org.phioster.sanctumd.ui.search.*
 import org.phioster.sanctumd.ui.seerr.*
@@ -114,7 +118,11 @@ import org.phioster.sanctumd.ui.services.*
 import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
-import org.phioster.sanctumd.ServiceLogo
+import org.phioster.sanctumd.ui.theme.Black
+import org.phioster.sanctumd.ui.theme.ErrRed
+import org.phioster.sanctumd.ui.theme.MatrixGreen
+import org.phioster.sanctumd.ui.theme.Mono
+import org.phioster.sanctumd.ui.theme.Surface
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.media3.common.util.UnstableApi::class)
 @Composable
@@ -140,7 +148,7 @@ internal fun JellyfinScreen(
     var barMenu by remember { mutableStateOf(false) }
     val ds = rememberJellyfinDetailState()
     val bs = rememberJellyfinBrowseState()
-    var playRequest by remember { mutableStateOf<org.phioster.sanctumd.ui.player.PlayRequest?>(null) }
+    var playRequest by remember { mutableStateOf<PlayRequest?>(null) }
     val downloads by vm.downloads.collectAsState(initial = emptyMap())
     val wifiOnly by vm.downloadsWifiOnly.collectAsState()
     val deleteWatched by vm.downloadsDeleteWatched.collectAsState()
@@ -151,13 +159,13 @@ internal fun JellyfinScreen(
     val mediaStyles by vm.mediaRowStyles.collectAsState()
     var configRow by remember { mutableStateOf<String?>(null) } // "resume"/"recent"/"libraries" being styled
     var rowPickerOpen by remember { mutableStateOf(false) } // the shared "customize rows" entry
-    val musicState by org.phioster.sanctumd.ui.player.MusicController.state.collectAsState()
+    val musicState by MusicController.state.collectAsState()
     var nowPlayingOpen by remember { mutableStateOf(false) }
     // Attach to any running music session so the now-playing bar appears immediately.
-    LaunchedEffect(Unit) { org.phioster.sanctumd.ui.player.MusicController.bind(context) }
+    LaunchedEffect(Unit) { MusicController.bind(context) }
     // Foregrounding the app resumes any Wi-Fi-parked downloads (a background FGS start is blocked).
-    val hasQueued = downloads.values.any { it.state == org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED }
-    LaunchedEffect(hasQueued) { if (hasQueued) org.phioster.sanctumd.service.DownloadService.resume(context) }
+    val hasQueued = downloads.values.any { it.state == DownloadEntry.STATE_QUEUED }
+    LaunchedEffect(hasQueued) { if (hasQueued) DownloadService.resume(context) }
     // Deep link from search: open the item-detail dialog on top of the media tab.
     LaunchedEffect(Unit) {
         if (initialItemId != null) {
@@ -170,10 +178,10 @@ internal fun JellyfinScreen(
     /** Drop finished downloads whose item is watched on the server, when the user asked for that. */
     suspend fun sweepWatchedDownloads() {
         if (!vm.downloadsDeleteWatched.value) return
-        val done = downloads.values.filter { it.serverId == config.id && it.state == org.phioster.sanctumd.model.DownloadEntry.STATE_DONE }
+        val done = downloads.values.filter { it.serverId == config.id && it.state == DownloadEntry.STATE_DONE }
         if (done.isEmpty()) return
         val watched = runCatching { vm.jellyfinPlayedIds(config, done.map { it.itemId }) }.getOrDefault(emptySet())
-        watched.forEach { org.phioster.sanctumd.service.DownloadService.delete(context, it) }
+        watched.forEach { DownloadService.delete(context, it) }
     }
 
     suspend fun loadSessions() { listError = ps.loadSessions(vm, config) }
@@ -244,11 +252,11 @@ internal fun JellyfinScreen(
     BackHandler(enabled = mode == 3 && (ds.detail != null || bs.stack.isNotEmpty())) {
         if (!ds.back()) bs.stack = bs.stack.dropLast(1)
     }
-    fun openMedia(it: org.phioster.sanctumd.model.JellyMediaItem) {
+    fun openMedia(it: JellyMediaItem) {
         if (it.isFolder && !opensAsDetail(it.kind)) bs.stack = bs.stack + it
         else scope.launch { runCatching { vm.jellyfinMediaDetail(config, it.id) }.getOrNull()?.let { d -> ds.open(d) } }
     }
-    fun toggleFolder(f: org.phioster.sanctumd.model.JellyMediaItem) {
+    fun toggleFolder(f: JellyMediaItem) {
         if (f.id in bs.expanded) {
             bs.expanded = bs.expanded - f.id
         } else {
@@ -277,7 +285,7 @@ internal fun JellyfinScreen(
         }
     }
     /** Badge tap: returns whether the change was applied now (false = a confirmation is pending). */
-    val setWatched: (org.phioster.sanctumd.model.JellyMediaItem, Boolean) -> Boolean = { m, want ->
+    val setWatched: (JellyMediaItem, Boolean) -> Boolean = { m, want ->
         if (m.isFolder) {
             ds.confirmWatched = Triple(m.id, m.name, want)
             false
@@ -287,21 +295,21 @@ internal fun JellyfinScreen(
         }
     }
     // Play a completed download offline: audio via the background music player, video via the overlay.
-    fun playDownload(e: org.phioster.sanctumd.model.DownloadEntry) {
+    fun playDownload(e: DownloadEntry) {
         if (e.filePath.isBlank()) return
         val fileUri = android.net.Uri.fromFile(java.io.File(e.filePath)).toString()
         if (e.mediaType == "Audio") {
             val art = if (e.posterFile.startsWith("/")) android.net.Uri.fromFile(java.io.File(e.posterFile)).toString() else ""
-            val track = org.phioster.sanctumd.net.MusicTrack(e.itemId, e.name, e.subtitle, "", fileUri, art)
-            org.phioster.sanctumd.ui.player.MusicController.play(context, listOf(track), 0, emptyMap())
+            val track = MusicTrack(e.itemId, e.name, e.subtitle, "", fileUri, art)
+            MusicController.play(context, listOf(track), 0, emptyMap())
         } else {
-            playRequest = org.phioster.sanctumd.ui.player.PlayRequest(e.itemId, e.name, localFileUri = fileUri)
+            playRequest = PlayRequest(e.itemId, e.name, localFileUri = fileUri)
         }
     }
     val mediaActions = JellyfinMediaActions(
         open = ::openMedia,
         setWatched = setWatched,
-        play = { m -> playRequest = org.phioster.sanctumd.ui.player.PlayRequest(m.id, m.name) },
+        play = { m -> playRequest = PlayRequest(m.id, m.name) },
         playDownload = ::playDownload,
         toggleFolder = ::toggleFolder,
         manageDownloads = { downloadsManagerOpen = true },
@@ -329,8 +337,8 @@ internal fun JellyfinScreen(
                     // Live download indicator — visible from any Jellyfin tab while something downloads.
                     val activeDl = downloads.values.filter {
                         it.serverId == config.id &&
-                            (it.state == org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING ||
-                                it.state == org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED)
+                            (it.state == DownloadEntry.STATE_RUNNING ||
+                                it.state == DownloadEntry.STATE_QUEUED)
                     }
                     if (activeDl.isNotEmpty()) {
                         val label = if (activeDl.size == 1) "⬇ ${(activeDl.first().progress * 100).toInt()}%" else "⬇ ${activeDl.size}"
@@ -359,7 +367,7 @@ internal fun JellyfinScreen(
             )
         },
         bottomBar = {
-            if (musicState.hasMedia) MusicBar(musicState, accent, onToggle = { org.phioster.sanctumd.ui.player.MusicController.playPause() }, onNext = { org.phioster.sanctumd.ui.player.MusicController.next() }, onOpen = { nowPlayingOpen = true })
+            if (musicState.hasMedia) MusicBar(musicState, accent, onToggle = { MusicController.playPause() }, onNext = { MusicController.next() }, onOpen = { nowPlayingOpen = true })
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
@@ -474,7 +482,7 @@ internal fun JellyfinScreen(
                             fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp,
                             modifier = Modifier.fillMaxWidth().clickable {
                                 ds.downloadQuality = null
-                                org.phioster.sanctumd.service.DownloadService.enqueue(
+                                DownloadService.enqueue(
                                     context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L, "Video", bitrate,
                                 )
                                 actionMsg = "download queued"
@@ -619,7 +627,7 @@ internal fun JellyfinScreen(
                             Spacer(Modifier.width(12.dp))
                             Text(label, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp)
                             Spacer(Modifier.weight(1f))
-                            if ((mediaStyles[key] ?: org.phioster.sanctumd.model.MediaRowStyle()).hidden) {
+                            if ((mediaStyles[key] ?: MediaRowStyle()).hidden) {
                                 Text("hidden", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.4f), fontSize = 10.sp)
                             }
                         }
@@ -643,7 +651,7 @@ internal fun JellyfinScreen(
         val title = when (rowKey) { "resume" -> "Continue Watching"; "recent" -> "Recently Added"; else -> "Libraries" }
         MediaRowConfigDialog(
             title = title,
-            style = mediaStyles[rowKey] ?: org.phioster.sanctumd.model.MediaRowStyle(),
+            style = mediaStyles[rowKey] ?: MediaRowStyle(),
             serviceColor = accent,
             posterOptions = rowKey == "resume" || rowKey == "recent",
             onSave = { vm.setMediaRowStyle(rowKey, it) },
@@ -660,9 +668,9 @@ internal fun JellyfinScreen(
             deleteWatched = deleteWatched,
             onDeleteWatched = { vm.setDownloadsDeleteWatched(it); if (it) scope.launch { sweepWatchedDownloads() } },
             onPlay = { e -> downloadsManagerOpen = false; playDownload(e) },
-            onDelete = { id -> org.phioster.sanctumd.service.DownloadService.delete(context, id) },
-            onClearCompleted = { org.phioster.sanctumd.service.DownloadService.clearCompleted(context) },
-            onClearAll = { org.phioster.sanctumd.service.DownloadService.clearAll(context); downloadsManagerOpen = false },
+            onDelete = { id -> DownloadService.delete(context, id) },
+            onClearCompleted = { DownloadService.clearCompleted(context) },
+            onClearAll = { DownloadService.clearAll(context); downloadsManagerOpen = false },
             onClose = { downloadsManagerOpen = false },
         )
     }
@@ -672,7 +680,7 @@ internal fun JellyfinScreen(
     }
 
     playRequest?.let { pr ->
-        org.phioster.sanctumd.ui.player.PlayerScreen(
+        PlayerScreen(
             vm = vm,
             config = config,
             itemId = pr.itemId,
