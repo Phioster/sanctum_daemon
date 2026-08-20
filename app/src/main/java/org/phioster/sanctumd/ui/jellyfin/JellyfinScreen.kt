@@ -154,12 +154,8 @@ internal fun JellyfinScreen(
     var showCreateUser by remember { mutableStateOf(false) }
     var newUserName by remember { mutableStateOf("") }
     var newUserPass by remember { mutableStateOf("") }
-    var mediaViews by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
-    var mediaContents by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
-    var resumeItems by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
-    var latestItems by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
     val ds = rememberJellyfinDetailState()
-    var browseStack by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>>(emptyList()) }
+    val bs = rememberJellyfinBrowseState()
     var playRequest by remember { mutableStateOf<org.phioster.sanctumd.ui.player.PlayRequest?>(null) }
     val downloads by vm.downloads.collectAsState(initial = emptyMap())
     val wifiOnly by vm.downloadsWifiOnly.collectAsState()
@@ -195,12 +191,6 @@ internal fun JellyfinScreen(
     var catalog by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyPackage>?>(null) }
     val tvState = rememberJellyfinLiveTvState()
 
-    // Browse sorting/filtering, plus a client-side name filter over what's loaded.
-    var browseSort by remember { mutableStateOf("IsFolder,SortName") }
-    var browseDesc by remember { mutableStateOf(false) }
-    var browseUnwatched by remember { mutableStateOf(false) }
-    var browseFilter by remember { mutableStateOf("") }
-    var favorites by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
 
     /** Drop finished downloads whose item is watched on the server, when the user asked for that. */
     suspend fun sweepWatchedDownloads() {
@@ -235,26 +225,9 @@ internal fun JellyfinScreen(
         } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
     }
     suspend fun loadLiveTv() { listError = tvState.reload(vm, config) }
-    suspend fun loadMediaHome() {
-        listError = null
-        try {
-            mediaViews = vm.jellyfinViews(config)
-            resumeItems = vm.jellyfinContinue(config)
-            latestItems = vm.jellyfinRecent(config, null)
-            favorites = runCatching { vm.jellyfinFavoriteList(config) }.getOrDefault(emptyList())
-            sweepWatchedDownloads()
-        } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
-    }
-    suspend fun loadMediaFolder(parent: org.phioster.sanctumd.model.JellyMediaItem) {
-        listError = null
-        mediaContents = null
-        try {
-            mediaContents = vm.jellyfinItemList(
-                config, parent.id,
-                seasonNumber = if (parent.kind == "Season") parent.number else null,
-                sortBy = browseSort, descending = browseDesc, unwatchedOnly = browseUnwatched,
-            )
-        } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
+    suspend fun loadMedia() {
+        listError = if (bs.stack.isEmpty()) bs.loadHome(vm, config).also { sweepWatchedDownloads() }
+        else bs.loadFolder(vm, config, bs.stack.last())
     }
     LaunchedEffect(mode) { dashSection = null; when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv(); else -> {} } }
     // System back from an open dashboard category returns to the tile overview.
@@ -264,9 +237,7 @@ internal fun JellyfinScreen(
     LaunchedEffect(actionMsg, restartInProgress) {
         if (actionMsg != null && !restartInProgress) { kotlinx.coroutines.delay(4000); actionMsg = null }
     }
-    LaunchedEffect(mode, browseStack, browseSort, browseDesc, browseUnwatched) {
-        if (mode == 3) { if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last()) }
-    }
+    LaunchedEffect(mode, bs.stack, bs.sort, bs.desc, bs.unwatched) { if (mode == 3) loadMedia() }
     ds.manage?.let { target ->
         JellyfinArrBridgeDialog(vm, target, accent, onDismiss = { ds.manage = null }) { msg ->
             ds.manage = null
@@ -312,43 +283,28 @@ internal fun JellyfinScreen(
         }
     }
 
-    BackHandler(enabled = mode == 3 && (ds.detail != null || browseStack.isNotEmpty())) {
-        if (!ds.back()) browseStack = browseStack.dropLast(1)
+    BackHandler(enabled = mode == 3 && (ds.detail != null || bs.stack.isNotEmpty())) {
+        if (!ds.back()) bs.stack = bs.stack.dropLast(1)
     }
     fun openMedia(it: org.phioster.sanctumd.model.JellyMediaItem) {
-        if (it.isFolder && !opensAsDetail(it.kind)) browseStack = browseStack + it
+        if (it.isFolder && !opensAsDetail(it.kind)) bs.stack = bs.stack + it
         else scope.launch { runCatching { vm.jellyfinMediaDetail(config, it.id) }.getOrNull()?.let { d -> ds.open(d) } }
     }
-
-    // ── Season / album accordion ──────────────────────────────────────────────────────────────────
-    // Which folders are open in the current browse level, and their lazily loaded children.
-    var expandedFolders by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var folderChildren by remember { mutableStateOf<Map<String, List<org.phioster.sanctumd.model.JellyMediaItem>>>(emptyMap()) }
-    suspend fun loadChildren(f: org.phioster.sanctumd.model.JellyMediaItem) {
-        val kids = runCatching {
-            vm.jellyfinItemList(config, f.id, if (f.kind == "Season") f.number else null)
-        }.getOrDefault(emptyList())
-        folderChildren = folderChildren + (f.id to kids)
-    }
     fun toggleFolder(f: org.phioster.sanctumd.model.JellyMediaItem) {
-        if (f.id in expandedFolders) {
-            expandedFolders = expandedFolders - f.id
+        if (f.id in bs.expanded) {
+            bs.expanded = bs.expanded - f.id
         } else {
-            expandedFolders = expandedFolders + f.id
-            if (folderChildren[f.id] == null) scope.launch { loadChildren(f) }
+            bs.expanded = bs.expanded + f.id
+            if (bs.children[f.id] == null) scope.launch { bs.loadChildren(vm, config, f) }
         }
     }
     // Leaving a folder level closes everything — the state belongs to the level you were on.
-    LaunchedEffect(browseStack) { expandedFolders = emptySet(); folderChildren = emptyMap() }
+    LaunchedEffect(bs.stack) { bs.expanded = emptySet(); bs.children = emptyMap() }
 
     // ── Watched toggle ────────────────────────────────────────────────────────────────────────────
     // Marking a Series/Season cascades to every episode on the server, so folders confirm first.
     // Non-folders flip straight away; the badge keeps its own optimistic state, we reload behind it.
-    suspend fun reloadMedia() {
-        if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last())
-        // Keep open accordion sections in sync — their episodes carry watched state too.
-        mediaContents.orEmpty().filter { it.id in expandedFolders }.forEach { loadChildren(it) }
-    }
+    suspend fun reloadMedia() { listError = bs.reload(vm, config) }
     fun applyWatched(itemId: String, name: String, want: Boolean) {
         scope.launch {
             runCatching { vm.jellyfinSetWatched(config, itemId, want) }
@@ -384,6 +340,15 @@ internal fun JellyfinScreen(
             playRequest = org.phioster.sanctumd.ui.player.PlayRequest(e.itemId, e.name, localFileUri = fileUri)
         }
     }
+    val mediaActions = JellyfinMediaActions(
+        open = ::openMedia,
+        setWatched = setWatched,
+        play = { m -> playRequest = org.phioster.sanctumd.ui.player.PlayRequest(m.id, m.name) },
+        playDownload = ::playDownload,
+        toggleFolder = ::toggleFolder,
+        manageDownloads = { downloadsManagerOpen = true },
+        message = { actionMsg = it },
+    )
     fun act(action: suspend () -> String) {
         scope.launch { actionMsg = action(); loadSessions() }
     }
@@ -414,7 +379,7 @@ internal fun JellyfinScreen(
                         Text(
                             label, fontFamily = Mono, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                             modifier = Modifier
-                                .clickable { mode = 3; browseStack = emptyList() }
+                                .clickable { mode = 3; bs.stack = emptyList() }
                                 .padding(horizontal = 8.dp),
                         )
                     }
@@ -474,7 +439,7 @@ internal fun JellyfinScreen(
                                 refreshing = true
                                 when (mode) {
                                     0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv()
-                                    else -> if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last())
+                                    else -> loadMedia()
                                 }
                                 refreshing = false
                             }
@@ -501,7 +466,7 @@ internal fun JellyfinScreen(
                 count = jfOrder.size,
                 onChange = { mode = jfOrder[it] },
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                enabled = browseStack.isEmpty() && dashSection == null,
+                enabled = bs.stack.isEmpty() && dashSection == null,
             ) { jfPage ->
                 val pageMode = jfOrder[jfPage]
                 // The media tab still renders when offline — downloads are local and must stay reachable.
@@ -543,268 +508,10 @@ internal fun JellyfinScreen(
                                     else -> items(u) { usr -> JellyUserRow(usr, accent) { editUser = usr } }
                                 }
                             }
-                            3 -> {
-                                if (browseStack.isEmpty()) {
-                                    val myDownloads = downloads.values
-                                        .filter { it.serverId == config.id }
-                                        .sortedByDescending { it.addedAt }
-                                    if (myDownloads.isNotEmpty()) {
-                                        item {
-                                            Spacer(Modifier.height(8.dp))
-                                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                                Text("DOWNLOADS  ·  offline", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                                                Spacer(Modifier.weight(1f))
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(6.dp))
-                                                        .background(accent.copy(alpha = 0.18f))
-                                                        .border(1.dp, accent.copy(alpha = 0.7f), RoundedCornerShape(6.dp))
-                                                        .clickable { downloadsManagerOpen = true }
-                                                        .padding(horizontal = 10.dp, vertical = 5.dp),
-                                                ) {
-                                                    Icon(Icons.Filled.Settings, contentDescription = null, tint = accent, modifier = Modifier.size(14.dp))
-                                                    Spacer(Modifier.width(5.dp))
-                                                    Text("manage", fontFamily = Mono, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                                }
-                                            }
-                                            Spacer(Modifier.height(6.dp))
-                                            Row(Modifier.horizontalScroll(rememberScrollState())) {
-                                                myDownloads.forEach { e ->
-                                                    DownloadCard(
-                                                        entry = e, accent = accent,
-                                                        onPlay = { if (e.done) playDownload(e) },
-                                                        onDelete = { org.phioster.sanctumd.service.DownloadService.delete(context, e.itemId) },
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                    if (listError != null) {
-                                        // Offline / server unreachable: downloads above still play; the rest needs the server.
-                                        if (myDownloads.isEmpty()) {
-                                            item {
-                                                Spacer(Modifier.height(24.dp))
-                                                Text("nothing downloaded for offline use", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                                            }
-                                        }
-                                        item {
-                                            Spacer(Modifier.height(16.dp))
-                                            Text("server unreachable — showing downloads only", fontFamily = Mono, color = ErrRed.copy(alpha = 0.8f), fontSize = 11.sp)
-                                        }
-                                    } else {
-                                        val res = resumeItems
-                                        val lat = latestItems
-                                        // Hero: the top continue-watching item, else the newest addition.
-                                        val hero = res?.firstOrNull() ?: lat?.firstOrNull()
-                                        if (hero != null) {
-                                            item {
-                                                Spacer(Modifier.height(10.dp))
-                                                MediaHero(
-                                                    hero, config, accent,
-                                                    onSetWatched = { want -> setWatched(hero, want) },
-                                                    onPlay = {
-                                                        if (hero.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
-                                                            playRequest = org.phioster.sanctumd.ui.player.PlayRequest(hero.id, hero.name)
-                                                        } else {
-                                                            openMedia(hero)
-                                                        }
-                                                    },
-                                                    onOpen = { openMedia(hero) },
-                                                )
-                                            }
-                                        }
-                                        val sResume = mediaStyles["resume"] ?: org.phioster.sanctumd.model.MediaRowStyle()
-                                        val sRecent = mediaStyles["recent"] ?: org.phioster.sanctumd.model.MediaRowStyle()
-                                        val sLibs = mediaStyles["libraries"] ?: org.phioster.sanctumd.model.MediaRowStyle()
-                                        fun styleAccent(argb: Long) = if (argb != 0L) Color(argb) else accent
-                                        if (!res.isNullOrEmpty() && !sResume.hidden) {
-                                            item {
-                                                Spacer(Modifier.height(16.dp))
-                                                MediaSectionHeader("CONTINUE WATCHING", styleAccent(sResume.accent))
-                                                Spacer(Modifier.height(8.dp))
-                                                MediaPosterRow(res, config, styleAccent(sResume.accent), sResume, setWatched) { openMedia(it) }
-                                            }
-                                        }
-                                        val favs = favorites
-                                        if (!favs.isNullOrEmpty()) {
-                                            item {
-                                                Spacer(Modifier.height(16.dp))
-                                                MediaSectionHeader("FAVORITES", accent)
-                                                Spacer(Modifier.height(8.dp))
-                                                MediaPosterRow(favs, config, accent, org.phioster.sanctumd.model.MediaRowStyle(), setWatched) { openMedia(it) }
-                                            }
-                                        }
-                                        if (!lat.isNullOrEmpty() && !sRecent.hidden) {
-                                            item {
-                                                Spacer(Modifier.height(16.dp))
-                                                MediaSectionHeader("RECENTLY ADDED", styleAccent(sRecent.accent))
-                                                Spacer(Modifier.height(8.dp))
-                                                MediaPosterRow(lat, config, styleAccent(sRecent.accent), sRecent, setWatched) { openMedia(it) }
-                                            }
-                                        }
-                                        if (!sLibs.hidden) {
-                                            item {
-                                                Spacer(Modifier.height(16.dp))
-                                                MediaSectionHeader("LIBRARIES", styleAccent(sLibs.accent))
-                                                Spacer(Modifier.height(8.dp))
-                                            }
-                                        }
-                                        if (!sLibs.hidden) {
-                                            val v = mediaViews?.filterNot { it.id in hiddenSet }
-                                            when {
-                                                mediaViews == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                v.isNullOrEmpty() -> item { Text(if (hiddenSet.isEmpty()) "no libraries" else "all libraries hidden", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                else -> {
-                                                    // Libraries as a 2-per-row grid of landscape tiles.
-                                                    v.chunked(2).forEachIndexed { idx, pair ->
-                                                        item(key = "librow-$idx") {
-                                                            Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                                                pair.forEach { lib -> MediaLibraryTile(lib, config, Modifier.weight(1f)) { openMedia(lib) } }
-                                                                if (pair.size == 1) Spacer(Modifier.weight(1f))
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        item { Spacer(Modifier.height(16.dp)) }
-                                    }
-                                } else {
-                                    val here = browseStack.last()
-                                    item {
-                                        Spacer(Modifier.height(8.dp))
-                                        BrowseChip("‹ back", accent) { browseStack = browseStack.dropLast(1) }
-                                        Spacer(Modifier.height(10.dp))
-                                        Text(here.name, fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                                        Spacer(Modifier.height(10.dp))
-                                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            if (here.kind == "MusicAlbum") {
-                                                BrowseChip("▶ play album", MatrixGreen) {
-                                                    scope.launch {
-                                                        val tracks = runCatching { vm.jellyfinAlbumTracks(config, here.id, here.name) }.getOrDefault(emptyList())
-                                                        if (tracks.isNotEmpty()) org.phioster.sanctumd.ui.player.MusicController.play(context, tracks, 0, config.customHeaders)
-                                                    }
-                                                }
-                                                val toGetAudio = mediaContents.orEmpty().filter { !it.isFolder && it.kind == "Audio" && downloads[it.id]?.done != true }
-                                                if (toGetAudio.isNotEmpty()) {
-                                                    BrowseChip("⬇ album (${toGetAudio.size})", MatrixGreen) {
-                                                        toGetAudio.forEach { t -> org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, t.id, t.name, t.subtitle, t.posterUrl, 0L, "Audio") }
-                                                        actionMsg = "queued ${toGetAudio.size} downloads"
-                                                    }
-                                                }
-                                            }
-                                            val nextUnwatched = mediaContents.orEmpty().filter {
-                                                !it.isFolder && !it.played && it.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS && downloads[it.id]?.done != true
-                                            }.take(3)
-                                            if (nextUnwatched.size > 1) {
-                                                BrowseChip("⬇ next ${nextUnwatched.size} unwatched", MatrixGreen) {
-                                                    nextUnwatched.forEach { ep -> org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, ep.id, ep.name, ep.subtitle, ep.posterUrl, 0L) }
-                                                    actionMsg = "queued ${nextUnwatched.size} downloads"
-                                                }
-                                            }
-                                            val toGet = mediaContents.orEmpty().filter { !it.isFolder && it.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS && downloads[it.id]?.done != true }
-                                            if (toGet.isNotEmpty()) {
-                                                BrowseChip("⬇ all (${toGet.size})", MatrixGreen) {
-                                                    toGet.forEach { ep -> org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, ep.id, ep.name, ep.subtitle, ep.posterUrl, 0L) }
-                                                    actionMsg = "queued ${toGet.size} downloads"
-                                                }
-                                            }
-                                            BrowseChip("⟳ scan", MatrixGreen.copy(alpha = 0.85f)) { scope.launch { actionMsg = vm.jellyfinScanLibrary(config, here.id) } }
-                                        }
-                                        Spacer(Modifier.height(8.dp))
-                                        // Sort + filter. Sorting and "unwatched only" are server-side
-                                        // (the folder may hold more than one page); the text box just
-                                        // narrows what's already loaded.
-                                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            listOf(
-                                                "IsFolder,SortName" to "name",
-                                                "DateCreated" to "added",
-                                                "PremiereDate" to "released",
-                                                "CommunityRating" to "rating",
-                                            ).forEach { (key, label) ->
-                                                val on = browseSort == key
-                                                Text(
-                                                    if (on) "$label ${if (browseDesc) "↓" else "↑"}" else label,
-                                                    fontFamily = Mono, fontSize = 12.sp,
-                                                    color = if (on) Black else MatrixGreen,
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(6.dp))
-                                                        .background(if (on) MatrixGreen else Color.Transparent)
-                                                        .border(1.dp, MatrixGreen.copy(alpha = if (on) 0f else 0.3f), RoundedCornerShape(6.dp))
-                                                        .clickable {
-                                                            if (on) browseDesc = !browseDesc
-                                                            else { browseSort = key; browseDesc = key != "IsFolder,SortName" }
-                                                        }
-                                                        .padding(horizontal = 10.dp, vertical = 5.dp),
-                                                )
-                                            }
-                                            Text(
-                                                "unwatched",
-                                                fontFamily = Mono, fontSize = 12.sp,
-                                                color = if (browseUnwatched) Black else MatrixGreen,
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(6.dp))
-                                                    .background(if (browseUnwatched) MatrixGreen else Color.Transparent)
-                                                    .border(1.dp, MatrixGreen.copy(alpha = if (browseUnwatched) 0f else 0.3f), RoundedCornerShape(6.dp))
-                                                    .clickable { browseUnwatched = !browseUnwatched }
-                                                    .padding(horizontal = 10.dp, vertical = 5.dp),
-                                            )
-                                        }
-                                        Spacer(Modifier.height(8.dp))
-                                        OutlinedTextField(
-                                            value = browseFilter,
-                                            onValueChange = { browseFilter = it },
-                                            placeholder = { Text("filter…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.4f), fontSize = 13.sp) },
-                                            singleLine = true,
-                                            textStyle = androidx.compose.ui.text.TextStyle(fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp),
-                                            colors = OutlinedTextFieldDefaults.colors(
-                                                focusedBorderColor = MatrixGreen.copy(alpha = 0.6f),
-                                                unfocusedBorderColor = MatrixGreen.copy(alpha = 0.25f),
-                                                cursorColor = MatrixGreen,
-                                            ),
-                                            modifier = Modifier.fillMaxWidth().height(52.dp),
-                                        )
-                                        Spacer(Modifier.height(6.dp))
-                                        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
-                                    }
-                                    val m = mediaContents?.let { list ->
-                                        if (browseFilter.isBlank()) list
-                                        else list.filter { it.name.contains(browseFilter, ignoreCase = true) }
-                                    }
-                                    when {
-                                        m == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
-                                        m.isEmpty() -> item { Text("empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
-                                        // Audio tracks read better as a list; everything else as a 3-column poster grid.
-                                        m.any { it.kind == "Audio" } -> items(m) { it2 -> JellyMediaRow(it2, config, accent, { want -> setWatched(it2, want) }) { openMedia(it2) } }
-                                        // Seasons and albums expand in place instead of forcing a drill-in.
-                                        m.all { it.isFolder && (it.kind == "Season" || it.kind == "MusicAlbum") } ->
-                                            items(m, key = { "acc-${it.id}" }) { f ->
-                                                ExpandableFolderRow(
-                                                    folder = f,
-                                                    children = folderChildren[f.id],
-                                                    config = config,
-                                                    accent = accent,
-                                                    expanded = f.id in expandedFolders,
-                                                    onToggle = { toggleFolder(f) },
-                                                    onOpenFolder = { openMedia(f) },
-                                                    onOpenChild = { openMedia(it) },
-                                                    onSetWatched = setWatched,
-                                                )
-                                            }
-                                        else -> {
-                                            m.chunked(3).forEachIndexed { idx, rowItems ->
-                                                item(key = "browserow-$idx") {
-                                                    Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                        rowItems.forEach { it2 -> MediaGridCard(it2, config, accent, Modifier.weight(1f), { want -> setWatched(it2, want) }) { openMedia(it2) } }
-                                                        repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
-                                                    }
-                                                }
-                                            }
-                                            item { Spacer(Modifier.height(16.dp)) }
-                                        }
-                                    }
-                                }
+                            3 -> if (bs.stack.isEmpty()) {
+                                jellyfinMediaHome(bs, config, accent, context, downloads, hiddenSet, mediaStyles, listError, mediaActions)
+                            } else {
+                                jellyfinFolderLevel(bs, vm, config, accent, context, scope, downloads, mediaActions)
                             }
                             2 -> {
                                 if (dashSection == null) {
@@ -1248,7 +955,7 @@ internal fun JellyfinScreen(
             title = { Text("show libraries", fontFamily = Mono, color = MatrixGreen) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    mediaViews.orEmpty().forEach { view ->
+                    bs.views.orEmpty().forEach { view ->
                         val shown = view.id !in hiddenSet
                         Row(
                             Modifier.fillMaxWidth().clickable {
