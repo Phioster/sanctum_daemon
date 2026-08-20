@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -220,8 +221,8 @@ internal fun LazyListScope.jellyfinDashboardTab(
                         "+ plugin catalog",
                         fontFamily = Mono, color = accent, fontSize = 13.sp,
                         modifier = Modifier.fillMaxWidth().clickable {
-                            catalog = null; st.showCatalog = true
-                            scope.launch { catalog = runCatching { vm.jellyfinCatalog(config) }.getOrDefault(emptyList()) }
+                            st.catalog = null; st.showCatalog = true
+                            scope.launch { st.catalog = runCatching { vm.jellyfinCatalog(config) }.getOrDefault(emptyList()) }
                         }.padding(vertical = 8.dp),
                     )
                     HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
