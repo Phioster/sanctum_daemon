@@ -158,13 +158,8 @@ internal fun JellyfinScreen(
     var mediaContents by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
     var resumeItems by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
     var latestItems by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
+    val ds = rememberJellyfinDetailState()
     var browseStack by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>>(emptyList()) }
-    var mediaDetail by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
-    var deleteTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
-    var identifyTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
-    var subtitleTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
-    var manageTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
-    var detailMenu by remember { mutableStateOf(false) }
     var playRequest by remember { mutableStateOf<org.phioster.sanctumd.ui.player.PlayRequest?>(null) }
     val downloads by vm.downloads.collectAsState(initial = emptyMap())
     val wifiOnly by vm.downloadsWifiOnly.collectAsState()
@@ -186,7 +181,7 @@ internal fun JellyfinScreen(
     // Deep link from search: open the item-detail dialog on top of the media tab.
     LaunchedEffect(Unit) {
         if (initialItemId != null) {
-            mediaDetail = runCatching { vm.jellyfinMediaDetail(config, initialItemId) }.getOrNull()
+            ds.detail = runCatching { vm.jellyfinMediaDetail(config, initialItemId) }.getOrNull()
         }
     }
     var logFiles by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyLogFile>?>(null) }
@@ -211,8 +206,6 @@ internal fun JellyfinScreen(
     var browseUnwatched by remember { mutableStateOf(false) }
     var browseFilter by remember { mutableStateOf("") }
     var favorites by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
-    var castTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
-    var downloadQuality by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
 
     /** Drop finished downloads whose item is watched on the server, when the user asked for that. */
     suspend fun sweepWatchedDownloads() {
@@ -286,57 +279,57 @@ internal fun JellyfinScreen(
     LaunchedEffect(mode, browseStack, browseSort, browseDesc, browseUnwatched) {
         if (mode == 3) { if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last()) }
     }
-    manageTarget?.let { target ->
-        JellyfinArrBridgeDialog(vm, target, accent, onDismiss = { manageTarget = null }) { msg ->
-            manageTarget = null
+    ds.manage?.let { target ->
+        JellyfinArrBridgeDialog(vm, target, accent, onDismiss = { ds.manage = null }) { msg ->
+            ds.manage = null
             actionMsg = msg
             scope.launch { vm.refreshAll() }
         }
     }
 
-    subtitleTarget?.let { target ->
+    ds.subtitles?.let { target ->
         JellyfinSubtitlesDialog(
             vm, config, target, accent,
-            onDismiss = { subtitleTarget = null },
+            onDismiss = { ds.subtitles = null },
         ) { msg ->
-            subtitleTarget = null
+            ds.subtitles = null
             actionMsg = msg
         }
     }
 
-    identifyTarget?.let { target ->
+    ds.identify?.let { target ->
         JellyfinIdentifyDialog(
             vm, config, target, accent,
-            onDismiss = { identifyTarget = null },
+            onDismiss = { ds.identify = null },
         ) { msg ->
-            identifyTarget = null
+            ds.identify = null
             actionMsg = msg
             // Metadata changed underneath us; re-read the sheet rather than show the old title.
             scope.launch {
-                mediaDetail = runCatching { vm.jellyfinMediaDetail(config, target.id) }.getOrNull()
+                ds.detail = runCatching { vm.jellyfinMediaDetail(config, target.id) }.getOrNull()
                 vm.refreshAll()
             }
         }
     }
 
-    deleteTarget?.let { target ->
+    ds.delete?.let { target ->
         JellyfinDeleteDialog(
             vm, config, target, accent,
-            onDismiss = { deleteTarget = null },
+            onDismiss = { ds.delete = null },
         ) { msg ->
-            deleteTarget = null
-            mediaDetail = null // the item is gone; its sheet must not linger
+            ds.delete = null
+            ds.detail = null // the item is gone; its sheet must not linger
             actionMsg = msg
             scope.launch { vm.refreshAll() }
         }
     }
 
-    BackHandler(enabled = mode == 3 && (mediaDetail != null || browseStack.isNotEmpty())) {
-        if (mediaDetail != null) mediaDetail = null else browseStack = browseStack.dropLast(1)
+    BackHandler(enabled = mode == 3 && (ds.detail != null || browseStack.isNotEmpty())) {
+        if (ds.detail != null) ds.detail = null else browseStack = browseStack.dropLast(1)
     }
     fun openMedia(it: org.phioster.sanctumd.model.JellyMediaItem) {
         if (it.isFolder) browseStack = browseStack + it
-        else scope.launch { mediaDetail = runCatching { vm.jellyfinMediaDetail(config, it.id) }.getOrElse { null } }
+        else scope.launch { ds.detail = runCatching { vm.jellyfinMediaDetail(config, it.id) }.getOrElse { null } }
     }
 
     // ── Season / album accordion ──────────────────────────────────────────────────────────────────
@@ -363,7 +356,6 @@ internal fun JellyfinScreen(
     // ── Watched toggle ────────────────────────────────────────────────────────────────────────────
     // Marking a Series/Season cascades to every episode on the server, so folders confirm first.
     // Non-folders flip straight away; the badge keeps its own optimistic state, we reload behind it.
-    var confirmWatched by remember { mutableStateOf<Triple<String, String, Boolean>?>(null) } // id, name, target
     suspend fun reloadMedia() {
         if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last())
         // Keep open accordion sections in sync — their episodes carry watched state too.
@@ -374,8 +366,8 @@ internal fun JellyfinScreen(
             runCatching { vm.jellyfinSetWatched(config, itemId, want) }
                 .onSuccess {
                     actionMsg = if (want) "$name marked watched" else "$name marked unwatched"
-                    if (mediaDetail?.id == itemId) {
-                        mediaDetail = runCatching { vm.jellyfinMediaDetail(config, itemId) }.getOrNull() ?: mediaDetail
+                    if (ds.detail?.id == itemId) {
+                        ds.detail = runCatching { vm.jellyfinMediaDetail(config, itemId) }.getOrNull() ?: ds.detail
                     }
                     reloadMedia()
                 }
@@ -385,7 +377,7 @@ internal fun JellyfinScreen(
     /** Badge tap: returns whether the change was applied now (false = a confirmation is pending). */
     val setWatched: (org.phioster.sanctumd.model.JellyMediaItem, Boolean) -> Boolean = { m, want ->
         if (m.isFolder) {
-            confirmWatched = Triple(m.id, m.name, want)
+            ds.confirmWatched = Triple(m.id, m.name, want)
             false
         } else {
             applyWatched(m.id, m.name, want)
@@ -736,8 +728,8 @@ internal fun JellyfinScreen(
                                             seriesInStack(browseStack)?.let { series ->
                                                 BrowseChip("↗ Sonarr", accent) {
                                                     scope.launch {
-                                                        manageTarget = runCatching { vm.jellyfinMediaDetail(config, series.id) }.getOrNull()
-                                                        if (manageTarget == null) actionMsg = "could not load ${series.name}"
+                                                        ds.manage = runCatching { vm.jellyfinMediaDetail(config, series.id) }.getOrNull()
+                                                        if (ds.manage == null) actionMsg = "could not load ${series.name}"
                                                     }
                                                 }
                                             }
@@ -1103,11 +1095,11 @@ internal fun JellyfinScreen(
         )
     }
 
-    downloadQuality?.let { d ->
+    ds.downloadQuality?.let { d ->
         // Original file vs. a transcoded, smaller copy. The server re-encodes on the fly for the
         // capped options, so the size shown on the card is an estimate until it finishes.
         AlertDialog(
-            onDismissRequest = { downloadQuality = null },
+            onDismissRequest = { ds.downloadQuality = null },
             containerColor = Surface,
             title = { Text("download quality", fontFamily = Mono, color = MatrixGreen) },
             text = {
@@ -1122,7 +1114,7 @@ internal fun JellyfinScreen(
                             label,
                             fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp,
                             modifier = Modifier.fillMaxWidth().clickable {
-                                downloadQuality = null
+                                ds.downloadQuality = null
                                 org.phioster.sanctumd.service.DownloadService.enqueue(
                                     context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L, "Video", bitrate,
                                 )
@@ -1132,16 +1124,16 @@ internal fun JellyfinScreen(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { downloadQuality = null }) { Text("cancel", fontFamily = Mono, color = MatrixGreen) } },
+            confirmButton = { TextButton(onClick = { ds.downloadQuality = null }) { Text("cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
 
-    castTarget?.let { d ->
+    ds.cast?.let { d ->
         // Hand the item to another Jellyfin client. Only sessions that accept remote control and
         // aren't this phone are useful here.
         val targets = sessions.orEmpty().filter { it.canControl }
         AlertDialog(
-            onDismissRequest = { castTarget = null },
+            onDismissRequest = { ds.cast = null },
             containerColor = Surface,
             title = { Text("play on…", fontFamily = Mono, color = MatrixGreen) },
             text = {
@@ -1157,7 +1149,7 @@ internal fun JellyfinScreen(
                         targets.forEach { t ->
                             Column(
                                 Modifier.fillMaxWidth().clickable {
-                                    castTarget = null
+                                    ds.cast = null
                                     scope.launch { actionMsg = vm.jellyfinPlayOn(config, t.id, d.id) }
                                 }.padding(vertical = 8.dp),
                             ) {
@@ -1171,13 +1163,13 @@ internal fun JellyfinScreen(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { castTarget = null }) { Text("close", fontFamily = Mono, color = MatrixGreen) } },
+            confirmButton = { TextButton(onClick = { ds.cast = null }) { Text("close", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
 
-    confirmWatched?.let { (wid, wname, want) ->
+    ds.confirmWatched?.let { (wid, wname, want) ->
         AlertDialog(
-            onDismissRequest = { confirmWatched = null },
+            onDismissRequest = { ds.confirmWatched = null },
             containerColor = Surface,
             title = { Text(if (want) "Mark everything watched?" else "Mark everything unwatched?", fontFamily = Mono, color = MatrixGreen) },
             text = {
@@ -1187,11 +1179,11 @@ internal fun JellyfinScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = { confirmWatched = null; applyWatched(wid, wname, want) }) {
+                TextButton(onClick = { ds.confirmWatched = null; applyWatched(wid, wname, want) }) {
                     Text(if (want) "mark watched" else "mark unwatched", fontFamily = Mono, color = MatrixGreen)
                 }
             },
-            dismissButton = { TextButton(onClick = { confirmWatched = null }) { Text("cancel", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f)) } },
+            dismissButton = { TextButton(onClick = { ds.confirmWatched = null }) { Text("cancel", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f)) } },
         )
     }
 
@@ -1414,219 +1406,20 @@ internal fun JellyfinScreen(
         )
     }
 
-    mediaDetail?.let { d ->
-        val dl = downloads[d.id]
-        Box(Modifier.fillMaxSize().background(Black)) {
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                // ── Banner: a blurred poster backdrop with the sharp poster + title on top ──
-                Box(Modifier.fillMaxWidth().height(320.dp)) {
-                    if (d.posterUrl.isNotBlank()) {
-                        JellyPoster(d.posterUrl, config, Modifier.matchParentSize().blur(28.dp), RectangleShape, ContentScale.Crop)
-                    } else {
-                        Box(Modifier.matchParentSize().background(Surface))
-                    }
-                    Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Black.copy(alpha = 0.35f), Black.copy(alpha = 0.65f), Black))))
-                    Row(Modifier.align(Alignment.BottomStart).padding(16.dp), verticalAlignment = Alignment.Bottom) {
-                        if (d.posterUrl.isNotBlank()) {
-                            Box {
-                                JellyPoster(d.posterUrl, config, Modifier.width(120.dp).height(180.dp), RoundedCornerShape(8.dp), ContentScale.Crop)
-                                if (d.played) WatchedBadge(accent, Modifier.align(Alignment.TopEnd), size = 22.dp)
-                            }
-                            Spacer(Modifier.width(14.dp))
-                        }
-                        Column(Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (d.played && d.posterUrl.isBlank()) {
-                                    WatchedBadge(accent, size = 18.dp)
-                                    Spacer(Modifier.width(6.dp))
-                                }
-                                Text(d.name, fontFamily = Mono, color = MatrixGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                            }
-                            if (d.subtitle.isNotBlank()) {
-                                Spacer(Modifier.height(4.dp))
-                                Text(d.subtitle, fontFamily = Mono, color = accent.copy(alpha = 0.85f), fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            }
-                            val quick = d.facts.take(3).joinToString("  ·  ") { it.second }
-                            if (quick.isNotBlank()) {
-                                Spacer(Modifier.height(6.dp))
-                                Text(quick, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                    }
-                }
-                // ── Body ──
-                Column(Modifier.padding(horizontal = 16.dp)) {
-                    Spacer(Modifier.height(14.dp))
-                    if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
-                        PrimaryButton("play", Modifier.fillMaxWidth(), icon = Icons.Filled.PlayArrow) {
-                            mediaDetail = null; playRequest = org.phioster.sanctumd.ui.player.PlayRequest(d.id, d.name)
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        val startDownload = { downloadQuality = d }
-                        when (dl?.state) {
-                            org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
-                                Hint("✓  downloaded — play it from the DOWNLOADS row", Modifier.padding(vertical = 8.dp))
-                            org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING, org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED ->
-                                SecondaryButton("⬇  ${(dl.progress * 100).toInt()}%  ·  cancel", Modifier.fillMaxWidth()) { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) }
-                            org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED ->
-                                SecondaryButton("⚠  download failed — retry", Modifier.fillMaxWidth(), accent = ErrRed) { startDownload() }
-                            else ->
-                                SecondaryButton("⬇  download", Modifier.fillMaxWidth()) { startDownload() }
-                        }
-                        Spacer(Modifier.height(12.dp))
-                    }
-                    if (d.kind == "Audio") {
-                        PrimaryButton("play", Modifier.fillMaxWidth(), icon = Icons.Filled.PlayArrow) {
-                            mediaDetail = null
-                            scope.launch {
-                                val track = runCatching { vm.jellyfinTrack(config, d.id) }.getOrNull()
-                                if (track != null) org.phioster.sanctumd.ui.player.MusicController.play(context, listOf(track), 0, config.customHeaders)
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        when (dl?.state) {
-                            org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
-                                Hint("✓  downloaded", Modifier.padding(vertical = 8.dp))
-                            org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING, org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED ->
-                                SecondaryButton("⬇  ${(dl.progress * 100).toInt()}%  ·  cancel", Modifier.fillMaxWidth()) { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) }
-                            else ->
-                                SecondaryButton("⬇  download", Modifier.fillMaxWidth()) { org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L, "Audio") }
-                        }
-                        Spacer(Modifier.height(12.dp))
-                    }
-                    // Favourite + cast, side by side above the watched toggle.
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SecondaryButton(
-                            if (d.favorite) "♥  favorite" else "♡  favorite",
-                            Modifier.weight(1f),
-                        ) {
-                            scope.launch {
-                                runCatching { vm.jellyfinSetFavorite(config, d.id, !d.favorite) }
-                                    .onSuccess {
-                                        actionMsg = if (d.favorite) "removed from favorites" else "added to favorites"
-                                        mediaDetail = runCatching { vm.jellyfinMediaDetail(config, d.id) }.getOrNull() ?: mediaDetail
-                                        favorites = runCatching { vm.jellyfinFavoriteList(config) }.getOrNull() ?: favorites
-                                    }
-                                    .onFailure { actionMsg = "could not update: ${it.message ?: "failed"}" }
-                            }
-                        }
-                        if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
-                            SecondaryButton("▶  play on…", Modifier.weight(1f)) {
-                                castTarget = d
-                                scope.launch { sessions = runCatching { vm.jellyfinSessionList(config) }.getOrNull() ?: sessions }
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    // Watched toggle — the explicit counterpart to the poster badge (and the only way
-                    // to mark something watched that has no badge yet).
-                    if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS || d.kind in setOf("Series", "Season")) {
-                        val folder = d.kind in setOf("Series", "Season")
-                        SecondaryButton(
-                            if (d.played) "✓  watched  ·  mark unwatched" else "mark as watched",
-                            Modifier.fillMaxWidth(),
-                        ) {
-                            if (folder) confirmWatched = Triple(d.id, d.name, !d.played)
-                            else applyWatched(d.id, d.name, !d.played)
-                        }
-                        Spacer(Modifier.height(12.dp))
-                    }
-                    if (d.facts.isNotEmpty()) {
-                        d.facts.chunked(2).forEach { pair ->
-                            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                                pair.forEach { (k, v) ->
-                                    Column(Modifier.weight(1f)) {
-                                        Text(v, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text(k.uppercase(), fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 9.sp)
-                                    }
-                                }
-                                if (pair.size == 1) Spacer(Modifier.weight(1f))
-                            }
-                        }
-                    }
-                    if (d.genres.isNotBlank()) {
-                        Spacer(Modifier.height(2.dp))
-                        Text(d.genres, fontFamily = Mono, color = accent.copy(alpha = 0.85f), fontSize = 11.sp)
-                    }
-                    if (d.overview.isNotBlank()) {
-                        Spacer(Modifier.height(12.dp))
-                        Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp, lineHeight = 17.sp)
-                    }
-                    d.fileInfo?.let { fi ->
-                        // Only worth a lookup when a track actually lacks a language of its own.
-                        val needsLanguage = fi.streams.any { it.type == "Audio" && it.language.isBlank() }
-                        var assumedLanguage by remember(d.id) { mutableStateOf("") }
-                        LaunchedEffect(d.id, needsLanguage) {
-                            assumedLanguage = if (!needsLanguage) "" else {
-                                val tmdb = d.providerIds["Tmdb"]?.toIntOrNull() ?: 0
-                                vm.originalLanguage(tmdb, isTv = d.kind == "Series" || d.kind == "Episode")
-                            }
-                        }
-                        Spacer(Modifier.height(16.dp))
-                        FileInfoSection(fi, accent, assumedLanguage)
-                    }
-                    if (d.cast.isNotEmpty()) {
-                        Spacer(Modifier.height(16.dp))
-                        MediaSectionHeader("CAST", accent)
-                        Spacer(Modifier.height(8.dp))
-                        Row(Modifier.horizontalScroll(rememberScrollState())) {
-                            d.cast.forEach { member ->
-                                Column(Modifier.width(84.dp).padding(end = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    if (member.profileUrl.isNotBlank()) {
-                                        JellyPoster(member.profileUrl, config, Modifier.size(72.dp).clip(RoundedCornerShape(36.dp)), RoundedCornerShape(36.dp), ContentScale.Crop)
-                                    } else {
-                                        Box(Modifier.size(72.dp).clip(RoundedCornerShape(36.dp)).background(Surface))
-                                    }
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(member.name, fontFamily = Mono, color = MatrixGreen, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-                                    if (member.character.isNotBlank()) {
-                                        Text(member.character, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(24.dp))
-                }
-                Spacer(Modifier.navigationBarsPadding())
-            }
-            // ── Top bar overlay: back + open-in-Jellyfin ──
-            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { mediaDetail = null }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = { openExternal(context, jellyfinAppPackages, "${config.normalizedBaseUrl}web/#/details?id=${d.id}") }) {
-                    Icon(Icons.Filled.OpenInNew, contentDescription = "Open in Jellyfin", tint = accent)
-                }
-                // The rarely-used and the destructive live here rather than as eight stacked
-                // buttons: the list had grown into a wall you had to read to find "play".
-                Box {
-                    IconButton(onClick = { detailMenu = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen)
-                    }
-                    DropdownMenu(expanded = detailMenu, onDismissRequest = { detailMenu = false }) {
-                        if (arrServiceTypeFor(d.kind) != null) {
-                            DropdownMenuItem(
-                                text = { Text("Manage in Radarr / Sonarr", fontFamily = Mono) },
-                                onClick = { detailMenu = false; manageTarget = d },
-                            )
-                        }
-                        DropdownMenuItem(
-                            text = { Text("Subtitles", fontFamily = Mono) },
-                            onClick = { detailMenu = false; subtitleTarget = d },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Identify", fontFamily = Mono) },
-                            onClick = { detailMenu = false; identifyTarget = d },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Delete", fontFamily = Mono, color = ErrRed) },
-                            onClick = { detailMenu = false; deleteTarget = d },
-                        )
-                    }
-                }
-            }
-        }
-    }
+    JellyfinDetailSheet(
+        state = ds,
+        vm = vm,
+        config = config,
+        accent = accent,
+        downloads = downloads,
+        favorites = favorites,
+        sessions = sessions,
+        onFavorites = { favorites = it },
+        onSessions = { sessions = it },
+        onMessage = { actionMsg = it },
+        onPlay = { playRequest = it },
+        onWatched = { id, name, want -> applyWatched(id, name, want) },
+    )
 
     // Full-screen playback overlay, on top of everything in this screen.
     if (libraryFilterOpen) {
