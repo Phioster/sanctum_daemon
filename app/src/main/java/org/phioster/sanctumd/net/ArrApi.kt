@@ -233,6 +233,8 @@ internal interface ArrApi {
     @GET suspend fun systemStatus(@Url url: String): ArrSystemStatusRec
     @GET suspend fun healthChecks(@Url url: String): List<ArrHealthRecord>
     @GET suspend fun manualImport(@Url url: String): List<JsonObject>
+    /** Any endpoint that answers with a plain JSON array, parsed by the caller. */
+    @GET suspend fun jsonList(@Url url: String): List<JsonObject>
     @GET suspend fun filesystem(@Url url: String): ArrFsResp
     @GET suspend fun blocklist(@Url url: String): ArrBlocklistPage
     @GET suspend fun parseRelease(@Url url: String): JsonObject
