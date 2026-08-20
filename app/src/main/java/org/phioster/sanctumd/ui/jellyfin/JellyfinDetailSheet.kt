@@ -145,7 +145,7 @@ internal fun JellyfinDetailSheet(
                 Spacer(Modifier.height(14.dp))
                 if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
                     PrimaryButton("play", Modifier.fillMaxWidth(), icon = Icons.Filled.PlayArrow) {
-                        state.detail = null; onPlay(org.phioster.sanctumd.ui.player.PlayRequest(d.id, d.name))
+                        state.closeAll(); onPlay(org.phioster.sanctumd.ui.player.PlayRequest(d.id, d.name))
                     }
                     Spacer(Modifier.height(8.dp))
                     val startDownload = { state.downloadQuality = d }
@@ -163,7 +163,7 @@ internal fun JellyfinDetailSheet(
                 }
                 if (d.kind == "Audio") {
                     PrimaryButton("play", Modifier.fillMaxWidth(), icon = Icons.Filled.PlayArrow) {
-                        state.detail = null
+                        state.closeAll()
                         scope.launch {
                             val track = runCatching { vm.jellyfinTrack(config, d.id) }.getOrNull()
                             if (track != null) org.phioster.sanctumd.ui.player.MusicController.play(context, listOf(track), 0, config.customHeaders)
@@ -190,7 +190,7 @@ internal fun JellyfinDetailSheet(
                             runCatching { vm.jellyfinSetFavorite(config, d.id, !d.favorite) }
                                 .onSuccess {
                                     onMessage(if (d.favorite) "removed from favorites" else "added to favorites")
-                                    state.detail = runCatching { vm.jellyfinMediaDetail(config, d.id) }.getOrNull() ?: state.detail
+                                    runCatching { vm.jellyfinMediaDetail(config, d.id) }.getOrNull()?.let { state.replaceTop(it) }
                                     onFavorites(runCatching { vm.jellyfinFavoriteList(config) }.getOrNull() ?: favorites)
                                 }
                                 .onFailure { onMessage("could not update: ${it.message ?: "failed"}") }
@@ -238,6 +238,13 @@ internal fun JellyfinDetailSheet(
                     Spacer(Modifier.height(12.dp))
                     Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp, lineHeight = 17.sp)
                 }
+                if (d.kind == "Series" || d.kind == "Season") {
+                    DetailChildren(d, vm, config, accent, downloads, onMessage) { child ->
+                        scope.launch {
+                            runCatching { vm.jellyfinMediaDetail(config, child.id) }.getOrNull()?.let { state.open(it) }
+                        }
+                    }
+                }
                 d.fileInfo?.let { fi ->
                     // Only worth a lookup when a track actually lacks a language of its own.
                     val needsLanguage = fi.streams.any { it.type == "Audio" && it.language.isBlank() }
@@ -278,7 +285,7 @@ internal fun JellyfinDetailSheet(
         }
         // ── Top bar overlay: back + open-in-Jellyfin ──
         Row(Modifier.fillMaxWidth().statusBarsPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { state.detail = null }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
+            IconButton(onClick = { state.back() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
             Spacer(Modifier.weight(1f))
             IconButton(onClick = { openExternal(context, jellyfinAppPackages, "${config.normalizedBaseUrl}web/#/details?id=${d.id}") }) {
                 Icon(Icons.Filled.OpenInNew, contentDescription = "Open in Jellyfin", tint = accent)

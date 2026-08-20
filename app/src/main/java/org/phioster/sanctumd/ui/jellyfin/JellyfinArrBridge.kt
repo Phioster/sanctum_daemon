@@ -50,16 +50,6 @@ internal fun arrServiceTypeFor(kind: String): ServiceType? = when (kind) {
     else -> null
 }
 
-/**
- * The series in the current browse path, or null outside one.
- *
- * Browsing goes library → series → season, and only the series has a counterpart in Sonarr —
- * a season carries no provider ids of its own — so acting from a season means acting on the
- * series above it.
- */
-internal fun seriesInStack(stack: List<JellyMediaItem>): JellyMediaItem? =
-    stack.lastOrNull { it.kind == "Series" }
-
 /** Warns when the actions reach past the item on screen. Empty when they do not. */
 internal fun counterpartScopeNote(kind: String): String = when (kind) {
     "Season", "Episode" -> "These actions apply to the whole series, not to this one item."
@@ -179,3 +169,14 @@ private fun Action(label: String, busy: Boolean, onClick: () -> Unit) {
     )
     HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
 }
+
+/**
+ * Whether tapping a folder should open a detail sheet rather than descend the browse list.
+ *
+ * Jellyfin's own apps treat a series and a season as *things* with artwork, a synopsis and
+ * actions — you tap the series, read about it, and its seasons sit inside that page. Only the
+ * library roots ("movies"/"tvshows"/"music") are plain containers with nothing to say about
+ * themselves, so those stay in the browse list. Music albums keep their list too: the album
+ * screen is a track list, and folding it into a sheet would lose the queue controls.
+ */
+internal fun opensAsDetail(kind: String): Boolean = kind == "Series" || kind == "Season"

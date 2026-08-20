@@ -195,6 +195,10 @@ data class JellyMediaDetail(
     val played: Boolean = false, // fully watched
     val unplayedCount: Int = 0, // folders: episodes still unwatched
     val favorite: Boolean = false,
+    /** The item's own IndexNumber — a season's number, an episode's number. Null when it has
+     *  none. A season needs it: the episode query filters on it, and without that filter
+     *  Jellyfin folds the season-0 Specials into the aired season. */
+    val number: Int? = null,
     val fileInfo: JellyFileInfo? = null, // null for folders (Series/Season) and anything without a media source
     /** Tmdb/Imdb/Tvdb ids — how a Jellyfin item is matched to its Radarr/Sonarr entry exactly. */
     val providerIds: Map<String, String> = emptyMap(),
