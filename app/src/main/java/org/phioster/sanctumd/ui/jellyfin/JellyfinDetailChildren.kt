@@ -82,3 +82,16 @@ internal fun DetailChildren(
         }
     }
 }
+
+/** Episodes here that aren't downloaded yet — what "⬇ all" would fetch. */
+internal fun pendingDownloads(
+    children: List<JellyMediaItem>,
+    downloaded: Set<String>,
+): List<JellyMediaItem> = emptyList()
+
+/** The first few of those the viewer hasn't watched — what "⬇ next N" would fetch. */
+internal fun nextUnwatched(
+    children: List<JellyMediaItem>,
+    downloaded: Set<String>,
+    limit: Int = 3,
+): List<JellyMediaItem> = emptyList()
