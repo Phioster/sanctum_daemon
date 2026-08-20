@@ -206,7 +206,6 @@ internal fun JellyfinScreen(
     var browseUnwatched by remember { mutableStateOf(false) }
     var browseFilter by remember { mutableStateOf("") }
     var favorites by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
-    var downloadQuality by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
 
     /** Drop finished downloads whose item is watched on the server, when the user asked for that. */
     suspend fun sweepWatchedDownloads() {
@@ -357,7 +356,6 @@ internal fun JellyfinScreen(
     // ── Watched toggle ────────────────────────────────────────────────────────────────────────────
     // Marking a Series/Season cascades to every episode on the server, so folders confirm first.
     // Non-folders flip straight away; the badge keeps its own optimistic state, we reload behind it.
-    var confirmWatched by remember { mutableStateOf<Triple<String, String, Boolean>?>(null) } // id, name, target
     suspend fun reloadMedia() {
         if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last())
         // Keep open accordion sections in sync — their episodes carry watched state too.
@@ -379,7 +377,7 @@ internal fun JellyfinScreen(
     /** Badge tap: returns whether the change was applied now (false = a confirmation is pending). */
     val setWatched: (org.phioster.sanctumd.model.JellyMediaItem, Boolean) -> Boolean = { m, want ->
         if (m.isFolder) {
-            confirmWatched = Triple(m.id, m.name, want)
+            ds.confirmWatched = Triple(m.id, m.name, want)
             false
         } else {
             applyWatched(m.id, m.name, want)
@@ -1097,11 +1095,11 @@ internal fun JellyfinScreen(
         )
     }
 
-    downloadQuality?.let { d ->
+    ds.downloadQuality?.let { d ->
         // Original file vs. a transcoded, smaller copy. The server re-encodes on the fly for the
         // capped options, so the size shown on the card is an estimate until it finishes.
         AlertDialog(
-            onDismissRequest = { downloadQuality = null },
+            onDismissRequest = { ds.downloadQuality = null },
             containerColor = Surface,
             title = { Text("download quality", fontFamily = Mono, color = MatrixGreen) },
             text = {
@@ -1116,7 +1114,7 @@ internal fun JellyfinScreen(
                             label,
                             fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp,
                             modifier = Modifier.fillMaxWidth().clickable {
-                                downloadQuality = null
+                                ds.downloadQuality = null
                                 org.phioster.sanctumd.service.DownloadService.enqueue(
                                     context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L, "Video", bitrate,
                                 )
@@ -1126,7 +1124,7 @@ internal fun JellyfinScreen(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { downloadQuality = null }) { Text("cancel", fontFamily = Mono, color = MatrixGreen) } },
+            confirmButton = { TextButton(onClick = { ds.downloadQuality = null }) { Text("cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
 
@@ -1169,9 +1167,9 @@ internal fun JellyfinScreen(
         )
     }
 
-    confirmWatched?.let { (wid, wname, want) ->
+    ds.confirmWatched?.let { (wid, wname, want) ->
         AlertDialog(
-            onDismissRequest = { confirmWatched = null },
+            onDismissRequest = { ds.confirmWatched = null },
             containerColor = Surface,
             title = { Text(if (want) "Mark everything watched?" else "Mark everything unwatched?", fontFamily = Mono, color = MatrixGreen) },
             text = {
@@ -1181,11 +1179,11 @@ internal fun JellyfinScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = { confirmWatched = null; applyWatched(wid, wname, want) }) {
+                TextButton(onClick = { ds.confirmWatched = null; applyWatched(wid, wname, want) }) {
                     Text(if (want) "mark watched" else "mark unwatched", fontFamily = Mono, color = MatrixGreen)
                 }
             },
-            dismissButton = { TextButton(onClick = { confirmWatched = null }) { Text("cancel", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f)) } },
+            dismissButton = { TextButton(onClick = { ds.confirmWatched = null }) { Text("cancel", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f)) } },
         )
     }
 
@@ -1456,7 +1454,7 @@ internal fun JellyfinScreen(
                             ds.detail = null; playRequest = org.phioster.sanctumd.ui.player.PlayRequest(d.id, d.name)
                         }
                         Spacer(Modifier.height(8.dp))
-                        val startDownload = { downloadQuality = d }
+                        val startDownload = { ds.downloadQuality = d }
                         when (dl?.state) {
                             org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
                                 Hint("✓  downloaded — play it from the DOWNLOADS row", Modifier.padding(vertical = 8.dp))
@@ -1520,7 +1518,7 @@ internal fun JellyfinScreen(
                             if (d.played) "✓  watched  ·  mark unwatched" else "mark as watched",
                             Modifier.fillMaxWidth(),
                         ) {
-                            if (folder) confirmWatched = Triple(d.id, d.name, !d.played)
+                            if (folder) ds.confirmWatched = Triple(d.id, d.name, !d.played)
                             else applyWatched(d.id, d.name, !d.played)
                         }
                         Spacer(Modifier.height(12.dp))

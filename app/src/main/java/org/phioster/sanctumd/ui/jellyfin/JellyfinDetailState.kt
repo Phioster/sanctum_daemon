@@ -32,6 +32,13 @@ internal class JellyfinDetailState {
     var delete by mutableStateOf<JellyMediaDetail?>(null)
     var cast by mutableStateOf<JellyMediaDetail?>(null)
 
+    /** The item a download-quality choice was opened for. Despite the name it is a dialog
+     *  target, not a number — it was easy to misread as one while it sat among 63 loose vars. */
+    var downloadQuality by mutableStateOf<JellyMediaDetail?>(null)
+
+    /** Marking a folder watched asks first, because it covers every episode inside it. */
+    var confirmWatched by mutableStateOf<Triple<String, String, Boolean>?>(null)
+
     /** Closes the sheet and every dialog belonging to it. */
     fun closeAll() {
         detail = null
@@ -41,6 +48,8 @@ internal class JellyfinDetailState {
         identify = null
         delete = null
         cast = null
+        downloadQuality = null
+        confirmWatched = null
     }
 }
 
