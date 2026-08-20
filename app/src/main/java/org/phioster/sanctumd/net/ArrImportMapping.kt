@@ -70,3 +70,6 @@ internal fun importFileBody(type: ServiceType, o: JsonObject): JsonObject = buil
         else -> sub(o, "movie")?.let { m -> jsInt(m, "id")?.let { put("movieId", it) } }
     }
 }
+
+/** Whether a scanned row may be imported despite what the server said about it. */
+internal fun importAllowed(type: ServiceType, rejections: List<String>): Boolean = false

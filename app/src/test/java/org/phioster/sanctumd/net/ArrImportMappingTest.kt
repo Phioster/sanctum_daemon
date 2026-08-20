@@ -81,4 +81,26 @@ class ArrImportMappingTest {
         assertEquals(listOf(JsonPrimitive(501), JsonPrimitive(502)), (b["trackIds"] as JsonArray).toList())
         assertEquals(null, b["movieId"])
     }
+
+    /**
+     * Lidarr judges each file on its own, so every file of a 20-track album is reported as
+     * "Has missing tracks" — the other nineteen are missing *from that one file*. Measured against
+     * a live Lidarr 3.1.3 on 2026-08-20: all 20 rows of a complete album carried it.
+     *
+     * Blocking on it would have shipped a manual import that never imports anything.
+     */
+    @Test fun `Lidarr's per-file missing-tracks warning does not block the import`() {
+        assertTrue(importAllowed(ServiceType.LIDARR, listOf("Has missing tracks")))
+    }
+
+    @Test fun `a real Lidarr rejection still blocks`() {
+        assertFalse(importAllowed(ServiceType.LIDARR, listOf("Unknown artist")))
+        assertFalse(importAllowed(ServiceType.LIDARR, listOf("Has missing tracks", "Unknown artist")))
+    }
+
+    @Test fun `for the other services every rejection blocks, as before`() {
+        assertTrue(importAllowed(ServiceType.RADARR, emptyList()))
+        assertFalse(importAllowed(ServiceType.RADARR, listOf("Has missing tracks")))
+        assertFalse(importAllowed(ServiceType.SONARR, listOf("Unknown series")))
+    }
 }
