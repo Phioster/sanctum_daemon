@@ -158,13 +158,8 @@ internal fun JellyfinScreen(
     var mediaContents by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
     var resumeItems by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
     var latestItems by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
+    val ds = rememberJellyfinDetailState()
     var browseStack by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>>(emptyList()) }
-    var mediaDetail by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
-    var deleteTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
-    var identifyTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
-    var subtitleTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
-    var manageTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
-    var detailMenu by remember { mutableStateOf(false) }
     var playRequest by remember { mutableStateOf<org.phioster.sanctumd.ui.player.PlayRequest?>(null) }
     val downloads by vm.downloads.collectAsState(initial = emptyMap())
     val wifiOnly by vm.downloadsWifiOnly.collectAsState()
@@ -186,7 +181,7 @@ internal fun JellyfinScreen(
     // Deep link from search: open the item-detail dialog on top of the media tab.
     LaunchedEffect(Unit) {
         if (initialItemId != null) {
-            mediaDetail = runCatching { vm.jellyfinMediaDetail(config, initialItemId) }.getOrNull()
+            ds.detail = runCatching { vm.jellyfinMediaDetail(config, initialItemId) }.getOrNull()
         }
     }
     var logFiles by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyLogFile>?>(null) }
@@ -211,7 +206,6 @@ internal fun JellyfinScreen(
     var browseUnwatched by remember { mutableStateOf(false) }
     var browseFilter by remember { mutableStateOf("") }
     var favorites by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
-    var castTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
     var downloadQuality by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
 
     /** Drop finished downloads whose item is watched on the server, when the user asked for that. */
@@ -286,57 +280,57 @@ internal fun JellyfinScreen(
     LaunchedEffect(mode, browseStack, browseSort, browseDesc, browseUnwatched) {
         if (mode == 3) { if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last()) }
     }
-    manageTarget?.let { target ->
-        JellyfinArrBridgeDialog(vm, target, accent, onDismiss = { manageTarget = null }) { msg ->
-            manageTarget = null
+    ds.manage?.let { target ->
+        JellyfinArrBridgeDialog(vm, target, accent, onDismiss = { ds.manage = null }) { msg ->
+            ds.manage = null
             actionMsg = msg
             scope.launch { vm.refreshAll() }
         }
     }
 
-    subtitleTarget?.let { target ->
+    ds.subtitles?.let { target ->
         JellyfinSubtitlesDialog(
             vm, config, target, accent,
-            onDismiss = { subtitleTarget = null },
+            onDismiss = { ds.subtitles = null },
         ) { msg ->
-            subtitleTarget = null
+            ds.subtitles = null
             actionMsg = msg
         }
     }
 
-    identifyTarget?.let { target ->
+    ds.identify?.let { target ->
         JellyfinIdentifyDialog(
             vm, config, target, accent,
-            onDismiss = { identifyTarget = null },
+            onDismiss = { ds.identify = null },
         ) { msg ->
-            identifyTarget = null
+            ds.identify = null
             actionMsg = msg
             // Metadata changed underneath us; re-read the sheet rather than show the old title.
             scope.launch {
-                mediaDetail = runCatching { vm.jellyfinMediaDetail(config, target.id) }.getOrNull()
+                ds.detail = runCatching { vm.jellyfinMediaDetail(config, target.id) }.getOrNull()
                 vm.refreshAll()
             }
         }
     }
 
-    deleteTarget?.let { target ->
+    ds.delete?.let { target ->
         JellyfinDeleteDialog(
             vm, config, target, accent,
-            onDismiss = { deleteTarget = null },
+            onDismiss = { ds.delete = null },
         ) { msg ->
-            deleteTarget = null
-            mediaDetail = null // the item is gone; its sheet must not linger
+            ds.delete = null
+            ds.detail = null // the item is gone; its sheet must not linger
             actionMsg = msg
             scope.launch { vm.refreshAll() }
         }
     }
 
-    BackHandler(enabled = mode == 3 && (mediaDetail != null || browseStack.isNotEmpty())) {
-        if (mediaDetail != null) mediaDetail = null else browseStack = browseStack.dropLast(1)
+    BackHandler(enabled = mode == 3 && (ds.detail != null || browseStack.isNotEmpty())) {
+        if (ds.detail != null) ds.detail = null else browseStack = browseStack.dropLast(1)
     }
     fun openMedia(it: org.phioster.sanctumd.model.JellyMediaItem) {
         if (it.isFolder) browseStack = browseStack + it
-        else scope.launch { mediaDetail = runCatching { vm.jellyfinMediaDetail(config, it.id) }.getOrElse { null } }
+        else scope.launch { ds.detail = runCatching { vm.jellyfinMediaDetail(config, it.id) }.getOrElse { null } }
     }
 
     // ── Season / album accordion ──────────────────────────────────────────────────────────────────
@@ -374,8 +368,8 @@ internal fun JellyfinScreen(
             runCatching { vm.jellyfinSetWatched(config, itemId, want) }
                 .onSuccess {
                     actionMsg = if (want) "$name marked watched" else "$name marked unwatched"
-                    if (mediaDetail?.id == itemId) {
-                        mediaDetail = runCatching { vm.jellyfinMediaDetail(config, itemId) }.getOrNull() ?: mediaDetail
+                    if (ds.detail?.id == itemId) {
+                        ds.detail = runCatching { vm.jellyfinMediaDetail(config, itemId) }.getOrNull() ?: ds.detail
                     }
                     reloadMedia()
                 }
@@ -736,8 +730,8 @@ internal fun JellyfinScreen(
                                             seriesInStack(browseStack)?.let { series ->
                                                 BrowseChip("↗ Sonarr", accent) {
                                                     scope.launch {
-                                                        manageTarget = runCatching { vm.jellyfinMediaDetail(config, series.id) }.getOrNull()
-                                                        if (manageTarget == null) actionMsg = "could not load ${series.name}"
+                                                        ds.manage = runCatching { vm.jellyfinMediaDetail(config, series.id) }.getOrNull()
+                                                        if (ds.manage == null) actionMsg = "could not load ${series.name}"
                                                     }
                                                 }
                                             }
@@ -1136,12 +1130,12 @@ internal fun JellyfinScreen(
         )
     }
 
-    castTarget?.let { d ->
+    ds.cast?.let { d ->
         // Hand the item to another Jellyfin client. Only sessions that accept remote control and
         // aren't this phone are useful here.
         val targets = sessions.orEmpty().filter { it.canControl }
         AlertDialog(
-            onDismissRequest = { castTarget = null },
+            onDismissRequest = { ds.cast = null },
             containerColor = Surface,
             title = { Text("play on…", fontFamily = Mono, color = MatrixGreen) },
             text = {
@@ -1157,7 +1151,7 @@ internal fun JellyfinScreen(
                         targets.forEach { t ->
                             Column(
                                 Modifier.fillMaxWidth().clickable {
-                                    castTarget = null
+                                    ds.cast = null
                                     scope.launch { actionMsg = vm.jellyfinPlayOn(config, t.id, d.id) }
                                 }.padding(vertical = 8.dp),
                             ) {
@@ -1171,7 +1165,7 @@ internal fun JellyfinScreen(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { castTarget = null }) { Text("close", fontFamily = Mono, color = MatrixGreen) } },
+            confirmButton = { TextButton(onClick = { ds.cast = null }) { Text("close", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
 
@@ -1414,7 +1408,7 @@ internal fun JellyfinScreen(
         )
     }
 
-    mediaDetail?.let { d ->
+    ds.detail?.let { d ->
         val dl = downloads[d.id]
         Box(Modifier.fillMaxSize().background(Black)) {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -1459,7 +1453,7 @@ internal fun JellyfinScreen(
                     Spacer(Modifier.height(14.dp))
                     if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
                         PrimaryButton("play", Modifier.fillMaxWidth(), icon = Icons.Filled.PlayArrow) {
-                            mediaDetail = null; playRequest = org.phioster.sanctumd.ui.player.PlayRequest(d.id, d.name)
+                            ds.detail = null; playRequest = org.phioster.sanctumd.ui.player.PlayRequest(d.id, d.name)
                         }
                         Spacer(Modifier.height(8.dp))
                         val startDownload = { downloadQuality = d }
@@ -1477,7 +1471,7 @@ internal fun JellyfinScreen(
                     }
                     if (d.kind == "Audio") {
                         PrimaryButton("play", Modifier.fillMaxWidth(), icon = Icons.Filled.PlayArrow) {
-                            mediaDetail = null
+                            ds.detail = null
                             scope.launch {
                                 val track = runCatching { vm.jellyfinTrack(config, d.id) }.getOrNull()
                                 if (track != null) org.phioster.sanctumd.ui.player.MusicController.play(context, listOf(track), 0, config.customHeaders)
@@ -1504,7 +1498,7 @@ internal fun JellyfinScreen(
                                 runCatching { vm.jellyfinSetFavorite(config, d.id, !d.favorite) }
                                     .onSuccess {
                                         actionMsg = if (d.favorite) "removed from favorites" else "added to favorites"
-                                        mediaDetail = runCatching { vm.jellyfinMediaDetail(config, d.id) }.getOrNull() ?: mediaDetail
+                                        ds.detail = runCatching { vm.jellyfinMediaDetail(config, d.id) }.getOrNull() ?: ds.detail
                                         favorites = runCatching { vm.jellyfinFavoriteList(config) }.getOrNull() ?: favorites
                                     }
                                     .onFailure { actionMsg = "could not update: ${it.message ?: "failed"}" }
@@ -1512,7 +1506,7 @@ internal fun JellyfinScreen(
                         }
                         if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
                             SecondaryButton("▶  play on…", Modifier.weight(1f)) {
-                                castTarget = d
+                                ds.cast = d
                                 scope.launch { sessions = runCatching { vm.jellyfinSessionList(config) }.getOrNull() ?: sessions }
                             }
                         }
@@ -1592,7 +1586,7 @@ internal fun JellyfinScreen(
             }
             // ── Top bar overlay: back + open-in-Jellyfin ──
             Row(Modifier.fillMaxWidth().statusBarsPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { mediaDetail = null }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
+                IconButton(onClick = { ds.detail = null }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { openExternal(context, jellyfinAppPackages, "${config.normalizedBaseUrl}web/#/details?id=${d.id}") }) {
                     Icon(Icons.Filled.OpenInNew, contentDescription = "Open in Jellyfin", tint = accent)
@@ -1600,27 +1594,27 @@ internal fun JellyfinScreen(
                 // The rarely-used and the destructive live here rather than as eight stacked
                 // buttons: the list had grown into a wall you had to read to find "play".
                 Box {
-                    IconButton(onClick = { detailMenu = true }) {
+                    IconButton(onClick = { ds.menuOpen = true }) {
                         Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen)
                     }
-                    DropdownMenu(expanded = detailMenu, onDismissRequest = { detailMenu = false }) {
+                    DropdownMenu(expanded = ds.menuOpen, onDismissRequest = { ds.menuOpen = false }) {
                         if (arrServiceTypeFor(d.kind) != null) {
                             DropdownMenuItem(
                                 text = { Text("Manage in Radarr / Sonarr", fontFamily = Mono) },
-                                onClick = { detailMenu = false; manageTarget = d },
+                                onClick = { ds.menuOpen = false; ds.manage = d },
                             )
                         }
                         DropdownMenuItem(
                             text = { Text("Subtitles", fontFamily = Mono) },
-                            onClick = { detailMenu = false; subtitleTarget = d },
+                            onClick = { ds.menuOpen = false; ds.subtitles = d },
                         )
                         DropdownMenuItem(
                             text = { Text("Identify", fontFamily = Mono) },
-                            onClick = { detailMenu = false; identifyTarget = d },
+                            onClick = { ds.menuOpen = false; ds.identify = d },
                         )
                         DropdownMenuItem(
                             text = { Text("Delete", fontFamily = Mono, color = ErrRed) },
-                            onClick = { detailMenu = false; deleteTarget = d },
+                            onClick = { ds.menuOpen = false; ds.delete = d },
                         )
                     }
                 }
