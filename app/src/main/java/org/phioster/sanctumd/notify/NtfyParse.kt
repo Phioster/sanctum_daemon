@@ -38,6 +38,7 @@ fun parseNtfyLine(line: String): NtfyMessage? {
         topic = str("topic").orEmpty(),
         title = title,
         text = text,
+        click = str("click").orEmpty(),
     )
 }
 

@@ -40,6 +40,8 @@ class NtfyStreamService : Service() {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     /** Health problems seen but not yet resolved, keyed by "service|issue". */
     private val openHealth = mutableMapOf<String, OpenHealth>()
+    /** Id of the configured Jellyfin service, so a notification can point into it. */
+    private var jellyfinServiceId: String? = null
 
     private data class OpenHealth(val id: Int, val timeSeconds: Long)
 
@@ -77,6 +79,7 @@ class NtfyStreamService : Service() {
         val store = NotifyStore(applicationContext)
         val settings = store.currentSettings()
         val services = runCatching { ServiceStore(applicationContext).services.first() }.getOrDefault(emptyList())
+        jellyfinServiceId = services.firstOrNull { it.type == ServiceType.JELLYFIN }?.id
         val subs = buildSubs(settings, services)
         if (subs.isEmpty()) { stopSelf(); return }
         val mainTopic = settings.ntfyTopic
@@ -150,7 +153,7 @@ class NtfyStreamService : Service() {
         val title = if (msg.topic.isNotBlank() && msg.topic != mainTopic) "[${maskTopic(msg.topic)}] $base" else base
         val id = msg.id.ifEmpty { msg.text }.hashCode()
         if (!collapseHealthPair(parseHealthEvent(base, msg.text), id, title, msg.time)) {
-            postNotification(id, title, msg.text, msg.time)
+            postNotification(id, title, msg.text, msg.time, jellyfinItemIdFromClick(msg.click))
         }
         if (msg.time > 0) store.saveNtfyCursor(msg.time, recentIds + msg.id, cursorScope)
     }
@@ -188,9 +191,23 @@ class NtfyStreamService : Service() {
     /** Reveal only the first 4 chars of a topic (hide the rest — for an unprotected topic the random suffix is effectively the access secret). */
     private fun maskTopic(t: String): String = if (t.length <= 4) "•".repeat(t.length) else "${t.take(4)}••••••"
 
-    private fun postNotification(id: Int, title: String, text: String, whenSeconds: Long = 0L) {
+    private fun postNotification(
+        id: Int,
+        title: String,
+        text: String,
+        whenSeconds: Long = 0L,
+        jellyfinItemId: String? = null,
+    ) {
         if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) return
-        val launch = packageManager.getLaunchIntentForPackage(packageName)
+        val launch = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+            // The same carrier the launcher shortcuts and the global search already use, so the
+            // tap lands on the item's own page rather than wherever the app was last left.
+            if (jellyfinItemId != null && jellyfinServiceId != null) {
+                putExtra("route", "service")
+                putExtra("serviceId", jellyfinServiceId)
+                putExtra("itemId", jellyfinItemId)
+            }
+        }
         val pi = launch?.let { PendingIntent.getActivity(this, id, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT) }
         val n = NotificationCompat.Builder(this, Notifications.CH_LIVE)
             .setSmallIcon(org.phioster.sanctumd.R.drawable.ic_notify)
