@@ -22,4 +22,18 @@ class OpensAsDetailTest {
         assertFalse(opensAsDetail("movies"))
         assertFalse(opensAsDetail("MusicAlbum"))
     }
+
+    /**
+     * A collection is a thing with its own artwork and its own films, exactly like a series with
+     * its seasons. Measured on the live server: the "Sammlungen" library (CollectionType
+     * `boxsets`) holds items of `Type: BoxSet`, and querying one by ParentId returns its movies.
+     */
+    @Test fun `a collection opens as a detail page`() {
+        assertTrue(opensAsDetail("BoxSet"))
+    }
+
+    /** The library that holds collections is still a plain container. */
+    @Test fun `the collections library itself stays a browse folder`() {
+        assertFalse(opensAsDetail("boxsets"))
+    }
 }
