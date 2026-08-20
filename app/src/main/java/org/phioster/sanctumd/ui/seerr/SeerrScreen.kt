@@ -217,8 +217,11 @@ internal fun SeerrScreen(
         } catch (c: kotlinx.coroutines.CancellationException) {
             throw c
         } catch (t: Throwable) {
-            // No Plex link → the endpoint may 404; degrade to the friendly empty note instead of an error.
+            // This used to swallow every failure into an empty list, on the belief that the
+            // endpoint needs a Plex-linked account. It does not — Jellyseerr keeps its own
+            // watchlist — so a real failure was being shown as "nothing on your watchlist".
             watchlist = emptyList()
+            listError = t.message
         }
     }
     // Discover-by-genre: load the genre catalogue, then each genre's first page in parallel.
@@ -389,7 +392,7 @@ internal fun SeerrScreen(
                                 val w = watchlist
                                 when {
                                     w == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    w.isEmpty() -> item { Text("watchlist is empty (needs a Plex-linked account)", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    w.isEmpty() -> item { Text("watchlist is empty — add titles from a title's page, or in Seerr itself", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     else -> items(w) { di -> SeerrDiscoverRow(di, accent) { openDiscoverDetail(di) } }
                                 }
                             }
