@@ -238,6 +238,13 @@ internal fun JellyfinDetailSheet(
                     Spacer(Modifier.height(12.dp))
                     Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp, lineHeight = 17.sp)
                 }
+                if (d.kind == "Series" || d.kind == "Season") {
+                    DetailChildren(d, vm, config, accent) { child ->
+                        scope.launch {
+                            runCatching { vm.jellyfinMediaDetail(config, child.id) }.getOrNull()?.let { state.open(it) }
+                        }
+                    }
+                }
                 d.fileInfo?.let { fi ->
                     // Only worth a lookup when a track actually lacks a language of its own.
                     val needsLanguage = fi.streams.any { it.type == "Audio" && it.language.isBlank() }

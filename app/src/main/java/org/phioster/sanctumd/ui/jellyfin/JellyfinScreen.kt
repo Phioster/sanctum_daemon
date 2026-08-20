@@ -328,7 +328,7 @@ internal fun JellyfinScreen(
         if (!ds.back()) browseStack = browseStack.dropLast(1)
     }
     fun openMedia(it: org.phioster.sanctumd.model.JellyMediaItem) {
-        if (it.isFolder) browseStack = browseStack + it
+        if (it.isFolder && !opensAsDetail(it.kind)) browseStack = browseStack + it
         else scope.launch { runCatching { vm.jellyfinMediaDetail(config, it.id) }.getOrNull()?.let { d -> ds.open(d) } }
     }
 
