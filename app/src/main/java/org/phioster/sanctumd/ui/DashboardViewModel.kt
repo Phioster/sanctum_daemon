@@ -975,6 +975,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         )
     suspend fun jellyfinDelete(config: ServiceConfig, itemId: String): String =
         org.phioster.sanctumd.net.jellyfinDeleteItem(config, itemId)
+    suspend fun arrQueueForLibraryItem(config: ServiceConfig, itemId: Int): List<org.phioster.sanctumd.model.ArrQueueItem> =
+        org.phioster.sanctumd.net.arrQueueForItem(config, itemId)
     suspend fun arrCollectionOf(config: ServiceConfig, tmdbCollectionId: Int): org.phioster.sanctumd.model.ArrCollection? =
         org.phioster.sanctumd.net.arrCollectionByTmdb(config, tmdbCollectionId)
     suspend fun arrAddFromCollection(

@@ -235,6 +235,8 @@ internal interface ArrApi {
     @GET suspend fun manualImport(@Url url: String): List<JsonObject>
     /** Any endpoint that answers with a plain JSON array, parsed by the caller. */
     @GET suspend fun jsonList(@Url url: String): List<JsonObject>
+    /** `queue/details` answers with a bare array of the same records `/queue` pages. */
+    @GET suspend fun queueDetails(@Url url: String): List<ArrQueueRecord>
     @GET suspend fun filesystem(@Url url: String): ArrFsResp
     @GET suspend fun blocklist(@Url url: String): ArrBlocklistPage
     @GET suspend fun parseRelease(@Url url: String): JsonObject
