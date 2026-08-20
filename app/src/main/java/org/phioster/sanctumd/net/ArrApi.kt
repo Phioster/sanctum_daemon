@@ -972,20 +972,9 @@ suspend fun arrManualImportScan(config: ServiceConfig, folder: String): List<Arr
     val encoded = java.net.URLEncoder.encode(folder, "UTF-8")
     apiFor<ArrApi>(config, apiKeyHeader(config)).manualImport("$base/manualimport?folder=$encoded&filterExistingFiles=false").map { o ->
         val quality = ((o["quality"] as? JsonObject)?.get("quality") as? JsonObject)?.let { jsStr(it, "name") } ?: ""
-        val matched = when (config.type) {
-            ServiceType.SONARR -> {
-                val series = jsStr((o["series"] as? JsonObject) ?: JsonObject(emptyMap()), "title")
-                val eps = (o["episodes"] as? JsonArray)?.mapNotNull { (it as? JsonObject) }
-                    ?.joinToString(",") { "S%02dE%02d".format(jsInt(it, "seasonNumber") ?: 0, jsInt(it, "episodeNumber") ?: 0) }
-                listOfNotNull(series?.takeIf { it.isNotBlank() }, eps?.takeIf { it.isNotBlank() }).joinToString(" ")
-            }
-            else -> jsStr((o["movie"] as? JsonObject) ?: JsonObject(emptyMap()), "title") ?: ""
-        }
+        val matched = importMatchLabel(config.type, o)
         val rejections = (o["rejections"] as? JsonArray)?.mapNotNull { (it as? JsonObject)?.let { r -> jsStr(r, "reason") } } ?: emptyList()
-        val hasMatch = when (config.type) {
-            ServiceType.SONARR -> (o["series"] as? JsonObject) != null && (o["episodes"] as? JsonArray)?.isNotEmpty() == true
-            else -> (o["movie"] as? JsonObject) != null
-        }
+        val hasMatch = importHasMatch(config.type, o)
         ArrImportItem(
             relativePath = jsStr(o, "relativePath") ?: jsStr(o, "name") ?: "?",
             matchedTitle = matched.ifBlank { "— unmatched —" },
@@ -1003,22 +992,7 @@ suspend fun arrManualImportExecute(config: ServiceConfig, rawItems: List<String>
         try {
             val base = arrBase(config.type)
             val files = rawItems.map { raw ->
-                val o = json.parseToJsonElement(raw).jsonObject
-                buildJsonObject {
-                    jsStr(o, "path")?.let { put("path", it) }
-                    jsStr(o, "folderName")?.let { put("folderName", it) }
-                    o["quality"]?.let { put("quality", it) }
-                    o["languages"]?.let { put("languages", it) }
-                    jsStr(o, "releaseGroup")?.let { put("releaseGroup", it) }
-                    if (config.type == ServiceType.SONARR) {
-                        (o["series"] as? JsonObject)?.let { s -> jsInt(s, "id")?.let { put("seriesId", it) } }
-                        (o["episodes"] as? JsonArray)?.let { eps ->
-                            putJsonArray("episodeIds") { eps.mapNotNull { (it as? JsonObject)?.let { e -> jsInt(e, "id") } }.forEach { add(it) } }
-                        }
-                    } else {
-                        (o["movie"] as? JsonObject)?.let { m -> jsInt(m, "id")?.let { put("movieId", it) } }
-                    }
-                }
+                importFileBody(config.type, json.parseToJsonElement(raw).jsonObject)
             }
             val body = buildJsonObject {
                 put("name", "ManualImport")
