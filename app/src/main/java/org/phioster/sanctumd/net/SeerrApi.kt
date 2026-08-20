@@ -365,7 +365,14 @@ suspend fun seerrDiscoverGenre(
     parseDiscoverItems(page, def)
 }
 
-/** The signed-in user's Plex watchlist (synced via Seerr). Items carry tmdbId + mediaType. */
+/**
+ * The signed-in user's watchlist. Items carry tmdbId + mediaType.
+ *
+ * Jellyseerr keeps its own watchlist — a Plex link is not required (verified against a live
+ * instance 2026-08-20). Note the asymmetry, which is Jellyseerr's design and not a mistake here:
+ * reading goes through `discover/watchlist`, while adding and removing go to `/watchlist`
+ * (a plain GET on that path answers 405).
+ */
 suspend fun seerrWatchlist(config: ServiceConfig): List<SeerrDiscoverItem> = withContext(Dispatchers.IO) {
     val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
     val page = api.watchlist()
