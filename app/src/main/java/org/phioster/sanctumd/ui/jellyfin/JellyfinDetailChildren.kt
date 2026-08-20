@@ -1,5 +1,6 @@
 package org.phioster.sanctumd.ui.jellyfin
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,6 +25,7 @@ import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
+import kotlinx.coroutines.launch
 
 /** The heading a container's contents sit under — seasons for a series, episodes for a season. */
 internal fun childSectionTitle(kind: String): String = when (kind) {
@@ -45,8 +47,12 @@ internal fun DetailChildren(
     vm: DashboardViewModel,
     config: ServiceConfig,
     accent: Color,
+    downloads: Map<String, org.phioster.sanctumd.model.DownloadEntry>,
+    onMessage: (String) -> Unit,
     onOpen: (JellyMediaItem) -> Unit,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     var children by remember(d.id) { mutableStateOf<List<JellyMediaItem>?>(null) }
     var error by remember(d.id) { mutableStateOf<String?>(null) }
     LaunchedEffect(d.id) {
@@ -68,6 +74,32 @@ internal fun DetailChildren(
 
     Spacer(Modifier.height(16.dp))
     MediaSectionHeader(childSectionTitle(d.kind), accent)
+    // The chips act on what is listed below them, so they live with the list rather than in the
+    // button column above — that column is already long enough.
+    if (!list.isNullOrEmpty()) {
+        val done = downloads.filterValues { it.done }.keys
+        val pending = pendingDownloads(list, done)
+        val next = nextUnwatched(list, done)
+        fun queue(items: List<JellyMediaItem>) {
+            items.forEach { e ->
+                org.phioster.sanctumd.service.DownloadService.enqueue(
+                    context, config.id, e.id, e.name, e.subtitle, e.posterUrl, 0L,
+                )
+            }
+            onMessage("queued ${items.size} downloads")
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (next.size > 1) BrowseChip("⬇ next ${next.size} unwatched", MatrixGreen) { queue(next) }
+            if (pending.isNotEmpty()) BrowseChip("⬇ all (${pending.size})", MatrixGreen) { queue(pending) }
+            BrowseChip("⟳ scan", MatrixGreen.copy(alpha = 0.85f)) {
+                scope.launch { onMessage(vm.jellyfinScanLibrary(config, d.id)) }
+            }
+        }
+    }
     Spacer(Modifier.height(8.dp))
     when {
         error != null -> Text(error!!, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
@@ -87,11 +119,13 @@ internal fun DetailChildren(
 internal fun pendingDownloads(
     children: List<JellyMediaItem>,
     downloaded: Set<String>,
-): List<JellyMediaItem> = emptyList()
+): List<JellyMediaItem> = children.filter {
+    !it.isFolder && it.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS && it.id !in downloaded
+}
 
 /** The first few of those the viewer hasn't watched — what "⬇ next N" would fetch. */
 internal fun nextUnwatched(
     children: List<JellyMediaItem>,
     downloaded: Set<String>,
     limit: Int = 3,
-): List<JellyMediaItem> = emptyList()
+): List<JellyMediaItem> = pendingDownloads(children, downloaded).filter { !it.played }.take(limit)
