@@ -181,7 +181,7 @@ internal fun JellyfinScreen(
     // Deep link from search: open the item-detail dialog on top of the media tab.
     LaunchedEffect(Unit) {
         if (initialItemId != null) {
-            ds.detail = runCatching { vm.jellyfinMediaDetail(config, initialItemId) }.getOrNull()
+            runCatching { vm.jellyfinMediaDetail(config, initialItemId) }.getOrNull()?.let { ds.open(it) }
         }
     }
     var logFiles by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyLogFile>?>(null) }
@@ -306,7 +306,7 @@ internal fun JellyfinScreen(
             actionMsg = msg
             // Metadata changed underneath us; re-read the sheet rather than show the old title.
             scope.launch {
-                ds.detail = runCatching { vm.jellyfinMediaDetail(config, target.id) }.getOrNull()
+                runCatching { vm.jellyfinMediaDetail(config, target.id) }.getOrNull()?.let { ds.replaceTop(it) }
                 vm.refreshAll()
             }
         }
@@ -318,18 +318,18 @@ internal fun JellyfinScreen(
             onDismiss = { ds.delete = null },
         ) { msg ->
             ds.delete = null
-            ds.detail = null // the item is gone; its sheet must not linger
+            ds.closeAll() // the item is gone; its sheet must not linger
             actionMsg = msg
             scope.launch { vm.refreshAll() }
         }
     }
 
     BackHandler(enabled = mode == 3 && (ds.detail != null || browseStack.isNotEmpty())) {
-        if (ds.detail != null) ds.detail = null else browseStack = browseStack.dropLast(1)
+        if (!ds.back()) browseStack = browseStack.dropLast(1)
     }
     fun openMedia(it: org.phioster.sanctumd.model.JellyMediaItem) {
         if (it.isFolder) browseStack = browseStack + it
-        else scope.launch { ds.detail = runCatching { vm.jellyfinMediaDetail(config, it.id) }.getOrElse { null } }
+        else scope.launch { runCatching { vm.jellyfinMediaDetail(config, it.id) }.getOrNull()?.let { d -> ds.open(d) } }
     }
 
     // ── Season / album accordion ──────────────────────────────────────────────────────────────────
@@ -367,7 +367,7 @@ internal fun JellyfinScreen(
                 .onSuccess {
                     actionMsg = if (want) "$name marked watched" else "$name marked unwatched"
                     if (ds.detail?.id == itemId) {
-                        ds.detail = runCatching { vm.jellyfinMediaDetail(config, itemId) }.getOrNull() ?: ds.detail
+                        runCatching { vm.jellyfinMediaDetail(config, itemId) }.getOrNull()?.let { ds.replaceTop(it) }
                     }
                     reloadMedia()
                 }

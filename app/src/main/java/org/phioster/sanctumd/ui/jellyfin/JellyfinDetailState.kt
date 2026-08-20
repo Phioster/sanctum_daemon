@@ -19,8 +19,29 @@ import org.phioster.sanctumd.model.JellyMediaDetail
  * means. Anything that acts stays in the screen or in the sheet.
  */
 internal class JellyfinDetailState {
-    /** The item whose sheet is open, or null when none is. */
-    var detail by mutableStateOf<JellyMediaDetail?>(null)
+    /**
+     * The path of open sheets: series → season → episode. A stack rather than a single value,
+     * because Jellyfin's own structure nests, and Back has to walk back up one level at a time
+     * instead of dropping the user out of the whole thing.
+     */
+    var stack by mutableStateOf<List<JellyMediaDetail>>(emptyList())
+
+    /** The sheet currently on top, or null when none is open. */
+    val detail: JellyMediaDetail? get() = stack.lastOrNull()
+
+    fun open(item: JellyMediaDetail) { stack = stack + item }
+
+    /** Swaps the top sheet for a freshly loaded copy of itself, keeping the path intact. */
+    fun replaceTop(item: JellyMediaDetail) {
+        stack = if (stack.isEmpty()) listOf(item) else stack.dropLast(1) + item
+    }
+
+    /** One level up. Returns false when there was nothing left to close. */
+    fun back(): Boolean {
+        if (stack.isEmpty()) return false
+        stack = stack.dropLast(1)
+        return true
+    }
 
     /** The overflow menu in the sheet's header. */
     var menuOpen by mutableStateOf(false)
@@ -41,7 +62,7 @@ internal class JellyfinDetailState {
 
     /** Closes the sheet and every dialog belonging to it. */
     fun closeAll() {
-        detail = null
+        stack = emptyList()
         menuOpen = false
         manage = null
         subtitles = null
