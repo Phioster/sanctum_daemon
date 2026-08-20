@@ -102,7 +102,6 @@ class JellyfinFileInfoTest {
     }
 
     @Test
-    fun `an item without media sources has no file info at all`() = runBlocking {    @Test
     fun `an item without media sources has no file info at all`() = runBlocking {
         enqueueUser()
         server.enqueue(MockResponse().setBody("""{"Id":"s1","Name":"Some Series","Type":"Series"}"""))
