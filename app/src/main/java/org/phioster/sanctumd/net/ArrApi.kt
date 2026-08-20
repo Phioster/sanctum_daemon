@@ -980,7 +980,7 @@ suspend fun arrManualImportScan(config: ServiceConfig, folder: String): List<Arr
             matchedTitle = matched.ifBlank { "— unmatched —" },
             quality = quality,
             rejection = rejections.joinToString("; "),
-            importable = hasMatch && rejections.isEmpty(),
+            importable = hasMatch && importAllowed(config.type, rejections),
             rawJson = json.encodeToString(JsonObject.serializer(), o),
         )
     }

@@ -71,5 +71,21 @@ internal fun importFileBody(type: ServiceType, o: JsonObject): JsonObject = buil
     }
 }
 
-/** Whether a scanned row may be imported despite what the server said about it. */
-internal fun importAllowed(type: ServiceType, rejections: List<String>): Boolean = false
+/**
+ * Whether a scanned row may be imported despite what the server said about it.
+ *
+ * Lidarr judges each file on its own, so every file of a complete album is reported as
+ * "Has missing tracks" — the other tracks are missing *from that one file*. Measured against a
+ * live Lidarr 3.1.3 (2026-08-20): all 20 rows of a complete, correctly matched album carried it.
+ * Treating it as a blocker would ship a manual import that can never import anything, so it is a
+ * warning here and the row stays selectable. Every other rejection still blocks, and for Radarr
+ * and Sonarr nothing changes.
+ */
+internal fun importAllowed(type: ServiceType, rejections: List<String>): Boolean =
+    if (type == ServiceType.LIDARR) {
+        rejections.none { !it.equals(LIDARR_PER_FILE_WARNING, ignoreCase = true) }
+    } else {
+        rejections.isEmpty()
+    }
+
+private const val LIDARR_PER_FILE_WARNING = "Has missing tracks"

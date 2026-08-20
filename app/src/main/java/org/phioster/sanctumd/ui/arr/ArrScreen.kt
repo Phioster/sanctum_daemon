@@ -127,7 +127,8 @@ internal fun ArrScreen(
     var history by remember { mutableStateOf<List<org.phioster.sanctumd.model.ArrHistoryItem>?>(null) }
     var detailId by remember { mutableStateOf(initialDetailId) }
     val supportsDetail = config.type == ServiceType.RADARR || config.type == ServiceType.SONARR || config.type == ServiceType.LIDARR
-    val supportsImport = config.type == ServiceType.RADARR || config.type == ServiceType.SONARR
+    val supportsImport = config.type == ServiceType.RADARR || config.type == ServiceType.SONARR ||
+        config.type == ServiceType.LIDARR
     var showSystem by remember { mutableStateOf(false) }
     var showIndexers by remember { mutableStateOf(false) }
     var showProfiles by remember { mutableStateOf(false) }
