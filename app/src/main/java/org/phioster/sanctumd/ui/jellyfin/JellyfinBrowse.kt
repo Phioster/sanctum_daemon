@@ -426,5 +426,4 @@ internal fun LazyListScope.jellyfinFolderLevel(
             item { Spacer(Modifier.height(16.dp)) }
         }
     }
-    }
 }
