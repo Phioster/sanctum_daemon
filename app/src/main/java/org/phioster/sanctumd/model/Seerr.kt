@@ -104,6 +104,9 @@ data class SeerrRequestDetail(
     val seasonCount: Int,
     val is4k: Boolean,
     val pending: Boolean,
+    /** Provider ids, for finding the same title in Radarr/Sonarr. 0 = not reported. */
+    val tmdbId: Int = 0,
+    val tvdbId: Int = 0,
 )
 
 /** A Seerr user, for the admin user list. */

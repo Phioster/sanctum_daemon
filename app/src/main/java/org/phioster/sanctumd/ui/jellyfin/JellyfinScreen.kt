@@ -205,7 +205,13 @@ internal fun JellyfinScreen(
     }
     LaunchedEffect(mode, bs.stack, bs.sort, bs.desc, bs.unwatched) { if (mode == 3) loadMedia() }
     ds.manage?.let { target ->
-        JellyfinArrBridgeDialog(vm, target, accent, onDismiss = { ds.manage = null }) { msg ->
+        val counterpart = org.phioster.sanctumd.ui.arr.ArrCounterpartTarget(
+            serviceType = arrServiceTypeFor(target.kind) ?: org.phioster.sanctumd.model.ServiceType.RADARR,
+            tmdbId = target.providerIds["Tmdb"],
+            tvdbId = target.providerIds["Tvdb"],
+            scopeNote = counterpartScopeNote(target.kind),
+        )
+        org.phioster.sanctumd.ui.arr.ArrCounterpartDialog(vm, counterpart, accent, onDismiss = { ds.manage = null }) { msg ->
             ds.manage = null
             actionMsg = msg
             scope.launch { vm.refreshAll() }

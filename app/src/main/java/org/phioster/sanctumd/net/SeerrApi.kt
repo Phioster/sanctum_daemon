@@ -499,6 +499,8 @@ suspend fun seerrRequestDetail(config: ServiceConfig, id: Int): SeerrRequestDeta
             seasonCount = jsInt(o, "seasonCount") ?: 0,
             is4k = jsBool(o, "is4k") == true,
             pending = status == 1,
+            tmdbId = tmdb,
+            tvdbId = jsInt(media, "tvdbId") ?: 0,
         )
     }
 

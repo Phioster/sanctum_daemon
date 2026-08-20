@@ -27,7 +27,10 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import org.phioster.sanctumd.model.SeerrRequestDetail
 import org.phioster.sanctumd.model.ServiceConfig
+import org.phioster.sanctumd.model.ServiceType
 import org.phioster.sanctumd.ui.DashboardViewModel
+import org.phioster.sanctumd.ui.arr.ArrCounterpartDialog
+import org.phioster.sanctumd.ui.arr.ArrCounterpartTarget
 import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
@@ -52,6 +55,26 @@ internal fun SeerrRequestDetailDialog(
 ) {
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
+    var showCounterpart by remember { mutableStateOf(false) }
+
+    if (showCounterpart) {
+        val type = seerrServiceTypeFor(detail.mediaType)
+        if (type != null) {
+            ArrCounterpartDialog(
+                vm = vm,
+                target = ArrCounterpartTarget(
+                    serviceType = type,
+                    tmdbId = detail.tmdbId.takeIf { it > 0 }?.toString(),
+                    tvdbId = detail.tvdbId.takeIf { it > 0 }?.toString(),
+                ),
+                accent = accent,
+                onDismiss = { showCounterpart = false },
+            ) { msg ->
+                showCounterpart = false
+                onActed(msg)
+            }
+        }
+    }
 
     fun act(label: String, call: suspend () -> String) {
         busy = true
@@ -93,6 +116,13 @@ internal fun SeerrRequestDetailDialog(
                         TextButton(enabled = !busy, onClick = { act("decline") { vm.seerrDeclineReq(config, detail.id) } }) {
                             Text("Decline", fontFamily = Mono, color = accent)
                         }
+                    }
+                }
+                // Once a request is approved, the interesting questions ("did it grab a bad
+                // copy?", "search again") are answered in Radarr/Sonarr, not here.
+                seerrServiceTypeFor(detail.mediaType)?.let { type ->
+                    TextButton(enabled = !busy, onClick = { showCounterpart = true }) {
+                        Text("Manage in ${if (type == ServiceType.SONARR) "Sonarr" else "Radarr"}", fontFamily = Mono, color = accent)
                     }
                 }
                 TextButton(enabled = !busy, onClick = { act("delete") { vm.seerrDeleteReq(config, detail.id) } }) {
