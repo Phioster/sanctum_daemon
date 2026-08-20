@@ -132,28 +132,12 @@ internal fun JellyfinScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var mode by remember { mutableStateOf(3) } // 0=Now Playing, 1=Users, 2=Dashboard, 3=Media (default), 4=Live TV
-    var sessions by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellySession>?>(null) }
-    var users by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyUser>?>(null) }
-    var dashInfo by remember { mutableStateOf<org.phioster.sanctumd.model.JellySystemInfo?>(null) }
-    var tasks by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyTask>?>(null) }
-    var activity by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyActivity>?>(null) }
-    var devices by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyDevice>?>(null) }
+    val ps = rememberJellyfinPeopleState()
+    val ad = rememberJellyfinAdminState()
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var refreshing by remember { mutableStateOf(false) }
     var barMenu by remember { mutableStateOf(false) }
-    var messageFor by remember { mutableStateOf<String?>(null) }
-    var messageText by remember { mutableStateOf("") }
-    var confirmRestart by remember { mutableStateOf(false) }
-    // True while a restart is being confirmed (server polled until back) — keeps its status message from auto-clearing.
-    var restartInProgress by remember { mutableStateOf(false) }
-    // Dashboard sub-section opened from the tile overview (null = show the tiles).
-    var dashSection by remember { mutableStateOf<String?>(null) }
-    var libraries by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyLibrary>?>(null) }
-    var editUser by remember { mutableStateOf<org.phioster.sanctumd.model.JellyUser?>(null) }
-    var showCreateUser by remember { mutableStateOf(false) }
-    var newUserName by remember { mutableStateOf("") }
-    var newUserPass by remember { mutableStateOf("") }
     val ds = rememberJellyfinDetailState()
     val bs = rememberJellyfinBrowseState()
     var playRequest by remember { mutableStateOf<org.phioster.sanctumd.ui.player.PlayRequest?>(null) }
@@ -180,15 +164,6 @@ internal fun JellyfinScreen(
             runCatching { vm.jellyfinMediaDetail(config, initialItemId) }.getOrNull()?.let { ds.open(it) }
         }
     }
-    var logFiles by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyLogFile>?>(null) }
-    var logView by remember { mutableStateOf<String?>(null) } // log file name being viewed
-    var logText by remember { mutableStateOf<String?>(null) } // its content (null = loading)
-    var plugins by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyPlugin>?>(null) }
-    var editLibrary by remember { mutableStateOf<org.phioster.sanctumd.model.JellyLibrary?>(null) }
-    var showAddLibrary by remember { mutableStateOf(false) }
-    var pluginDetail by remember { mutableStateOf<org.phioster.sanctumd.model.JellyPlugin?>(null) }
-    var showCatalog by remember { mutableStateOf(false) }
-    var catalog by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyPackage>?>(null) }
     val tvState = rememberJellyfinLiveTvState()
 
 
@@ -201,41 +176,24 @@ internal fun JellyfinScreen(
         watched.forEach { org.phioster.sanctumd.service.DownloadService.delete(context, it) }
     }
 
-    suspend fun loadSessions() {
-        listError = null
-        try { sessions = vm.jellyfinSessionList(config) } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
-    }
+    suspend fun loadSessions() { listError = ps.loadSessions(vm, config) }
     suspend fun loadUsers() {
-        listError = null
-        try {
-            users = vm.jellyfinUserList(config)
-            if (libraries == null) libraries = vm.jellyfinLibraryList(config)
-        } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
+        listError = ps.loadUsers(vm, config)
+        runCatching { ad.ensureLibraries(vm, config) }
     }
-    suspend fun loadDashboard() {
-        listError = null
-        try {
-            dashInfo = vm.jellyfinInfo(config)
-            tasks = vm.jellyfinTaskList(config)
-            activity = vm.jellyfinActivityLog(config)
-            devices = runCatching { vm.jellyfinDeviceList(config) }.getOrDefault(emptyList())
-            libraries = runCatching { vm.jellyfinLibraryList(config) }.getOrDefault(emptyList())
-            plugins = runCatching { vm.jellyfinPluginList(config) }.getOrDefault(emptyList())
-            logFiles = runCatching { vm.jellyfinLogList(config) }.getOrDefault(emptyList())
-        } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
-    }
+    suspend fun loadDashboard() { listError = ad.reload(vm, config) }
     suspend fun loadLiveTv() { listError = tvState.reload(vm, config) }
     suspend fun loadMedia() {
         listError = if (bs.stack.isEmpty()) bs.loadHome(vm, config).also { sweepWatchedDownloads() }
         else bs.loadFolder(vm, config, bs.stack.last())
     }
-    LaunchedEffect(mode) { dashSection = null; when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv(); else -> {} } }
+    LaunchedEffect(mode) { ad.section = null; when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv(); else -> {} } }
     // System back from an open dashboard category returns to the tile overview.
-    BackHandler(enabled = mode == 2 && dashSection != null) { dashSection = null }
+    BackHandler(enabled = mode == 2 && ad.section != null) { ad.section = null }
     // Action results (e.g. "restarting") shouldn't linger — clear them after a few seconds,
     // except while a restart is polling for the server to come back.
-    LaunchedEffect(actionMsg, restartInProgress) {
-        if (actionMsg != null && !restartInProgress) { kotlinx.coroutines.delay(4000); actionMsg = null }
+    LaunchedEffect(actionMsg, ad.restartInProgress) {
+        if (actionMsg != null && !ad.restartInProgress) { kotlinx.coroutines.delay(4000); actionMsg = null }
     }
     LaunchedEffect(mode, bs.stack, bs.sort, bs.desc, bs.unwatched) { if (mode == 3) loadMedia() }
     ds.manage?.let { target ->
@@ -391,7 +349,7 @@ internal fun JellyfinScreen(
                             }
                             DropdownMenuItem(text = { Text("Open in Jellyfin", fontFamily = Mono) }, onClick = { barMenu = false; openExternal(context, jellyfinAppPackages, "${config.normalizedBaseUrl}web/") })
                             DropdownMenuItem(text = { Text("Scan library", fontFamily = Mono) }, onClick = { barMenu = false; scope.launch { actionMsg = vm.jellyfinScan(config) } })
-                            DropdownMenuItem(text = { Text("Restart server", fontFamily = Mono) }, onClick = { barMenu = false; confirmRestart = true })
+                            DropdownMenuItem(text = { Text("Restart server", fontFamily = Mono) }, onClick = { barMenu = false; ad.confirmRestart = true })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
                         }
@@ -466,7 +424,7 @@ internal fun JellyfinScreen(
                 count = jfOrder.size,
                 onChange = { mode = jfOrder[it] },
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                enabled = bs.stack.isEmpty() && dashSection == null,
+                enabled = bs.stack.isEmpty() && ad.section == null,
             ) { jfPage ->
                 val pageMode = jfOrder[jfPage]
                 // The media tab still renders when offline — downloads are local and must stay reachable.
@@ -475,172 +433,14 @@ internal fun JellyfinScreen(
                 } else {
                     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
                         when (pageMode) {
-                            0 -> {
-                                val s = sessions
-                                when {
-                                    s == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    s.isEmpty() -> item { Text("no active sessions", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(s) { sess ->
-                                        JellySessionRow(
-                                            item = sess,
-                                            accent = accent,
-                                            onPlayPause = { act { vm.jellyfinControl(config, sess.id, if (sess.paused) "Unpause" else "Pause") } },
-                                            onStop = { act { vm.jellyfinControl(config, sess.id, "Stop") } },
-                                            onMessage = { messageFor = sess.id; messageText = "" },
-                                        )
-                                    }
-                                }
-                            }
-                            1 -> {
-                                val u = users
-                                item {
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(
-                                        "+ new user",
-                                        fontFamily = Mono, color = accent, fontSize = 13.sp,
-                                        modifier = Modifier.fillMaxWidth().clickable { newUserName = ""; newUserPass = ""; showCreateUser = true }.padding(vertical = 6.dp),
-                                    )
-                                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
-                                }
-                                when {
-                                    u == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    u.isEmpty() -> item { Text("no users", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(u) { usr -> JellyUserRow(usr, accent) { editUser = usr } }
-                                }
-                            }
+                            0 -> jellyfinSessionsTab(ps, vm, config, accent, ::act)
+                            1 -> jellyfinUsersTab(ps, accent)
                             3 -> if (bs.stack.isEmpty()) {
                                 jellyfinMediaHome(bs, config, accent, context, downloads, hiddenSet, mediaStyles, listError, mediaActions)
                             } else {
                                 jellyfinFolderLevel(bs, vm, config, accent, context, scope, downloads, mediaActions)
                             }
-                            2 -> {
-                                if (dashSection == null) {
-                                    // ── Overview: server card + clickable category tiles ──
-                                    item {
-                                        val si = dashInfo
-                                        Spacer(Modifier.height(8.dp))
-                                        Row(
-                                            Modifier.fillMaxWidth()
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .background(MatrixGreen.copy(alpha = 0.06f))
-                                                .border(1.dp, MatrixGreen.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
-                                                .padding(14.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            Icon(Icons.Filled.Dns, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
-                                            Spacer(Modifier.width(10.dp))
-                                            Column {
-                                                Text(si?.serverName ?: "…", fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                                Text("v${si?.version ?: "…"}${if (!si?.os.isNullOrBlank()) " · ${si!!.os}" else ""}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
-                                            }
-                                        }
-                                        Spacer(Modifier.height(12.dp))
-                                        val cats = listOf(
-                                            DashCat("tasks", "Tasks", tasks?.size, Icons.Filled.Schedule),
-                                            DashCat("activity", "Activity", activity?.size, Icons.Filled.History),
-                                            DashCat("libraries", "Libraries", libraries?.size, Icons.Filled.VideoLibrary),
-                                            DashCat("plugins", "Plugins", plugins?.size, Icons.Filled.Extension),
-                                            DashCat("logs", "Logs", logFiles?.size, Icons.Filled.Description),
-                                            DashCat("devices", "Devices", devices?.size, Icons.Filled.Devices),
-                                        )
-                                        cats.chunked(2).forEach { rowCats ->
-                                            Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                                rowCats.forEach { c ->
-                                                    DashTile(c.label, c.count, c.icon, accent, Modifier.weight(1f)) { dashSection = c.key }
-                                                }
-                                                if (rowCats.size == 1) Spacer(Modifier.weight(1f))
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    // ── One category, opened from a tile ──
-                                    item {
-                                        Spacer(Modifier.height(8.dp))
-                                        Row(
-                                            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { dashSection = null }.padding(vertical = 8.dp, horizontal = 4.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = accent, modifier = Modifier.size(18.dp))
-                                            Spacer(Modifier.width(6.dp))
-                                            Text(dashSection!!.uppercase(), fontFamily = Mono, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                        }
-                                        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
-                                    }
-                                    when (dashSection) {
-                                        "tasks" -> {
-                                            val tk = tasks
-                                            when {
-                                                tk == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                else -> items(tk) { t -> JellyTaskRow(t, accent) { scope.launch { actionMsg = vm.jellyfinRunTaskById(config, t.id); loadDashboard() } } }
-                                            }
-                                        }
-                                        "activity" -> {
-                                            val ac = activity
-                                            when {
-                                                ac == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                ac.isEmpty() -> item { Text("no activity", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                else -> items(ac) { e -> JellyActivityRow(e, accent) }
-                                            }
-                                        }
-                                        "libraries" -> {
-                                            item {
-                                                Text(
-                                                    "+ add library",
-                                                    fontFamily = Mono, color = accent, fontSize = 13.sp,
-                                                    modifier = Modifier.fillMaxWidth().clickable { showAddLibrary = true }.padding(vertical = 8.dp),
-                                                )
-                                                HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
-                                            }
-                                            val lb = libraries
-                                            when {
-                                                lb == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                lb.isEmpty() -> item { Text("no libraries", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                else -> items(lb) { l -> JellyLibraryRow(l, accent) { editLibrary = l } }
-                                            }
-                                        }
-                                        "plugins" -> {
-                                            item {
-                                                Text(
-                                                    "+ plugin catalog",
-                                                    fontFamily = Mono, color = accent, fontSize = 13.sp,
-                                                    modifier = Modifier.fillMaxWidth().clickable {
-                                                        catalog = null; showCatalog = true
-                                                        scope.launch { catalog = runCatching { vm.jellyfinCatalog(config) }.getOrDefault(emptyList()) }
-                                                    }.padding(vertical = 8.dp),
-                                                )
-                                                HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
-                                            }
-                                            val pl = plugins
-                                            when {
-                                                pl == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                pl.isEmpty() -> item { Text("no plugins", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                else -> items(pl) { p -> JellyPluginRow(p, accent) { pluginDetail = p } }
-                                            }
-                                        }
-                                        "logs" -> {
-                                            val lg = logFiles
-                                            when {
-                                                lg == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                lg.isEmpty() -> item { Text("no logs", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                else -> items(lg) { f ->
-                                                    JellyLogRow(f, accent) {
-                                                        logView = f.name; logText = null
-                                                        scope.launch { logText = vm.jellyfinLogText(config, f.name) }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        "devices" -> {
-                                            val dv = devices
-                                            when {
-                                                dv == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                dv.isEmpty() -> item { Text("no devices", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                else -> items(dv) { d -> JellyDeviceRow(d, accent) }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            2 -> jellyfinDashboardTab(ad, vm, config, accent, scope, { actionMsg = it }) { loadDashboard() }
                             4 -> jellyfinLiveTvTab(
                                 tvState, vm, config, accent, scope,
                                 onMessage = { actionMsg = it },
@@ -653,21 +453,6 @@ internal fun JellyfinScreen(
         }
     }
 
-    messageFor?.let { sid ->
-        AlertDialog(
-            onDismissRequest = { messageFor = null },
-            containerColor = Surface,
-            title = { Text("Send message", fontFamily = Mono, color = MatrixGreen) },
-            text = { Field("Message", messageText) { messageText = it } },
-            confirmButton = {
-                TextButton(enabled = messageText.isNotBlank(), onClick = {
-                    val txt = messageText; messageFor = null
-                    scope.launch { actionMsg = vm.jellyfinMessage(config, sid, txt) }
-                }) { Text("Send", fontFamily = Mono, color = MatrixGreen) }
-            },
-            dismissButton = { TextButton(onClick = { messageFor = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
 
     ds.downloadQuality?.let { d ->
         // Original file vs. a transcoded, smaller copy. The server re-encodes on the fly for the
@@ -705,14 +490,14 @@ internal fun JellyfinScreen(
     ds.cast?.let { d ->
         // Hand the item to another Jellyfin client. Only sessions that accept remote control and
         // aren't this phone are useful here.
-        val targets = sessions.orEmpty().filter { it.canControl }
+        val targets = ps.sessions.orEmpty().filter { it.canControl }
         AlertDialog(
             onDismissRequest = { ds.cast = null },
             containerColor = Surface,
             title = { Text("play on…", fontFamily = Mono, color = MatrixGreen) },
             text = {
                 Column {
-                    if (sessions == null) {
+                    if (ps.sessions == null) {
                         Text("loading devices…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 13.sp)
                     } else if (targets.isEmpty()) {
                         Text(
@@ -761,176 +546,19 @@ internal fun JellyfinScreen(
         )
     }
 
-    if (confirmRestart) {
-        AlertDialog(
-            onDismissRequest = { confirmRestart = false },
-            containerColor = Surface,
-            title = { Text("Restart server?", fontFamily = Mono, color = MatrixGreen) },
-            text = { Text("This restarts the Jellyfin server for everyone.", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 13.sp) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmRestart = false
-                    scope.launch {
-                        restartInProgress = true
-                        actionMsg = "restarting…"
-                        val r = vm.jellyfinRestartServer(config)
-                        if (r.startsWith("error")) {
-                            restartInProgress = false
-                            actionMsg = r
-                            return@launch
-                        }
-                        // Give the server a moment to actually go down, then poll until it answers again.
-                        kotlinx.coroutines.delay(3000)
-                        actionMsg = "restarting… waiting for server to come back"
-                        var back = false
-                        val deadline = System.currentTimeMillis() + 120_000
-                        while (System.currentTimeMillis() < deadline) {
-                            if (runCatching { vm.jellyfinInfo(config) }.getOrNull() != null) { back = true; break }
-                            kotlinx.coroutines.delay(3000)
-                        }
-                        restartInProgress = false
-                        if (back) {
-                            actionMsg = "✓ server back online"
-                            loadDashboard()
-                        } else {
-                            actionMsg = "restart sent — server hasn't responded yet"
-                        }
-                    }
-                }) {
-                    Text("Restart", fontFamily = Mono, color = ErrRed)
-                }
-            },
-            dismissButton = { TextButton(onClick = { confirmRestart = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
 
-    if (showCreateUser) {
-        AlertDialog(
-            onDismissRequest = { showCreateUser = false },
-            containerColor = Surface,
-            title = { Text("New user", fontFamily = Mono, color = MatrixGreen) },
-            text = {
-                Column {
-                    Field("Username", newUserName) { newUserName = it }
-                    Field("Password (optional)", newUserPass, isPassword = true) { newUserPass = it }
-                }
-            },
-            confirmButton = {
-                TextButton(enabled = newUserName.isNotBlank(), onClick = {
-                    val n = newUserName; val p = newUserPass; showCreateUser = false
-                    scope.launch { actionMsg = vm.jellyfinAddUser(config, n, p); loadUsers() }
-                }) { Text("Create", fontFamily = Mono, color = MatrixGreen) }
-            },
-            dismissButton = { TextButton(onClick = { showCreateUser = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
 
-    editUser?.let { usr ->
-        JellyUserDialog(
-            user = usr,
-            libraries = libraries,
-            onDismiss = { editUser = null },
-            onSave = { admin, disabled, allowDownloads, enableAll, folders ->
-                editUser = null
-                scope.launch {
-                    actionMsg = vm.jellyfinUpdatePolicy(config, usr.id, admin, disabled, allowDownloads, enableAll, folders)
-                    loadUsers()
-                }
-            },
-            onResetPassword = { newPw ->
-                scope.launch { actionMsg = vm.jellyfinResetPassword(config, usr.id, newPw) }
-            },
-            onDelete = {
-                editUser = null
-                scope.launch { actionMsg = vm.jellyfinRemoveUser(config, usr.id); loadUsers() }
-            },
-        )
-    }
 
-    if (showAddLibrary) {
-        JellyAddLibraryDialog(
-            accent = accent,
-            onDismiss = { showAddLibrary = false },
-            onCreate = { name, type, path ->
-                showAddLibrary = false
-                scope.launch { actionMsg = vm.jellyfinCreateLibrary(config, name, type, path); loadDashboard() }
-            },
-        )
-    }
 
-    editLibrary?.let { lib ->
-        JellyLibraryDialog(
-            library = lib,
-            accent = accent,
-            onDismiss = { editLibrary = null },
-            onRename = { newName ->
-                editLibrary = null
-                scope.launch { actionMsg = vm.jellyfinRenameLibraryTo(config, lib.name, newName); loadDashboard() }
-            },
-            onAddPath = { path ->
-                editLibrary = null
-                scope.launch { actionMsg = vm.jellyfinLibraryAddPath(config, lib.name, path); loadDashboard() }
-            },
-            onRemovePath = { path ->
-                editLibrary = null
-                scope.launch { actionMsg = vm.jellyfinLibraryRemovePath(config, lib.name, path); loadDashboard() }
-            },
-            onDelete = {
-                editLibrary = null
-                scope.launch { actionMsg = vm.jellyfinRemoveLibrary(config, lib.name); loadDashboard() }
-            },
-        )
-    }
 
-    pluginDetail?.let { p ->
-        JellyPluginDialog(
-            plugin = p,
-            accent = accent,
-            onDismiss = { pluginDetail = null },
-            onToggle = {
-                pluginDetail = null
-                scope.launch { actionMsg = vm.jellyfinPluginEnable(config, p.id, p.version, p.status.equals("Disabled", true)); loadDashboard() }
-            },
-            onUninstall = {
-                pluginDetail = null
-                scope.launch { actionMsg = vm.jellyfinPluginUninstall(config, p.id, p.version); loadDashboard() }
-            },
-        )
-    }
 
-    if (showCatalog) {
-        JellyCatalogDialog(
-            catalog = catalog,
-            accent = accent,
-            onDismiss = { showCatalog = false },
-            onInstall = { pkg ->
-                showCatalog = false
-                scope.launch { actionMsg = vm.jellyfinCatalogInstall(config, pkg.name, pkg.guid); loadDashboard() }
-            },
-        )
-    }
 
     JellyfinLiveTvDialogs(tvState, vm, config, scope, { actionMsg = it }) { scope.launch { listError = tvState.reload(vm, config) } }
 
-    logView?.let { name ->
-        AlertDialog(
-            onDismissRequest = { logView = null },
-            containerColor = Surface,
-            title = { Text(name, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            text = {
-                Box(Modifier.fillMaxWidth().heightIn(min = 200.dp, max = 480.dp).verticalScroll(rememberScrollState())) {
-                    Text(
-                        logText ?: "loading…",
-                        fontFamily = Mono,
-                        color = if (logText?.startsWith("error") == true) ErrRed else MatrixGreen.copy(alpha = 0.85f),
-                        fontSize = 9.sp,
-                        lineHeight = 12.sp,
-                    )
-                }
-            },
-            confirmButton = { TextButton(onClick = { logView = null }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
+    JellyfinPeopleDialogs(ps, vm, config, ad.libraries, scope, { actionMsg = it }) { loadUsers() }
+
+    JellyfinAdminDialogs(ad, vm, config, accent, scope, { actionMsg = it }) { loadDashboard() }
+
 
     JellyfinDetailSheet(
         state = ds,
@@ -939,9 +567,9 @@ internal fun JellyfinScreen(
         accent = accent,
         downloads = downloads,
         favorites = bs.favorites,
-        sessions = sessions,
+        sessions = ps.sessions,
         onFavorites = { bs.favorites = it },
-        onSessions = { sessions = it },
+        onSessions = { ps.sessions = it },
         onMessage = { actionMsg = it },
         onPlay = { playRequest = it },
         onWatched = { id, name, want -> applyWatched(id, name, want) },
