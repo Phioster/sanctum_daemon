@@ -84,6 +84,34 @@ data class ArrImportItem(
     val rawJson: String,
 )
 
+/**
+ * A TMDB collection as Radarr knows it — the whole film run, not only the parts you own.
+ *
+ * [qualityProfileId] and [rootFolderPath] come from the collection itself: Radarr already says
+ * where films of this run belong, so adding a missing one needs no further questions.
+ */
+data class ArrCollection(
+    val id: Int,
+    val title: String,
+    val tmdbId: Int,
+    val monitored: Boolean,
+    val qualityProfileId: Int,
+    val rootFolderPath: String,
+    val movies: List<ArrCollectionMovie>,
+) {
+    /** Films of the run that are neither owned nor deliberately excluded. */
+    val missing: List<ArrCollectionMovie> get() = movies.filter { !it.existing && !it.excluded }
+}
+
+/** One film of an [ArrCollection]. */
+data class ArrCollectionMovie(
+    val tmdbId: Int,
+    val title: String,
+    val year: Int,
+    val existing: Boolean,
+    val excluded: Boolean,
+)
+
 /** A Lidarr album (shown in the artist detail screen). */
 data class ArrAlbum(
     val id: Int,
