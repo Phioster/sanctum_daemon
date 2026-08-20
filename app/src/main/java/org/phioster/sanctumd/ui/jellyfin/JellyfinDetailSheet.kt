@@ -67,6 +67,12 @@ import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import org.phioster.sanctumd.model.ServiceConfig
+import org.phioster.sanctumd.ui.DashboardViewModel
 
 /**
  * The full-screen sheet for one media item.
