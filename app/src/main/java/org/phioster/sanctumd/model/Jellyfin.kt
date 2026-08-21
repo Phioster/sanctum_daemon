@@ -124,10 +124,10 @@ data class JellyDevice(
     val lastActivity: String,
 )
 
-/** One entry in the watch-time leaderboard (from the Playback Reporting plugin). */
 /** How Jellyfin delivered a file: untouched, remuxed, or re-encoded. */
 enum class PlaybackKind { DIRECT, STREAM, TRANSCODE }
 
+/** One entry in the watch-time leaderboard (from the Playback Reporting plugin). */
 data class JellyWatchStat(
     val name: String,
     val seconds: Long,
