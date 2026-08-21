@@ -1,6 +1,8 @@
 package org.phioster.sanctumd.net
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.phioster.sanctumd.model.PlaybackKind
 
@@ -31,5 +33,23 @@ class PlaybackKindTest {
         assertEquals("v:h264 a:direct", transcodeDetail("Transcode (v:h264 a:direct)"))
         assertEquals("", transcodeDetail("DirectPlay"))
         assertEquals("", transcodeDetail("Transcode"))
+    }
+
+    /**
+     * Live TV has no original file to hand through, so it is transcoded every single time.
+     * Counting it made the tile report work nobody can avoid — 3 of 12 on the live server.
+     */
+    @Test fun `live tv does not count against the server`() {
+        assertFalse(countsAsTranscode("Transcode (v:h264 a:direct)", "TvChannel"))
+    }
+
+    @Test fun `a real file being transcoded does count`() {
+        assertTrue(countsAsTranscode("Transcode (v:h264 a:direct)", "Movie"))
+        assertTrue(countsAsTranscode("Transcode (v:h264 a:direct)", "Episode"))
+    }
+
+    @Test fun `a direct play never counts, live tv or not`() {
+        assertFalse(countsAsTranscode("DirectPlay", "Movie"))
+        assertFalse(countsAsTranscode("DirectStream", "TvChannel"))
     }
 }
