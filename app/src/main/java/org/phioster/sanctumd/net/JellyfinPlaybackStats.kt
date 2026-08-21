@@ -13,7 +13,15 @@ import org.phioster.sanctumd.model.PlaybackKind
  * `Transcode (v:h264 a:direct)` means the video was re-encoded while the audio was passed
  * through. Measured against the live server on 2026-08-21.
  */
-internal fun playbackKind(method: String?): PlaybackKind = PlaybackKind.DIRECT
+internal fun playbackKind(method: String?): PlaybackKind = when {
+    method.isNullOrBlank() -> PlaybackKind.DIRECT
+    method.startsWith("Transcode", ignoreCase = true) -> PlaybackKind.TRANSCODE
+    method.equals("DirectStream", ignoreCase = true) -> PlaybackKind.STREAM
+    // Anything unrecognised counts as direct: an unknown label is not evidence of a problem,
+    // and reporting it as a transcode would put a title on the "replace me" list for nothing.
+    else -> PlaybackKind.DIRECT
+}
 
 /** The part of a transcode label that says what was re-encoded, or "" when it says nothing. */
-internal fun transcodeDetail(method: String?): String = ""
+internal fun transcodeDetail(method: String?): String =
+    method?.substringAfter('(', "")?.substringBefore(')')?.trim().orEmpty()
