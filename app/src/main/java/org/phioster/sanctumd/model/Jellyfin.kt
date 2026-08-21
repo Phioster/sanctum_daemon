@@ -124,6 +124,35 @@ data class JellyDevice(
     val lastActivity: String,
 )
 
+/**
+ * What actually got watched, from the Playback Reporting plugin's own database.
+ *
+ * Kept separate from the library counts: this is behaviour, not inventory. [transcodes] is the
+ * number that matters operationally — every one of them was the phone re-encoding video on the
+ * fly, and [forced] names the titles responsible.
+ */
+data class JellyPlaybackStats(
+    val plays: Int,
+    val hours: Double,
+    val since: String,
+    val transcodes: Int,
+    val topTitles: List<JellyPlayEntry>,
+    val devices: List<JellyPlayEntry>,
+    val forced: List<JellyPlayEntry>,
+)
+
+/** One aggregated row. [itemId] is empty for rows that aren't a media item (a device, say). */
+data class JellyPlayEntry(
+    val label: String,
+    val itemId: String = "",
+    val plays: Int = 0,
+    val hours: Double = 0.0,
+    val detail: String = "",
+)
+
+/** How Jellyfin delivered a file: untouched, remuxed, or re-encoded. */
+enum class PlaybackKind { DIRECT, STREAM, TRANSCODE }
+
 /** One entry in the watch-time leaderboard (from the Playback Reporting plugin). */
 data class JellyWatchStat(
     val name: String,
