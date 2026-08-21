@@ -46,6 +46,7 @@ import org.phioster.sanctumd.model.StatTile
 import org.phioster.sanctumd.model.StatsData
 import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.common.Hint
+import org.phioster.sanctumd.ui.common.ChartTitle
 import org.phioster.sanctumd.ui.common.SectionHeader
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.MatrixGreen
@@ -100,6 +101,10 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
             else -> LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
                 if (d.tiles.isNotEmpty()) {
                     item {
+                        Spacer(Modifier.height(10.dp))
+                        // Ohne dieses Dach haengen die Diagramme darunter titellos in der Luft,
+                        // seit ihre Titel eine Ebene tiefer sitzen.
+                        SectionHeader("ÜBERSICHT")
                         Spacer(Modifier.height(10.dp))
                         // Tiles wrap two per row.
                         d.tiles.chunked(2).forEach { pair ->
@@ -161,7 +166,13 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                             "collecting data — check back in a few days",
                             fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp,
                         )
-                    } else if (d.trendTiles.isNotEmpty()) {
+                    } else if (d.trendTiles.isEmpty()) {
+                        // Kennzahlen brauchen mehr Historie als Diagramme: Prowlarr erzeugt
+                        // ueberhaupt keine, die Platz-Prognose braucht drei Messpunkte. Ohne
+                        // diesen Satz sieht der Abschnitt schlicht leer aus.
+                        Hint("Kennzahlen folgen, sobald mehr Tage aufgezeichnet sind — die Verläufe unten wachsen schon.")
+                        Spacer(Modifier.height(8.dp))
+                    } else {
                         d.trendTiles.chunked(2).forEach { pair ->
                             Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 pair.forEach { t -> StatTileView(t, Modifier.weight(1f)) }
@@ -200,8 +211,11 @@ internal fun StatTileView(tile: StatTile, modifier: Modifier) {
 internal fun StatChartView(chart: StatChart, onBar: ((StatBar) -> Unit)? = null) {
     val accent = Color(chart.accentArgb)
     val max = chart.bars.maxOfOrNull { it.value }?.coerceAtLeast(1f) ?: 1f
+    // Charts sit one level below a section, so they carry a ChartTitle rather than a
+    // SectionHeader — otherwise every chart reads as a new top-level section and the section
+    // above it looks empty.
     Column(Modifier.fillMaxWidth()) {
-        SectionHeader(chart.title, accent)
+        ChartTitle(chart.title, accent)
         Spacer(Modifier.height(8.dp))
         chart.bars.forEach { bar ->
             val color = bar.colorArgb?.let { Color(it) } ?: accent

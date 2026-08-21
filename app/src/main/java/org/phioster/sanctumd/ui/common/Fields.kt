@@ -147,6 +147,25 @@ internal fun SectionHeader(label: String, accent: Color = MatrixGreen, modifier:
     }
 }
 
+/**
+ * The title of a single chart or table *inside* a section — one level below [SectionHeader].
+ *
+ * They used to share [SectionHeader], which made every chart look like a new top-level section:
+ * under "TRENDS" the first thing you saw was "prowlarr · grabs per day" in the identical style,
+ * so TRENDS itself read as empty. No accent tick, not bold, and indented to the same depth as the
+ * content it labels — so a chart visibly belongs to the section above it.
+ */
+@Composable
+internal fun ChartTitle(label: String, accent: Color = MatrixGreen, modifier: Modifier = Modifier) {
+    Text(
+        label.uppercase(),
+        fontFamily = Mono,
+        color = accent.copy(alpha = 0.85f),
+        fontSize = 11.sp,
+        modifier = modifier.padding(start = 11.dp),
+    )
+}
+
 /** The app-wide muted hint line (loading / empty / "nothing here"). One style for all of them. */
 @Composable
 internal fun Hint(text: String, modifier: Modifier = Modifier) {
