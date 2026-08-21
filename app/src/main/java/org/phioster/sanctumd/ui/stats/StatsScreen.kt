@@ -49,6 +49,7 @@ import org.phioster.sanctumd.ui.common.Hint
 import org.phioster.sanctumd.ui.common.SectionHeader
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.MatrixGreen
+import org.phioster.sanctumd.ui.theme.argbLong
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
 
@@ -118,8 +119,11 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                 // plugin's own database. Loaded separately because it can be absent (the plugin
                 // is optional) and must not take the rest of the screen down with it.
                 playback?.let { pb ->
-                    val tiles = playbackTiles(pb, MatrixGreen.value.toLong(), 0xFFFFAA00L)
-                    val charts = playbackCharts(pb, MatrixGreen.value.toLong(), 0xFFFFAA00L)
+                    // argbLong(), nicht value.toLong(): siehe ColorArgb.kt — das war der Grund
+                    // fuer schwarze Beschriftungen und unsichtbare Balkenfuellungen in 1.50.1.
+                    val green = MatrixGreen.argbLong()
+                    val tiles = playbackTiles(pb, green, 0xFFFFAA00L)
+                    val charts = playbackCharts(pb, green, 0xFFFFAA00L)
                     if (tiles.isNotEmpty()) {
                         item {
                             Spacer(Modifier.height(6.dp))

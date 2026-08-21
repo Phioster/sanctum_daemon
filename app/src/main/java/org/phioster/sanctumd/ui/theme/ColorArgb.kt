@@ -15,4 +15,4 @@ import androidx.compose.ui.graphics.toArgb
  * `toArgb()` returns a signed Int, so the mask is what stops a colour with alpha `FF` from
  * sign-extending into a nonsense 64-bit value.
  */
-internal fun Color.argbLong(): Long = value.toLong() // ABSICHTLICH der Fehler, den die App hatte
+internal fun Color.argbLong(): Long = toArgb().toLong() and 0xFFFFFFFFL
