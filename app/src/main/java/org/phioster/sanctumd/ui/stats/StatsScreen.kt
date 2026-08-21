@@ -58,6 +58,17 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
     var data by remember { mutableStateOf<StatsData?>(null) }
     var loading by remember { mutableStateOf(true) }
     var reloadTick by remember { mutableStateOf(0) }
+    var playback by remember { mutableStateOf<org.phioster.sanctumd.model.JellyPlaybackStats?>(null) }
+    var jellyfinServiceId by remember { mutableStateOf<String?>(null) }
+
+    // Its own effect, and every failure swallowed: the Playback Reporting plugin is optional, and
+    // a server without it answers 404. That must leave the section absent, not the screen broken.
+    LaunchedEffect(reloadTick) {
+        val jf = runCatching { vm.services.value }.getOrNull()
+            ?.firstOrNull { it.type == org.phioster.sanctumd.model.ServiceType.JELLYFIN }
+        jellyfinServiceId = jf?.id
+        playback = jf?.let { runCatching { vm.jellyfinPlayback(it) }.getOrNull() }
+    }
     LaunchedEffect(reloadTick) {
         loading = true
         data = runCatching { vm.loadStats() }.getOrNull()
@@ -101,6 +112,23 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                     StatChartView(chart)
                     Spacer(Modifier.height(18.dp))
                 }
+                // WIEDERGABE: what actually got watched, straight from the Playback Reporting
+                // plugin's own database. Loaded separately because it can be absent (the plugin
+                // is optional) and must not take the rest of the screen down with it.
+                playback?.let { pb ->
+                    item {
+                        Spacer(Modifier.height(6.dp))
+                        SectionHeader("WIEDERGABE")
+                        Spacer(Modifier.height(10.dp))
+                        JellyfinPlaybackSection(pb, org.phioster.sanctumd.ui.theme.MatrixGreen) { itemId ->
+                            jellyfinServiceId?.let { sid ->
+                                vm.setRoute(org.phioster.sanctumd.ui.PendingRoute("service", sid, itemId))
+                            }
+                        }
+                        Spacer(Modifier.height(18.dp))
+                    }
+                }
+
                 // TRENDS section: derived from the recorded stat history (grows over days).
                 item {
                     Spacer(Modifier.height(6.dp))
