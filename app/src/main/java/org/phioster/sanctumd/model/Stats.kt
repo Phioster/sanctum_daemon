@@ -2,7 +2,14 @@ package org.phioster.sanctumd.model
 
 /** One bar in a stats chart. [value] drives the bar length; [display] is the shown number;
  *  [colorArgb] overrides the chart accent per-bar (used when each bar is a distinct service). */
-data class StatBar(val label: String, val value: Float, val display: String, val colorArgb: Long? = null)
+data class StatBar(
+    val label: String,
+    val value: Float,
+    val display: String,
+    val colorArgb: Long? = null,
+    /** Jellyfin item id, when this bar stands for a media item and can be opened. Empty otherwise. */
+    val id: String = "",
+)
 
 /** A titled horizontal bar chart on the stats screen. */
 data class StatChart(val title: String, val bars: List<StatBar>, val accentArgb: Long)
