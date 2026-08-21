@@ -125,6 +125,9 @@ data class JellyDevice(
 )
 
 /** One entry in the watch-time leaderboard (from the Playback Reporting plugin). */
+/** How Jellyfin delivered a file: untouched, remuxed, or re-encoded. */
+enum class PlaybackKind { DIRECT, STREAM, TRANSCODE }
+
 data class JellyWatchStat(
     val name: String,
     val seconds: Long,
