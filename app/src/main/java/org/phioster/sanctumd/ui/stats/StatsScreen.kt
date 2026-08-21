@@ -1,6 +1,7 @@
 package org.phioster.sanctumd.ui.stats
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.phioster.sanctumd.model.StatBar
 import org.phioster.sanctumd.model.StatChart
 import org.phioster.sanctumd.model.StatTile
 import org.phioster.sanctumd.model.StatsData
@@ -116,16 +118,32 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                 // plugin's own database. Loaded separately because it can be absent (the plugin
                 // is optional) and must not take the rest of the screen down with it.
                 playback?.let { pb ->
-                    item {
-                        Spacer(Modifier.height(6.dp))
-                        SectionHeader("WIEDERGABE")
-                        Spacer(Modifier.height(10.dp))
-                        JellyfinPlaybackSection(pb, org.phioster.sanctumd.ui.theme.MatrixGreen) { itemId ->
-                            jellyfinServiceId?.let { sid ->
-                                vm.setRoute(org.phioster.sanctumd.ui.PendingRoute("service", sid, itemId))
+                    val tiles = playbackTiles(pb, MatrixGreen.value.toLong(), 0xFFFFAA00L)
+                    val charts = playbackCharts(pb, MatrixGreen.value.toLong(), 0xFFFFAA00L)
+                    if (tiles.isNotEmpty()) {
+                        item {
+                            Spacer(Modifier.height(6.dp))
+                            SectionHeader("WIEDERGABE")
+                            Spacer(Modifier.height(10.dp))
+                            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                tiles.forEach { t -> StatTileView(t, Modifier.weight(1f)) }
                             }
+                            if (pb.since.isNotBlank()) {
+                                Text(
+                                    "seit ${pb.since}",
+                                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 10.sp,
+                                )
+                            }
+                            Spacer(Modifier.height(10.dp))
                         }
-                        Spacer(Modifier.height(18.dp))
+                        items(charts) { chart ->
+                            StatChartView(chart) { bar ->
+                                jellyfinServiceId?.let { sid ->
+                                    vm.setRoute(org.phioster.sanctumd.ui.PendingRoute("service", sid, bar.id))
+                                }
+                            }
+                            Spacer(Modifier.height(18.dp))
+                        }
                     }
                 }
 
@@ -160,7 +178,7 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun StatTileView(tile: StatTile, modifier: Modifier) {
+internal fun StatTileView(tile: StatTile, modifier: Modifier) {
     val accent = Color(tile.accentArgb)
     Column(
         modifier
@@ -175,7 +193,7 @@ private fun StatTileView(tile: StatTile, modifier: Modifier) {
 }
 
 @Composable
-private fun StatChartView(chart: StatChart) {
+internal fun StatChartView(chart: StatChart, onBar: ((StatBar) -> Unit)? = null) {
     val accent = Color(chart.accentArgb)
     val max = chart.bars.maxOfOrNull { it.value }?.coerceAtLeast(1f) ?: 1f
     Column(Modifier.fillMaxWidth()) {
@@ -183,7 +201,12 @@ private fun StatChartView(chart: StatChart) {
         Spacer(Modifier.height(8.dp))
         chart.bars.forEach { bar ->
             val color = bar.colorArgb?.let { Color(it) } ?: accent
-            Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+            val tappable = onBar != null && bar.id.isNotBlank()
+            Column(
+                Modifier.fillMaxWidth()
+                    .let { m -> if (tappable) m.clickable { onBar!!(bar) } else m }
+                    .padding(bottom = 8.dp),
+            ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(bar.label, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                     Spacer(Modifier.height(0.dp))
