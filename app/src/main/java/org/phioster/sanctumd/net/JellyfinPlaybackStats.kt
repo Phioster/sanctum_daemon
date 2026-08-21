@@ -27,6 +27,18 @@ internal fun playbackKind(method: String?): PlaybackKind = when {
     else -> PlaybackKind.DIRECT
 }
 
+/**
+ * Whether a transcode is worth counting against the server.
+ *
+ * Live TV is excluded, and that is not a detail: a `TvChannel` is transcoded **every single
+ * time** by design — there is no original file to hand through. Counting those made the tile
+ * report work nobody can avoid or act on. Measured on the live server: of 12 transcodes, 3 were
+ * live TV, and the remaining 9 all came from third-party clients (JellyWatch TV, the official
+ * Jellyfin apps) while Sanctumd itself caused none in 48 playbacks.
+ */
+internal fun countsAsTranscode(method: String?, itemType: String?): Boolean =
+    playbackKind(method) == PlaybackKind.TRANSCODE && !itemType.equals("TvChannel", ignoreCase = true)
+
 /** The part of a transcode label that says what was re-encoded, or "" when it says nothing. */
 internal fun transcodeDetail(method: String?): String =
     method?.substringAfter('(', "")?.substringBefore(')')?.trim().orEmpty()
@@ -54,9 +66,13 @@ suspend fun jellyfinPlaybackStats(config: ServiceConfig): JellyPlaybackStats =
             "SELECT count(*), sum(PlayDuration), min(DateCreated) FROM $ACTIVITY",
         ).firstOrNull().orEmpty()
 
-        val methods = q("SELECT PlaybackMethod, count(*) FROM $ACTIVITY GROUP BY PlaybackMethod")
+        // ItemType mitzählen, damit die Entscheidung "zählt das?" in Kotlin fällt, wo sie
+        // getestet werden kann, statt in einer SQL-WHERE-Klausel zu verschwinden.
+        val methods = q(
+            "SELECT PlaybackMethod, count(*), ItemType FROM $ACTIVITY GROUP BY PlaybackMethod, ItemType",
+        )
         val transcodes = methods
-            .filter { playbackKind(it.getOrNull(0)) == PlaybackKind.TRANSCODE }
+            .filter { countsAsTranscode(it.getOrNull(0), it.getOrNull(2)) }
             .sumOf { it.getOrNull(1)?.toIntOrNull() ?: 0 }
 
         // Grouped by ItemId, not by name: two files can share a title, and the id is also what
@@ -85,9 +101,9 @@ suspend fun jellyfinPlaybackStats(config: ServiceConfig): JellyPlaybackStats =
         }
 
         val forced = q(
-            "SELECT ItemName, ItemId, PlaybackMethod, count(*) FROM $ACTIVITY " +
-                "WHERE PlaybackMethod LIKE 'Transcode%' GROUP BY ItemId ORDER BY count(*) DESC LIMIT 6",
-        ).map {
+            "SELECT ItemName, ItemId, PlaybackMethod, count(*), ItemType FROM $ACTIVITY " +
+                "WHERE PlaybackMethod LIKE 'Transcode%' GROUP BY ItemId ORDER BY count(*) DESC LIMIT 12",
+        ).filter { countsAsTranscode(it.getOrNull(2), it.getOrNull(4)) }.take(6).map {
             JellyPlayEntry(
                 label = it.getOrNull(0).orEmpty(),
                 itemId = it.getOrNull(1).orEmpty(),
