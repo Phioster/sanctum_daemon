@@ -116,6 +116,15 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                         Spacer(Modifier.height(8.dp))
                     }
                 }
+                // Die Dienst-Diagramme hatten bisher keine Elternueberschrift — ihre eigenen
+                // Titel dienten als solche. Seit die Titel untergeordnet sind, brauchen sie eine,
+                // sonst schweben sie eingerueckt ohne Abschnitt.
+                if (d.charts.isNotEmpty()) {
+                    item {
+                        SectionHeader("DIENSTE")
+                        Spacer(Modifier.height(10.dp))
+                    }
+                }
                 items(d.charts) { chart ->
                     StatChartView(chart)
                     Spacer(Modifier.height(18.dp))
