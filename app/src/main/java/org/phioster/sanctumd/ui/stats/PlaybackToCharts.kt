@@ -20,7 +20,7 @@ internal fun playbackTiles(
     warnArgb: Long,
 ): List<StatTile> {
     if (stats.plays == 0) return emptyList()
-    return listOf(
+    val tiles = mutableListOf(
         StatTile("Stunden", "%.0f".format(stats.hours), accentArgb),
         StatTile("Wiedergaben", stats.plays.toString(), accentArgb),
         // The only number here worth being unhappy about — coloured only when there is something
@@ -31,6 +31,10 @@ internal fun playbackTiles(
             if (stats.transcodes > 0) warnArgb else accentArgb,
         ),
     )
+    // Shown next to it, never in warning colours: a remux re-encoded nothing, it only repacked
+    // the container. Hidden at zero rather than shown as "0", which would read as a second worry.
+    if (stats.remuxes > 0) tiles += StatTile("Remuxt", stats.remuxes.toString(), accentArgb)
+    return tiles
 }
 
 internal fun playbackCharts(

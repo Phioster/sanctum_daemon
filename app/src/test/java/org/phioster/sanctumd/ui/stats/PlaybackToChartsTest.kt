@@ -12,7 +12,7 @@ private const val AMBER = 0xFFFFAA00L
 class PlaybackToChartsTest {
 
     private val stats = JellyPlaybackStats(
-        plays = 109, hours = 41.5, since = "2026-07-12", transcodes = 12,
+        plays = 109, hours = 41.5, since = "2026-07-12", transcodes = 12, remuxes = 3,
         topTitles = listOf(
             JellyPlayEntry("Mortal Kombat II", itemId = "aaa", plays = 3, hours = 3.5),
             JellyPlayEntry("Akira", itemId = "bbb", plays = 5, hours = 2.6),
@@ -26,10 +26,17 @@ class PlaybackToChartsTest {
         ),
     )
 
-    @Test fun `the three headline numbers become tiles`() {
+    @Test fun `the headline numbers become tiles`() {
         val t = playbackTiles(stats, GREEN, AMBER)
-        assertEquals(listOf("42", "109", "12"), t.map { it.value })
-        assertEquals(listOf("Stunden", "Wiedergaben", "Transkodiert"), t.map { it.label })
+        assertEquals(listOf("42", "109", "12", "3"), t.map { it.value })
+        assertEquals(listOf("Stunden", "Wiedergaben", "Transkodiert", "Remuxt"), t.map { it.label })
+    }
+
+    /** A remux costs the server nothing, so it never wears the warning colour — and never a zero. */
+    @Test fun `the remux tile stays calm and disappears when there is nothing to say`() {
+        assertEquals(GREEN, playbackTiles(stats, GREEN, AMBER)[3].accentArgb)
+        val none = stats.copy(remuxes = 0)
+        assertEquals(3, playbackTiles(none, GREEN, AMBER).size)
     }
 
     /** Only the transcode tile turns amber, and only when there is something to warn about. */
@@ -63,7 +70,7 @@ class PlaybackToChartsTest {
     }
 
     @Test fun `an empty history produces nothing to draw`() {
-        val empty = JellyPlaybackStats(0, 0.0, "", 0, emptyList(), emptyList(), emptyList())
+        val empty = JellyPlaybackStats(0, 0.0, "", 0, 0, emptyList(), emptyList(), emptyList())
         assertTrue(playbackTiles(empty, GREEN, AMBER).isEmpty())
         assertTrue(playbackCharts(empty, GREEN, AMBER).isEmpty())
     }

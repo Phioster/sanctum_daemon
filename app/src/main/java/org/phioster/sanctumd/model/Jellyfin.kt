@@ -136,6 +136,8 @@ data class JellyPlaybackStats(
     val hours: Double,
     val since: String,
     val transcodes: Int,
+    /** Handed through untouched except for the container — cheap, and not a reason to worry. */
+    val remuxes: Int,
     val topTitles: List<JellyPlayEntry>,
     val devices: List<JellyPlayEntry>,
     val forced: List<JellyPlayEntry>,
@@ -152,6 +154,15 @@ data class JellyPlayEntry(
 
 /** How Jellyfin delivered a file: untouched, remuxed, or re-encoded. */
 enum class PlaybackKind { DIRECT, STREAM, TRANSCODE }
+
+/**
+ * What a transcode cost the server, read out of the same label.
+ *
+ * [REMUX] is the one worth separating: `Transcode (v:direct a:direct)` re-encoded nothing at all,
+ * it only changed the container. On a server that runs on a phone that is the difference between
+ * a number to act on and a number to ignore.
+ */
+enum class TranscodeCost { NONE, REMUX, AUDIO, VIDEO, FULL }
 
 /** One entry in the watch-time leaderboard (from the Playback Reporting plugin). */
 data class JellyWatchStat(

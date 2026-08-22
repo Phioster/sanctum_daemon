@@ -6,6 +6,7 @@ import org.phioster.sanctumd.model.JellyPlayEntry
 import org.phioster.sanctumd.model.JellyPlaybackStats
 import org.phioster.sanctumd.model.PlaybackKind
 import org.phioster.sanctumd.model.ServiceConfig
+import org.phioster.sanctumd.model.TranscodeCost
 
 /**
  * How Jellyfin delivered a file, read out of the Playback Reporting plugin's `PlaybackMethod`.
@@ -39,6 +40,51 @@ internal fun playbackKind(method: String?): PlaybackKind = when {
 internal fun countsAsTranscode(method: String?, itemType: String?): Boolean =
     playbackKind(method) == PlaybackKind.TRANSCODE && !itemType.equals("TvChannel", ignoreCase = true)
 
+/**
+ * What the transcode actually cost, read out of the `v:`/`a:` halves of the label.
+ *
+ * `Transcode (v:direct a:direct)` re-encoded nothing — only the container changed, which is what
+ * a browser gets handed when it cannot read mkv. Lumping that in with a full h264+aac re-encode
+ * made the tile alarm about work the server never did. A label whose detail cannot be read counts
+ * as the worst case: guessing "cheap" would hide a real cost.
+ */
+internal fun transcodeCost(method: String?): TranscodeCost {
+    if (playbackKind(method) != PlaybackKind.TRANSCODE) return TranscodeCost.NONE
+    val parts = transcodeDetail(method).split(' ').filter { it.isNotBlank() }
+    fun stream(prefix: String) =
+        parts.firstOrNull { it.startsWith(prefix, ignoreCase = true) }?.substringAfter(':')?.trim()
+    val video = stream("v:")
+    val audio = stream("a:")
+    if (video == null && audio == null) return TranscodeCost.FULL
+    val videoEncoded = video != null && !video.equals("direct", ignoreCase = true)
+    val audioEncoded = audio != null && !audio.equals("direct", ignoreCase = true)
+    return when {
+        videoEncoded && audioEncoded -> TranscodeCost.FULL
+        videoEncoded -> TranscodeCost.VIDEO
+        audioEncoded -> TranscodeCost.AUDIO
+        else -> TranscodeCost.REMUX
+    }
+}
+
+/** The two numbers the tile shows, counted apart. */
+internal data class TranscodeTally(val reencoded: Int, val remuxed: Int)
+
+/**
+ * Adds up grouped `(method, count, itemType)` rows into [TranscodeTally].
+ *
+ * Kept pure and separate from the query so both halves of the split can be tested without a
+ * server — the counting is where a wrong bucket would go unnoticed.
+ */
+internal fun tallyTranscodes(rows: List<Triple<String?, Int, String?>>): TranscodeTally {
+    var reencoded = 0
+    var remuxed = 0
+    for ((method, count, itemType) in rows) {
+        if (!countsAsTranscode(method, itemType)) continue
+        if (transcodeCost(method) == TranscodeCost.REMUX) remuxed += count else reencoded += count
+    }
+    return TranscodeTally(reencoded, remuxed)
+}
+
 /** The part of a transcode label that says what was re-encoded, or "" when it says nothing. */
 internal fun transcodeDetail(method: String?): String =
     method?.substringAfter('(', "")?.substringBefore(')')?.trim().orEmpty()
@@ -71,9 +117,11 @@ suspend fun jellyfinPlaybackStats(config: ServiceConfig): JellyPlaybackStats =
         val methods = q(
             "SELECT PlaybackMethod, count(*), ItemType FROM $ACTIVITY GROUP BY PlaybackMethod, ItemType",
         )
-        val transcodes = methods
-            .filter { countsAsTranscode(it.getOrNull(0), it.getOrNull(2)) }
-            .sumOf { it.getOrNull(1)?.toIntOrNull() ?: 0 }
+        val tally = tallyTranscodes(
+            methods.map {
+                Triple(it.getOrNull(0), it.getOrNull(1)?.toIntOrNull() ?: 0, it.getOrNull(2))
+            },
+        )
 
         // Grouped by ItemId, not by name: two files can share a title, and the id is also what
         // makes the row tappable.
@@ -103,7 +151,12 @@ suspend fun jellyfinPlaybackStats(config: ServiceConfig): JellyPlaybackStats =
         val forced = q(
             "SELECT ItemName, ItemId, PlaybackMethod, count(*), ItemType FROM $ACTIVITY " +
                 "WHERE PlaybackMethod LIKE 'Transcode%' GROUP BY ItemId ORDER BY count(*) DESC LIMIT 12",
-        ).filter { countsAsTranscode(it.getOrNull(2), it.getOrNull(4)) }.take(6).map {
+        ).filter {
+            // A remux forces nothing worth replacing a file over, so it does not belong on a list
+            // headed "forces transcoding" — it is counted in its own tile instead.
+            countsAsTranscode(it.getOrNull(2), it.getOrNull(4)) &&
+                transcodeCost(it.getOrNull(2)) != TranscodeCost.REMUX
+        }.take(6).map {
             JellyPlayEntry(
                 label = it.getOrNull(0).orEmpty(),
                 itemId = it.getOrNull(1).orEmpty(),
@@ -116,7 +169,8 @@ suspend fun jellyfinPlaybackStats(config: ServiceConfig): JellyPlaybackStats =
             plays = summary.getOrNull(0)?.toIntOrNull() ?: 0,
             hours = hours(summary.getOrNull(1)),
             since = summary.getOrNull(2).orEmpty().take(10),
-            transcodes = transcodes,
+            transcodes = tally.reencoded,
+            remuxes = tally.remuxed,
             topTitles = top,
             devices = devices,
             forced = forced,
