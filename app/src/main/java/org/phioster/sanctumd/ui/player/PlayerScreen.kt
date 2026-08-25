@@ -197,6 +197,7 @@ internal fun PlayerScreen(
     val autoSkipSegments by vm.autoSkipSegments.collectAsState()
     val askResume by vm.askResume.collectAsState()
     val ambientGlow by vm.ambientGlow.collectAsState()
+    var ambientStatus by remember(curItem) { mutableStateOf("—") }
     val nextLeadSec by vm.nextEpisodeLead.collectAsState()
 
     // Live (per-playback) subtitle tuning, seeded from the saved preference.
@@ -571,12 +572,14 @@ internal fun PlayerScreen(
 
         // Ambient glow: the picture bleeds into the black bars, fed by Jellyfin's trickplay tiles.
         // Skipped for local files (no server to ask) and in PiP (no bars worth lighting up).
+        val ambientRect = ambientVideoRect(boxSize.width, boxSize.height, videoAspect, zoomScale)
         if (ambientGlow && !inPip && localFileUri == null) {
             AmbientGlow(
                 config = config,
                 itemId = curItem,
                 positionMs = state.positionMs,
-                videoRect = ambientVideoRect(boxSize.width, boxSize.height, videoAspect, zoomScale),
+                videoRect = ambientRect,
+                onStatus = { ambientStatus = it },
             )
         }
 
@@ -799,6 +802,12 @@ internal fun PlayerScreen(
                 else -> "…"
             }
             InfoPanel(
+                ambient = when {
+                    !ambientGlow -> "off"
+                    localFileUri != null -> "off · local file"
+                    ambientRect == null -> "$ambientStatus · no bars to fill"
+                    else -> ambientStatus
+                },
                 vm = vm,
                 config = config,
                 itemId = curItem,
@@ -825,6 +834,7 @@ private fun InfoPanel(
     engine: MediaPlayerEngine,
     isLocal: Boolean,
     playMethod: String,
+    ambient: String,
     segments: List<org.phioster.sanctumd.net.MediaSegment>,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
@@ -891,6 +901,7 @@ private fun InfoPanel(
         InfoStat("bitrate", if (stats.bitrateKbps > 0) "${stats.bitrateKbps} kbps" else "—")
         InfoStat("buffer", "${stats.bufferedPercent}%")
         if (stats.hwDecode.isNotBlank()) InfoStat("decode", "hw · ${stats.hwDecode}")
+        InfoStat("ambient", ambient)
 
         // What the server reported for intro/outro — the honest answer to "why did the skip button
         // (or the next-episode card) show up when it did".

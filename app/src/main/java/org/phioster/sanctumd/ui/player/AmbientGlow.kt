@@ -51,6 +51,7 @@ fun AmbientGlow(
     positionMs: Long,
     videoRect: VideoRect?,
     modifier: Modifier = Modifier,
+    onStatus: (String) -> Unit = {},
 ) {
     var info by remember(itemId) { mutableStateOf<TrickplayInfo?>(null) }
     var sheetIndex by remember(itemId) { mutableStateOf(-1) }
@@ -60,7 +61,12 @@ fun AmbientGlow(
     val fade = remember(itemId) { Animatable(1f) }
 
     LaunchedEffect(config.id, itemId) {
-        if (itemId.isNotBlank()) info = jellyfinTrickplay(config, itemId)
+        if (itemId.isBlank()) return@LaunchedEffect
+        onStatus("asking the server…")
+        val loaded = jellyfinTrickplay(config, itemId)
+        info = loaded
+        // Reported in the player's info panel, so "why are my bars black" has an honest answer.
+        onStatus(if (loaded == null) "no trickplay for this item" else "${loaded.width}px previews")
     }
 
     val trick = info
@@ -75,7 +81,12 @@ fun AmbientGlow(
                 sheetIndex = wanted
             }
             sheet?.let { cropCell(it, trick, thumbIndex) }
-        } ?: return@LaunchedEffect
+        }
+        if (tile == null) {
+            onStatus("${trick.width}px previews · tile $wanted unavailable")
+            return@LaunchedEffect
+        }
+        onStatus("${trick.width}px previews · live")
         previous = current
         current = tile.asImageBitmap()
         fade.snapTo(0f)
