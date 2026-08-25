@@ -33,7 +33,7 @@ class TrickplayTest {
 
     @Test fun `sheet and cell are row major`() {
         assertEquals(1, info.sheetIndexOf(137))
-        assertEquals(3 to 7, info.cellOf(137))
+        assertEquals(7 to 3, info.cellOf(137))
         assertEquals(0, info.sheetIndexOf(0))
         assertEquals(0 to 0, info.cellOf(0))
         assertEquals(9 to 9, info.cellOf(99))
