@@ -321,6 +321,7 @@ internal fun PlaybackSection(vm: DashboardViewModel) {
     val autoplay by vm.autoplayNext.collectAsState()
     val autoSkip by vm.autoSkipSegments.collectAsState()
     val askResume by vm.askResume.collectAsState()
+    val ambientGlow by vm.ambientGlow.collectAsState()
 
     SettingsPickerRow(
         "Audio language",
@@ -388,6 +389,16 @@ internal fun PlaybackSection(vm: DashboardViewModel) {
     Text(
         "Intro/outro ranges come from the server: Jellyfin 10.10+ media segments, or the Intro Skipper plugin. Without either, no skip button appears.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
+    )
+
+    NotifyToggleRow(
+        "Ambient glow",
+        "Lets the picture bleed into the black bars, following the scene",
+        ambientGlow,
+    ) { vm.setAmbientGlow(it) }
+    Text(
+        "The colours come from the server's trickplay previews — the same images you see when scrubbing. Items the server has no trickplay for keep plain black bars, as do downloads played offline.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
     )
 }
 

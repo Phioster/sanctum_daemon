@@ -39,6 +39,7 @@ private val SUB_SCALE_KEY = floatPreferencesKey("player_sub_scale")
 private val AUTOPLAY_NEXT_KEY = booleanPreferencesKey("player_autoplay_next")
 private val AUTO_SKIP_KEY = booleanPreferencesKey("player_auto_skip_segments")
 private val ASK_RESUME_KEY = booleanPreferencesKey("player_ask_resume")
+private val AMBIENT_GLOW_KEY = booleanPreferencesKey("player_ambient_glow")
 private val NEXT_LEAD_KEY = intPreferencesKey("player_next_lead_seconds")
 private val SERVICE_VIEW_KEY = stringPreferencesKey("service_view_mode")
 private val COLLAPSED_GROUPS_KEY = stringPreferencesKey("collapsed_groups_json")
@@ -118,6 +119,8 @@ class DashboardStore(private val context: Context) {
     val autoplayNext: Flow<Boolean> = context.dashboardDataStore.data.map { it[AUTOPLAY_NEXT_KEY] ?: true }
     val autoSkipSegments: Flow<Boolean> = context.dashboardDataStore.data.map { it[AUTO_SKIP_KEY] ?: false }
     val askResume: Flow<Boolean> = context.dashboardDataStore.data.map { it[ASK_RESUME_KEY] ?: true }
+    /** Ambient glow in the letterbox bars. */
+    val ambientGlow: Flow<Boolean> = context.dashboardDataStore.data.map { it[AMBIENT_GLOW_KEY] ?: true }
     suspend fun setLastImportPath(v: String) { context.dashboardDataStore.edit { it[IMPORT_LAST_PATH_KEY] = v } }
     suspend fun setAudioLanguage(v: String) { context.dashboardDataStore.edit { it[AUDIO_LANG_KEY] = v } }
     suspend fun setSubtitleLanguage(v: String) { context.dashboardDataStore.edit { it[SUB_LANG_KEY] = v } }
@@ -126,6 +129,7 @@ class DashboardStore(private val context: Context) {
     suspend fun setAutoplayNext(v: Boolean) { context.dashboardDataStore.edit { it[AUTOPLAY_NEXT_KEY] = v } }
     suspend fun setAutoSkipSegments(v: Boolean) { context.dashboardDataStore.edit { it[AUTO_SKIP_KEY] = v } }
     suspend fun setAskResume(v: Boolean) { context.dashboardDataStore.edit { it[ASK_RESUME_KEY] = v } }
+    suspend fun setAmbientGlow(v: Boolean) { context.dashboardDataStore.edit { it[AMBIENT_GLOW_KEY] = v } }
     /** How early the "next episode" card shows when the server reports no outro segment. */
     val nextEpisodeLead: Flow<Int> = context.dashboardDataStore.data.map { it[NEXT_LEAD_KEY] ?: 45 }
     suspend fun setNextEpisodeLead(v: Int) { context.dashboardDataStore.edit { it[NEXT_LEAD_KEY] = v.coerceIn(10, 300) } }

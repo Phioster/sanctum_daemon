@@ -196,6 +196,7 @@ internal fun PlayerScreen(
     val autoplayNext by vm.autoplayNext.collectAsState()
     val autoSkipSegments by vm.autoSkipSegments.collectAsState()
     val askResume by vm.askResume.collectAsState()
+    val ambientGlow by vm.ambientGlow.collectAsState()
     val nextLeadSec by vm.nextEpisodeLead.collectAsState()
 
     // Live (per-playback) subtitle tuning, seeded from the saved preference.
@@ -570,7 +571,7 @@ internal fun PlayerScreen(
 
         // Ambient glow: the picture bleeds into the black bars, fed by Jellyfin's trickplay tiles.
         // Skipped for local files (no server to ask) and in PiP (no bars worth lighting up).
-        if (!inPip && localFileUri == null) {
+        if (ambientGlow && !inPip && localFileUri == null) {
             AmbientGlow(
                 config = config,
                 itemId = curItem,
