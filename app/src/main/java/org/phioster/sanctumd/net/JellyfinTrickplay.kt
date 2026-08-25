@@ -119,3 +119,26 @@ suspend fun jellyfinTrickplayTile(
         }
     }.getOrNull()
 }
+
+// ---- Fallback colour source: the item's own artwork, when there is no trickplay ----
+
+/**
+ * A small version of the item's artwork — backdrop first (landscape, closer to a frame), else the
+ * poster. Requested tiny on purpose: it only ever becomes a blurred wash, so 64px is plenty and the
+ * download is a few kilobytes.
+ */
+suspend fun jellyfinAmbientArtwork(config: ServiceConfig, itemId: String): ByteArray? = withContext(Dispatchers.IO) {
+    val token = runCatching { jellyfinAccessToken(config) }.getOrNull() ?: return@withContext null
+    val client = okClient(config, mapOf("X-Emby-Token" to token))
+    val candidates = listOf(
+        "${config.normalizedBaseUrl}Items/$itemId/Images/Backdrop/0?maxWidth=64",
+        "${config.normalizedBaseUrl}Items/$itemId/Images/Primary?maxWidth=64",
+    )
+    candidates.firstNotNullOfOrNull { url ->
+        runCatching {
+            client.newCall(Request.Builder().url(url).build()).execute().use { resp ->
+                if (resp.isSuccessful) resp.body?.bytes()?.takeIf { it.isNotEmpty() } else null
+            }
+        }.getOrNull()
+    }
+}
