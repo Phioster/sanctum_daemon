@@ -33,3 +33,12 @@ fun ambientVideoRect(boxW: Int, boxH: Int, aspect: Float, zoom: Float): VideoRec
         bottom = (boxH + h) / 2f,
     )
 }
+
+/**
+ * How strongly an ambient frame is painted: [base] opacity, pulled down the brighter the frame is.
+ *
+ * Without this a white poster or a snow scene turns the bars into a lamp. [luma] is the frame's
+ * average brightness, 0 (black) to 1 (white).
+ */
+fun ambientAlpha(base: Float, luma: Float): Float =
+    (base * (1f - 0.55f * luma.coerceIn(0f, 1f))).coerceIn(0f, 1f)

@@ -28,6 +28,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.net.TrickplayInfo
+import org.phioster.sanctumd.net.jellyfinAmbientArtwork
 import org.phioster.sanctumd.net.jellyfinTrickplay
 import org.phioster.sanctumd.net.jellyfinTrickplayTile
 
@@ -44,6 +45,9 @@ import org.phioster.sanctumd.net.jellyfinTrickplayTile
  * The thumbnail is decoded at a fraction of its size and stretched over the whole player, which is
  * what makes the wash soft — no blur pass needed, so it costs nothing on old devices either.
  */
+/** One frame of glow: the picture plus how strongly it may be painted (see [ambientAlpha]). */
+private data class AmbientFrame(val image: ImageBitmap, val alpha: Float)
+
 @Composable
 fun AmbientGlow(
     config: ServiceConfig,
@@ -56,8 +60,8 @@ fun AmbientGlow(
     var info by remember(itemId) { mutableStateOf<TrickplayInfo?>(null) }
     var sheetIndex by remember(itemId) { mutableStateOf(-1) }
     var sheet by remember(itemId) { mutableStateOf<Bitmap?>(null) }
-    var current by remember(itemId) { mutableStateOf<ImageBitmap?>(null) }
-    var previous by remember(itemId) { mutableStateOf<ImageBitmap?>(null) }
+    var current by remember(itemId) { mutableStateOf<AmbientFrame?>(null) }
+    var previous by remember(itemId) { mutableStateOf<AmbientFrame?>(null) }
     val fade = remember(itemId) { Animatable(1f) }
 
     LaunchedEffect(config.id, itemId) {
@@ -66,7 +70,23 @@ fun AmbientGlow(
         val loaded = jellyfinTrickplay(config, itemId)
         info = loaded
         // Reported in the player's info panel, so "why are my bars black" has an honest answer.
-        onStatus(if (loaded == null) "no trickplay for this item" else "${loaded.width}px previews")
+        if (loaded != null) {
+            onStatus("${loaded.width}px previews")
+            return@LaunchedEffect
+        }
+        // No trickplay: fall back to the item's own artwork. One colour for the whole film rather
+        // than one per scene, and painted fainter — a white poster would otherwise light up the room.
+        val art = withContext(Dispatchers.IO) {
+            jellyfinAmbientArtwork(config, itemId)?.let { bytes ->
+                runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }.getOrNull()
+            }
+        }
+        if (art == null) {
+            onStatus("no trickplay, no artwork")
+        } else {
+            current = AmbientFrame(art.asImageBitmap(), ambientAlpha(POSTER_ALPHA, averageLuma(art)))
+            onStatus("artwork colours · no trickplay")
+        }
     }
 
     val trick = info
@@ -88,19 +108,19 @@ fun AmbientGlow(
         }
         onStatus("${trick.width}px previews · live")
         previous = current
-        current = tile.asImageBitmap()
+        current = AmbientFrame(tile.asImageBitmap(), ambientAlpha(SCENE_ALPHA, averageLuma(tile)))
         fade.snapTo(0f)
         fade.animateTo(1f, tween(durationMillis = 900))
     }
 
-    val image = current ?: return
+    val frame = current ?: return
     if (videoRect == null) return
     Canvas(modifier.fillMaxSize()) {
         // Everything is painted across the whole player and then clipped to the bars, so the wash
         // lines up with the frame it spills out of.
         clipRect(videoRect.left, videoRect.top, videoRect.right, videoRect.bottom, ClipOp.Difference) {
             previous?.let { drawStretched(it, 1f) }
-            drawStretched(image, fade.value)
+            drawStretched(frame, fade.value)
             // Fade towards the screen edges so the bars don't glow brighter than the film itself.
             drawRect(
                 Brush.radialGradient(
@@ -114,17 +134,31 @@ fun AmbientGlow(
     }
 }
 
-private fun DrawScope.drawStretched(image: ImageBitmap, alpha: Float) {
-    if (alpha <= 0f) return
+private fun DrawScope.drawStretched(frame: AmbientFrame, fade: Float) {
+    if (fade <= 0f) return
     drawImage(
-        image = image,
+        image = frame.image,
         srcOffset = IntOffset.Zero,
-        srcSize = IntSize(image.width, image.height),
+        srcSize = IntSize(frame.image.width, frame.image.height),
         dstOffset = IntOffset.Zero,
         dstSize = IntSize(size.width.toInt().coerceAtLeast(1), size.height.toInt().coerceAtLeast(1)),
-        alpha = alpha * 0.85f,
+        alpha = fade * frame.alpha,
         filterQuality = FilterQuality.High,
     )
+}
+
+/** Average brightness of a frame, 0 (black) to 1 (white). The bitmaps here are a few hundred pixels. */
+private fun averageLuma(bmp: Bitmap): Float {
+    val w = bmp.width
+    val h = bmp.height
+    if (w <= 0 || h <= 0) return 0.5f
+    val px = IntArray(w * h)
+    runCatching { bmp.getPixels(px, 0, w, 0, 0, w, h) }.getOrElse { return 0.5f }
+    var sum = 0.0
+    for (p in px) {
+        sum += 0.2126 * ((p shr 16) and 0xFF) + 0.7152 * ((p shr 8) and 0xFF) + 0.0722 * (p and 0xFF)
+    }
+    return (sum / px.size / 255.0).toFloat()
 }
 
 /**
@@ -151,3 +185,5 @@ private fun cropCell(sheet: Bitmap, info: TrickplayInfo, thumbIndex: Int): Bitma
 }
 
 private const val TARGET_CELL_PX = 24
+private const val SCENE_ALPHA = 0.85f
+private const val POSTER_ALPHA = 0.5f
