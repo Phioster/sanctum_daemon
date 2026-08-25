@@ -59,8 +59,6 @@ import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -570,6 +568,17 @@ internal fun PlayerScreen(
             },
         )
 
+        // Ambient glow: the picture bleeds into the black bars, fed by Jellyfin's trickplay tiles.
+        // Skipped for local files (no server to ask) and in PiP (no bars worth lighting up).
+        if (!inPip && localFileUri == null) {
+            AmbientGlow(
+                config = config,
+                itemId = curItem,
+                positionMs = state.positionMs,
+                videoRect = ambientVideoRect(boxSize.width, boxSize.height, videoAspect, zoomScale),
+            )
+        }
+
         if ((source == null && loadError == null && localFileUri == null) || (state.isBuffering && loadError == null)) {
             CircularProgressIndicator(color = MatrixGreen, modifier = Modifier.align(Alignment.Center))
         }
@@ -742,15 +751,12 @@ internal fun PlayerScreen(
             ) {
                 val dur = state.durationMs.coerceAtLeast(1)
                 val pos = if (scrubbing) (scrubPos * dur).toLong() else state.positionMs
-                Slider(
-                    value = pos.toFloat().coerceIn(0f, dur.toFloat()),
-                    onValueChange = { scrubbing = true; scrubPos = it / dur.toFloat() },
-                    onValueChangeFinished = { engine.seekTo((scrubPos * dur).toLong()); scrubbing = false },
-                    valueRange = 0f..dur.toFloat(),
-                    colors = SliderDefaults.colors(
-                        thumbColor = MatrixGreen, activeTrackColor = MatrixGreen,
-                        inactiveTrackColor = MatrixGreen.copy(alpha = 0.25f),
-                    ),
+                PlayerSeekBar(
+                    fraction = pos.toFloat() / dur,
+                    scrubbing = scrubbing,
+                    onScrub = { scrubbing = true; scrubPos = it },
+                    onScrubEnd = { engine.seekTo((it * dur).toLong()); scrubbing = false },
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(fmt(pos), fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp)
