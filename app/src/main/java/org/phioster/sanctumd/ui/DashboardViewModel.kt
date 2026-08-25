@@ -311,6 +311,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         dashStore.autoSkipSegments.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
     val askResume: StateFlow<Boolean> =
         dashStore.askResume.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, true)
+    val ambientGlow: StateFlow<Boolean> =
+        dashStore.ambientGlow.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, true)
+    fun setAmbientGlow(v: Boolean) = viewModelScope.launch { dashStore.setAmbientGlow(v) }
     fun setAudioLanguage(v: String) = viewModelScope.launch { dashStore.setAudioLanguage(v) }
     fun setSubtitleLanguage(v: String) = viewModelScope.launch { dashStore.setSubtitleLanguage(v) }
     fun setSubtitleMode(v: String) = viewModelScope.launch { dashStore.setSubtitleMode(v) }
