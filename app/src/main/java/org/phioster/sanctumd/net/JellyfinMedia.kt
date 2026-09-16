@@ -39,7 +39,7 @@ internal fun jellyImageUrl(config: ServiceConfig, id: String, tag: String?, toke
 /** Headers for loading Jellyfin images (Coil), keeping the token out of the URL. */
 fun jellyfinImageHeaders(config: ServiceConfig): Map<String, String> {
     val token = if (!config.useLogin) config.apiKey else jellyfinSession[config.id]?.first.orEmpty()
-    return if (token.isNotBlank()) mapOf("X-Emby-Token" to token) else emptyMap()
+    return if (token.isNotBlank()) jellyfinAuth(token) else emptyMap()
 }
 
 internal fun jfSubtitle(item: JfItem): String = when (item.Type) {
@@ -126,7 +126,7 @@ suspend fun jellyfinItemDetail(config: ServiceConfig, itemId: String): JellyMedi
     val token = jellyfinAccessToken(config)
     val api = jfApi(config, token)
     val uid = jellyfinResolveUserId(config, api)
-    val d = api.itemDetail(uid, itemId)
+    val d = api.itemDetail(id = itemId, uid = uid)
     val facts = buildList {
         d.ProductionYear?.takeIf { it > 0 }?.let { add("year" to it.toString()) }
         d.RunTimeTicks?.takeIf { it > 0 }?.let { add("runtime" to "${it / 600_000_000} min") }
@@ -244,7 +244,7 @@ suspend fun jellyfinSetFavorite(config: ServiceConfig, itemId: String, favorite:
     val token = jellyfinAccessToken(config)
     val api = jfApi(config, token)
     val uid = jellyfinResolveUserId(config, api)
-    val resp = if (favorite) api.markFavorite(uid, itemId) else api.unmarkFavorite(uid, itemId)
+    val resp = if (favorite) api.markFavorite(id = itemId, uid = uid) else api.unmarkFavorite(id = itemId, uid = uid)
     if (!resp.isSuccessful) error("HTTP ${resp.code()}")
 }
 
@@ -269,7 +269,7 @@ suspend fun jellyfinSetPlayed(config: ServiceConfig, itemId: String, played: Boo
     val token = jellyfinAccessToken(config)
     val api = jfApi(config, token)
     val uid = jellyfinResolveUserId(config, api)
-    val resp = if (played) api.markPlayed(uid, itemId) else api.markUnplayed(uid, itemId)
+    val resp = if (played) api.markPlayed(id = itemId, uid = uid) else api.markUnplayed(id = itemId, uid = uid)
     if (!resp.isSuccessful) error("HTTP ${resp.code()}")
 }
 

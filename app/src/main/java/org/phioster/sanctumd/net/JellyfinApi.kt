@@ -283,14 +283,14 @@ internal interface JellyfinApi {
     @GET("Users/{id}") suspend fun user(@Path("id") id: String): JsonObject
     @POST("Users/New") suspend fun createUser(@Body body: JsonObject): Response<ResponseBody>
     @POST("Users/{id}/Policy") suspend fun setPolicy(@Path("id") id: String, @Body body: JsonObject): Response<ResponseBody>
-    @POST("Users/{id}/Password") suspend fun setPassword(@Path("id") id: String, @Body body: JsonObject): Response<ResponseBody>
+    @POST("Users/Password") suspend fun setPassword(@Query("userId") id: String, @Body body: JsonObject): Response<ResponseBody>
     @DELETE("Users/{id}") suspend fun deleteUser(@Path("id") id: String): Response<ResponseBody>
     @GET("Library/VirtualFolders") suspend fun virtualFolders(): List<JfVirtualFolder>
-    @GET("Users/{uid}/Views") suspend fun views(@Path("uid") uid: String): JfItemsResp
-    @GET("Users/{uid}/Items/Latest") suspend fun latest(@Path("uid") uid: String, @Query("Limit") limit: Int = 20, @Query("ParentId") parentId: String? = null, @Query("Fields") fields: String = "OfficialRating"): List<JfItem>
-    @GET("Users/{uid}/Items/Resume") suspend fun resume(@Path("uid") uid: String, @Query("Limit") limit: Int = 20, @Query("Fields") fields: String = "OfficialRating"): JfItemsResp
-    @GET("Users/{uid}/Items") suspend fun items(
-        @Path("uid") uid: String,
+    @GET("UserViews") suspend fun views(@Query("userId") uid: String): JfItemsResp
+    @GET("Items/Latest") suspend fun latest(@Query("userId") uid: String, @Query("Limit") limit: Int = 20, @Query("ParentId") parentId: String? = null, @Query("Fields") fields: String = "OfficialRating"): List<JfItem>
+    @GET("UserItems/Resume") suspend fun resume(@Query("userId") uid: String, @Query("Limit") limit: Int = 20, @Query("Fields") fields: String = "OfficialRating"): JfItemsResp
+    @GET("Items") suspend fun items(
+        @Query("userId") uid: String,
         @Query("ParentId") parentId: String,
         @Query("SortBy") sortBy: String = "IsFolder,SortName",
         @Query("SortOrder") sortOrder: String = "Ascending",
@@ -300,8 +300,8 @@ internal interface JellyfinApi {
     ): JfItemsResp
 
     /** Flat query: the favourites row, and reading UserData for a specific set of ids. */
-    @GET("Users/{uid}/Items") suspend fun itemQuery(
-        @Path("uid") uid: String,
+    @GET("Items") suspend fun itemQuery(
+        @Query("userId") uid: String,
         @Query("Ids") ids: String? = null,
         @Query("Filters") filters: String? = null,
         @Query("Recursive") recursive: Boolean = true,
@@ -311,8 +311,8 @@ internal interface JellyfinApi {
         @Query("Fields") fields: String = "PrimaryImageAspectRatio,OfficialRating",
     ): JfItemsResp
 
-    @POST("Users/{uid}/FavoriteItems/{id}") suspend fun markFavorite(@Path("uid") uid: String, @Path("id") id: String): Response<ResponseBody>
-    @DELETE("Users/{uid}/FavoriteItems/{id}") suspend fun unmarkFavorite(@Path("uid") uid: String, @Path("id") id: String): Response<ResponseBody>
+    @POST("UserFavoriteItems/{id}") suspend fun markFavorite(@Path("id") id: String, @Query("userId") uid: String): Response<ResponseBody>
+    @DELETE("UserFavoriteItems/{id}") suspend fun unmarkFavorite(@Path("id") id: String, @Query("userId") uid: String): Response<ResponseBody>
     /** Tell another client (a TV, a browser) to start playing an item — the "cast" direction. */
     @POST("Sessions/{id}/Playing") suspend fun playOn(
         @Path("id") sessionId: String,
@@ -320,12 +320,12 @@ internal interface JellyfinApi {
         @Query("playCommand") playCommand: String = "PlayNow",
         @Query("startPositionTicks") startPositionTicks: Long = 0,
     ): Response<ResponseBody>
-    @GET("Users/{uid}/Items/{id}") suspend fun itemDetail(@Path("uid") uid: String, @Path("id") id: String): JfItemDetail
+    @GET("Items/{id}") suspend fun itemDetail(@Path("id") id: String, @Query("userId") uid: String): JfItemDetail
     // Watched state. On a Series/Season the server cascades to every episode underneath.
-    @POST("Users/{uid}/PlayedItems/{id}") suspend fun markPlayed(@Path("uid") uid: String, @Path("id") id: String): Response<ResponseBody>
-    @DELETE("Users/{uid}/PlayedItems/{id}") suspend fun markUnplayed(@Path("uid") uid: String, @Path("id") id: String): Response<ResponseBody>
-    @GET("Users/{uid}/Items") suspend fun searchItems(
-        @Path("uid") uid: String,
+    @POST("UserPlayedItems/{id}") suspend fun markPlayed(@Path("id") id: String, @Query("userId") uid: String): Response<ResponseBody>
+    @DELETE("UserPlayedItems/{id}") suspend fun markUnplayed(@Path("id") id: String, @Query("userId") uid: String): Response<ResponseBody>
+    @GET("Items") suspend fun searchItems(
+        @Query("userId") uid: String,
         @Query("searchTerm") term: String,
         @Query("Recursive") recursive: Boolean = true,
         @Query("IncludeItemTypes") types: String = "Movie,Series,MusicAlbum",
@@ -413,4 +413,4 @@ internal interface JellyfinApi {
 /** Returns the token to use for Jellyfin data calls (API key, or a login token). */
 internal val jellyfinAuthLock = kotlinx.coroutines.sync.Mutex()
 
-internal fun jfApi(config: ServiceConfig, token: String) = apiFor<JellyfinApi>(config, mapOf("X-Emby-Token" to token))
+internal fun jfApi(config: ServiceConfig, token: String) = apiFor<JellyfinApi>(config, jellyfinAuth(token))

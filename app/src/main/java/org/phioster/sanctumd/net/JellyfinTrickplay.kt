@@ -83,16 +83,16 @@ internal fun trickplayTileUrl(config: ServiceConfig, itemId: String, info: Trick
     "${config.normalizedBaseUrl}Videos/$itemId/Trickplay/${info.width}/$sheetIndex.jpg"
 
 internal interface JellyfinTrickplayApi {
-    @GET("Users/{uid}/Items/{id}")
+    @GET("Items/{id}")
     suspend fun itemFields(
-        @Path("uid") uid: String,
         @Path("id") id: String,
+        @Query("userId") uid: String,
         @Query("Fields") fields: String = "Trickplay",
     ): JsonObject
 }
 
 internal fun jfTrickplayApi(config: ServiceConfig, token: String) =
-    apiFor<JellyfinTrickplayApi>(config, mapOf("X-Emby-Token" to token))
+    apiFor<JellyfinTrickplayApi>(config, jellyfinAuth(token))
 
 /** The trickplay set for [itemId], or null when the server has none (the caller then skips the glow). */
 suspend fun jellyfinTrickplay(config: ServiceConfig, itemId: String): TrickplayInfo? = withContext(Dispatchers.IO) {
@@ -100,7 +100,7 @@ suspend fun jellyfinTrickplay(config: ServiceConfig, itemId: String): TrickplayI
         val token = jellyfinAccessToken(config)
         val api = jfTrickplayApi(config, token)
         val uid = jellyfinResolveUserId(config, jfApi(config, token))
-        parseTrickplay(api.itemFields(uid, itemId))
+        parseTrickplay(api.itemFields(id = itemId, uid = uid))
     }.getOrNull()
 }
 
@@ -114,7 +114,7 @@ suspend fun jellyfinTrickplayTile(
     runCatching {
         val token = jellyfinAccessToken(config)
         val req = Request.Builder().url(trickplayTileUrl(config, itemId, info, sheetIndex)).build()
-        okClient(config, mapOf("X-Emby-Token" to token)).newCall(req).execute().use { resp ->
+        okClient(config, jellyfinAuth(token)).newCall(req).execute().use { resp ->
             if (resp.isSuccessful) resp.body?.bytes() else null
         }
     }.getOrNull()
@@ -129,7 +129,7 @@ suspend fun jellyfinTrickplayTile(
  */
 suspend fun jellyfinAmbientArtwork(config: ServiceConfig, itemId: String): ByteArray? = withContext(Dispatchers.IO) {
     val token = runCatching { jellyfinAccessToken(config) }.getOrNull() ?: return@withContext null
-    val client = okClient(config, mapOf("X-Emby-Token" to token))
+    val client = okClient(config, jellyfinAuth(token))
     val candidates = listOf(
         "${config.normalizedBaseUrl}Items/$itemId/Images/Backdrop/0?maxWidth=64",
         "${config.normalizedBaseUrl}Items/$itemId/Images/Primary?maxWidth=64",

@@ -48,8 +48,8 @@ internal interface JellyfinPlaybackApi {
         @Body body: JsonObject,
     ): JfPlaybackInfoResp
 
-    @GET("Users/{uid}/Items/{id}")
-    suspend fun playItem(@Path("uid") uid: String, @Path("id") id: String): JfPlayItem
+    @GET("Items/{id}")
+    suspend fun playItem(@Path("id") id: String, @Query("userId") uid: String): JfPlayItem
 
     @POST("Sessions/Playing") suspend fun reportStart(@Body body: JsonObject): Response<ResponseBody>
     @POST("Sessions/Playing/Progress") suspend fun reportProgress(@Body body: JsonObject): Response<ResponseBody>
@@ -57,7 +57,7 @@ internal interface JellyfinPlaybackApi {
 }
 
 internal fun jfPlaybackApi(config: ServiceConfig, token: String) =
-    apiFor<JellyfinPlaybackApi>(config, mapOf("X-Emby-Token" to token))
+    apiFor<JellyfinPlaybackApi>(config, jellyfinAuth(token))
 
 /** A resolved, playable stream for one Jellyfin item. */
 data class PlaybackSource(
@@ -68,7 +68,7 @@ data class PlaybackSource(
     val playSessionId: String,
     val startPositionMs: Long, // resume position, 0 = start
     val runTimeMs: Long, // total duration, 0 = unknown
-    val authHeaders: Map<String, String>, // X-Emby-Token for the player's HTTP data source
+    val authHeaders: Map<String, String>, // MediaBrowser auth for the player's HTTP data source
 )
 
 private const val TICKS_PER_MS = 10_000L
@@ -143,7 +143,7 @@ suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String, maxBit
     val jfApiClient = jfApi(config, token)
     val uid = jellyfinResolveUserId(config, jfApiClient)
 
-    val resumeTicks = runCatching { api.playItem(uid, itemId).UserData?.PlaybackPositionTicks }.getOrNull() ?: 0L
+    val resumeTicks = runCatching { api.playItem(id = itemId, uid = uid).UserData?.PlaybackPositionTicks }.getOrNull() ?: 0L
     val info = api.playbackInfo(itemId, uid, playbackInfoBody(uid, maxBitrate))
     val ms = info.MediaSources.firstOrNull()
         ?: error("no media sources for item $itemId")
@@ -169,7 +169,7 @@ suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String, maxBit
         playSessionId = psid,
         startPositionMs = resumeTicks / TICKS_PER_MS,
         runTimeMs = (ms.RunTimeTicks ?: 0L) / TICKS_PER_MS,
-        authHeaders = mapOf("X-Emby-Token" to token) + config.customHeaders,
+        authHeaders = jellyfinAuth(token) + config.customHeaders,
     )
 }
 
@@ -193,7 +193,7 @@ suspend fun jellyfinDownloadPlan(config: ServiceConfig, itemId: String, maxBitra
     val info = api.playbackInfo(itemId, uid, playbackInfoBody(uid, maxBitrate.takeIf { it > 0 }))
     val ms = info.MediaSources.firstOrNull() ?: error("no media source for item $itemId")
     val base = config.normalizedBaseUrl
-    val headers = mapOf("X-Emby-Token" to token) + config.customHeaders
+    val headers = jellyfinAuth(token) + config.customHeaders
     if (maxBitrate <= 0) {
         return@withContext DownloadPlan(
             url = "${base}Videos/$itemId/stream?static=true&mediaSourceId=${ms.Id}",
@@ -231,7 +231,7 @@ suspend fun jellyfinAudioDownloadPlan(config: ServiceConfig, itemId: String): Do
     val base = config.normalizedBaseUrl
     DownloadPlan(
         url = "${base}Audio/$itemId/stream?static=true",
-        headers = mapOf("X-Emby-Token" to token) + config.customHeaders,
+        headers = jellyfinAuth(token) + config.customHeaders,
         container = ms?.Container?.substringBefore(',')?.takeIf { it.isNotBlank() } ?: "mp3",
         sizeBytes = ms?.Size ?: 0L,
     )
