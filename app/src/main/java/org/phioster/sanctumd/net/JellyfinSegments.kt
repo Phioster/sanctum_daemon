@@ -39,7 +39,9 @@ internal interface JellyfinSegmentsApi {
     @GET("MediaSegments/{id}")
     suspend fun segments(
         @Path("id") id: String,
-        @Query("includeSegmentTypes") types: String = "Intro,Outro",
+        // Repeated parameters, not a comma list: a comma list parses to no valid enum value
+        // and the server filters every segment away, answering with an empty list.
+        @Query("includeSegmentTypes") types: List<String> = listOf("Intro", "Outro"),
     ): JfSegmentsResp
 
     /** Older Intro Skipper plugin route (seconds, intro only). */
