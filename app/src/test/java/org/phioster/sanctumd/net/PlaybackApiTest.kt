@@ -52,7 +52,7 @@ class PlaybackApiTest {
         assertEquals("ms1", src.mediaSourceId)
         assertEquals(600_000L, src.startPositionMs)
         assertEquals(7_200_000L, src.runTimeMs)
-        assertEquals("tk", src.authHeaders["X-Emby-Token"])
+        assertTrue("got ${src.authHeaders}", src.authHeaders["Authorization"]!!.contains("Token=\"tk\""))
     }
 
     @Test

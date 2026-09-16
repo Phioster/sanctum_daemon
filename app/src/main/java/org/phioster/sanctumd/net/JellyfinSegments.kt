@@ -57,7 +57,7 @@ internal interface JellyfinSegmentsApi {
 }
 
 internal fun jfSegmentsApi(config: ServiceConfig, token: String) =
-    apiFor<JellyfinSegmentsApi>(config, mapOf("X-Emby-Token" to token))
+    apiFor<JellyfinSegmentsApi>(config, jellyfinAuth(token))
 
 /**
  * Intro and outro ranges for [itemId], empty when the server can't tell us (no plugin, older

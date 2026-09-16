@@ -75,7 +75,7 @@ internal suspend fun jellyfinAccessToken(config: ServiceConfig): String {
 internal suspend fun jellyfinStatus(config: ServiceConfig): ServiceStatus {
     val token = jellyfinAccessToken(config)
     val note = if (config.useLogin) jellyfinSession[config.id]?.second else null
-    val jf = apiFor<JellyfinApi>(config, mapOf("X-Emby-Token" to token))
+    val jf = apiFor<JellyfinApi>(config, jellyfinAuth(token))
     val counts = jf.counts()
     val playing = jf.sessions().count { it.NowPlayingItem != null }
     return ServiceStatus(
@@ -94,7 +94,7 @@ suspend fun runJellyfinScan(config: ServiceConfig): String = destructive("trigge
     withContext(Dispatchers.IO) {
         try {
             val token = jellyfinAccessToken(config)
-            val resp = apiFor<JellyfinApi>(config, mapOf("X-Emby-Token" to token)).refreshLibrary()
+            val resp = apiFor<JellyfinApi>(config, jellyfinAuth(token)).refreshLibrary()
             if (resp.isSuccessful) "library scan started" else "error: HTTP ${resp.code()}"
         } catch (t: Throwable) {
             "error: ${t.message ?: t.javaClass.simpleName}"

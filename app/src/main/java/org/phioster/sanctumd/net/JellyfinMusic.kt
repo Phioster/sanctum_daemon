@@ -16,10 +16,10 @@ data class MusicTrack(
 )
 
 private fun audioStreamUrl(base: String, id: String, token: String) =
-    "${base}Audio/$id/stream?static=true&api_key=$token"
+    "${base}Audio/$id/stream?static=true&ApiKey=$token"
 
 private fun primaryArtUrl(base: String, id: String, token: String) =
-    "${base}Items/$id/Images/Primary?maxHeight=400&api_key=$token"
+    "${base}Items/$id/Images/Primary?maxHeight=400&ApiKey=$token"
 
 /** All audio tracks of an album, in disc/track order. Tracks without their own art fall back to the album art. */
 suspend fun jellyfinAlbumTracks(config: ServiceConfig, albumId: String, albumName: String = ""): List<MusicTrack> = withContext(Dispatchers.IO) {

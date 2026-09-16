@@ -39,7 +39,7 @@ internal fun jellyImageUrl(config: ServiceConfig, id: String, tag: String?, toke
 /** Headers for loading Jellyfin images (Coil), keeping the token out of the URL. */
 fun jellyfinImageHeaders(config: ServiceConfig): Map<String, String> {
     val token = if (!config.useLogin) config.apiKey else jellyfinSession[config.id]?.first.orEmpty()
-    return if (token.isNotBlank()) mapOf("X-Emby-Token" to token) else emptyMap()
+    return if (token.isNotBlank()) jellyfinAuth(token) else emptyMap()
 }
 
 internal fun jfSubtitle(item: JfItem): String = when (item.Type) {
