@@ -91,7 +91,7 @@ suspend fun jellyfinNextEpisode(config: ServiceConfig, itemId: String): NextEpis
     runCatching {
         val token = jellyfinAccessToken(config)
         val uid = jellyfinResolveUserId(config, jfApi(config, token))
-        val detail = jfApi(config, token).itemDetail(uid, itemId)
+        val detail = jfApi(config, token).itemDetail(id = itemId, uid = uid)
         val seriesId = detail.SeriesId ?: return@runCatching null
         val episodes = jfSegmentsApi(config, token).seriesEpisodes(seriesId, uid).Items
             .filter { it.LocationType != "Virtual" }

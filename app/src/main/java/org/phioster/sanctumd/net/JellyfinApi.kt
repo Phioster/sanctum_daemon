@@ -311,8 +311,8 @@ internal interface JellyfinApi {
         @Query("Fields") fields: String = "PrimaryImageAspectRatio,OfficialRating",
     ): JfItemsResp
 
-    @POST("UserFavoriteItems/{id}") suspend fun markFavorite(@Query("userId") uid: String, @Path("id") id: String): Response<ResponseBody>
-    @DELETE("UserFavoriteItems/{id}") suspend fun unmarkFavorite(@Query("userId") uid: String, @Path("id") id: String): Response<ResponseBody>
+    @POST("UserFavoriteItems/{id}") suspend fun markFavorite(@Path("id") id: String, @Query("userId") uid: String): Response<ResponseBody>
+    @DELETE("UserFavoriteItems/{id}") suspend fun unmarkFavorite(@Path("id") id: String, @Query("userId") uid: String): Response<ResponseBody>
     /** Tell another client (a TV, a browser) to start playing an item — the "cast" direction. */
     @POST("Sessions/{id}/Playing") suspend fun playOn(
         @Path("id") sessionId: String,
@@ -320,10 +320,10 @@ internal interface JellyfinApi {
         @Query("playCommand") playCommand: String = "PlayNow",
         @Query("startPositionTicks") startPositionTicks: Long = 0,
     ): Response<ResponseBody>
-    @GET("Items/{id}") suspend fun itemDetail(@Query("userId") uid: String, @Path("id") id: String): JfItemDetail
+    @GET("Items/{id}") suspend fun itemDetail(@Path("id") id: String, @Query("userId") uid: String): JfItemDetail
     // Watched state. On a Series/Season the server cascades to every episode underneath.
-    @POST("UserPlayedItems/{id}") suspend fun markPlayed(@Query("userId") uid: String, @Path("id") id: String): Response<ResponseBody>
-    @DELETE("UserPlayedItems/{id}") suspend fun markUnplayed(@Query("userId") uid: String, @Path("id") id: String): Response<ResponseBody>
+    @POST("UserPlayedItems/{id}") suspend fun markPlayed(@Path("id") id: String, @Query("userId") uid: String): Response<ResponseBody>
+    @DELETE("UserPlayedItems/{id}") suspend fun markUnplayed(@Path("id") id: String, @Query("userId") uid: String): Response<ResponseBody>
     @GET("Items") suspend fun searchItems(
         @Query("userId") uid: String,
         @Query("searchTerm") term: String,

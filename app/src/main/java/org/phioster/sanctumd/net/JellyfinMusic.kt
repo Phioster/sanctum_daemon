@@ -50,7 +50,7 @@ suspend fun jellyfinTrack(config: ServiceConfig, itemId: String): MusicTrack = w
     val api = jfApi(config, token)
     val uid = jellyfinResolveUserId(config, api)
     val base = config.normalizedBaseUrl
-    val d = api.itemDetail(uid, itemId)
+    val d = api.itemDetail(id = itemId, uid = uid)
     val hasArt = !d.ImageTags?.get("Primary").isNullOrBlank()
     MusicTrack(
         id = d.Id,

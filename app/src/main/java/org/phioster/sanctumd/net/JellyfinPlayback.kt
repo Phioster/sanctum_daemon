@@ -49,7 +49,7 @@ internal interface JellyfinPlaybackApi {
     ): JfPlaybackInfoResp
 
     @GET("Items/{id}")
-    suspend fun playItem(@Query("userId") uid: String, @Path("id") id: String): JfPlayItem
+    suspend fun playItem(@Path("id") id: String, @Query("userId") uid: String): JfPlayItem
 
     @POST("Sessions/Playing") suspend fun reportStart(@Body body: JsonObject): Response<ResponseBody>
     @POST("Sessions/Playing/Progress") suspend fun reportProgress(@Body body: JsonObject): Response<ResponseBody>
@@ -143,7 +143,7 @@ suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String, maxBit
     val jfApiClient = jfApi(config, token)
     val uid = jellyfinResolveUserId(config, jfApiClient)
 
-    val resumeTicks = runCatching { api.playItem(uid, itemId).UserData?.PlaybackPositionTicks }.getOrNull() ?: 0L
+    val resumeTicks = runCatching { api.playItem(id = itemId, uid = uid).UserData?.PlaybackPositionTicks }.getOrNull() ?: 0L
     val info = api.playbackInfo(itemId, uid, playbackInfoBody(uid, maxBitrate))
     val ms = info.MediaSources.firstOrNull()
         ?: error("no media sources for item $itemId")

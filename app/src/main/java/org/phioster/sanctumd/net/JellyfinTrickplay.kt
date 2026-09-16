@@ -85,8 +85,8 @@ internal fun trickplayTileUrl(config: ServiceConfig, itemId: String, info: Trick
 internal interface JellyfinTrickplayApi {
     @GET("Items/{id}")
     suspend fun itemFields(
-        @Query("userId") uid: String,
         @Path("id") id: String,
+        @Query("userId") uid: String,
         @Query("Fields") fields: String = "Trickplay",
     ): JsonObject
 }
@@ -100,7 +100,7 @@ suspend fun jellyfinTrickplay(config: ServiceConfig, itemId: String): TrickplayI
         val token = jellyfinAccessToken(config)
         val api = jfTrickplayApi(config, token)
         val uid = jellyfinResolveUserId(config, jfApi(config, token))
-        parseTrickplay(api.itemFields(uid, itemId))
+        parseTrickplay(api.itemFields(id = itemId, uid = uid))
     }.getOrNull()
 }
 
