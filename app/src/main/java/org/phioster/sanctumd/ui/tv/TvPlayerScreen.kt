@@ -401,10 +401,11 @@ internal fun TvPlayerScreen(
     }
 
     BackHandler {
-        when {
-            menuOpen -> menuOpen = false
-            controlsVisible && state.isPlaying -> controlsVisible = false
-            else -> leave()
+        when (backAction(menuOpen, infoOpen, controlsVisible, state.isPlaying)) {
+            BackAction.CLOSE_MENU -> menuOpen = false
+            BackAction.CLOSE_INFO -> infoOpen = false
+            BackAction.HIDE_CONTROLS -> controlsVisible = false
+            BackAction.LEAVE -> leave()
         }
     }
 
@@ -445,7 +446,9 @@ internal fun TvPlayerScreen(
                 }
 
                 // Overlay hidden: the first press only wakes it. Nothing may move the film by accident.
-                if (!controlsVisible) {
+                // Zurueck is the exception. Swallowed here it woke the overlay, the BackHandler then
+                // hid it again, and the two took turns: a running film could not be left at all.
+                if (!controlsVisible && ev.key != Key.Back) {
                     poke()
                     return@onPreviewKeyEvent true
                 }
