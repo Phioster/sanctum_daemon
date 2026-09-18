@@ -221,6 +221,21 @@ internal fun ContentSection(vm: DashboardViewModel) {
         "Only real porn is hidden — XXX / X / X18+ / Adult ratings on Jellyfin and the TMDB adult flag on Seerr. Mainstream 18-rated films (horror, NC-17, R, FSK 18, R18+) stay visible. Doesn't touch Radarr/Sonarr or global search.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
     )
+
+    val region by vm.watchRegion.collectAsState()
+    SettingsPickerRow(
+        "Streaming region",
+        listOf("" to "device (${org.phioster.sanctumd.net.watchRegionOf("")})") +
+            org.phioster.sanctumd.ui.common.WATCH_REGION_OPTIONS.map { it to it },
+        region,
+    ) { vm.setWatchRegion(it) }
+    Text(
+        "Which country the \"streaming\" row on Seerr, Radarr and Sonarr detail screens is read for — " +
+            "a title is on different services one border over. The data is TMDB's, fetched through your " +
+            "configured Seerr, so the row only appears when Seerr is set up, and it stays hidden for titles " +
+            "that stream nowhere in that country.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
+    )
 }
 
 /** Accent presets plus the independent background choice. Applies instantly — the whole UI reads

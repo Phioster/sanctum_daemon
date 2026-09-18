@@ -74,12 +74,14 @@ visitor@homelab:~$ ./sanctumd --whoami
   queue · history · add
   interactive search → grab
   manual import · per-ep monitoring
+  cast · where-to-stream (via Seerr)
   system & health
 
 [seerr]
   requests · issues · discover
   watchlist · per-season requests
   approve/decline · media detail
+  where-to-stream, per region
   users & stats
 
 [prowlarr]

@@ -714,6 +714,10 @@ internal fun SeerrScreen(
                         Spacer(Modifier.height(2.dp))
                         Text(d.genres, fontFamily = Mono, color = accent.copy(alpha = 0.85f), fontSize = 11.sp)
                     }
+                    if (!d.availability.isEmpty) {
+                        Spacer(Modifier.height(16.dp))
+                        WatchProviderSection(d.availability, accent)
+                    }
                     // Only for titles Seerr already knows — an issue is filed against its own id.
                     if (d.mediaId > 0) {
                         Spacer(Modifier.height(12.dp))

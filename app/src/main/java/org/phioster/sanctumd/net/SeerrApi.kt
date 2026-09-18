@@ -38,6 +38,7 @@ import org.phioster.sanctumd.model.SeerrMediaDetail
 import org.phioster.sanctumd.model.SeerrSearchItem
 import org.phioster.sanctumd.model.SeerrUserInfo
 import org.phioster.sanctumd.model.SeerrSeason
+import org.phioster.sanctumd.model.SeerrTitleExtras
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceStatus
 import retrofit2.http.Body
@@ -689,13 +690,10 @@ suspend fun seerrOriginalLanguage(seerrConfig: ServiceConfig, tmdbId: Int, isTv:
         if (code.isBlank()) "" else LANGUAGE_NAMES[code.lowercase()] ?: code.uppercase()
     }
 
-/** Resolves cast for a tmdbId via a Seerr/Overseerr TMDB proxy. *//** Resolves cast for a tmdbId via a Seerr/Overseerr TMDB proxy. */
-suspend fun seerrCast(seerrConfig: ServiceConfig, tmdbId: Int, isTv: Boolean): List<ArrCastMember> = withContext(Dispatchers.IO) {
-    if (tmdbId <= 0) return@withContext emptyList()
-    val api = apiFor<SeerrApi>(seerrConfig, apiKeyHeader(seerrConfig))
-    val detail = if (isTv) api.tvRaw(tmdbId) else api.movieRaw(tmdbId)
-    val cast = (detail["credits"] as? JsonObject)?.get("cast") as? JsonArray ?: return@withContext emptyList()
-    cast.mapNotNull { it as? JsonObject }.take(20).map { c ->
+/** The cast list of a Seerr movie/tv detail payload, capped at the faces a row can show. */
+internal fun parseCast(detail: JsonObject): List<ArrCastMember> {
+    val cast = (detail["credits"] as? JsonObject)?.get("cast") as? JsonArray ?: return emptyList()
+    return cast.mapNotNull { it as? JsonObject }.take(20).map { c ->
         val profile = jsStr(c, "profilePath")
         ArrCastMember(
             name = jsStr(c, "name") ?: "?",
@@ -705,8 +703,32 @@ suspend fun seerrCast(seerrConfig: ServiceConfig, tmdbId: Int, isTv: Boolean): L
     }
 }
 
+/**
+ * Cast plus streaming availability for a tmdbId, via a Seerr/Overseerr TMDB proxy.
+ *
+ * Radarr/Sonarr know neither, and Seerr answers both from the same detail payload — fetching
+ * them separately would double the round trip for no gain. [region] is the country availability
+ * is read for ("" follows the device).
+ */
+suspend fun seerrTitleExtras(
+    seerrConfig: ServiceConfig,
+    tmdbId: Int,
+    isTv: Boolean,
+    region: String = "",
+): SeerrTitleExtras = withContext(Dispatchers.IO) {
+    if (tmdbId <= 0) return@withContext SeerrTitleExtras()
+    val api = apiFor<SeerrApi>(seerrConfig, apiKeyHeader(seerrConfig))
+    val detail = if (isTv) api.tvRaw(tmdbId) else api.movieRaw(tmdbId)
+    SeerrTitleExtras(cast = parseCast(detail), availability = parseWatchProviders(detail, region))
+}
+
 /** Full media detail (poster, facts, genres, cast, availability) for a Seerr movie/show. */
-suspend fun seerrMediaDetail(config: ServiceConfig, tmdbId: Int, mediaType: String): SeerrMediaDetail = withContext(Dispatchers.IO) {
+suspend fun seerrMediaDetail(
+    config: ServiceConfig,
+    tmdbId: Int,
+    mediaType: String,
+    region: String = "",
+): SeerrMediaDetail = withContext(Dispatchers.IO) {
     val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
     val isTv = mediaType == "tv"
     val o = if (isTv) api.tvRaw(tmdbId) else api.movieRaw(tmdbId)
@@ -717,14 +739,7 @@ suspend fun seerrMediaDetail(config: ServiceConfig, tmdbId: Int, mediaType: Stri
     val runtime = jsInt(o, "runtime")
     val genres = (o["genres"] as? JsonArray)?.mapNotNull { (it as? JsonObject)?.let { g -> jsStr(g, "name") } }?.joinToString(" · ") ?: ""
     val statusInt = (o["mediaInfo"] as? JsonObject)?.let { jsInt(it, "status") }
-    val cast = ((o["credits"] as? JsonObject)?.get("cast") as? JsonArray)?.mapNotNull { it as? JsonObject }?.take(20)?.map { c ->
-        val profile = jsStr(c, "profilePath")
-        ArrCastMember(
-            name = jsStr(c, "name") ?: "?",
-            character = jsStr(c, "character") ?: "",
-            profileUrl = if (!profile.isNullOrBlank()) "https://image.tmdb.org/t/p/w185$profile" else "",
-        )
-    } ?: emptyList()
+    val cast = parseCast(o)
     val facts = buildList {
         date.take(4).takeIf { it.isNotBlank() }?.let { add("year" to it) }
         runtime?.takeIf { it > 0 }?.let { add("runtime" to "$it min") }
@@ -745,6 +760,7 @@ suspend fun seerrMediaDetail(config: ServiceConfig, tmdbId: Int, mediaType: Stri
         // Seerr's own id, not the TMDB one — issues are filed against this. Absent until the
         // title exists in Seerr's library, which is also when an issue would make no sense.
         mediaId = (o["mediaInfo"] as? JsonObject)?.let { jsInt(it, "id") } ?: 0,
+        availability = parseWatchProviders(o, region),
     )
 }
 

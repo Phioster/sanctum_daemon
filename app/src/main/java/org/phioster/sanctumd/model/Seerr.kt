@@ -84,6 +84,17 @@ data class SeerrMediaDetail(
     /** Seerr's own media id — NOT the TMDB id. 0 when the title is not in Seerr's library yet;
      *  issues can only be opened against a title Seerr actually knows. */
     val mediaId: Int = 0,
+    /** Where the title streams in the chosen region; empty when it streams nowhere there. */
+    val availability: WatchAvailability = WatchAvailability.NONE,
+)
+
+/**
+ * The two things Radarr/Sonarr cannot answer about a title and Seerr can: who is in it, and
+ * where it streams. They come out of one Seerr detail call, so they travel together.
+ */
+data class SeerrTitleExtras(
+    val cast: List<ArrCastMember> = emptyList(),
+    val availability: WatchAvailability = WatchAvailability.NONE,
 )
 
 /**

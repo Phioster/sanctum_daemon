@@ -111,6 +111,7 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
     var pickerTitle by remember { mutableStateOf("") }
     var confirmGrab by remember { mutableStateOf<ArrRelease?>(null) }
     var cast by remember { mutableStateOf<List<org.phioster.sanctumd.model.ArrCastMember>?>(null) }
+    var availability by remember { mutableStateOf(org.phioster.sanctumd.model.WatchAvailability.NONE) }
 
     LaunchedEffect(itemId) {
         loadError = null
@@ -119,8 +120,12 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
             detail = d
             if (isSonarr) episodes = vm.arrEpisodesOf(config, itemId)
             if (isLidarr) albums = vm.arrAlbumsOf(config, itemId)
+            // Cast and streaming availability both come from Seerr's TMDB proxy, in one call.
             if (vm.hasSeerr() && d.tmdbId > 0) {
-                cast = runCatching { vm.arrCast(d.tmdbId, isSonarr) }.getOrDefault(emptyList())
+                val extras = runCatching { vm.arrTitleExtras(d.tmdbId, isSonarr) }
+                    .getOrDefault(org.phioster.sanctumd.model.SeerrTitleExtras())
+                cast = extras.cast
+                availability = extras.availability
             }
         } catch (c: kotlinx.coroutines.CancellationException) {
             throw c
@@ -239,6 +244,10 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                 if (!d?.overview.isNullOrBlank()) {
                     Spacer(Modifier.height(10.dp))
                     Text(d!!.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp)
+                }
+                if (!availability.isEmpty) {
+                    Spacer(Modifier.height(14.dp))
+                    WatchProviderSection(availability, accent)
                 }
                 val cst = cast
                 if (!cst.isNullOrEmpty()) {
