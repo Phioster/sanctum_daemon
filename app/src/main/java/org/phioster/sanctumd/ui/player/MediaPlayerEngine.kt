@@ -105,6 +105,14 @@ interface MediaPlayerEngine {
     /** Live technical metrics for the info panel; may be all-default while nothing is decoding yet. */
     fun stats(): PlaybackStats
 
+    /**
+     * The shape of the picture, width divided by height, or 0 while nothing is known yet.
+     *
+     * The caller sizes the surface by this instead of filling the screen: see [displayAspect] for
+     * why the zero-copy output cannot letterbox by itself.
+     */
+    fun videoAspect(): Float
+
     /** Available audio/subtitle tracks (subtitles include an implicit "off" handled by the UI). */
     fun tracks(kind: TrackKind): List<TrackOption>
     /** Select a track by its [TrackOption.id]; null disables the kind (used to turn subtitles off). */

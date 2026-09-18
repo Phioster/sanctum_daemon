@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -184,6 +185,7 @@ internal fun TvPlayerScreen(
     var infoOpen by remember { mutableStateOf(false) }
     var stats by remember { mutableStateOf(PlaybackStats()) }
     var displayInfo by remember { mutableStateOf(DisplayModeInfo()) }
+    var videoAspect by remember { mutableStateOf(0f) }
 
     val audioLang by store.audioLanguage.collectAsState("de")
     val subLang by store.subtitleLanguage.collectAsState("de")
@@ -250,6 +252,7 @@ internal fun TvPlayerScreen(
             if (snap.positionMs > 0) lastGoodPos = snap.positionMs
             if (snap.ended) controlsVisible = true
             if (infoOpen) stats = engine.stats()
+            videoAspect = engine.videoAspect()
             delay(500)
         }
     }
@@ -471,7 +474,12 @@ internal fun TvPlayerScreen(
                 true
             },
     ) {
-        engine.VideoSurface(Modifier.fillMaxSize())
+        // The zero-copy output stretches the picture to whatever shape the surface has, so the
+        // surface carries the aspect ratio and the black box behind it supplies the bars.
+        engine.VideoSurface(
+            if (videoAspect > 0f) Modifier.aspectRatio(videoAspect).align(Alignment.Center)
+            else Modifier.fillMaxSize(),
+        )
 
         if (loadError != null) {
             Box(Modifier.fillMaxSize().background(Black.copy(alpha = 0.85f)), Alignment.Center) {

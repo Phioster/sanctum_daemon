@@ -161,6 +161,15 @@ class MpvPlayerEngine(
         error = lastError,
     )
 
+    override fun videoAspect(): Float {
+        if (released) return 0f
+        return displayAspect(
+            reported = (mpv.getPropertyDouble("video-params/aspect") ?: 0.0).toFloat(),
+            displayWidth = mpv.getPropertyInt("video-params/dw") ?: mpv.getPropertyInt("dwidth") ?: 0,
+            displayHeight = mpv.getPropertyInt("video-params/dh") ?: mpv.getPropertyInt("dheight") ?: 0,
+        )
+    }
+
     override fun stats(): PlaybackStats {
         if (released) return PlaybackStats()
         return PlaybackStats(
