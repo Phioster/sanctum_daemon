@@ -21,6 +21,7 @@ private val TABS_KEY = stringPreferencesKey("tabs_json")
 private val APP_LOCK_KEY = booleanPreferencesKey("app_lock")
 private val ONBOARDING_KEY = booleanPreferencesKey("onboarding_done")
 private val HIDE_ADULT_KEY = booleanPreferencesKey("hide_adult")
+private val WATCH_REGION_KEY = stringPreferencesKey("watch_region")
 private val SWIPE_TABS_KEY = booleanPreferencesKey("swipe_tabs")
 private val SWIPE_DRAWER_KEY = booleanPreferencesKey("swipe_drawer")
 private val DRAWER_BAND_KEY = floatPreferencesKey("drawer_band")
@@ -78,6 +79,13 @@ class DashboardStore(private val context: Context) {
 
     suspend fun setHideAdult(enabled: Boolean) {
         context.dashboardDataStore.edit { it[HIDE_ADULT_KEY] = enabled }
+    }
+
+    /** Country whose streaming availability the detail screens show; "" follows the device region. */
+    val watchRegion: Flow<String> = context.dashboardDataStore.data.map { it[WATCH_REGION_KEY] ?: "" }
+
+    suspend fun setWatchRegion(code: String) {
+        context.dashboardDataStore.edit { it[WATCH_REGION_KEY] = code.trim().uppercase() }
     }
 
     // Dashboard gestures: swipe left/right in the upper area switches tabs; a right-swipe in the

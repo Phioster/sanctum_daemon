@@ -34,3 +34,14 @@ internal fun openExternal(context: android.content.Context, packages: List<Strin
     }
     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))) }
 }
+
+/**
+ * Hand [url] straight to the system (browser or whatever claims the link).
+ *
+ * Unlike [openExternal] this never redirects to an installed app: a watch-provider link points
+ * at one specific page, and opening some app's home screen instead would lose it.
+ */
+internal fun openInBrowser(context: android.content.Context, url: String) {
+    if (url.isBlank()) return
+    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+}

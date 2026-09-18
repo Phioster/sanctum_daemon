@@ -52,7 +52,7 @@ import org.phioster.sanctumd.net.arrReleases
 import org.phioster.sanctumd.net.arrSearchAll
 import org.phioster.sanctumd.net.arrSystem
 import org.phioster.sanctumd.net.serviceSearch
-import org.phioster.sanctumd.net.seerrCast
+import org.phioster.sanctumd.net.seerrTitleExtras
 import org.phioster.sanctumd.net.arrLibrarySearch
 import org.phioster.sanctumd.net.arrLookup
 import org.phioster.sanctumd.net.arrMetadataProfiles
@@ -273,6 +273,12 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         dashStore.hideAdult.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
 
     fun setHideAdult(enabled: Boolean) = viewModelScope.launch { dashStore.setHideAdult(enabled) }
+
+    /** Country the streaming availability on detail screens is read for; "" follows the device. */
+    val watchRegion: StateFlow<String> =
+        dashStore.watchRegion.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, "")
+
+    fun setWatchRegion(code: String) = viewModelScope.launch { dashStore.setWatchRegion(code) }
 
     /** Dashboard gestures: tab-swipe (upper area) + drawer-open swipe (bottom band, fraction ≤ 0.5). */
     val swipeTabs: StateFlow<Boolean> =
@@ -1022,9 +1028,15 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     /** Patches a scanned manual-import row to target concrete episodes (Sonarr, unmatched files). */
     fun arrAssignImportEpisodes(rawJson: String, seriesId: Int, seriesTitle: String, episodeIds: List<Int>): String =
         org.phioster.sanctumd.net.arrImportAssignEpisodes(rawJson, seriesId, seriesTitle, episodeIds)
-    suspend fun arrCast(tmdbId: Int, isTv: Boolean): List<org.phioster.sanctumd.model.ArrCastMember> {
-        val seerr = _services.value.firstOrNull { it.type == ServiceType.SEERR } ?: return emptyList()
-        return seerrCast(seerr, tmdbId, isTv)
+    /**
+     * Cast and streaming availability for a Radarr/Sonarr title, resolved through Seerr.
+     *
+     * Empty without a configured Seerr — it is the only TMDB source the app has.
+     */
+    suspend fun arrTitleExtras(tmdbId: Int, isTv: Boolean): org.phioster.sanctumd.model.SeerrTitleExtras {
+        val seerr = _services.value.firstOrNull { it.type == ServiceType.SEERR }
+            ?: return org.phioster.sanctumd.model.SeerrTitleExtras()
+        return seerrTitleExtras(seerr, tmdbId, isTv, watchRegion.value)
     }
     /** The film's original language via Seerr, or "" when there is no Seerr or no answer. */
     suspend fun originalLanguage(tmdbId: Int, isTv: Boolean): String {
@@ -1054,7 +1066,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun seerrDiscoverGenreOf(config: ServiceConfig, kind: String, genreId: Int, sortBy: String? = null, page: Int = 1): List<org.phioster.sanctumd.model.SeerrDiscoverItem> =
         org.phioster.sanctumd.net.seerrDiscoverGenre(config, kind, genreId, sortBy, page).let { if (hideAdult.value) it.filterNot { d -> d.adult } else it }
     suspend fun seerrMediaDetailById(config: ServiceConfig, tmdbId: Int, mediaType: String): org.phioster.sanctumd.model.SeerrMediaDetail =
-        seerrMediaDetail(config, tmdbId, mediaType)
+        seerrMediaDetail(config, tmdbId, mediaType, watchRegion.value)
     suspend fun seerrStats(config: ServiceConfig): List<Pair<String, String>> = seerrRequestStats(config)
     suspend fun seerrUserList(config: ServiceConfig): List<org.phioster.sanctumd.model.SeerrUserInfo> = seerrUsers(config)
     suspend fun seerrSeasonsList(config: ServiceConfig, tmdbId: Int): List<org.phioster.sanctumd.model.SeerrSeason> =
