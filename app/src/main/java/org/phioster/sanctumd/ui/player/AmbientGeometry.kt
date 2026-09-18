@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.player
 
+import kotlin.math.roundToInt
+
 /** Where the video actually sits on screen, in pixels. */
 data class VideoRect(val left: Float, val top: Float, val right: Float, val bottom: Float)
 
@@ -42,3 +44,19 @@ fun ambientVideoRect(boxW: Int, boxH: Int, aspect: Float, zoom: Float): VideoRec
  */
 fun ambientAlpha(base: Float, luma: Float): Float =
     (base * (1f - 0.55f * luma.coerceIn(0f, 1f))).coerceIn(0f, 1f)
+
+/**
+ * The size a glow frame is averaged down to before it is stretched back over the player: its longer
+ * side becomes [longEdgePx], the shorter one follows the aspect ratio and never reaches zero.
+ *
+ * This downscale is the blur. Stretching a handful of pixels across the whole screen turns them
+ * into broad fields of colour; leaving the frame larger keeps shapes readable in the bars, which is
+ * the opposite of ambient. Frames already at or below the target are handed back untouched.
+ */
+fun glowSampleSize(width: Int, height: Int, longEdgePx: Int): Pair<Int, Int> {
+    if (width <= 0 || height <= 0 || longEdgePx <= 0) return width to height
+    val longest = maxOf(width, height)
+    if (longest <= longEdgePx) return width to height
+    val scale = longEdgePx.toFloat() / longest
+    return (width * scale).roundToInt().coerceAtLeast(1) to (height * scale).roundToInt().coerceAtLeast(1)
+}

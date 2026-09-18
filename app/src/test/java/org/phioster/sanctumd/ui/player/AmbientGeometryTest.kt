@@ -51,4 +51,23 @@ class AmbientGeometryTest {
         assertNull(ambientVideoRect(2000, 900, aspect = 0f, zoom = 1f))
         assertNull(ambientVideoRect(0, 0, aspect = 1.78f, zoom = 1f))
     }
+
+    @Test fun `a frame shrinks to the target on its longer side, keeping its shape`() {
+        assertEquals(10 to 6, glowSampleSize(40, 23, longEdgePx = 10))
+        assertEquals(6 to 12, glowSampleSize(24, 48, longEdgePx = 12))
+    }
+
+    @Test fun `a frame already that small is handed back untouched`() {
+        assertEquals(8 to 5, glowSampleSize(8, 5, longEdgePx = 10))
+        assertEquals(10 to 4, glowSampleSize(10, 4, longEdgePx = 10))
+    }
+
+    @Test fun `the short side never rounds away to nothing`() {
+        assertEquals(10 to 1, glowSampleSize(400, 3, longEdgePx = 10))
+    }
+
+    @Test fun `absurd input is handed back unchanged`() {
+        assertEquals(0 to 0, glowSampleSize(0, 0, longEdgePx = 10))
+        assertEquals(40 to 23, glowSampleSize(40, 23, longEdgePx = 0))
+    }
 }
