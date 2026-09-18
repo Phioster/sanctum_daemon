@@ -2,10 +2,13 @@ package org.phioster.sanctumd.ui.settings
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import org.junit.Rule
 import org.junit.Test
@@ -25,45 +28,50 @@ class AboutSectionTest {
 
     @get:Rule val compose = createComposeRule()
 
+    // Scrollable, like the settings screen the section actually lives in: the page is longer than
+    // a phone, so anything below the fold is simply not "displayed" until it is scrolled to.
     private fun show(serviceTypes: List<String>) = compose.setContent {
-        Column(Modifier.width(400.dp)) { AboutBody(serviceTypes) }
+        Column(Modifier.width(400.dp).verticalScroll(rememberScrollState())) { AboutBody(serviceTypes) }
     }
+
+    private fun see(text: String, substring: Boolean = false) =
+        compose.onNodeWithText(text, substring = substring).performScrollTo().assertIsDisplayed()
 
     @Test
     fun `every block is on the screen`() {
         show(listOf("JELLYFIN", "RADARR"))
         for (heading in listOf("> what it talks to", "> project", "> diagnostics", "> built with")) {
-            compose.onNodeWithText(heading).assertIsDisplayed()
+            see(heading)
         }
-        compose.onNodeWithText("> sanctumd_").assertIsDisplayed()
+        see("> sanctumd_")
     }
 
     @Test
     fun `the project links are there to be tapped`() {
         show(emptyList())
         for (row in listOf("source", "changelog", "report a problem", "licence")) {
-            compose.onNodeWithText(row).assertIsDisplayed()
+            see(row)
         }
     }
 
     @Test
     fun `the diagnostics block names kinds and offers itself for copying`() {
         show(listOf("JELLYFIN", "RADARR", "RADARR"))
-        compose.onNodeWithText("jellyfin, radarr", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("3 configured", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("copy for an issue").assertIsDisplayed()
+        see("jellyfin, radarr", substring = true)
+        see("3 configured", substring = true)
+        see("copy for an issue")
     }
 
     @Test
     fun `with nothing set up it says so instead of showing an empty list`() {
         show(emptyList())
-        compose.onNodeWithText("none configured", substring = true).assertIsDisplayed()
+        see("none configured", substring = true)
     }
 
     @Test
     fun `libmpv is not passed off as Apache like the rest`() {
         show(emptyList())
-        compose.onNodeWithText("libmpv-android", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("(L)GPL", substring = true).assertIsDisplayed()
+        see("libmpv-android", substring = true)
+        see("(L)GPL", substring = true)
     }
 }
