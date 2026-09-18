@@ -42,8 +42,10 @@ import org.phioster.sanctumd.net.jellyfinTrickplayTile
  * stretch and the glow still changes with the scene (one thumbnail per [TrickplayInfo.intervalMs],
  * typically 10s). Items the server has no trickplay for simply keep their black bars.
  *
- * The thumbnail is decoded at a fraction of its size and stretched over the whole player, which is
- * what makes the wash soft — no blur pass needed, so it costs nothing on old devices either.
+ * The thumbnail is decoded at a fraction of its size, averaged down to a handful of pixels and then
+ * stretched over the whole player. That downscale *is* the blur — there is no blur pass to pay for
+ * on old devices. Stopping part of the way down is not enough: at a few dozen pixels the scene
+ * stays readable in the bars, shapes and all, which is the opposite of ambient.
  */
 /** One frame of glow: the picture plus how strongly it may be painted (see [ambientAlpha]). */
 private data class AmbientFrame(val image: ImageBitmap, val alpha: Float)
@@ -84,7 +86,7 @@ fun AmbientGlow(
         if (art == null) {
             onStatus("no trickplay, no artwork")
         } else {
-            current = AmbientFrame(art.asImageBitmap(), ambientAlpha(POSTER_ALPHA, averageLuma(art)))
+            current = AmbientFrame(soften(art).asImageBitmap(), ambientAlpha(POSTER_ALPHA, averageLuma(art)))
             onStatus("artwork colours · no trickplay")
         }
     }
@@ -108,7 +110,7 @@ fun AmbientGlow(
         }
         onStatus("${trick.width}px previews · live")
         previous = current
-        current = AmbientFrame(tile.asImageBitmap(), ambientAlpha(SCENE_ALPHA, averageLuma(tile)))
+        current = AmbientFrame(soften(tile).asImageBitmap(), ambientAlpha(SCENE_ALPHA, averageLuma(tile)))
         fade.snapTo(0f)
         fade.animateTo(1f, tween(durationMillis = 900))
     }
@@ -145,6 +147,26 @@ private fun DrawScope.drawStretched(frame: AmbientFrame, fade: Float) {
         alpha = fade * frame.alpha,
         filterQuality = FilterQuality.High,
     )
+}
+
+/**
+ * Averages a frame down to [GLOW_LONG_EDGE_PX] so that stretching it back out leaves fields of
+ * colour instead of a recognisable picture. Brightness is measured on the original, before this.
+ *
+ * Halving repeatedly instead of dropping straight to the target: one big bilinear step only looks
+ * at 2x2 neighbourhoods, so most pixels never reach the result and the wash flickers as the scene
+ * moves. Halving averages all of them. The bitmaps are a few dozen pixels, so this is free.
+ */
+private fun soften(bmp: Bitmap): Bitmap {
+    val (w, h) = glowSampleSize(bmp.width, bmp.height, GLOW_LONG_EDGE_PX)
+    if (w >= bmp.width || h >= bmp.height) return bmp
+    var cur = bmp
+    while (cur.width / 2 > w && cur.height / 2 > h) {
+        val next = runCatching { Bitmap.createScaledBitmap(cur, cur.width / 2, cur.height / 2, true) }.getOrNull()
+        if (next == null || next === cur) break
+        cur = next
+    }
+    return runCatching { Bitmap.createScaledBitmap(cur, w, h, true) }.getOrDefault(cur)
 }
 
 /** Average brightness of a frame, 0 (black) to 1 (white). The bitmaps here are a few hundred pixels. */
@@ -185,5 +207,8 @@ private fun cropCell(sheet: Bitmap, info: TrickplayInfo, thumbIndex: Int): Bitma
 }
 
 private const val TARGET_CELL_PX = 24
+
+/** Long edge a glow frame is averaged down to. Lower is more diffuse; this is the dial to turn. */
+private const val GLOW_LONG_EDGE_PX = 10
 private const val SCENE_ALPHA = 0.85f
 private const val POSTER_ALPHA = 0.5f
