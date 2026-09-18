@@ -119,7 +119,7 @@ internal fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowIn
                 "playback" -> PlaybackSection(vm)
                 "gestures" -> GesturesSection(vm)
                 "backup / data" -> BackupSection(vm)
-                "about" -> AboutSection()
+                "about" -> AboutSection(vm)
             }
             Spacer(Modifier.height(32.dp))
         }
@@ -557,21 +557,6 @@ internal fun SecuritySection(vm: DashboardViewModel) {
             modifier = Modifier.padding(top = 4.dp),
         )
     }
-}
-
-@Composable
-internal fun AboutSection() {
-    val context = LocalContext.current
-    val version = remember {
-        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
-    }
-    Text("> sanctumd_", fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
-    Text("v$version", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 13.sp)
-    Spacer(Modifier.height(12.dp))
-    Text(
-        "Unified dashboard for Jellyfin and the *arr stack.\nGPL-3.0 · github.com/Phioster/sanctum_daemon",
-        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 11.sp,
-    )
 }
 
 @Composable
