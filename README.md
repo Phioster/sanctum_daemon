@@ -186,10 +186,10 @@ $ gradle assembleDebug
 
 ```text
 feature-complete · in daily use
-heading to 1.0:
-  release-signing
-  full code-review
-  publish
+1.0 shipped 2026-07-20, now at 1.57
+still open:
+  a version tag — the repo has none
+  a real release, not the rolling dev build
 ```
 
 See [CHANGELOG.md](CHANGELOG.md) for the milestone history.
