@@ -604,9 +604,10 @@ internal fun BackupSection(vm: DashboardViewModel) {
     if (showExport) {
         var pw by remember { mutableStateOf("") }
         var pw2 by remember { mutableStateOf("") }
-        // 12, nicht 6: die Datei ist zum Verschicken gedacht, ihr Kopf nennt das Verfahren, und
-    // hinter dem Passwort liegt JEDER Zugang auf einmal. 210k Runden kaufen keine sechs Zeichen frei.
-    val valid = pw.length >= 12 && pw == pw2
+        // 12, not 6: the file is meant to be sent around, its header names the scheme, and
+        // behind the password sits EVERY credential at once. 210k rounds do not buy six
+        // characters' worth of slack.
+        val valid = pw.length >= 12 && pw == pw2
         val doExport: (Boolean) -> Unit = { share ->
             scope.launch {
                 val bytes = runCatching { vm.exportConfig(pw) }.getOrNull()
