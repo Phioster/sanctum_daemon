@@ -87,7 +87,9 @@ object MusicController {
         // The track carries what its own server needs (auth included, since the token no longer
         // rides in the URL); [headers] stays for callers that pass service headers directly.
         MusicService.authHeaders = headers + tracks.first().headers
-        val action = {
+        // Typ ausgeschrieben: Log.i() liefert ein Int, sonst waere die Lambda () -> Any
+        // und passte nicht mehr in pending.
+        val action: () -> Unit = {
             val c = controller
             if (c != null) {
                 val items = tracks.map { t ->
