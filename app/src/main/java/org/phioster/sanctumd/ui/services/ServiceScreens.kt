@@ -564,7 +564,7 @@ internal fun AddServiceScreen(
             }
 
             if (type.usesApiKeyHeader || (type == ServiceType.JELLYFIN && !jellyLogin)) {
-                Field("API key", apiKey) { apiKey = it }
+                Field("API key", apiKey, isPassword = true) { apiKey = it }
             }
             if (type == ServiceType.NTFY) {
                 Field("Topics (comma-separated)", topics) { topics = it }

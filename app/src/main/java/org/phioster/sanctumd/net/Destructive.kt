@@ -11,6 +11,13 @@ import android.util.Log
  * The op label is what the UI shows and what lands in logcat, so a blocked action is
  * visible rather than silent.
  */
+/**
+ * Just the host of [url], for a log line. An NZB link normally carries the indexer's API key in
+ * its query, and the op label is written to logcat on every guarded call.
+ */
+internal fun hostOnly(url: String): String =
+    url.substringAfter("://", url).substringBefore('/').substringBefore('?').ifBlank { "?" }
+
 object SafeMode {
     /** Mirrors the persisted setting; read on every guarded call, so flipping it is instant. */
     @Volatile

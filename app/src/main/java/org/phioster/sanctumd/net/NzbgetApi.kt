@@ -168,7 +168,7 @@ suspend fun runNzbRate(config: ServiceConfig, kbps: Int): String = destructive("
 
 /** Adds an NZB by URL (NZBGet fetches it). Optional category. */
 suspend fun runNzbAppendUrl(config: ServiceConfig, url: String, category: String): String =
-    destructive("add $url to the NZBGet queue") {
+    destructive("add a link from ${hostOnly(url)} to the NZBGet queue") {
         withContext(Dispatchers.IO) {
             try {
                 val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpcInt(appendUrlBody(url.trim(), category.trim()))

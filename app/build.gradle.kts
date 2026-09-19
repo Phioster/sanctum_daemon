@@ -61,8 +61,17 @@ android {
             isMinifyEnabled = false
             // Real release key when configured; otherwise fall back to the debug key so
             // `assembleRelease` still works for anyone building without the signing secrets.
+            //
+            // That fallback key is committed and its password is Android's public one, so anyone
+            // can build an update that Android accepts in place of such a build — inheriting its
+            // data directory and its Keystore alias. It stays buildable, but it is marked: a
+            // release nobody can tell apart from a signed one is the dangerous version.
             signingConfig = if (hasReleaseKeystore) signingConfigs.getByName("release")
                             else signingConfigs.getByName("debug")
+            if (!hasReleaseKeystore) {
+                versionNameSuffix = "-UNSIGNED-debugkey"
+                logger.warn("sanctumd: no release keystore — signing with the PUBLIC debug key. Not for distribution.")
+            }
         }
     }
 
