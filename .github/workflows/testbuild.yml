@@ -1,0 +1,80 @@
+# Signed APK for testing, without publishing anything.
+#
+# release.yml is the only path to an installable build, but it writes to a public GitHub Release —
+# too blunt for "does this fix work?". This runs the same steps (unit tests, real signing key,
+# assembleRelease) and leaves the APK as a private Actions artifact instead, so it can be pulled
+# with `gh run download` and installed over an existing install: same key, so it updates in place
+# rather than forcing a reinstall the way a debug-key build would.
+#
+# Triggered by pushing a `probe/**` branch — no release, no tag, nothing anyone else can see.
+name: Test build
+
+on:
+  push:
+    branches:
+      - 'probe/**'
+
+permissions:
+  contents: read
+
+jobs:
+  testbuild:
+    name: Signed APK for testing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          # Same reason as in build.yml: the action's default 'tools' package is gone from the
+          # SDK repository and sdkmanager exits 1 without this.
+          packages: 'platform-tools'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Decode release keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::RELEASE_KEYSTORE_BASE64 secret is not set — add the signing secrets first."
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+
+      - name: Unit tests
+        run: gradle testDebugUnitTest --no-daemon
+
+      - name: Build signed release APK
+        env:
+          RELEASE_STORE_FILE: ${{ runner.temp }}/release.keystore
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Stage APK
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk "out/sanctumd-test-${GITHUB_SHA::8}.apk"
+
+      # One day is plenty: this exists to be installed once and then forgotten, and the free
+      # Actions-storage quota is only 0.5 GB.
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanctumd-test-apk
+          retention-days: 1
+          path: out/*.apk
+          if-no-files-found: error
