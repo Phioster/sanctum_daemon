@@ -4,8 +4,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.phioster.sanctumd.model.ServiceConfig
 
-/** A playable audio track resolved for the background music player. Token rides in [streamUrl]/[artUrl]
- *  (api_key); any per-service custom headers (CF Access) are added by [MusicService]. */
+/** A playable audio track resolved for the background music player. No secret rides in [streamUrl] or
+ *  [artUrl] any more — [headers] carries the Jellyfin token and any per-service custom headers. */
 data class MusicTrack(
     val id: String,
     val title: String,
