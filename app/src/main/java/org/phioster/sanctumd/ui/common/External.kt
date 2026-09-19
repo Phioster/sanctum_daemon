@@ -43,5 +43,10 @@ internal fun openExternal(context: android.content.Context, packages: List<Strin
  */
 internal fun openInBrowser(context: android.content.Context, url: String) {
     if (url.isBlank()) return
+    // Web only. Some of these links come out of a server's JSON (the watch-provider page is
+    // TMDB's, relayed by Seerr), and ACTION_VIEW resolves whatever scheme it is handed — a
+    // custom scheme would open some other app's activity instead of a page.
+    val scheme = runCatching { Uri.parse(url).scheme }.getOrNull()?.lowercase()
+    if (scheme != "http" && scheme != "https") return
     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
 }

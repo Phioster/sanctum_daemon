@@ -604,7 +604,9 @@ internal fun BackupSection(vm: DashboardViewModel) {
     if (showExport) {
         var pw by remember { mutableStateOf("") }
         var pw2 by remember { mutableStateOf("") }
-        val valid = pw.length >= 6 && pw == pw2
+        // 12, nicht 6: die Datei ist zum Verschicken gedacht, ihr Kopf nennt das Verfahren, und
+    // hinter dem Passwort liegt JEDER Zugang auf einmal. 210k Runden kaufen keine sechs Zeichen frei.
+    val valid = pw.length >= 12 && pw == pw2
         val doExport: (Boolean) -> Unit = { share ->
             scope.launch {
                 val bytes = runCatching { vm.exportConfig(pw) }.getOrNull()
@@ -623,7 +625,7 @@ internal fun BackupSection(vm: DashboardViewModel) {
             title = { Text("export config", fontFamily = Mono, color = MatrixGreen) },
             text = {
                 Column {
-                    Text("Choose a password (min 6). You'll need it to import.", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp)
+                    Text("Choose a password (min 12). You'll need it to import.", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp)
                     Field("password", pw, isPassword = true) { pw = it }
                     Field("repeat password", pw2, isPassword = true) { pw2 = it }
                 }
@@ -672,6 +674,9 @@ internal fun BackupSection(vm: DashboardViewModel) {
 internal fun shareConfig(context: android.content.Context, bytes: ByteArray) {
     runCatching {
         val dir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
+        // Clear what an earlier share left behind: the blob is encrypted, but there is no reason
+        // for a bundle of every credential to sit in the cache until the OS feels like reaping it.
+        dir.listFiles()?.forEach { it.delete() }
         val file = java.io.File(dir, "sanctumd-config.sanctum")
         file.writeBytes(bytes)
         val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)

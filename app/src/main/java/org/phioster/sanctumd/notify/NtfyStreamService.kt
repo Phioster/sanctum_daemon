@@ -40,6 +40,22 @@ class NtfyStreamService : Service() {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     /** Health problems seen but not yet resolved, keyed by "service|issue". */
     private val openHealth = mutableMapOf<String, OpenHealth>()
+
+    /**
+     * Notification ids for pushed messages are allocated here, never derived from the payload.
+     *
+     * They used to be `msg.id.hashCode()` — and `msg.id` is free text chosen by whoever publishes
+     * to the topic, which for an unprotected ntfy topic is anyone who knows its name. A chosen id
+     * lets a pushed message land on top of one of the app's own notifications and replace it.
+     * A local counter takes that choice away; the map keeps a repeat of the same message on the
+     * same notification.
+     */
+    private val remoteIds = mutableMapOf<String, Int>()
+    private var nextRemoteId = REMOTE_ID_BASE
+
+    @Synchronized
+    private fun remoteNotificationId(key: String): Int =
+        remoteIds.getOrPut(key) { ++nextRemoteId }
     /** Id of the configured Jellyfin service, so a notification can point into it. */
     private var jellyfinServiceId: String? = null
 
@@ -151,8 +167,8 @@ class NtfyStreamService : Service() {
         // Messages from a secondary topic carry a MASKED topic as prefix so they're tellable apart
         // without leaking the (often unprotected) topic name in the notification.
         val title = if (msg.topic.isNotBlank() && msg.topic != mainTopic) "[${maskTopic(msg.topic)}] $base" else base
-        val id = msg.id.ifEmpty { msg.text }.hashCode()
-        if (!collapseHealthPair(parseHealthEvent(base, msg.text), id, title, msg.time)) {
+        val id = remoteNotificationId(msg.topic + "|" + msg.id.ifEmpty { msg.text })
+        if (!collapseHealthPair(parseHealthEvent(base, msg.text), msg.topic, id, title, msg.time)) {
             postNotification(id, title, msg.text, msg.time, jellyfinItemIdFromClick(msg.click))
         }
         if (msg.time > 0) store.saveNtfyCursor(msg.time, recentIds + msg.id, cursorScope)
@@ -168,9 +184,11 @@ class NtfyStreamService : Service() {
      *
      * Returns true when the caller should not post anything further.
      */
-    private fun collapseHealthPair(event: HealthEvent?, id: Int, title: String, timeSeconds: Long): Boolean {
+    private fun collapseHealthPair(event: HealthEvent?, topic: String, id: Int, title: String, timeSeconds: Long): Boolean {
         if (event == null) return false
-        val key = "${event.service}|${event.issue}"
+        // Bound to the topic: otherwise a publisher on ANY topic the app listens to could send a
+        // "resolved" that rewrites a still-open failure from a different one out of the shade.
+        val key = "$topic|${event.service}|${event.issue}"
         if (!event.resolved) {
             openHealth[key] = OpenHealth(id, timeSeconds)
             return false
@@ -272,4 +290,11 @@ class NtfyStreamService : Service() {
          *  stops itself when no subscriptions remain. */
         fun restart(ctx: Context) = start(ctx)
     }
+
 }
+
+/**
+ * Where locally allocated ids for pushed notifications start. Far from the app's own ids, which
+ * are hashes spread over the whole int range, so a remote message cannot be steered onto one.
+ */
+private const val REMOTE_ID_BASE = 900_000_000

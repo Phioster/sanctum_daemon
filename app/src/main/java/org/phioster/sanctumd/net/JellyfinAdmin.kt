@@ -501,7 +501,7 @@ suspend fun jellyfinChannels(config: ServiceConfig): List<JellyChannel> = withCo
     }
 }
 
-suspend fun jellyfinAddTuner(config: ServiceConfig, type: String, url: String): String = destructive("add Jellyfin tuner $url") {
+suspend fun jellyfinAddTuner(config: ServiceConfig, type: String, url: String): String = destructive("add Jellyfin tuner at ${hostOnly(url)}") {
     withContext(Dispatchers.IO) {
         try {
             val token = jellyfinAccessToken(config)

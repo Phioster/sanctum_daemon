@@ -108,8 +108,11 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         routeFromIntent(intent)?.let { vm.setRoute(it) }
     }
 
+    /** The only routes the app navigates to from an intent. It is exported, so any app can send one. */
+    private val knownRoutes = setOf("search", "settings", "service")
+
     private fun routeFromIntent(intent: android.content.Intent?): org.phioster.sanctumd.ui.PendingRoute? {
-        val route = intent?.getStringExtra("route") ?: return null
+        val route = intent?.getStringExtra("route")?.takeIf { it in knownRoutes } ?: return null
         return org.phioster.sanctumd.ui.PendingRoute(route, intent.getStringExtra("serviceId"), intent.getStringExtra("itemId"))
     }
 
