@@ -36,6 +36,25 @@ Versioning is `major.minor.patch`; the app is in daily use, now at 2.0.
   they are back in line — as are the last few German code comments. The language
   names in the player stay as they are: a track labelled "Deutsch" is found by
   matching that word, and a language is written in its own language.
+- **Music plays again.** Tapping a track did nothing at all: the detail sheet closed
+  itself and *then* launched the fetch, but `rememberCoroutineScope()` dies with its
+  composable — the coroutine was cancelled before it ever reached the network. Fetching
+  a track and handing it to the player now runs in the view model's scope, which
+  outlives the screen, as playback that continues in the background should.
+- **And it says so when it cannot.** Three layers of the music path each swallowed
+  their own error, so a failure produced no message, no log line and no clue — the
+  reason the bug above hid as long as it did. All three speak now, on screen and in
+  the log.
+- **The lock screen gets its controls back.** The audit's session callback admitted
+  only this package, but media3 routes the lock screen, Bluetooth and car head units
+  through the platform session under a fixed sentinel package name, so the callback
+  shut them all out. It is withdrawn — the credential it was guarding left the metadata
+  in the same round, which was always the real protection.
+- **No cover means no cover URL.** An album without artwork still handed every one of
+  its tracks the album's image address, so each one pointed at a 404 and the session's
+  bitmap loader ran into it once per track.
+- **The Jellyfin tile counts music too** — it showed films, series and what is playing,
+  and passed over the song count the server had been sending all along.
 - **The app lock promises only what it keeps.** The switch read "Require
   fingerprint/face or device PIN on open", which sounds like the data is sealed
   behind it. It is not, on purpose: the Keystore key is not bound to user

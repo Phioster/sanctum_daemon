@@ -84,6 +84,7 @@ internal suspend fun jellyfinStatus(config: ServiceConfig): ServiceStatus {
         stats = listOf(
             "Movies" to counts.MovieCount.toString(),
             "Series" to counts.SeriesCount.toString(),
+            "Songs" to counts.SongCount.toString(),
             "Playing" to playing.toString(),
         ),
     )

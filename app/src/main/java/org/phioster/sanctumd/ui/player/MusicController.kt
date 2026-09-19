@@ -3,6 +3,8 @@ package org.phioster.sanctumd.ui.player
 import android.content.ComponentName
 import android.content.Context
 import android.net.Uri
+import android.util.Log
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -37,6 +39,18 @@ data class MusicState(
  * playing when the app is gone; this controller is just the remote.
  */
 object MusicController {
+    private const val TAG = "sanctumd-music"
+
+    /**
+     * Music used to fail in complete silence: three layers each swallowed their error (the screens'
+     * runCatching, the empty-queue guard here, and the connection future below), so a broken
+     * playback produced no message, no log line and no clue. Every one of them says something now.
+     */
+    internal fun report(context: Context, message: String, cause: Throwable? = null) {
+        if (cause != null) Log.w(TAG, message, cause) else Log.w(TAG, message)
+        Toast.makeText(context.applicationContext, message, Toast.LENGTH_LONG).show()
+    }
+
     private var controller: MediaController? = null
     private var connecting = false
     private var pending: (() -> Unit)? = null
@@ -55,8 +69,12 @@ object MusicController {
         val token = SessionToken(app, ComponentName(app, MusicService::class.java))
         val future = MediaController.Builder(app, token).buildAsync()
         future.addListener({
-            controller = runCatching { future.get() }.getOrNull()
+            val result = runCatching { future.get() }
+            controller = result.getOrNull()
             connecting = false
+            result.exceptionOrNull()?.let {
+                report(app, "music: the player service refused the connection (${it.javaClass.simpleName})", it)
+            }
             controller?.addListener(listener)
             pending?.invoke(); pending = null
             pushState()
@@ -65,11 +83,13 @@ object MusicController {
 
     /** Play [tracks] from [startIndex]; [headers] are the service's per-request custom headers. */
     fun play(context: Context, tracks: List<MusicTrack>, startIndex: Int, headers: Map<String, String>) {
-        if (tracks.isEmpty()) return
+        if (tracks.isEmpty()) { report(context, "music: no playable track in this album"); return }
         // The track carries what its own server needs (auth included, since the token no longer
         // rides in the URL); [headers] stays for callers that pass service headers directly.
         MusicService.authHeaders = headers + tracks.first().headers
-        val action = {
+        // Typ ausgeschrieben: Log.i() liefert ein Int, sonst waere die Lambda () -> Any
+        // und passte nicht mehr in pending.
+        val action: () -> Unit = {
             val c = controller
             if (c != null) {
                 val items = tracks.map { t ->
@@ -88,6 +108,9 @@ object MusicController {
                 c.setMediaItems(items, startIndex.coerceIn(0, items.size - 1), 0L)
                 c.prepare()
                 c.play()
+                Log.i(TAG, "queued ${items.size} track(s) from index $startIndex")
+            } else {
+                report(context, "music: not connected to the player service")
             }
         }
         if (controller != null) action() else { pending = action; ensure(context) }

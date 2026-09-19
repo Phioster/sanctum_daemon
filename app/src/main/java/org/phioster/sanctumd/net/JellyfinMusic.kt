@@ -4,8 +4,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.phioster.sanctumd.model.ServiceConfig
 
-/** A playable audio track resolved for the background music player. Token rides in [streamUrl]/[artUrl]
- *  (api_key); any per-service custom headers (CF Access) are added by [MusicService]. */
+/** A playable audio track resolved for the background music player. No secret rides in [streamUrl] or
+ *  [artUrl] any more — [headers] carries the Jellyfin token and any per-service custom headers. */
 data class MusicTrack(
     val id: String,
     val title: String,
@@ -27,13 +27,30 @@ internal fun audioStreamUrl(base: String, id: String) =
 internal fun primaryArtUrl(base: String, id: String) =
     "${base}Items/$id/Images/Primary?maxHeight=400"
 
+/**
+ * Which cover a track should carry: its own, else the album's, else none at all. The album's used
+ * to be handed out even when the album had no cover either, so every track pointed at a URL that
+ * 404s — and the media session's bitmap loader ran into it once per track, for nothing.
+ */
+internal fun trackArtUrl(
+    base: String,
+    trackId: String,
+    trackHasArt: Boolean,
+    albumId: String,
+    albumHasArt: Boolean,
+): String = when {
+    trackHasArt -> primaryArtUrl(base, trackId)
+    albumHasArt -> primaryArtUrl(base, albumId)
+    else -> ""
+}
+
 /** All audio tracks of an album, in disc/track order. Tracks without their own art fall back to the album art. */
 suspend fun jellyfinAlbumTracks(config: ServiceConfig, albumId: String, albumName: String = ""): List<MusicTrack> = withContext(Dispatchers.IO) {
     val token = jellyfinAccessToken(config)
     val api = jfApi(config, token)
     val uid = jellyfinResolveUserId(config, api)
     val base = config.normalizedBaseUrl
-    val albumArt = primaryArtUrl(base, albumId)
+    val albumHasArt = !api.itemDetail(id = albumId, uid = uid).ImageTags?.get("Primary").isNullOrBlank()
     val headers = config.customHeaders + jellyfinAuth(token)
     api.items(uid, albumId).Items
         .filter { it.Type == "Audio" }
@@ -46,7 +63,7 @@ suspend fun jellyfinAlbumTracks(config: ServiceConfig, albumId: String, albumNam
                 artist = item.AlbumArtist.orEmpty(),
                 album = albumName,
                 streamUrl = audioStreamUrl(base, item.Id),
-                artUrl = if (hasOwnArt) primaryArtUrl(base, item.Id) else albumArt,
+                artUrl = trackArtUrl(base, item.Id, hasOwnArt, albumId, albumHasArt),
                 headers = headers,
             )
         }

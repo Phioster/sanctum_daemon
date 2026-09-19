@@ -45,7 +45,6 @@ import org.phioster.sanctumd.model.MediaRowStyle
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.service.DownloadService
 import org.phioster.sanctumd.ui.DashboardViewModel
-import org.phioster.sanctumd.ui.player.MusicController
 import org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.ErrRed
@@ -303,10 +302,8 @@ internal fun LazyListScope.jellyfinFolderLevel(
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (here.kind == "MusicAlbum") {
                 BrowseChip("▶ play album", MatrixGreen) {
-                    scope.launch {
-                        val tracks = runCatching { vm.jellyfinAlbumTracks(config, here.id, here.name) }.getOrDefault(emptyList())
-                        if (tracks.isNotEmpty()) MusicController.play(context, tracks, 0, config.customHeaders)
-                    }
+                    // In the view model's scope, not this screen's: see playJellyfinTrack.
+                    vm.playJellyfinAlbum(config, here.id, here.name)
                 }
                 val toGetAudio = st.contents.orEmpty().filter { !it.isFolder && it.kind == "Audio" && downloads[it.id]?.done != true }
                 if (toGetAudio.isNotEmpty()) {
