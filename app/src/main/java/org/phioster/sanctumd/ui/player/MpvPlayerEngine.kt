@@ -60,11 +60,13 @@ class MpvPlayerEngine(context: Context) : MediaPlayerEngine {
             setOptionString("hwdec", "auto")
             setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
             setOptionString("ao", "audiotrack,opensles")
+            // Always verify. If the bundle could not be written, mpv has no CA store and TLS
+            // simply fails — the user gets a playback error. The old fallback turned verification
+            // OFF instead and said nothing, which is the one outcome nobody would have chosen:
+            // the stream carries auth headers, so a silent downgrade hands them to anyone on path.
+            setOptionString("tls-verify", "yes")
             if (caFile.exists() && caFile.length() > 0) {
-                setOptionString("tls-verify", "yes")
                 setOptionString("tls-ca-file", caFile.absolutePath)
-            } else {
-                setOptionString("tls-verify", "no") // fall back if the bundle couldn't be written
             }
             setOptionString("cache", "yes")
             setOptionString("force-window", "no")

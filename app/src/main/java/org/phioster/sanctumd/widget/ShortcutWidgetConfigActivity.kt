@@ -69,6 +69,8 @@ class ShortcutWidgetConfigActivity : ComponentActivity() {
             AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID,
         ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) { finish(); return }
+        // Exported by necessity — so make sure the id is one of ours before showing anything.
+        if (!ownsAppWidget(this, ShortcutIconWidgetReceiver::class.java, appWidgetId)) { finish(); return }
 
         setContent { ConfigScreen(appWidgetId) }
     }

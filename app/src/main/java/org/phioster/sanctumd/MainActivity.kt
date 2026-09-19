@@ -183,7 +183,8 @@ internal fun showUnlockPrompt(activity: androidx.fragment.app.FragmentActivity, 
 internal fun AppLockGate(vm: DashboardViewModel, activity: androidx.fragment.app.FragmentActivity, content: @Composable () -> Unit) {
     val appLock by vm.appLock.collectAsState()
     var unlocked by vm.unlocked
-    if (!appLock || unlocked) {
+    // Only an explicit false opens the gate; null means the answer is still being read.
+    if (appLock == false || unlocked) {
         content()
         return
     }

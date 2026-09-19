@@ -241,8 +241,13 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     /** Drop the unreadable blob so the user can re-add their services. */
     fun clearUnreadableServices() = viewModelScope.launch { store.clearUnreadable() }
 
-    val appLock: StateFlow<Boolean> =
-        dashStore.appLock.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
+    /**
+     * null while the setting is still being read. The gate must not treat "not yet known" as
+     * "not locked": with `false` as the initial value the protected screen composed on every cold
+     * start and the lock only slid in front of it afterwards.
+     */
+    val appLock: StateFlow<Boolean?> =
+        dashStore.appLock.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, null)
 
     fun setAppLock(enabled: Boolean) = viewModelScope.launch { dashStore.setAppLock(enabled) }
 
