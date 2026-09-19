@@ -13,13 +13,19 @@ data class MusicTrack(
     val album: String,
     val streamUrl: String,
     val artUrl: String,
+    /**
+     * What every request for this track needs: the service's own custom headers plus Jellyfin
+     * auth. The token used to ride in the URL instead, which put it into the MediaSession's
+     * metadata — and that is readable by any app on the device. See [MusicService].
+     */
+    val headers: Map<String, String> = emptyMap(),
 )
 
-private fun audioStreamUrl(base: String, id: String, token: String) =
-    "${base}Audio/$id/stream?static=true&ApiKey=$token"
+internal fun audioStreamUrl(base: String, id: String) =
+    "${base}Audio/$id/stream?static=true"
 
-private fun primaryArtUrl(base: String, id: String, token: String) =
-    "${base}Items/$id/Images/Primary?maxHeight=400&ApiKey=$token"
+internal fun primaryArtUrl(base: String, id: String) =
+    "${base}Items/$id/Images/Primary?maxHeight=400"
 
 /** All audio tracks of an album, in disc/track order. Tracks without their own art fall back to the album art. */
 suspend fun jellyfinAlbumTracks(config: ServiceConfig, albumId: String, albumName: String = ""): List<MusicTrack> = withContext(Dispatchers.IO) {
@@ -27,7 +33,8 @@ suspend fun jellyfinAlbumTracks(config: ServiceConfig, albumId: String, albumNam
     val api = jfApi(config, token)
     val uid = jellyfinResolveUserId(config, api)
     val base = config.normalizedBaseUrl
-    val albumArt = primaryArtUrl(base, albumId, token)
+    val albumArt = primaryArtUrl(base, albumId)
+    val headers = config.customHeaders + jellyfinAuth(token)
     api.items(uid, albumId).Items
         .filter { it.Type == "Audio" }
         .sortedWith(compareBy({ it.ParentIndexNumber ?: 0 }, { it.IndexNumber ?: 0 }))
@@ -38,8 +45,9 @@ suspend fun jellyfinAlbumTracks(config: ServiceConfig, albumId: String, albumNam
                 title = item.Name,
                 artist = item.AlbumArtist.orEmpty(),
                 album = albumName,
-                streamUrl = audioStreamUrl(base, item.Id, token),
-                artUrl = if (hasOwnArt) primaryArtUrl(base, item.Id, token) else albumArt,
+                streamUrl = audioStreamUrl(base, item.Id),
+                artUrl = if (hasOwnArt) primaryArtUrl(base, item.Id) else albumArt,
+                headers = headers,
             )
         }
 }
@@ -57,7 +65,8 @@ suspend fun jellyfinTrack(config: ServiceConfig, itemId: String): MusicTrack = w
         title = d.Name,
         artist = d.AlbumArtist.orEmpty(),
         album = "",
-        streamUrl = audioStreamUrl(base, d.Id, token),
-        artUrl = if (hasArt) primaryArtUrl(base, d.Id, token) else "",
+        streamUrl = audioStreamUrl(base, d.Id),
+        artUrl = if (hasArt) primaryArtUrl(base, d.Id) else "",
+        headers = config.customHeaders + jellyfinAuth(token),
     )
 }

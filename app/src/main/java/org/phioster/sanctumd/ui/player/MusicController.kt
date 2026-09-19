@@ -66,7 +66,9 @@ object MusicController {
     /** Play [tracks] from [startIndex]; [headers] are the service's per-request custom headers. */
     fun play(context: Context, tracks: List<MusicTrack>, startIndex: Int, headers: Map<String, String>) {
         if (tracks.isEmpty()) return
-        MusicService.authHeaders = headers
+        // The track carries what its own server needs (auth included, since the token no longer
+        // rides in the URL); [headers] stays for callers that pass service headers directly.
+        MusicService.authHeaders = headers + tracks.first().headers
         val action = {
             val c = controller
             if (c != null) {

@@ -174,7 +174,12 @@ class DownloadService : Service() {
         val dir = File(filesDir, "downloads").apply { mkdirs() }
         try {
             val plan = if (entry.mediaType == "Audio") jellyfinAudioDownloadPlan(config, id) else jellyfinDownloadPlan(config, id, entry.maxBitrate)
-            val file = File(dir, "$id.${plan.container}")
+            val file = File(dir, downloadFileName(id, plan.container))
+            // Belt and braces: the name builder already strips separators, so this can only fire
+            // if someone loosens it again.
+            require(file.canonicalPath.startsWith(dir.canonicalPath + File.separator)) {
+                "download target escaped the downloads directory"
+            }
             val reqB = Request.Builder().url(plan.url)
             plan.headers.forEach { (k, v) -> if (v.isNotBlank()) reqB.header(k, v) }
             client.newCall(reqB.build()).execute().use { resp ->
@@ -237,7 +242,7 @@ class DownloadService : Service() {
             client.newCall(reqB.build()).execute().use { resp ->
                 val body = resp.body ?: return ""
                 if (!resp.isSuccessful) return ""
-                val f = File(dir, "${entry.itemId}.jpg")
+                val f = File(dir, downloadFileName(entry.itemId, "jpg"))
                 FileOutputStream(f).use { out -> body.byteStream().copyTo(out) }
                 f.absolutePath
             }
@@ -250,7 +255,7 @@ class DownloadService : Service() {
             e.posterFile.takeIf { it.isNotBlank() && it.startsWith("/") }?.let { File(it).delete() }
         }
         // Also clear any stray partial files for this id.
-        File(filesDir, "downloads").listFiles { f -> f.name.startsWith("$id.") }?.forEach { it.delete() }
+        File(filesDir, "downloads").listFiles { f -> f.name.startsWith(downloadFilePrefix(id)) }?.forEach { it.delete() }
         store.remove(id)
     }
 
