@@ -266,7 +266,8 @@ internal fun ServiceTile(
                     Text("connecting…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp)
                 status.ok && status.stats.isNotEmpty() ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        status.stats.take(3).forEach { (k, v) ->
+                        // Four since Jellyfin gained its song count; every other service has three.
+                        status.stats.take(4).forEach { (k, v) ->
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(v, fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen, fontSize = 15.sp, maxLines = 1)
                                 Text(k.uppercase(), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)

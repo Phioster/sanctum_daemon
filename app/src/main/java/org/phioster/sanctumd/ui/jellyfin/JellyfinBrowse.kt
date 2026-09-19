@@ -304,8 +304,15 @@ internal fun LazyListScope.jellyfinFolderLevel(
             if (here.kind == "MusicAlbum") {
                 BrowseChip("▶ play album", MatrixGreen) {
                     scope.launch {
-                        val tracks = runCatching { vm.jellyfinAlbumTracks(config, here.id, here.name) }.getOrDefault(emptyList())
-                        if (tracks.isNotEmpty()) MusicController.play(context, tracks, 0, config.customHeaders)
+                        // Say so when the album cannot be read; an empty queue used to end here silently.
+                        runCatching { vm.jellyfinAlbumTracks(config, here.id, here.name) }
+                            .onSuccess { MusicController.play(context, it, 0, config.customHeaders) }
+                            .onFailure {
+                                android.widget.Toast.makeText(
+                                    context, "music: ${it.message ?: it.javaClass.simpleName}",
+                                    android.widget.Toast.LENGTH_LONG,
+                                ).show()
+                            }
                     }
                 }
                 val toGetAudio = st.contents.orEmpty().filter { !it.isFolder && it.kind == "Audio" && downloads[it.id]?.done != true }

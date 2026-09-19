@@ -165,8 +165,18 @@ internal fun JellyfinDetailSheet(
                     PrimaryButton("play", Modifier.fillMaxWidth(), icon = Icons.Filled.PlayArrow) {
                         state.closeAll()
                         scope.launch {
-                            val track = runCatching { vm.jellyfinTrack(config, d.id) }.getOrNull()
-                            if (track != null) org.phioster.sanctumd.ui.player.MusicController.play(context, listOf(track), 0, config.customHeaders)
+                            // Say so when the track cannot be read; this used to fail without a word.
+                            runCatching { vm.jellyfinTrack(config, d.id) }
+                                .onSuccess {
+                                    org.phioster.sanctumd.ui.player.MusicController
+                                        .play(context, listOf(it), 0, config.customHeaders)
+                                }
+                                .onFailure {
+                                    android.widget.Toast.makeText(
+                                        context, "music: ${it.message ?: it.javaClass.simpleName}",
+                                        android.widget.Toast.LENGTH_LONG,
+                                    ).show()
+                                }
                         }
                     }
                     Spacer(Modifier.height(8.dp))
