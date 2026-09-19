@@ -31,6 +31,12 @@ Sanctumd has **no backend and no account** — it talks directly to the services
   the same way. Both are excluded from cloud backup and device transfer.
 - **Portable export** — password-based AES-256-GCM (PBKDF2-HMAC-SHA256), so the
   file can be decrypted only with the password, on any device.
+- **App lock** — the optional biometric lock gates the *screen*, not the data.
+  The Keystore key is not bound to user authentication, because live push,
+  home-screen widgets and downloads have to decrypt while the phone is locked
+  in your pocket — that is the whole point of them. So the lock keeps someone
+  holding your unlocked phone out of the UI; it is not a defence against an
+  attacker who already runs code as the app's user.
 - **Network** — every request goes straight to your configured service over the
   URL and headers you set (Cloudflare Access supported). Cleartext HTTP is
   permitted because self-hosted LAN services commonly use it.

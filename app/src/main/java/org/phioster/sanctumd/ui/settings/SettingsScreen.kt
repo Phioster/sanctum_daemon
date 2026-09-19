@@ -518,7 +518,7 @@ internal fun GesturesSection(vm: DashboardViewModel) {
 internal fun SecuritySection(vm: DashboardViewModel) {
     val context = LocalContext.current
     val appLock by vm.appLock.collectAsState()
-    NotifyToggleRow("App lock", "Require fingerprint/face or device PIN on open", appLock == true) { on ->
+    NotifyToggleRow("App lock", "Fingerprint/face or device PIN before the app shows anything", appLock == true) { on ->
         if (!on) { vm.setAppLock(false); return@NotifyToggleRow }
         val bm = androidx.biometric.BiometricManager.from(context)
         val authenticators = androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK or
@@ -533,7 +533,7 @@ internal fun SecuritySection(vm: DashboardViewModel) {
         }
     }
     Text(
-        "Locks on cold start and after more than 2 minutes in the background. Live push keeps running while locked.",
+        "Locks on cold start and after more than 2 minutes in the background. It gates the SCREEN, not the stored data: live push, widgets and downloads keep running while locked — and keep decrypting to do it. That is the trade for notifications that arrive while the phone is in your pocket.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
     )
 
