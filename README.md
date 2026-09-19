@@ -8,7 +8,7 @@
 ![Kotlin](https://img.shields.io/badge/Kotlin-Compose-238636?style=flat-square&labelColor=0d1117&logo=kotlin&logoColor=3fb950)
 ![SDK](https://img.shields.io/badge/SDK-35-238636?style=flat-square&labelColor=0d1117)
 ![License](https://img.shields.io/badge/License-GPL--3.0-238636?style=flat-square&labelColor=0d1117)
-![Status](https://img.shields.io/badge/status-heading_to_1.0-238636?style=flat-square&labelColor=0d1117)
+![Status](https://img.shields.io/badge/status-2.0-238636?style=flat-square&labelColor=0d1117)
 
 **Jellyfin admin + the \*arr / download stack — one native Android app, one matrix-terminal theme.**
 
@@ -186,10 +186,8 @@ $ gradle assembleDebug
 
 ```text
 feature-complete · in daily use
-1.0 shipped 2026-07-20, now at 1.57
-still open:
-  a version tag — the repo has none
-  a real release, not the rolling dev build
+1.0 shipped 2026-07-20, now at 2.0
+security audit passed — every finding fixed
 ```
 
 See [CHANGELOG.md](CHANGELOG.md) for the milestone history.

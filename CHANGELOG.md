@@ -1,7 +1,43 @@
 # Changelog
 
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
-Versioning is `major.minor.patch`; the app is in daily use, now at 1.58.
+Versioning is `major.minor.patch`; the app is in daily use, now at 2.0.
+
+## Everything the audit found, and a number to point at (v2.0)
+- **A tagged release at last.** Until now the only way to get Sanctumd was the
+  rolling dev build — whatever master happened to be that hour. 2.0 is the first
+  version with a tag behind it and a signed APK built by the release workflow.
+- **A full security audit of the repository**, and every real finding fixed.
+  That is why the number jumps rather than creeps.
+- **Credentials stopped leaking into URLs.** The Jellyfin token travelled in the
+  query string of every music stream and artwork request, where server logs and
+  proxy logs keep it; it now rides in a header on the track. Redirects can no
+  longer switch from https to plain http with the credentials still attached.
+- **The media session answers only to this app.** Any installed app could
+  connect to the player's MediaSession and read what it published.
+- **Download filenames are built, not borrowed.** The server's `container`
+  string went into a path unchecked — `../` in it wrote outside the download
+  directory. Names are assembled from sanitised characters now, and the finished
+  path is verified against its directory before a byte is written.
+- **TLS verification is never off.** With the bundled CA file missing, mpv fell
+  back to `tls-verify=no` for every stream, silently. It verifies always, and
+  adds the bundle only when it is really there.
+- **The lock no longer flashes the dashboard** before it covers it: an unset
+  preference read as "off" for one frame.
+- **Smaller edges closed** — widget configuration screens check the widget is
+  theirs before writing to it, notification ids are allocated here instead of
+  taken from whatever the ntfy server sends, only http and https open in the
+  browser, and destructive-action prompts name the host rather than a whole URL
+  with its query string.
+- **A build without the release key says so in its version name**, so it cannot
+  be mistaken for one.
+- **The app lock promises only what it keeps.** The switch read "Require
+  fingerprint/face or device PIN on open", which sounds like the data is sealed
+  behind it. It is not, on purpose: the Keystore key is not bound to user
+  authentication, because live push, widgets and downloads have to decrypt while
+  the phone is in your pocket — that is the whole reason they exist. The lock
+  gates the screen, and the switch, the hint beneath it and SECURITY.md now all
+  say so.
 
 ## The about screen answers for itself (v1.58)
 - **What the app is**, on the page people open first: the services it speaks to, and
