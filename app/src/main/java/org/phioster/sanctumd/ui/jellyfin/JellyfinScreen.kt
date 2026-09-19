@@ -465,7 +465,7 @@ internal fun JellyfinScreen(
                             3 -> if (bs.stack.isEmpty()) {
                                 jellyfinMediaHome(bs, config, accent, context, downloads, hiddenSet, mediaStyles, listError, mediaActions)
                             } else {
-                                jellyfinFolderLevel(bs, vm, config, accent, context, scope, downloads, mediaActions)
+                                jellyfinFolderLevel(bs, vm, config, accent, context, scope, downloads, mediaActions, musicState.currentMediaId)
                             }
                             2 -> jellyfinDashboardTab(ad, vm, config, accent, scope, { actionMsg = it }) { loadDashboard() }
                             4 -> jellyfinLiveTvTab(

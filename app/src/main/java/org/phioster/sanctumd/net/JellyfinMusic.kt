@@ -19,7 +19,38 @@ data class MusicTrack(
      * metadata — and that is readable by any app on the device. See [MusicService].
      */
     val headers: Map<String, String> = emptyMap(),
+    /** Track number within its disc, as the server has it; null when untagged. */
+    val number: Int? = null,
+    val durationMs: Long = 0,
 )
+
+/** An album with everything the album screen shows, and the queue it plays. */
+data class MusicAlbum(
+    val id: String,
+    val name: String,
+    val artist: String,
+    val year: Int?,
+    val artUrl: String,
+    val tracks: List<MusicTrack>,
+) {
+    val totalMs: Long get() = tracks.sumOf { it.durationMs }
+}
+
+/** Jellyfin counts in 100-nanosecond ticks; everything else here counts in milliseconds. */
+internal fun ticksToMs(ticks: Long?): Long = (ticks ?: 0L) / 10_000L
+
+/**
+ * `m:ss`, or `h:mm:ss` once past an hour. A missing runtime reads as an em dash rather than
+ * "0:00" — the server simply did not say, and a zero would claim it did.
+ */
+internal fun formatDuration(ms: Long): String {
+    if (ms <= 0L) return "—"
+    val total = ms / 1000L
+    val h = total / 3600L
+    val m = (total % 3600L) / 60L
+    val s = total % 60L
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+}
 
 internal fun audioStreamUrl(base: String, id: String) =
     "${base}Audio/$id/stream?static=true"
@@ -44,15 +75,19 @@ internal fun trackArtUrl(
     else -> ""
 }
 
-/** All audio tracks of an album, in disc/track order. Tracks without their own art fall back to the album art. */
-suspend fun jellyfinAlbumTracks(config: ServiceConfig, albumId: String, albumName: String = ""): List<MusicTrack> = withContext(Dispatchers.IO) {
+/**
+ * An album and its tracks in disc/track order — one fetch for everything the album screen needs,
+ * because the screen and the playback queue are the same list and must not disagree.
+ */
+suspend fun jellyfinAlbum(config: ServiceConfig, albumId: String): MusicAlbum = withContext(Dispatchers.IO) {
     val token = jellyfinAccessToken(config)
     val api = jfApi(config, token)
     val uid = jellyfinResolveUserId(config, api)
     val base = config.normalizedBaseUrl
-    val albumHasArt = !api.itemDetail(id = albumId, uid = uid).ImageTags?.get("Primary").isNullOrBlank()
+    val detail = api.itemDetail(id = albumId, uid = uid)
+    val albumHasArt = !detail.ImageTags?.get("Primary").isNullOrBlank()
     val headers = config.customHeaders + jellyfinAuth(token)
-    api.items(uid, albumId).Items
+    val tracks = api.items(uid, albumId).Items
         .filter { it.Type == "Audio" }
         .sortedWith(compareBy({ it.ParentIndexNumber ?: 0 }, { it.IndexNumber ?: 0 }))
         .map { item ->
@@ -61,13 +96,27 @@ suspend fun jellyfinAlbumTracks(config: ServiceConfig, albumId: String, albumNam
                 id = item.Id,
                 title = item.Name,
                 artist = item.AlbumArtist.orEmpty(),
-                album = albumName,
+                album = detail.Name,
                 streamUrl = audioStreamUrl(base, item.Id),
                 artUrl = trackArtUrl(base, item.Id, hasOwnArt, albumId, albumHasArt),
                 headers = headers,
+                number = item.IndexNumber,
+                durationMs = ticksToMs(item.RunTimeTicks),
             )
         }
+    MusicAlbum(
+        id = albumId,
+        name = detail.Name,
+        artist = detail.AlbumArtist.orEmpty(),
+        year = detail.ProductionYear,
+        artUrl = if (albumHasArt) primaryArtUrl(base, albumId) else "",
+        tracks = tracks,
+    )
 }
+
+/** Just the queue, for callers that only want to press play. */
+suspend fun jellyfinAlbumTracks(config: ServiceConfig, albumId: String): List<MusicTrack> =
+    jellyfinAlbum(config, albumId).tracks
 
 /** A single audio track (played as a one-item queue). */
 suspend fun jellyfinTrack(config: ServiceConfig, itemId: String): MusicTrack = withContext(Dispatchers.IO) {

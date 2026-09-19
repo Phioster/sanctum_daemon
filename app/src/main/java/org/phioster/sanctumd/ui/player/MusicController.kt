@@ -31,6 +31,8 @@ data class MusicState(
     val hasPrev: Boolean = false,
     val queue: List<QueueTrack> = emptyList(),
     val currentIndex: Int = 0,
+    /** Jellyfin item id of the track playing right now, so a track list can mark its own row. */
+    val currentMediaId: String = "",
 )
 
 /**
@@ -146,6 +148,7 @@ object MusicController {
             hasPrev = c.hasPreviousMediaItem(),
             queue = queue,
             currentIndex = c.currentMediaItemIndex,
+            currentMediaId = c.currentMediaItem?.mediaId.orEmpty(),
         )
     }
 }

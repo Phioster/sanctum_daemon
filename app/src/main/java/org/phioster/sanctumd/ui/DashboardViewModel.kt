@@ -619,8 +619,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     // ---- Playback (streaming + progress reporting) ----
     suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String, maxBitrate: Int? = null): org.phioster.sanctumd.net.PlaybackSource =
         org.phioster.sanctumd.net.jellyfinPlaybackSource(config, itemId, maxBitrate)
-    suspend fun jellyfinAlbumTracks(config: ServiceConfig, albumId: String, albumName: String): List<org.phioster.sanctumd.net.MusicTrack> =
-        org.phioster.sanctumd.net.jellyfinAlbumTracks(config, albumId, albumName)
+    suspend fun jellyfinAlbumTracks(config: ServiceConfig, albumId: String): List<org.phioster.sanctumd.net.MusicTrack> =
+        org.phioster.sanctumd.net.jellyfinAlbumTracks(config, albumId)
+
+    suspend fun jellyfinAlbum(config: ServiceConfig, albumId: String): org.phioster.sanctumd.net.MusicAlbum =
+        org.phioster.sanctumd.net.jellyfinAlbum(config, albumId)
     suspend fun jellyfinTrack(config: ServiceConfig, itemId: String): org.phioster.sanctumd.net.MusicTrack =
         org.phioster.sanctumd.net.jellyfinTrack(config, itemId)
 
@@ -643,13 +646,23 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
             }
     }
 
-    /** Same for a whole album — see [playJellyfinTrack] for why it is not left to the screen. */
-    fun playJellyfinAlbum(config: ServiceConfig, albumId: String, albumName: String) = viewModelScope.launch {
+    /**
+     * Same for a whole album — see [playJellyfinTrack] for why it is not left to the screen.
+     * [startIndex] is which track the tap landed on; the rest of the album follows as the queue,
+     * which is what a music player does and what a list of "play just this one" would not.
+     */
+    fun playJellyfinAlbum(
+        config: ServiceConfig,
+        albumId: String,
+        startIndex: Int = 0,
+        shuffle: Boolean = false,
+    ) = viewModelScope.launch {
         val ctx = getApplication<Application>()
-        runCatching { org.phioster.sanctumd.net.jellyfinAlbumTracks(config, albumId, albumName) }
-            .onSuccess {
+        runCatching { org.phioster.sanctumd.net.jellyfinAlbumTracks(config, albumId) }
+            .onSuccess { tracks ->
+                val queue = if (shuffle) tracks.shuffled() else tracks
                 org.phioster.sanctumd.ui.player.MusicController
-                    .play(ctx, it, 0, config.customHeaders)
+                    .play(ctx, queue, if (shuffle) 0 else startIndex, config.customHeaders)
             }
             .onFailure {
                 org.phioster.sanctumd.ui.player.MusicController

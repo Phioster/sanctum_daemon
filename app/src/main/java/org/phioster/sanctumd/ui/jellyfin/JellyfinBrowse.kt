@@ -75,6 +75,12 @@ internal class JellyfinBrowseState {
     var unwatched by mutableStateOf(false)
     var filter by mutableStateOf("")
 
+    /**
+     * The album at the current level, when it is one. Music gets its own screen rather than the
+     * generic folder list: an album is a record sleeve and a running order, not a directory.
+     */
+    var album by mutableStateOf<org.phioster.sanctumd.net.MusicAlbum?>(null)
+
     // Which folders are open at the current level, and their lazily loaded children.
     var expanded by mutableStateOf<Set<String>>(emptySet())
     var children by mutableStateOf<Map<String, List<JellyMediaItem>>>(emptyMap())
@@ -90,7 +96,12 @@ internal class JellyfinBrowseState {
     /** Loads one folder's contents. Returns an error message, or null when it worked. */
     suspend fun loadFolder(vm: DashboardViewModel, config: ServiceConfig, parent: JellyMediaItem): String? {
         contents = null
+        album = null
         return guard {
+            // An album is fetched twice on purpose: once as playable tracks (what the screen shows
+            // and what the queue plays — they must not disagree) and once as generic items, because
+            // the download chips need the fields only those carry.
+            if (parent.kind == "MusicAlbum") album = vm.jellyfinAlbum(config, parent.id)
             contents = vm.jellyfinItemList(
                 config, parent.id,
                 seasonNumber = if (parent.kind == "Season") parent.number else null,
@@ -291,8 +302,20 @@ internal fun LazyListScope.jellyfinFolderLevel(
     scope: CoroutineScope,
     downloads: Map<String, DownloadEntry>,
     act: JellyfinMediaActions,
+    playingId: String,
 ) {
     val here = st.stack.last()
+    // Music leaves the generic folder machinery here: an album is a sleeve and a running order,
+    // and the sort chips, the unwatched filter and the drill-in rows all mean nothing to it.
+    if (here.kind == "MusicAlbum") {
+        jellyfinAlbumLevel(
+            album = st.album, contents = st.contents, vm = vm, config = config, accent = accent,
+            context = context, downloads = downloads, act = act, here = here, playingId = playingId,
+            onBack = { st.stack = st.stack.dropLast(1) },
+            onScan = { scope.launch { act.message(vm.jellyfinScanLibrary(config, here.id)) } },
+        )
+        return
+    }
     item {
         Spacer(Modifier.height(8.dp))
         BrowseChip("‹ back", accent) { st.stack = st.stack.dropLast(1) }
@@ -303,7 +326,7 @@ internal fun LazyListScope.jellyfinFolderLevel(
             if (here.kind == "MusicAlbum") {
                 BrowseChip("▶ play album", MatrixGreen) {
                     // In the view model's scope, not this screen's: see playJellyfinTrack.
-                    vm.playJellyfinAlbum(config, here.id, here.name)
+                    vm.playJellyfinAlbum(config, here.id)
                 }
                 val toGetAudio = st.contents.orEmpty().filter { !it.isFolder && it.kind == "Audio" && downloads[it.id]?.done != true }
                 if (toGetAudio.isNotEmpty()) {
@@ -396,8 +419,11 @@ internal fun LazyListScope.jellyfinFolderLevel(
         m.isEmpty() -> item { Text("empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
         // Audio tracks read better as a list; everything else as a 3-column poster grid.
         m.any { it.kind == "Audio" } -> items(m) { it2 -> JellyMediaRow(it2, config, accent, { want -> act.setWatched(it2, want) }) { act.open(it2) } }
-        // Seasons and albums expand in place instead of forcing a drill-in.
-        m.all { it.isFolder && (it.kind == "Season" || it.kind == "MusicAlbum") } ->
+        // Albums open their own screen; a list of them wants square covers, not film posters.
+        m.all { it.isFolder && it.kind == "MusicAlbum" } ->
+            items(m, key = { "alb-${it.id}" }) { a -> AlbumListRow(a, config, accent) { act.open(a) } }
+        // Seasons still expand in place instead of forcing a drill-in.
+        m.all { it.isFolder && it.kind == "Season" } ->
             items(m, key = { "acc-${it.id}" }) { f ->
                 ExpandableFolderRow(
                     folder = f,
