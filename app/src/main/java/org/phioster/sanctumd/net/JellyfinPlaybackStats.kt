@@ -112,8 +112,8 @@ suspend fun jellyfinPlaybackStats(config: ServiceConfig): JellyPlaybackStats =
             "SELECT count(*), sum(PlayDuration), min(DateCreated) FROM $ACTIVITY",
         ).firstOrNull().orEmpty()
 
-        // ItemType mitzählen, damit die Entscheidung "zählt das?" in Kotlin fällt, wo sie
-        // getestet werden kann, statt in einer SQL-WHERE-Klausel zu verschwinden.
+        // Select ItemType alongside it, so the "does this count?" decision happens in Kotlin
+        // where it can be tested, instead of vanishing into a SQL WHERE clause.
         val methods = q(
             "SELECT PlaybackMethod, count(*), ItemType FROM $ACTIVITY GROUP BY PlaybackMethod, ItemType",
         )

@@ -21,19 +21,19 @@ internal fun playbackTiles(
 ): List<StatTile> {
     if (stats.plays == 0) return emptyList()
     val tiles = mutableListOf(
-        StatTile("Stunden", "%.0f".format(stats.hours), accentArgb),
-        StatTile("Wiedergaben", stats.plays.toString(), accentArgb),
+        StatTile("Hours", "%.0f".format(stats.hours), accentArgb),
+        StatTile("Plays", stats.plays.toString(), accentArgb),
         // The only number here worth being unhappy about — coloured only when there is something
         // to be unhappy about, so a clean library doesn't wear a warning.
         StatTile(
-            "Transkodiert",
+            "Transcoded",
             stats.transcodes.toString(),
             if (stats.transcodes > 0) warnArgb else accentArgb,
         ),
     )
     // Shown next to it, never in warning colours: a remux re-encoded nothing, it only repacked
     // the container. Hidden at zero rather than shown as "0", which would read as a second worry.
-    if (stats.remuxes > 0) tiles += StatTile("Remuxt", stats.remuxes.toString(), accentArgb)
+    if (stats.remuxes > 0) tiles += StatTile("Remuxed", stats.remuxes.toString(), accentArgb)
     return tiles
 }
 
@@ -56,12 +56,12 @@ internal fun playbackCharts(
         )
     }
 
-    byHours(stats.topTitles, "MEISTGESEHEN")
-    byHours(stats.devices, "GERÄTE")
+    byHours(stats.topTitles, "MOST WATCHED")
+    byHours(stats.devices, "DEVICES")
 
     if (stats.forced.isNotEmpty()) {
         charts += StatChart(
-            "ERZWINGT TRANSKODIERUNG",
+            "FORCES TRANSCODING",
             stats.forced.map { e ->
                 // Counted in plays, not hours: how often the server was made to re-encode is the
                 // interesting number, and the detail says whether it was the video or only sound.

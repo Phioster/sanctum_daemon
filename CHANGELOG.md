@@ -31,6 +31,11 @@ Versioning is `major.minor.patch`; the app is in daily use, now at 2.0.
   with its query string.
 - **A build without the release key says so in its version name**, so it cannot
   be mistaken for one.
+- **The stats screen speaks English again.** Its section headings, playback tiles
+  and the trends hint had drifted into German. The app is English-only for now, so
+  they are back in line — as are the last few German code comments. The language
+  names in the player stay as they are: a track labelled "Deutsch" is found by
+  matching that word, and a language is written in its own language.
 - **The app lock promises only what it keeps.** The switch read "Require
   fingerprint/face or device PIN on open", which sounds like the data is sealed
   behind it. It is not, on purpose: the Keystore key is not bound to user

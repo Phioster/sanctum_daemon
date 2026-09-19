@@ -102,9 +102,9 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                 if (d.tiles.isNotEmpty()) {
                     item {
                         Spacer(Modifier.height(10.dp))
-                        // Ohne dieses Dach haengen die Diagramme darunter titellos in der Luft,
-                        // seit ihre Titel eine Ebene tiefer sitzen.
-                        SectionHeader("ÜBERSICHT")
+                        // Without this roof the charts below would hang there untitled, now that
+                        // their own titles sit one level down.
+                        SectionHeader("OVERVIEW")
                         Spacer(Modifier.height(10.dp))
                         // Tiles wrap two per row.
                         d.tiles.chunked(2).forEach { pair ->
@@ -116,12 +116,12 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                         Spacer(Modifier.height(8.dp))
                     }
                 }
-                // Die Dienst-Diagramme hatten bisher keine Elternueberschrift — ihre eigenen
-                // Titel dienten als solche. Seit die Titel untergeordnet sind, brauchen sie eine,
-                // sonst schweben sie eingerueckt ohne Abschnitt.
+                // The service charts had no parent heading — their own titles served as one.
+                // Now that those titles are subordinate they need one, or they float indented
+                // without a section.
                 if (d.charts.isNotEmpty()) {
                     item {
-                        SectionHeader("DIENSTE")
+                        SectionHeader("SERVICES")
                         Spacer(Modifier.height(10.dp))
                     }
                 }
@@ -133,22 +133,22 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                 // plugin's own database. Loaded separately because it can be absent (the plugin
                 // is optional) and must not take the rest of the screen down with it.
                 playback?.let { pb ->
-                    // argbLong(), nicht value.toLong(): siehe ColorArgb.kt — das war der Grund
-                    // fuer schwarze Beschriftungen und unsichtbare Balkenfuellungen in 1.50.1.
+                    // argbLong(), not value.toLong(): see ColorArgb.kt — that was the cause of
+                    // black labels and invisible bar fills in 1.50.1.
                     val green = MatrixGreen.argbLong()
                     val tiles = playbackTiles(pb, green, 0xFFFFAA00L)
                     val charts = playbackCharts(pb, green, 0xFFFFAA00L)
                     if (tiles.isNotEmpty()) {
                         item {
                             Spacer(Modifier.height(6.dp))
-                            SectionHeader("WIEDERGABE")
+                            SectionHeader("PLAYBACK")
                             Spacer(Modifier.height(10.dp))
                             Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 tiles.forEach { t -> StatTileView(t, Modifier.weight(1f)) }
                             }
                             if (pb.since.isNotBlank()) {
                                 Text(
-                                    "seit ${pb.since}",
+                                    "since ${pb.since}",
                                     fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 10.sp,
                                 )
                             }
@@ -176,10 +176,10 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                             fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp,
                         )
                     } else if (d.trendTiles.isEmpty()) {
-                        // Kennzahlen brauchen mehr Historie als Diagramme: Prowlarr erzeugt
-                        // ueberhaupt keine, die Platz-Prognose braucht drei Messpunkte. Ohne
-                        // diesen Satz sieht der Abschnitt schlicht leer aus.
-                        Hint("Kennzahlen folgen, sobald mehr Tage aufgezeichnet sind — die Verläufe unten wachsen schon.")
+                        // Figures need more history than charts do: Prowlarr produces none at
+                        // all, and the disk forecast needs three data points. Without this
+                        // sentence the section simply looks empty.
+                        Hint("Figures follow once more days are on record — the trends below are already growing.")
                         Spacer(Modifier.height(8.dp))
                     } else {
                         d.trendTiles.chunked(2).forEach { pair ->
