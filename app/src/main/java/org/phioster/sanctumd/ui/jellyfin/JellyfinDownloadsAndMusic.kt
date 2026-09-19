@@ -30,6 +30,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.RepeatOne
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.HorizontalDivider
@@ -51,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.media3.common.Player
 import kotlinx.coroutines.delay
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.ErrRed
@@ -325,15 +329,32 @@ internal fun NowPlayingScreen(
                 Text(fmtTime(dur), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp)
             }
             Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Shuffle and repeat flank the transport, where every music player puts them. Both are
+            // the player's own modes, so the lock screen and a car head unit see the same thing.
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.toggleShuffle() }) {
+                    Icon(
+                        Icons.Filled.Shuffle, contentDescription = "Shuffle",
+                        tint = if (state.shuffle) accent else MatrixGreen.copy(alpha = 0.35f),
+                        modifier = Modifier.size(26.dp),
+                    )
+                }
                 IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.prev() }, enabled = state.hasPrev) {
-                    Icon(Icons.Filled.SkipPrevious, contentDescription = "Prev", tint = if (state.hasPrev) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), modifier = Modifier.size(36.dp))
+                    Icon(Icons.Filled.SkipPrevious, contentDescription = "Prev", tint = if (state.hasPrev) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), modifier = Modifier.size(34.dp))
                 }
                 IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.playPause() }) {
                     Icon(if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = "Play/Pause", tint = MatrixGreen, modifier = Modifier.size(56.dp))
                 }
                 IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.next() }, enabled = state.hasNext) {
-                    Icon(Icons.Filled.SkipNext, contentDescription = "Next", tint = if (state.hasNext) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), modifier = Modifier.size(36.dp))
+                    Icon(Icons.Filled.SkipNext, contentDescription = "Next", tint = if (state.hasNext) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), modifier = Modifier.size(34.dp))
+                }
+                IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.cycleRepeat() }) {
+                    Icon(
+                        if (state.repeatMode == Player.REPEAT_MODE_ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
+                        contentDescription = "Repeat",
+                        tint = if (state.repeatMode == Player.REPEAT_MODE_OFF) MatrixGreen.copy(alpha = 0.35f) else accent,
+                        modifier = Modifier.size(26.dp),
+                    )
                 }
             }
             // Queue / album track list fills the space below the controls.

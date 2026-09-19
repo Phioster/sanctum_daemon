@@ -660,9 +660,12 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         val ctx = getApplication<Application>()
         runCatching { org.phioster.sanctumd.net.jellyfinAlbumTracks(config, albumId) }
             .onSuccess { tracks ->
-                val queue = if (shuffle) tracks.shuffled() else tracks
+                // Shuffle is the player's mode, not a reordered list: media3 then owns what comes
+                // next, and the lock screen shows the same thing the app does. Shuffled playback
+                // starts somewhere random, the way pressing shuffle on an album is meant to.
+                val from = if (shuffle && tracks.isNotEmpty()) tracks.indices.random() else startIndex
                 org.phioster.sanctumd.ui.player.MusicController
-                    .play(ctx, queue, if (shuffle) 0 else startIndex, config.customHeaders)
+                    .play(ctx, tracks, from, config.customHeaders, shuffle = shuffle)
             }
             .onFailure {
                 org.phioster.sanctumd.ui.player.MusicController
