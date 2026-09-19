@@ -72,6 +72,6 @@ class AboutSectionTest {
     fun `libmpv is not passed off as Apache like the rest`() {
         show(emptyList())
         see("libmpv-android", substring = true)
-        see("(L)GPL", substring = true)
+        see("bundled mpv & FFmpeg are GPL-3.0", substring = true)
     }
 }
