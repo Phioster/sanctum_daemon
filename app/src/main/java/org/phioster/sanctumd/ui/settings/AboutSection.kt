@@ -131,11 +131,16 @@ private val THIRD_PARTY = listOf(
     "libmpv-android — MIT; bundled mpv & FFmpeg under their own (L)GPL terms",
 )
 
+/**
+ * A section heading, carrying the same weight as the name at the top of the screen and a step
+ * below it in size. At the body's 11sp it was smaller than the rows underneath it, which read as
+ * if the rows outranked their own heading.
+ */
 @Composable
 private fun AboutHeading(text: String) {
     Text(
         "> $text",
-        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp,
-        modifier = Modifier.padding(top = 22.dp, bottom = 6.dp),
+        fontFamily = Mono, color = MatrixGreen, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(top = 28.dp, bottom = 10.dp),
     )
 }
