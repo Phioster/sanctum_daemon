@@ -24,6 +24,12 @@ import java.util.concurrent.Executors
  * it), media3's default callback accepts every controller, and `MediaMetadata.artworkUri` is bundled
  * to each one — so a token in that URL was readable by any app on the device. The artwork is fetched
  * through the same header-injecting factory, so it still loads without the URL carrying a secret.
+ *
+ * The session accepts every controller, the way media3 does by default. 1.59.0 shipped a callback
+ * that only admitted this package — but the lock screen, Bluetooth headsets and car head units all
+ * reach a media app through the platform session, and media3 gives that a fixed sentinel package
+ * name (ControllerInfo.LEGACY_CONTROLLER_PACKAGE_NAME), so the callback shut them all out. What is
+ * worth guarding here is the credential, and that is no longer in the metadata for anyone to read.
  */
 @UnstableApi
 class MusicService : MediaSessionService() {
@@ -59,7 +65,6 @@ class MusicService : MediaSessionService() {
                     resolving,
                 ),
             )
-            .setCallback(OwnPackageOnly())
             .build()
     }
 
@@ -77,23 +82,6 @@ class MusicService : MediaSessionService() {
         session?.run { player.release(); release() }
         session = null
         super.onDestroy()
-    }
-
-    /**
-     * Only this app may drive or read the session. Defence in depth behind the real fix (no secret
-     * in the metadata): media3's own callback accepts every caller, so without this any installed
-     * app could connect and read what is playing.
-     */
-    private inner class OwnPackageOnly : MediaSession.Callback {
-        override fun onConnect(
-            session: MediaSession,
-            controller: MediaSession.ControllerInfo,
-        ): MediaSession.ConnectionResult =
-            if (controller.packageName == packageName) {
-                MediaSession.ConnectionResult.AcceptedResultBuilder(session).build()
-            } else {
-                MediaSession.ConnectionResult.reject()
-            }
     }
 
     companion object {
