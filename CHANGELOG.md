@@ -148,8 +148,10 @@ safely.
   type is left undescribed. See `docs/adding-a-service.md`.
 
 ## 1.0.0 — 2026-07-20
-First tagged release. Sanctumd was in daily use throughout the 0.x line; 1.0
-marks the reviewed, release-signed milestone.
+First release. Sanctumd was in daily use throughout the 0.x line; 1.0 marks the
+reviewed, release-signed milestone. There is no `v1.0.0` tag: the git history was
+cleaned at this point (below), and the tag did not survive it — `backup-pre-scrub`
+still sits on the commit before.
 
 - **Security & correctness review** — no critical findings. Applied hardening:
   atomic service-status updates; PBKDF2 raised to 210k iterations with a

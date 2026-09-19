@@ -118,9 +118,14 @@ internal fun AboutBody(serviceTypes: List<String>) {
 }
 
 /**
- * The bundled work of others. Everything here is Apache-2.0 except libmpv, whose Android packaging
- * is MIT while the mpv and FFmpeg libraries inside it carry their own (L)GPL terms — which is the
- * line to confirm against the built AAR before a public release, not to guess at.
+ * The bundled work of others. Everything here is Apache-2.0 except libmpv, and that one is the
+ * reason this app is GPL-3.0 rather than a matter of taste.
+ *
+ * Read out of the published AAR rather than guessed: `dev.jdtech.mpv:libmpv:1.0.0` declares MIT in
+ * its POM, but that covers the Android packaging. The FFmpeg libraries it ships are built
+ * `--enable-gpl --enable-version3` (the configuration string is in libavcodec.so), so they are
+ * GPL-3.0, and mpv links against them. Anything distributing this AAR is therefore bound to
+ * GPL-3.0 — which sanctumd is. Re-check when the libmpv version changes.
  */
 private val THIRD_PARTY = listOf(
     "Jetpack Compose · AndroidX · Glance — Apache-2.0",
@@ -128,7 +133,7 @@ private val THIRD_PARTY = listOf(
     "Retrofit · OkHttp — Apache-2.0",
     "kotlinx.serialization — Apache-2.0",
     "Coil — Apache-2.0",
-    "libmpv-android — MIT; bundled mpv & FFmpeg under their own (L)GPL terms",
+    "libmpv-android — MIT; its bundled mpv & FFmpeg are GPL-3.0",
 )
 
 /**
