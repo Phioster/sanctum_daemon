@@ -1,7 +1,16 @@
 # Changelog
 
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
-Versioning is `major.minor.patch`; the app is in daily use, now at 1.57.
+Versioning is `major.minor.patch`; the app is in daily use, now at 1.58.
+
+## The about screen answers for itself (v1.58)
+- **What the app is**, on the page people open first: the services it speaks to, and
+  tappable links to the source, this changelog, the issue tracker and the licence — the
+  repository address used to be text you could not even tap.
+- **A diagnostics block built for a bug report** — version, Android, device and the kinds
+  of services configured, with one tap to copy it. Kinds and a count only: no labels, no
+  addresses, no keys, so it is safe to paste into a public issue.
+- **The bundled work of others**, with their licences.
 
 ## Where a title streams, and Jellyfin 12 (v1.55 – v1.56)
 - **Streaming availability** in the Seerr, Radarr and Sonarr detail screens —
