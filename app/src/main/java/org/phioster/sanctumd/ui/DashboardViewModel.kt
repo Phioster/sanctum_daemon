@@ -624,6 +624,39 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun jellyfinTrack(config: ServiceConfig, itemId: String): org.phioster.sanctumd.net.MusicTrack =
         org.phioster.sanctumd.net.jellyfinTrack(config, itemId)
 
+    /**
+     * Fetching a track and handing it to the player belongs here, not in a screen. The detail sheet
+     * closes itself before it asks to play, and a rememberCoroutineScope() dies with its composable
+     * — so the fetch was cancelled before it ever reached the network, and 1.59.0 had no way to say
+     * so. viewModelScope outlives the composition.
+     */
+    fun playJellyfinTrack(config: ServiceConfig, itemId: String) = viewModelScope.launch {
+        val ctx = getApplication<Application>()
+        runCatching { org.phioster.sanctumd.net.jellyfinTrack(config, itemId) }
+            .onSuccess {
+                org.phioster.sanctumd.ui.player.MusicController
+                    .play(ctx, listOf(it), 0, config.customHeaders)
+            }
+            .onFailure {
+                org.phioster.sanctumd.ui.player.MusicController
+                    .report(ctx, "music: ${it.message ?: it.javaClass.simpleName}", it)
+            }
+    }
+
+    /** Same for a whole album — see [playJellyfinTrack] for why it is not left to the screen. */
+    fun playJellyfinAlbum(config: ServiceConfig, albumId: String, albumName: String) = viewModelScope.launch {
+        val ctx = getApplication<Application>()
+        runCatching { org.phioster.sanctumd.net.jellyfinAlbumTracks(config, albumId, albumName) }
+            .onSuccess {
+                org.phioster.sanctumd.ui.player.MusicController
+                    .play(ctx, it, 0, config.customHeaders)
+            }
+            .onFailure {
+                org.phioster.sanctumd.ui.player.MusicController
+                    .report(ctx, "music: ${it.message ?: it.javaClass.simpleName}", it)
+            }
+    }
+
     // ---- Stats screen: aggregate numbers + bar charts across every configured service ----
     suspend fun loadStats(): org.phioster.sanctumd.model.StatsData = kotlinx.coroutines.coroutineScope {
         val svcs = services.value

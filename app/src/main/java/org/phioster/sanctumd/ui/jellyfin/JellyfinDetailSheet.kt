@@ -164,20 +164,10 @@ internal fun JellyfinDetailSheet(
                 if (d.kind == "Audio") {
                     PrimaryButton("play", Modifier.fillMaxWidth(), icon = Icons.Filled.PlayArrow) {
                         state.closeAll()
-                        scope.launch {
-                            // Say so when the track cannot be read; this used to fail without a word.
-                            runCatching { vm.jellyfinTrack(config, d.id) }
-                                .onSuccess {
-                                    org.phioster.sanctumd.ui.player.MusicController
-                                        .play(context, listOf(it), 0, config.customHeaders)
-                                }
-                                .onFailure {
-                                    android.widget.Toast.makeText(
-                                        context, "music: ${it.message ?: it.javaClass.simpleName}",
-                                        android.widget.Toast.LENGTH_LONG,
-                                    ).show()
-                                }
-                        }
+                        // Deliberately not scope.launch: closeAll() has just taken this sheet out
+                        // of the composition, and rememberCoroutineScope() dies with it — the fetch
+                        // was cancelled before it reached the network. The view model outlives both.
+                        vm.playJellyfinTrack(config, d.id)
                     }
                     Spacer(Modifier.height(8.dp))
                     when (dl?.state) {

@@ -46,7 +46,7 @@ object MusicController {
      * runCatching, the empty-queue guard here, and the connection future below), so a broken
      * playback produced no message, no log line and no clue. Every one of them says something now.
      */
-    private fun fail(context: Context, message: String, cause: Throwable? = null) {
+    internal fun report(context: Context, message: String, cause: Throwable? = null) {
         if (cause != null) Log.w(TAG, message, cause) else Log.w(TAG, message)
         Toast.makeText(context.applicationContext, message, Toast.LENGTH_LONG).show()
     }
@@ -73,7 +73,7 @@ object MusicController {
             controller = result.getOrNull()
             connecting = false
             result.exceptionOrNull()?.let {
-                fail(app, "music: the player service refused the connection (${it.javaClass.simpleName})", it)
+                report(app, "music: the player service refused the connection (${it.javaClass.simpleName})", it)
             }
             controller?.addListener(listener)
             pending?.invoke(); pending = null
@@ -83,7 +83,7 @@ object MusicController {
 
     /** Play [tracks] from [startIndex]; [headers] are the service's per-request custom headers. */
     fun play(context: Context, tracks: List<MusicTrack>, startIndex: Int, headers: Map<String, String>) {
-        if (tracks.isEmpty()) { fail(context, "music: no playable track in this album"); return }
+        if (tracks.isEmpty()) { report(context, "music: no playable track in this album"); return }
         // The track carries what its own server needs (auth included, since the token no longer
         // rides in the URL); [headers] stays for callers that pass service headers directly.
         MusicService.authHeaders = headers + tracks.first().headers
@@ -110,7 +110,7 @@ object MusicController {
                 c.play()
                 Log.i(TAG, "queued ${items.size} track(s) from index $startIndex")
             } else {
-                fail(context, "music: not connected to the player service")
+                report(context, "music: not connected to the player service")
             }
         }
         if (controller != null) action() else { pending = action; ensure(context) }
