@@ -29,7 +29,7 @@ class PlaybackToChartsTest {
     @Test fun `the headline numbers become tiles`() {
         val t = playbackTiles(stats, GREEN, AMBER)
         assertEquals(listOf("42", "109", "12", "3"), t.map { it.value })
-        assertEquals(listOf("Stunden", "Wiedergaben", "Transkodiert", "Remuxt"), t.map { it.label })
+        assertEquals(listOf("Hours", "Plays", "Transcoded", "Remuxed"), t.map { it.label })
     }
 
     /** A remux costs the server nothing, so it never wears the warning colour — and never a zero. */
@@ -48,7 +48,7 @@ class PlaybackToChartsTest {
 
     @Test fun `titles and devices become charts in the house style`() {
         val c = playbackCharts(stats, GREEN, AMBER)
-        assertEquals(listOf("MEISTGESEHEN", "GERÄTE", "ERZWINGT TRANSKODIERUNG"), c.map { it.title })
+        assertEquals(listOf("MOST WATCHED", "DEVICES", "FORCES TRANSCODING"), c.map { it.title })
         assertEquals(listOf("Mortal Kombat II", "Akira"), c[0].bars.map { it.label })
         assertEquals("3.5 h", c[0].bars[0].display)
         assertEquals("22.0 h", c[1].bars[0].display)
