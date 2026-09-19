@@ -29,4 +29,33 @@ class JellyfinMusicUrlTest {
         assertFalse(url, url.contains("ApiKey", ignoreCase = true))
         assertFalse(url, url.contains("api_key", ignoreCase = true))
     }
+
+    @Test
+    fun `a track with its own cover uses it`() {
+        assertEquals(
+            "https://jellyfin.example.net/Items/track1/Images/Primary?maxHeight=400",
+            trackArtUrl(base, "track1", trackHasArt = true, albumId = "alb1", albumHasArt = true),
+        )
+    }
+
+    @Test
+    fun `a track without one falls back to the album cover`() {
+        assertEquals(
+            "https://jellyfin.example.net/Items/alb1/Images/Primary?maxHeight=400",
+            trackArtUrl(base, "track1", trackHasArt = false, albumId = "alb1", albumHasArt = true),
+        )
+    }
+
+    /**
+     * The regression this guards: the album URL used to be handed out even when the album had no
+     * cover, so every track in such an album pointed at a 404 and the session's bitmap loader ran
+     * into it once per track.
+     */
+    @Test
+    fun `no cover anywhere means no artwork url at all`() {
+        assertEquals(
+            "",
+            trackArtUrl(base, "track1", trackHasArt = false, albumId = "alb1", albumHasArt = false),
+        )
+    }
 }
