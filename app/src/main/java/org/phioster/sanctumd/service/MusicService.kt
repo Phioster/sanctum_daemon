@@ -32,7 +32,9 @@ class MusicService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
-        val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
+        // No cross-protocol redirects: authHeaders (Jellyfin auth, Cloudflare Access) are applied
+        // to every request and would follow an https -> http hop straight into the clear.
+        val http = DefaultHttpDataSource.Factory()
         // DefaultDataSource handles local files (offline downloads) + content, delegating http to `http`.
         val base = DefaultDataSource.Factory(this, http)
         val resolving = ResolvingDataSource.Factory(base) { spec ->

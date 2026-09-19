@@ -518,7 +518,7 @@ internal fun GesturesSection(vm: DashboardViewModel) {
 internal fun SecuritySection(vm: DashboardViewModel) {
     val context = LocalContext.current
     val appLock by vm.appLock.collectAsState()
-    NotifyToggleRow("App lock", "Require fingerprint/face or device PIN on open", appLock) { on ->
+    NotifyToggleRow("App lock", "Require fingerprint/face or device PIN on open", appLock == true) { on ->
         if (!on) { vm.setAppLock(false); return@NotifyToggleRow }
         val bm = androidx.biometric.BiometricManager.from(context)
         val authenticators = androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK or

@@ -507,6 +507,16 @@ internal fun AddServiceScreen(
             Field("Label", label) { label = it; labelEdited = true }
             if (type != ServiceType.SHORTCUTS) {
                 Field("Base URL (https://…)", url) { url = it }
+                // Cleartext stays allowed — a homelab on http://192.168.x.x is the normal case and
+                // breaking it would help nobody. But the key below travels on every request, so say
+                // so plainly instead of letting the hint in the label carry it.
+                if (url.isNotBlank() && !url.trim().startsWith("https://", ignoreCase = true)) {
+                    Text(
+                        "⚠ not https — the API key and password below travel unencrypted and anyone on the same network can read them.",
+                        fontFamily = Mono, color = Color(0xFFE0A030), fontSize = 10.sp,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
             }
 
             if (type == ServiceType.SHORTCUTS) {
