@@ -165,6 +165,21 @@ min SDK 26 (Android 8.0)
 target SDK 35 (Android 15)
 ```
 
+## ▚▚ `./install`
+
+Grab the signed APK from the
+[latest release](https://github.com/Phioster/sanctum_daemon/releases/latest):
+
+```console
+$ adb install -r sanctumd-v2.0.0.apk
+```
+
+Android 8.0+ on **arm64**. The APK carries `arm64-v8a` libraries only —
+libmpv's are large, and bundling every architecture would multiply the
+download for hardware almost nobody runs. 32-bit and x86 devices are not
+supported; build from source with the `abiFilters` line dropped if you
+need one.
+
 ## ▚▚ `./build`
 
 Every push triggers the **Build APK** workflow —
