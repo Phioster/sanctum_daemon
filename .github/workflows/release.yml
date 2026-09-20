@@ -84,9 +84,16 @@ jobs:
           prerelease: true
           files: out/*.apk
 
+      # The release page reads the changelog's newest section rather than a generated list of
+      # commit subjects: the section is written for people installing the app, the subjects are
+      # written for whoever maintains it.
+      - name: Release notes from the changelog
+        if: startsWith(github.ref, 'refs/tags/')
+        run: awk '/^## /{n++} n==1 && !/^## /' CHANGELOG.md > out/notes.md
+
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: out/*.apk
-          generate_release_notes: true
+          body_path: out/notes.md
