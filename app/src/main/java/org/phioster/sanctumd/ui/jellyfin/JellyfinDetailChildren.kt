@@ -26,6 +26,9 @@ import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Refresh
 
 /** The heading a container's contents sit under — seasons for a series, films for a collection. */
 internal fun childSectionTitle(kind: String): String = when (kind) {
@@ -94,9 +97,9 @@ internal fun DetailChildren(
             Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (next.size > 1) BrowseChip("⬇ next ${next.size} unwatched", MatrixGreen) { queue(next) }
-            if (pending.isNotEmpty()) BrowseChip("⬇ all (${pending.size})", MatrixGreen) { queue(pending) }
-            BrowseChip("⟳ scan", MatrixGreen.copy(alpha = 0.85f)) {
+            if (next.size > 1) BrowseChip("next ${next.size} unwatched", MatrixGreen, Icons.Filled.Download) { queue(next) }
+            if (pending.isNotEmpty()) BrowseChip("all (${pending.size})", MatrixGreen, Icons.Filled.Download) { queue(pending) }
+            BrowseChip("scan", MatrixGreen.copy(alpha = 0.85f), Icons.Filled.Refresh) {
                 scope.launch { onMessage(vm.jellyfinScanLibrary(config, d.id)) }
             }
         }

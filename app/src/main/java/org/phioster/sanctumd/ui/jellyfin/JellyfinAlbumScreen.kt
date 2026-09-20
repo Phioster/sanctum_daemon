@@ -43,6 +43,11 @@ import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Shuffle
 
 /**
  * An album, shown as a record sleeve rather than a folder: square cover, running order, and a tap
@@ -113,17 +118,17 @@ internal fun LazyListScope.jellyfinAlbumLevel(
     item {
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (album.tracks.isNotEmpty()) {
-                BrowseChip("▶ play", MatrixGreen) { vm.playJellyfinAlbum(config, album.id) }
-                BrowseChip("⤨ shuffle", MatrixGreen) { vm.playJellyfinAlbum(config, album.id, shuffle = true) }
+                BrowseChip("play", MatrixGreen, Icons.Filled.PlayArrow) { vm.playJellyfinAlbum(config, album.id) }
+                BrowseChip("shuffle", MatrixGreen, Icons.Filled.Shuffle) { vm.playJellyfinAlbum(config, album.id, shuffle = true) }
             }
             val toGet = contents.orEmpty().filter { !it.isFolder && it.kind == "Audio" && downloads[it.id]?.done != true }
             if (toGet.isNotEmpty()) {
-                BrowseChip("⬇ album (${toGet.size})", MatrixGreen) {
+                BrowseChip("album (${toGet.size})", MatrixGreen, Icons.Filled.Download) {
                     toGet.forEach { t -> DownloadService.enqueue(context, config.id, t.id, t.name, t.subtitle, t.posterUrl, 0L, "Audio") }
                     act.message("queued ${toGet.size} downloads")
                 }
             }
-            BrowseChip("⟳ scan", MatrixGreen.copy(alpha = 0.85f), onScan)
+            BrowseChip("scan", MatrixGreen.copy(alpha = 0.85f), Icons.Filled.Refresh, onScan)
         }
         Spacer(Modifier.height(10.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))

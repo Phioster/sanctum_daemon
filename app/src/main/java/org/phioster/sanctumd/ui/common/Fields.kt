@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Button
@@ -210,13 +211,30 @@ internal fun SecondaryButton(label: String, modifier: Modifier = Modifier, icon:
     }
 }
 
-/** A compact bordered action chip — the standard chip for inline actions (back / scan / filters). */
+/**
+ * A compact bordered action chip — the standard chip for inline actions (back / scan / filters).
+ *
+ * [icon] is a vector, not a character in the label, on purpose. Symbols written as text depend on
+ * what the mono font happens to cover: ▶ came out solid, ⬇ and ⟳ thin from some fallback font, and
+ * ⤨ arrived as a completely different glyph. A vector renders the same everywhere.
+ */
 @Composable
-internal fun AppChip(label: String, accent: Color = MatrixGreen, onClick: () -> Unit) {
-    Text(
-        label, fontFamily = Mono, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-        modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(SurfaceHi)
+internal fun AppChip(
+    label: String,
+    accent: Color = MatrixGreen,
+    icon: ImageVector? = null,
+    onClick: () -> Unit,
+) {
+    Row(
+        Modifier.clip(RoundedCornerShape(8.dp)).background(SurfaceHi)
             .border(1.dp, accent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
             .clickable { onClick() }.padding(horizontal = 12.dp, vertical = 8.dp),
-    )
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icon != null) {
+            Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(15.dp))
+            Spacer(Modifier.width(6.dp))
+        }
+        Text(label, fontFamily = Mono, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    }
 }

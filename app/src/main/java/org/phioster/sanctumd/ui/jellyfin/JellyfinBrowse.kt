@@ -17,6 +17,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -324,13 +327,13 @@ internal fun LazyListScope.jellyfinFolderLevel(
         Spacer(Modifier.height(10.dp))
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (here.kind == "MusicAlbum") {
-                BrowseChip("▶ play album", MatrixGreen) {
+                BrowseChip("play album", MatrixGreen, Icons.Filled.PlayArrow) {
                     // In the view model's scope, not this screen's: see playJellyfinTrack.
                     vm.playJellyfinAlbum(config, here.id)
                 }
                 val toGetAudio = st.contents.orEmpty().filter { !it.isFolder && it.kind == "Audio" && downloads[it.id]?.done != true }
                 if (toGetAudio.isNotEmpty()) {
-                    BrowseChip("⬇ album (${toGetAudio.size})", MatrixGreen) {
+                    BrowseChip("album (${toGetAudio.size})", MatrixGreen, Icons.Filled.Download) {
                         toGetAudio.forEach { t -> DownloadService.enqueue(context, config.id, t.id, t.name, t.subtitle, t.posterUrl, 0L, "Audio") }
                         act.message("queued ${toGetAudio.size} downloads")
                     }
@@ -340,19 +343,19 @@ internal fun LazyListScope.jellyfinFolderLevel(
                 !it.isFolder && !it.played && it.kind in PLAYABLE_VIDEO_KINDS && downloads[it.id]?.done != true
             }.take(3)
             if (nextUnwatched.size > 1) {
-                BrowseChip("⬇ next ${nextUnwatched.size} unwatched", MatrixGreen) {
+                BrowseChip("next ${nextUnwatched.size} unwatched", MatrixGreen, Icons.Filled.Download) {
                     nextUnwatched.forEach { ep -> DownloadService.enqueue(context, config.id, ep.id, ep.name, ep.subtitle, ep.posterUrl, 0L) }
                     act.message("queued ${nextUnwatched.size} downloads")
                 }
             }
             val toGet = st.contents.orEmpty().filter { !it.isFolder && it.kind in PLAYABLE_VIDEO_KINDS && downloads[it.id]?.done != true }
             if (toGet.isNotEmpty()) {
-                BrowseChip("⬇ all (${toGet.size})", MatrixGreen) {
+                BrowseChip("all (${toGet.size})", MatrixGreen, Icons.Filled.Download) {
                     toGet.forEach { ep -> DownloadService.enqueue(context, config.id, ep.id, ep.name, ep.subtitle, ep.posterUrl, 0L) }
                     act.message("queued ${toGet.size} downloads")
                 }
             }
-            BrowseChip("⟳ scan", MatrixGreen.copy(alpha = 0.85f)) { scope.launch { act.message(vm.jellyfinScanLibrary(config, here.id)) } }
+            BrowseChip("scan", MatrixGreen.copy(alpha = 0.85f), Icons.Filled.Refresh) { scope.launch { act.message(vm.jellyfinScanLibrary(config, here.id)) } }
         }
         Spacer(Modifier.height(8.dp))
         // Sort + filter. Sorting and "unwatched only" are server-side

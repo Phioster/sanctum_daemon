@@ -269,7 +269,12 @@ internal fun MediaGridCard(item: org.phioster.sanctumd.model.JellyMediaItem, con
 
 /** Browse-header action chip — delegates to the app-wide [AppChip]. */
 @Composable
-internal fun BrowseChip(label: String, accent: Color, onClick: () -> Unit) = AppChip(label, accent, onClick)
+internal fun BrowseChip(
+    label: String,
+    accent: Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    onClick: () -> Unit,
+) = AppChip(label, accent, icon, onClick)
 
 /** A library shown as a landscape tile (poster-cropped + scrim + name) in the Media home grid. */
 @Composable
