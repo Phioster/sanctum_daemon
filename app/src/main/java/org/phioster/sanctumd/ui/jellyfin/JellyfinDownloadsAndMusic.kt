@@ -27,11 +27,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.media3.common.Player
 import kotlinx.coroutines.delay
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.ErrRed
@@ -97,19 +93,21 @@ internal fun DownloadCard(
                     contentScale = ContentScale.Crop,
                 )
             }
-            // Dim + state glyph overlay.
-            val glyph = when (entry.state) {
-                org.phioster.sanctumd.model.DownloadEntry.STATE_DONE -> "▶"
-                org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED -> "⚠"
-                else -> "${(entry.progress * 100).toInt()}%"
-            }
+            // Dim + state overlay: a symbol for the two end states, the number while it runs.
             Box(Modifier.fillMaxSize().background(Color(0x55000000)), contentAlignment = Alignment.Center) {
-                Text(glyph, fontFamily = Mono, color = MatrixGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                when (entry.state) {
+                    org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
+                        Icon(AppIcons.Play, contentDescription = null, tint = MatrixGreen, modifier = Modifier.size(26.dp))
+                    org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED ->
+                        Icon(AppIcons.Failed, contentDescription = null, tint = MatrixGreen, modifier = Modifier.size(24.dp))
+                    else ->
+                        Text("${(entry.progress * 100).toInt()}%", fontFamily = Mono, color = MatrixGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                }
             }
-            Text(
-                "✕", fontFamily = Mono, color = ErrRed, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+            Icon(
+                AppIcons.Cancel, contentDescription = "Delete", tint = ErrRed,
                 modifier = Modifier.align(Alignment.TopEnd).background(Color(0xAA000000), RoundedCornerShape(6.dp))
-                    .clickable { onDelete() }.padding(horizontal = 6.dp, vertical = 2.dp),
+                    .clickable { onDelete() }.padding(2.dp).size(16.dp),
             )
         }
         // Thin progress bar while downloading.
@@ -224,8 +222,10 @@ internal fun DownloadsManager(
                                 }
                             }
                             Spacer(Modifier.width(8.dp))
-                            if (e.done) Text("▶", fontFamily = Mono, color = MatrixGreen, fontSize = 16.sp, modifier = Modifier.clickable { onPlay(e) }.padding(8.dp))
-                            Text("✕", fontFamily = Mono, color = ErrRed, fontSize = 15.sp, modifier = Modifier.clickable { onDelete(e.itemId) }.padding(8.dp))
+                            if (e.done) {
+                                Icon(AppIcons.Play, contentDescription = "Play", tint = MatrixGreen, modifier = Modifier.clickable { onPlay(e) }.padding(8.dp).size(20.dp))
+                            }
+                            Icon(AppIcons.Cancel, contentDescription = "Delete", tint = ErrRed, modifier = Modifier.clickable { onDelete(e.itemId) }.padding(8.dp).size(19.dp))
                         }
                         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
                     }
@@ -264,8 +264,14 @@ internal fun MusicBar(
             Text(state.title.ifBlank { "…" }, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (state.artist.isNotBlank()) Text(state.artist, fontFamily = Mono, color = accent.copy(alpha = 0.75f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Text(if (state.isPlaying) "❚❚" else "▶", fontFamily = Mono, color = MatrixGreen, fontSize = 17.sp, modifier = Modifier.clickable { onToggle() }.padding(8.dp))
-        if (state.hasNext) Text("⏭", fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, modifier = Modifier.clickable { onNext() }.padding(8.dp))
+        Icon(
+            if (state.isPlaying) AppIcons.Pause else AppIcons.Play,
+            contentDescription = "Play/Pause", tint = MatrixGreen,
+            modifier = Modifier.clickable { onToggle() }.padding(8.dp).size(22.dp),
+        )
+        if (state.hasNext) {
+            Icon(AppIcons.Next, contentDescription = "Next", tint = MatrixGreen, modifier = Modifier.clickable { onNext() }.padding(8.dp).size(20.dp))
+        }
     }
 }
 
@@ -325,15 +331,32 @@ internal fun NowPlayingScreen(
                 Text(fmtTime(dur), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp)
             }
             Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Shuffle and repeat flank the transport, where every music player puts them. Both are
+            // the player's own modes, so the lock screen and a car head unit see the same thing.
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.toggleShuffle() }) {
+                    Icon(
+                        AppIcons.Shuffle, contentDescription = "Shuffle",
+                        tint = if (state.shuffle) accent else MatrixGreen.copy(alpha = 0.35f),
+                        modifier = Modifier.size(26.dp),
+                    )
+                }
                 IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.prev() }, enabled = state.hasPrev) {
-                    Icon(Icons.Filled.SkipPrevious, contentDescription = "Prev", tint = if (state.hasPrev) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), modifier = Modifier.size(36.dp))
+                    Icon(AppIcons.Previous, contentDescription = "Prev", tint = if (state.hasPrev) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), modifier = Modifier.size(34.dp))
                 }
                 IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.playPause() }) {
-                    Icon(if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = "Play/Pause", tint = MatrixGreen, modifier = Modifier.size(56.dp))
+                    Icon(if (state.isPlaying) AppIcons.Pause else AppIcons.Play, contentDescription = "Play/Pause", tint = MatrixGreen, modifier = Modifier.size(56.dp))
                 }
                 IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.next() }, enabled = state.hasNext) {
-                    Icon(Icons.Filled.SkipNext, contentDescription = "Next", tint = if (state.hasNext) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), modifier = Modifier.size(36.dp))
+                    Icon(AppIcons.Next, contentDescription = "Next", tint = if (state.hasNext) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), modifier = Modifier.size(34.dp))
+                }
+                IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.cycleRepeat() }) {
+                    Icon(
+                        if (state.repeatMode == Player.REPEAT_MODE_ONE) AppIcons.RepeatOne else AppIcons.Repeat,
+                        contentDescription = "Repeat",
+                        tint = if (state.repeatMode == Player.REPEAT_MODE_OFF) MatrixGreen.copy(alpha = 0.35f) else accent,
+                        modifier = Modifier.size(26.dp),
+                    )
                 }
             }
             // Queue / album track list fills the space below the controls.
@@ -351,7 +374,12 @@ internal fun NowPlayingScreen(
                         ) {
                             Text("${i + 1}", fontFamily = Mono, color = if (current) accent else MatrixGreen.copy(alpha = 0.4f), fontSize = 11.sp, modifier = Modifier.width(26.dp))
                             Text(t.title, fontFamily = Mono, color = if (current) accent else MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                            if (current) Text(if (state.isPlaying) "❚❚" else "▶", fontFamily = Mono, color = accent, fontSize = 12.sp)
+                            if (current) {
+                                Icon(
+                                    if (state.isPlaying) AppIcons.Pause else AppIcons.Play,
+                                    contentDescription = null, tint = accent, modifier = Modifier.size(15.dp),
+                                )
+                            }
                         }
                     }
                 }

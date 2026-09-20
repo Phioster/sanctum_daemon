@@ -48,6 +48,7 @@ import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.ErrRed
+import org.phioster.sanctumd.ui.theme.AppIcons
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 
@@ -75,6 +76,12 @@ internal class JellyfinBrowseState {
     var unwatched by mutableStateOf(false)
     var filter by mutableStateOf("")
 
+    /**
+     * The album at the current level, when it is one. Music gets its own screen rather than the
+     * generic folder list: an album is a record sleeve and a running order, not a directory.
+     */
+    var album by mutableStateOf<org.phioster.sanctumd.net.MusicAlbum?>(null)
+
     // Which folders are open at the current level, and their lazily loaded children.
     var expanded by mutableStateOf<Set<String>>(emptySet())
     var children by mutableStateOf<Map<String, List<JellyMediaItem>>>(emptyMap())
@@ -90,7 +97,12 @@ internal class JellyfinBrowseState {
     /** Loads one folder's contents. Returns an error message, or null when it worked. */
     suspend fun loadFolder(vm: DashboardViewModel, config: ServiceConfig, parent: JellyMediaItem): String? {
         contents = null
+        album = null
         return guard {
+            // An album is fetched twice on purpose: once as playable tracks (what the screen shows
+            // and what the queue plays — they must not disagree) and once as generic items, because
+            // the download chips need the fields only those carry.
+            if (parent.kind == "MusicAlbum") album = vm.jellyfinAlbum(config, parent.id)
             contents = vm.jellyfinItemList(
                 config, parent.id,
                 seasonNumber = if (parent.kind == "Season") parent.number else null,
@@ -291,8 +303,20 @@ internal fun LazyListScope.jellyfinFolderLevel(
     scope: CoroutineScope,
     downloads: Map<String, DownloadEntry>,
     act: JellyfinMediaActions,
+    playingId: String,
 ) {
     val here = st.stack.last()
+    // Music leaves the generic folder machinery here: an album is a sleeve and a running order,
+    // and the sort chips, the unwatched filter and the drill-in rows all mean nothing to it.
+    if (here.kind == "MusicAlbum") {
+        jellyfinAlbumLevel(
+            album = st.album, contents = st.contents, vm = vm, config = config, accent = accent,
+            context = context, downloads = downloads, act = act, here = here, playingId = playingId,
+            onBack = { st.stack = st.stack.dropLast(1) },
+            onScan = { scope.launch { act.message(vm.jellyfinScanLibrary(config, here.id)) } },
+        )
+        return
+    }
     item {
         Spacer(Modifier.height(8.dp))
         BrowseChip("‹ back", accent) { st.stack = st.stack.dropLast(1) }
@@ -301,13 +325,13 @@ internal fun LazyListScope.jellyfinFolderLevel(
         Spacer(Modifier.height(10.dp))
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (here.kind == "MusicAlbum") {
-                BrowseChip("▶ play album", MatrixGreen) {
+                BrowseChip("play album", MatrixGreen, AppIcons.Play) {
                     // In the view model's scope, not this screen's: see playJellyfinTrack.
-                    vm.playJellyfinAlbum(config, here.id, here.name)
+                    vm.playJellyfinAlbum(config, here.id)
                 }
                 val toGetAudio = st.contents.orEmpty().filter { !it.isFolder && it.kind == "Audio" && downloads[it.id]?.done != true }
                 if (toGetAudio.isNotEmpty()) {
-                    BrowseChip("⬇ album (${toGetAudio.size})", MatrixGreen) {
+                    BrowseChip("album (${toGetAudio.size})", MatrixGreen, AppIcons.Download) {
                         toGetAudio.forEach { t -> DownloadService.enqueue(context, config.id, t.id, t.name, t.subtitle, t.posterUrl, 0L, "Audio") }
                         act.message("queued ${toGetAudio.size} downloads")
                     }
@@ -317,19 +341,19 @@ internal fun LazyListScope.jellyfinFolderLevel(
                 !it.isFolder && !it.played && it.kind in PLAYABLE_VIDEO_KINDS && downloads[it.id]?.done != true
             }.take(3)
             if (nextUnwatched.size > 1) {
-                BrowseChip("⬇ next ${nextUnwatched.size} unwatched", MatrixGreen) {
+                BrowseChip("next ${nextUnwatched.size} unwatched", MatrixGreen, AppIcons.Download) {
                     nextUnwatched.forEach { ep -> DownloadService.enqueue(context, config.id, ep.id, ep.name, ep.subtitle, ep.posterUrl, 0L) }
                     act.message("queued ${nextUnwatched.size} downloads")
                 }
             }
             val toGet = st.contents.orEmpty().filter { !it.isFolder && it.kind in PLAYABLE_VIDEO_KINDS && downloads[it.id]?.done != true }
             if (toGet.isNotEmpty()) {
-                BrowseChip("⬇ all (${toGet.size})", MatrixGreen) {
+                BrowseChip("all (${toGet.size})", MatrixGreen, AppIcons.Download) {
                     toGet.forEach { ep -> DownloadService.enqueue(context, config.id, ep.id, ep.name, ep.subtitle, ep.posterUrl, 0L) }
                     act.message("queued ${toGet.size} downloads")
                 }
             }
-            BrowseChip("⟳ scan", MatrixGreen.copy(alpha = 0.85f)) { scope.launch { act.message(vm.jellyfinScanLibrary(config, here.id)) } }
+            BrowseChip("scan", MatrixGreen.copy(alpha = 0.85f), AppIcons.Refresh) { scope.launch { act.message(vm.jellyfinScanLibrary(config, here.id)) } }
         }
         Spacer(Modifier.height(8.dp))
         // Sort + filter. Sorting and "unwatched only" are server-side
@@ -396,8 +420,11 @@ internal fun LazyListScope.jellyfinFolderLevel(
         m.isEmpty() -> item { Text("empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
         // Audio tracks read better as a list; everything else as a 3-column poster grid.
         m.any { it.kind == "Audio" } -> items(m) { it2 -> JellyMediaRow(it2, config, accent, { want -> act.setWatched(it2, want) }) { act.open(it2) } }
-        // Seasons and albums expand in place instead of forcing a drill-in.
-        m.all { it.isFolder && (it.kind == "Season" || it.kind == "MusicAlbum") } ->
+        // Albums open their own screen; a list of them wants square covers, not film posters.
+        m.all { it.isFolder && it.kind == "MusicAlbum" } ->
+            items(m, key = { "alb-${it.id}" }) { a -> AlbumListRow(a, config, accent) { act.open(a) } }
+        // Seasons still expand in place instead of forcing a drill-in.
+        m.all { it.isFolder && it.kind == "Season" } ->
             items(m, key = { "acc-${it.id}" }) { f ->
                 ExpandableFolderRow(
                     folder = f,

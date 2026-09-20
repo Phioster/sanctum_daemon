@@ -32,24 +32,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Devices
-import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.OpenInNew
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.VideoLibrary
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -360,13 +344,15 @@ internal fun JellyfinScreen(
                                 it.state == DownloadEntry.STATE_QUEUED)
                     }
                     if (activeDl.isNotEmpty()) {
-                        val label = if (activeDl.size == 1) "⬇ ${(activeDl.first().progress * 100).toInt()}%" else "⬇ ${activeDl.size}"
-                        Text(
-                            label, fontFamily = Mono, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                            modifier = Modifier
-                                .clickable { mode = 3; bs.stack = emptyList() }
-                                .padding(horizontal = 8.dp),
-                        )
+                        val label = if (activeDl.size == 1) "${(activeDl.first().progress * 100).toInt()}%" else "${activeDl.size}"
+                        Row(
+                            Modifier.clickable { mode = 3; bs.stack = emptyList() }.padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(AppIcons.Download, contentDescription = "Downloads", tint = accent, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(label, fontFamily = Mono, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                     Box {
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
@@ -433,7 +419,7 @@ internal fun JellyfinScreen(
                         if (refreshing) {
                             CircularProgressIndicator(Modifier.size(20.dp), color = MatrixGreen, strokeWidth = 2.dp)
                         } else {
-                            Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
+                            Icon(AppIcons.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                         }
                     }
                 }
@@ -465,7 +451,7 @@ internal fun JellyfinScreen(
                             3 -> if (bs.stack.isEmpty()) {
                                 jellyfinMediaHome(bs, config, accent, context, downloads, hiddenSet, mediaStyles, listError, mediaActions)
                             } else {
-                                jellyfinFolderLevel(bs, vm, config, accent, context, scope, downloads, mediaActions)
+                                jellyfinFolderLevel(bs, vm, config, accent, context, scope, downloads, mediaActions, musicState.currentMediaId)
                             }
                             2 -> jellyfinDashboardTab(ad, vm, config, accent, scope, { actionMsg = it }) { loadDashboard() }
                             4 -> jellyfinLiveTvTab(
@@ -656,7 +642,7 @@ internal fun JellyfinScreen(
                         Modifier.fillMaxWidth().clickable { rowPickerOpen = false; libraryFilterOpen = true }.padding(vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(Icons.Filled.Visibility, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+                        Icon(AppIcons.Watched, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(12.dp))
                         Text("Show / hide libraries", fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp)
                     }

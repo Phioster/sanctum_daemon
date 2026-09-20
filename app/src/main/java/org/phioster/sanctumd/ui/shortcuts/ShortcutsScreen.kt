@@ -132,7 +132,7 @@ internal fun ShortcutsScreen(
                         Text("▸ ${sc.name}", fontFamily = Mono, color = accent, fontSize = 15.sp, modifier = Modifier.weight(1f))
                         when {
                             running == sc.name -> Text("running…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                            pending == sc.name -> Text("tap again to run", fontFamily = Mono, color = Color(0xFFFFAA00), fontSize = 11.sp)
+                            pending == sc.name -> Text("tap again to run", fontFamily = Mono, color = WarnAmber, fontSize = 11.sp)
                         }
                     }
                     Text("${sc.method.uppercase()} ${sc.url}", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -148,7 +148,7 @@ internal fun ShortcutsScreen(
             onDismissRequest = { confirmDelete = false },
             containerColor = Surface,
             title = { Text("Delete ${config.label}?", fontFamily = Mono, color = MatrixGreen) },
-            confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete", fontFamily = Mono, color = Color(0xFFFF5555)) } },
+            confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete", fontFamily = Mono, color = ErrRed) } },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
     }

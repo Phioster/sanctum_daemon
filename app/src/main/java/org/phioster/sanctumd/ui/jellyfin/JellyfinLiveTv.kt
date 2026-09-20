@@ -37,6 +37,10 @@ import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
+import org.phioster.sanctumd.ui.theme.AppIcons
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 
 /**
  * Everything the Live TV tab knows: its two lists and which of its confirmations is armed.
@@ -49,7 +53,7 @@ internal class JellyfinLiveTvState {
     var channels by mutableStateOf<List<JellyChannel>?>(null)
     var showAddTuner by mutableStateOf(false)
     var showAddProvider by mutableStateOf(false)
-    /** Tap-to-arm, tap-again-to-delete: the id whose ✕ currently reads "remove?". */
+    /** Tap-to-arm, tap-again-to-delete: the id whose remove control currently reads "remove?". */
     var confirmDeleteTuner by mutableStateOf<String?>(null)
     var confirmDeleteProvider by mutableStateOf<String?>(null)
 
@@ -116,14 +120,16 @@ internal fun LazyListScope.jellyfinLiveTvTab(
                         Spacer(Modifier.height(2.dp))
                         Text(t.url, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    Text(
-                        if (st.confirmDeleteTuner == t.id) "remove?" else "✕",
-                        fontFamily = Mono, color = ErrRed, fontSize = 12.sp,
-                        modifier = Modifier.clickable {
-                            if (st.confirmDeleteTuner == t.id) scope.launch { onMessage(vm.jellyfinTunerDelete(config, t.id)); onReload() }
-                            else st.confirmDeleteTuner = t.id
-                        }.padding(start = 12.dp),
-                    )
+                    // Two taps to remove: the first turns the cross into the question.
+                    val removeTuner = Modifier.clickable {
+                        if (st.confirmDeleteTuner == t.id) scope.launch { onMessage(vm.jellyfinTunerDelete(config, t.id)); onReload() }
+                        else st.confirmDeleteTuner = t.id
+                    }.padding(start = 12.dp)
+                    if (st.confirmDeleteTuner == t.id) {
+                        Text("remove?", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = removeTuner)
+                    } else {
+                        Icon(AppIcons.Cancel, contentDescription = "Remove", tint = ErrRed, modifier = removeTuner.size(16.dp))
+                    }
                 }
                 Spacer(Modifier.height(6.dp))
                 HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
@@ -154,14 +160,16 @@ internal fun LazyListScope.jellyfinLiveTvTab(
                             Text(p.path, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
-                    Text(
-                        if (st.confirmDeleteProvider == p.id) "remove?" else "✕",
-                        fontFamily = Mono, color = ErrRed, fontSize = 12.sp,
-                        modifier = Modifier.clickable {
-                            if (st.confirmDeleteProvider == p.id) scope.launch { onMessage(vm.jellyfinProviderDelete(config, p.id)); onReload() }
-                            else st.confirmDeleteProvider = p.id
-                        }.padding(start = 12.dp),
-                    )
+                    // Two taps to remove: the first turns the cross into the question.
+                    val removeProvider = Modifier.clickable {
+                        if (st.confirmDeleteProvider == p.id) scope.launch { onMessage(vm.jellyfinProviderDelete(config, p.id)); onReload() }
+                        else st.confirmDeleteProvider = p.id
+                    }.padding(start = 12.dp)
+                    if (st.confirmDeleteProvider == p.id) {
+                        Text("remove?", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = removeProvider)
+                    } else {
+                        Icon(AppIcons.Cancel, contentDescription = "Remove", tint = ErrRed, modifier = removeProvider.size(16.dp))
+                    }
                 }
                 Spacer(Modifier.height(6.dp))
                 HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
@@ -177,17 +185,20 @@ internal fun LazyListScope.jellyfinLiveTvTab(
     // server's "Refresh Guide" task.
     if (!ch.isNullOrEmpty() && ch.none { it.nowPlaying.isNotBlank() }) {
         item {
-            Text(
-                "no program data — guide may be stale · ⟳ refresh guide",
-                fontFamily = Mono, color = accent, fontSize = 12.sp,
-                modifier = Modifier.fillMaxWidth().clickable {
+            Row(
+                Modifier.fillMaxWidth().clickable {
                     scope.launch {
                         val task = runCatching { vm.jellyfinTaskList(config) }.getOrNull()
                             ?.firstOrNull { it.name.contains("Guide", ignoreCase = true) }
                         onMessage(if (task == null) "guide task not found" else vm.jellyfinRunTaskById(config, task.id))
                     }
                 }.padding(vertical = 8.dp),
-            )
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(AppIcons.Refresh, contentDescription = null, tint = accent, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("no program data — guide may be stale · refresh guide", fontFamily = Mono, color = accent, fontSize = 12.sp)
+            }
         }
     }
     when {

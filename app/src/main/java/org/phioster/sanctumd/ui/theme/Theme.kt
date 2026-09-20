@@ -123,8 +123,15 @@ internal val Black: Color get() = ThemeState.palette.background
 internal val Surface: Color get() = ThemeState.palette.surface
 internal val SurfaceHi: Color get() = ThemeState.palette.surfaceHi
 
-// Errors stay red in every theme — that is the one colour that must not blend in.
+// Errors stay red in every theme — that is the one colour that must not blend in. The same holds
+// for the two ambers: a warning that took on the palette's accent would read as ordinary text.
 internal val ErrRed = Color(0xFFFF5555)
+
+/** "Needs attention": pending, in progress, blocked, a confirmation waiting for its second tap. */
+internal val WarnAmber = Color(0xFFFFAA00)
+
+/** The same warning one step quieter — a paragraph of caution rather than a marker. */
+internal val WarnAmberDim = Color(0xFFE0A030)
 internal val Mono = FontFamily.Monospace
 
 // A getter, not a value: as a top-level `val` this would capture the colours once at class-init and

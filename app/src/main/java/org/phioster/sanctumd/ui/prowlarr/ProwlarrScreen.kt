@@ -535,7 +535,7 @@ internal fun ProwlarrScreen(
                         si == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                         si.health.isEmpty() -> Text("all healthy", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
                         else -> si.health.forEach { (type, msg) ->
-                            val c = if (type.equals("error", true)) ErrRed else Color(0xFFFFAA00)
+                            val c = if (type.equals("error", true)) ErrRed else WarnAmber
                             Text("• $msg", fontFamily = Mono, color = c, fontSize = 12.sp)
                         }
                     }

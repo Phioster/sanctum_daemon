@@ -33,6 +33,13 @@ import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
+import org.phioster.sanctumd.ui.theme.WarnAmber
+import org.phioster.sanctumd.ui.theme.AppIcons
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.Icon
 
 /**
  * What to look for on the Radarr/Sonarr side, stated in their terms rather than the calling
@@ -117,13 +124,19 @@ internal fun ArrCounterpartDialog(
                         )
                         queued.forEach { q ->
                             Spacer(Modifier.height(8.dp))
-                            Text(
-                                if (q.blocked) "⚠  downloaded, waiting to be imported"
-                                else "⬇  ${(q.progress * 100).toInt()}%  ·  ${q.status.lowercase()}",
-                                fontFamily = Mono,
-                                color = if (q.blocked) Color(0xFFFFAA00) else MatrixGreen,
-                                fontSize = 11.sp,
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                val tint = if (q.blocked) WarnAmber else MatrixGreen
+                                Icon(
+                                    if (q.blocked) AppIcons.Failed else AppIcons.Download,
+                                    contentDescription = null, tint = tint, modifier = Modifier.size(13.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    if (q.blocked) "downloaded, waiting to be imported"
+                                    else "${(q.progress * 100).toInt()}%  ·  ${q.status.lowercase()}",
+                                    fontFamily = Mono, color = tint, fontSize = 11.sp,
+                                )
+                            }
                             Text(
                                 q.title,
                                 fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 10.sp,
@@ -132,7 +145,7 @@ internal fun ArrCounterpartDialog(
                         }
                         target.scopeNote.takeIf { it.isNotBlank() }?.let { note ->
                             Spacer(Modifier.height(6.dp))
-                            Text(note, fontFamily = Mono, color = Color(0xFFFFAA00), fontSize = 10.sp)
+                            Text(note, fontFamily = Mono, color = WarnAmber, fontSize = 10.sp)
                         }
                         Spacer(Modifier.height(12.dp))
                         Action("Search for a better version", busy) {

@@ -33,12 +33,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -80,8 +75,6 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.filled.OpenInNew
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -149,7 +142,7 @@ internal fun SeerrScreen(
     var barMenu by remember { mutableStateOf(false) }
     var showAdd by remember { mutableStateOf(false) }
     var searchTerm by remember { mutableStateOf("") }
-    var searchResults by remember { mutableStateOf<List<SeerrSearchItem>?>(null) }
+    var searchResults by remember { mutableStateOf<List<org.phioster.sanctumd.model.SeerrDiscoverItem>?>(null) }
     var confirmItem by remember { mutableStateOf<SeerrSearchItem?>(null) }
     var rootFolders by remember { mutableStateOf<List<org.phioster.sanctumd.model.SeerrRootFolder>>(emptyList()) }
     var chosenFolder by remember { mutableStateOf<org.phioster.sanctumd.model.SeerrRootFolder?>(null) }
@@ -285,7 +278,7 @@ internal fun SeerrScreen(
                     Box {
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
-                            DropdownMenuItem(text = { Text("New request", fontFamily = Mono) }, onClick = { barMenu = false; searchTerm = ""; searchResults = null; showAdd = true })
+                            DropdownMenuItem(text = { Text("Search & request", fontFamily = Mono) }, onClick = { barMenu = false; searchTerm = ""; searchResults = null; showAdd = true })
                             DropdownMenuItem(text = { Text("Users & stats", fontFamily = Mono) }, onClick = {
                                 barMenu = false; showStats = true; stats = null; users = null
                                 scope.launch {
@@ -347,7 +340,7 @@ internal fun SeerrScreen(
                     }
                     IconButton(enabled = !refreshing, onClick = { actionMsg = null; scope.launch { refreshing = true; when (mode) { 0 -> loadRequests(); 1 -> loadIssues(); 3 -> loadWatchlist(); else -> if (discoverKind == "genres") loadGenreRows() else loadDiscover() }; refreshing = false } }) {
                         if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), color = MatrixGreen, strokeWidth = 2.dp)
-                        else Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
+                        else Icon(AppIcons.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                     }
                 }
                 actionMsg?.let {
@@ -449,7 +442,7 @@ internal fun SeerrScreen(
         AlertDialog(
             onDismissRequest = { showAdd = false },
             containerColor = Surface,
-            title = { Text("New request", fontFamily = Mono, color = MatrixGreen) },
+            title = { Text("Search ${config.label}", fontFamily = Mono, color = MatrixGreen) },
             text = {
                 Column {
                     Field("Search title", searchTerm) { searchTerm = it }
@@ -459,25 +452,16 @@ internal fun SeerrScreen(
                         enabled = searchTerm.isNotBlank(),
                     ) { Text("Search", fontFamily = Mono) }
                     Spacer(Modifier.height(8.dp))
-                    Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
+                    // A hit opens the same detail sheet the discover rows open: the poster, the plot
+                    // and the request status are in the search answer already, and requesting a
+                    // title unseen is how the wrong one gets requested.
+                    Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
                         val res = searchResults
                         when {
                             res == null -> {}
                             res.isEmpty() -> Text("no results", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                             else -> res.forEach { r ->
-                                Column(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .clickable { confirmItem = r; showAdd = false }
-                                        .padding(vertical = 8.dp),
-                                ) {
-                                    Text(
-                                        "${r.title}${if (r.year.isNotBlank()) " (${r.year})" else ""}",
-                                        fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp,
-                                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                    )
-                                    Text(r.mediaType, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
-                                }
+                                SeerrDiscoverRow(r, accent) { showAdd = false; openDiscoverDetail(r) }
                             }
                         }
                     }
@@ -674,9 +658,9 @@ internal fun SeerrScreen(
                     }
                     Spacer(Modifier.height(8.dp))
                     SecondaryButton(
-                        if (onWatchlist) "on watchlist  ✓" else "add to watchlist",
+                        if (onWatchlist) "on watchlist" else "add to watchlist",
                         Modifier.fillMaxWidth(),
-                        icon = if (onWatchlist) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                        icon = if (onWatchlist) AppIcons.Unwatched else AppIcons.Watched,
                         accent = if (onWatchlist) MatrixGreen else accent,
                         enabled = !watchlistBusy,
                     ) {
@@ -698,17 +682,7 @@ internal fun SeerrScreen(
                     }
                     if (d.facts.isNotEmpty()) {
                         Spacer(Modifier.height(14.dp))
-                        d.facts.chunked(2).forEach { pair ->
-                            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                                pair.forEach { (k, v) ->
-                                    Column(Modifier.weight(1f)) {
-                                        Text(v, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text(k.uppercase(), fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 9.sp)
-                                    }
-                                }
-                                if (pair.size == 1) Spacer(Modifier.weight(1f))
-                            }
-                        }
+                        FactGrid(d.facts, accent)
                     }
                     if (d.genres.isNotBlank()) {
                         Spacer(Modifier.height(2.dp))
@@ -894,7 +868,7 @@ internal fun SeerrScreen(
                     if (d == null) {
                         Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                     } else {
-                        Text("${d.type} · ${d.status}", fontFamily = Mono, color = if (d.status == "open") Color(0xFFFFAA00) else MatrixGreen, fontSize = 11.sp)
+                        Text("${d.type} · ${d.status}", fontFamily = Mono, color = if (d.status == "open") WarnAmber else MatrixGreen, fontSize = 11.sp)
                         Spacer(Modifier.height(8.dp))
                         Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                             if (d.description.isNotBlank()) {
@@ -951,7 +925,7 @@ internal fun SeerrRequestRow(item: SeerrRequestItem, accent: Color, onOpen: () -
     val statusColor = when (item.status) {
         "approved" -> MatrixGreen
         "declined" -> ErrRed
-        "pending" -> Color(0xFFFFAA00)
+        "pending" -> WarnAmber
         else -> MatrixGreen.copy(alpha = 0.6f)
     }
     Box {
@@ -987,7 +961,7 @@ internal fun SeerrRequestRow(item: SeerrRequestItem, accent: Color, onOpen: () -
 
 @Composable
 internal fun SeerrIssueRow(item: SeerrIssueItem, accent: Color, onClick: () -> Unit) {
-    val statusColor = if (item.status == "open") Color(0xFFFFAA00) else MatrixGreen
+    val statusColor = if (item.status == "open") WarnAmber else MatrixGreen
     Column(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 10.dp)) {
         Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(2.dp))
@@ -1004,7 +978,7 @@ internal fun SeerrIssueRow(item: SeerrIssueItem, accent: Color, onClick: () -> U
 internal fun SeerrDiscoverRow(item: org.phioster.sanctumd.model.SeerrDiscoverItem, accent: Color, onRequest: () -> Unit) {
     val statusColor = when (item.status) {
         "available" -> MatrixGreen
-        "processing", "pending", "partial" -> Color(0xFFFFAA00)
+        "processing", "pending", "partial" -> WarnAmber
         else -> MatrixGreen.copy(alpha = 0.5f)
     }
     Row(

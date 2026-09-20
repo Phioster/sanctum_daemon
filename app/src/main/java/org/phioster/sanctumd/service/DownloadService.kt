@@ -220,7 +220,7 @@ class DownloadService : Service() {
             store.update(id) {
                 it.copy(state = DownloadEntry.STATE_DONE, filePath = file.absolutePath, downloadedBytes = it.sizeBytes.coerceAtLeast(file.length()), posterFile = poster)
             }
-            notifyDone(id, "✓  $display", "Download complete")
+            notifyDone(id, display, "Download complete")
         } catch (c: CancellationException) {
             throw c // real coroutine cancellation (service destroyed) — don't swallow
         } catch (d: DownloadCancelled) {
@@ -228,7 +228,7 @@ class DownloadService : Service() {
             cancelled -= id
         } catch (t: Throwable) {
             store.update(id) { it.copy(state = DownloadEntry.STATE_FAILED, error = t.message ?: t.javaClass.simpleName) }
-            notifyDone(id, "⚠  $display", "Download failed")
+            notifyDone(id, display, "Download failed")
         }
     }
 

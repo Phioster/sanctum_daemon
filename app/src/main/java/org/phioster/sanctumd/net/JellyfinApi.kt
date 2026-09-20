@@ -192,6 +192,7 @@ internal data class JfCounts(
     val ParentIndexNumber: Int? = null,
     val IndexNumber: Int? = null,
     val AlbumArtist: String? = null,
+    val RunTimeTicks: Long? = null, // audio: track length, in 100-ns ticks
     val LocationType: String? = null, // "FileSystem"/"Remote" = present; "Virtual" = metadata only, no file
     val ImageTags: Map<String, String>? = null,
     val OfficialRating: String? = null,

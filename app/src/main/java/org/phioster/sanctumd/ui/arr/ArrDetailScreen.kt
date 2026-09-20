@@ -27,10 +27,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -204,17 +201,7 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                             d?.sizeMb?.takeIf { it > 0 }?.let { add("size" to if (it >= 1024) "%.1f GB".format(it / 1024.0) else "$it MB") }
                             d?.facts?.let { addAll(it) }
                         }
-                        chips.chunked(2).forEach { pair ->
-                            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                                pair.forEach { (k, v) ->
-                                    Column(Modifier.weight(1f)) {
-                                        Text(v, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text(k.uppercase(), fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 9.sp)
-                                    }
-                                }
-                                if (pair.size == 1) Spacer(Modifier.weight(1f))
-                            }
-                        }
+                        FactGrid(chips, accent)
                     }
                 }
                 if (d != null) {
@@ -224,8 +211,8 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                     SecondaryButton(
                         if (d.monitored) "monitored" else "not monitored — tap to monitor",
                         Modifier.fillMaxWidth(),
-                        icon = if (d.monitored) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                        accent = if (d.monitored) Color(0xFFFFAA00) else accent,
+                        icon = if (d.monitored) AppIcons.Monitored else AppIcons.NotMonitored,
+                        accent = if (d.monitored) WarnAmber else accent,
                     ) {
                         scope.launch {
                             actionMsg = vm.arrSetLibraryMonitored(config, itemId, !d.monitored)
@@ -505,7 +492,7 @@ internal fun SonarrSeasonHeader(season: Int, episodeCount: Int, haveCount: Int, 
         Text("$haveCount/$episodeCount", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, modifier = Modifier.weight(1f))
         // Interactive search for the whole season (season packs + episodes).
         IconButton(onClick = onSearch, modifier = Modifier.size(28.dp)) {
-            Icon(Icons.Filled.Search, contentDescription = "Search season", tint = MatrixGreen)
+            Icon(AppIcons.Search, contentDescription = "Search season", tint = MatrixGreen)
         }
     }
     HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
@@ -513,7 +500,7 @@ internal fun SonarrSeasonHeader(season: Int, episodeCount: Int, haveCount: Int, 
 
 @Composable
 internal fun ArrEpisodeRow(item: ArrEpisode, accent: Color, onToggleMonitor: () -> Unit, onSearch: () -> Unit) {
-    val c = if (item.hasFile) MatrixGreen else if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.4f)
+    val c = if (item.hasFile) MatrixGreen else if (item.monitored) WarnAmber else MatrixGreen.copy(alpha = 0.4f)
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).clickable { onSearch() }.padding(vertical = 6.dp)) {
@@ -525,13 +512,13 @@ internal fun ArrEpisodeRow(item: ArrEpisode, accent: Color, onToggleMonitor: () 
             }
             IconButton(onClick = onToggleMonitor) {
                 Icon(
-                    if (item.monitored) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                    if (item.monitored) AppIcons.Monitored else AppIcons.NotMonitored,
                     contentDescription = if (item.monitored) "Unmonitor" else "Monitor",
-                    tint = if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.5f),
+                    tint = if (item.monitored) WarnAmber else MatrixGreen.copy(alpha = 0.5f),
                 )
             }
             IconButton(onClick = onSearch) {
-                Icon(Icons.Filled.Search, contentDescription = "Search episode", tint = accent)
+                Icon(AppIcons.Search, contentDescription = "Search episode", tint = accent)
             }
         }
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
@@ -547,7 +534,7 @@ internal fun ArrAlbumRow(
     onOpen: () -> Unit,
 ) {
     val complete = item.trackCount > 0 && item.trackFileCount >= item.trackCount
-    val c = if (complete) MatrixGreen else if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.4f)
+    val c = if (complete) MatrixGreen else if (item.monitored) WarnAmber else MatrixGreen.copy(alpha = 0.4f)
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).clickable { onOpen() }.padding(vertical = 6.dp)) {
@@ -560,13 +547,13 @@ internal fun ArrAlbumRow(
             // Proper 48dp touch targets for monitor + search.
             IconButton(onClick = onToggleMonitor) {
                 Icon(
-                    if (item.monitored) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                    if (item.monitored) AppIcons.Monitored else AppIcons.NotMonitored,
                     contentDescription = if (item.monitored) "Unmonitor" else "Monitor",
-                    tint = if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.5f),
+                    tint = if (item.monitored) WarnAmber else MatrixGreen.copy(alpha = 0.5f),
                 )
             }
             IconButton(onClick = onQuickSearch) {
-                Icon(Icons.Filled.Search, contentDescription = "Search album", tint = accent)
+                Icon(AppIcons.Search, contentDescription = "Search album", tint = accent)
             }
         }
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
@@ -602,13 +589,13 @@ internal fun ArrReleaseRow(item: ArrRelease, accent: Color, onGrab: () -> Unit) 
             Text(
                 if (item.approved) "· approved" else "· rejected",
                 fontFamily = Mono,
-                color = if (item.approved) MatrixGreen.copy(alpha = 0.7f) else Color(0xFFFFAA00),
+                color = if (item.approved) MatrixGreen.copy(alpha = 0.7f) else WarnAmber,
                 fontSize = 10.sp,
             )
         }
         if (!item.approved && item.rejection.isNotBlank()) {
             Spacer(Modifier.height(2.dp))
-            Text(item.rejection, fontFamily = Mono, color = Color(0xFFFFAA00).copy(alpha = 0.85f), fontSize = 10.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Text(item.rejection, fontFamily = Mono, color = WarnAmber.copy(alpha = 0.85f), fontSize = 10.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.height(6.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))

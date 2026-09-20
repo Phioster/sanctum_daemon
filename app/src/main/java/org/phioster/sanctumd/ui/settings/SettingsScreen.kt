@@ -596,10 +596,14 @@ internal fun BackupSection(vm: DashboardViewModel) {
     SettingsCategoryRow("import config", "restore from an encrypted backup file") {
         openLauncher.launch(arrayOf("application/octet-stream", "*/*"))
     }
-    Text(
-        "⚠ the file holds your API keys and tokens — only the password protects them. keep it somewhere safe.",
-        fontFamily = Mono, color = Color(0xFFE0A030), fontSize = 10.sp, modifier = Modifier.padding(top = 12.dp),
-    )
+    Row(Modifier.padding(top = 12.dp)) {
+        Icon(AppIcons.Failed, contentDescription = null, tint = WarnAmberDim, modifier = Modifier.size(12.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(
+            "the file holds your API keys and tokens — only the password protects them. keep it somewhere safe.",
+            fontFamily = Mono, color = WarnAmberDim, fontSize = 10.sp,
+        )
+    }
 
     if (showExport) {
         var pw by remember { mutableStateOf("") }
@@ -649,7 +653,7 @@ internal fun BackupSection(vm: DashboardViewModel) {
             title = { Text("import config", fontFamily = Mono, color = MatrixGreen) },
             text = {
                 Column {
-                    Text("This replaces your current services, ntfy settings and dashboard. Enter the file's password.", fontFamily = Mono, color = Color(0xFFE0A030), fontSize = 12.sp)
+                    Text("This replaces your current services, ntfy settings and dashboard. Enter the file's password.", fontFamily = Mono, color = WarnAmberDim, fontSize = 12.sp)
                     Field("password", pw, isPassword = true) { pw = it }
                 }
             },

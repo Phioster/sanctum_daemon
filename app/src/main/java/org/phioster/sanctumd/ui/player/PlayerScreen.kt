@@ -44,18 +44,13 @@ import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Forward10
-import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Subtitles
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -91,8 +86,10 @@ import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.net.PlaybackSource
 import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.theme.Black
+import org.phioster.sanctumd.ui.theme.AppIcons
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
+import org.phioster.sanctumd.ui.theme.ErrRed
 import kotlin.math.roundToInt
 
 private fun fmt(ms: Long): String {
@@ -589,7 +586,7 @@ internal fun PlayerScreen(
         loadError?.let { err ->
             Text(
                 "playback error: $err",
-                fontFamily = Mono, color = Color(0xFFFF5555), fontSize = 13.sp,
+                fontFamily = Mono, color = ErrRed, fontSize = 13.sp,
                 modifier = Modifier.align(Alignment.Center).padding(24.dp),
             )
         }
@@ -604,7 +601,7 @@ internal fun PlayerScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Icon(
-                    if (isBright) Icons.Filled.BrightnessMedium else Icons.Filled.VolumeUp,
+                    if (isBright) Icons.Filled.BrightnessMedium else AppIcons.Audio,
                     contentDescription = null, tint = MatrixGreen, modifier = Modifier.size(22.dp),
                 )
                 Text("${(value * 100).roundToInt()}%", fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -665,8 +662,15 @@ internal fun PlayerScreen(
                 }
                 Spacer(Modifier.height(8.dp))
                 Row {
-                    Text("▶  play now", fontFamily = Mono, color = Black, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(MatrixGreen).clickable { playNext(next) }.padding(horizontal = 12.dp, vertical = 6.dp))
+                    Row(
+                        Modifier.clip(RoundedCornerShape(6.dp)).background(MatrixGreen).clickable { playNext(next) }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(AppIcons.Play, contentDescription = null, tint = Black, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("play now", fontFamily = Mono, color = Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
                     Spacer(Modifier.width(8.dp))
                     Text("dismiss", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp,
                         modifier = Modifier.clickable { nextCardVisible = false; nextCountdown = -1; nextUp = null }.padding(horizontal = 10.dp, vertical = 6.dp))
@@ -738,7 +742,7 @@ internal fun PlayerScreen(
                 }
                 IconButton(onClick = { engine.togglePlay(); state = engine.snapshot() }) {
                     Icon(
-                        if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        if (state.isPlaying) AppIcons.Pause else AppIcons.Play,
                         contentDescription = "Play/Pause", tint = MatrixGreen, modifier = Modifier.size(56.dp),
                     )
                 }
@@ -988,7 +992,7 @@ private fun SettingsPanel(
             }
         }
 
-        SettingsSection(Icons.Filled.HighQuality, "quality") {
+        SettingsSection(AppIcons.Quality, "quality") {
             QUALITY_OPTIONS.forEach { (label, cap) ->
                 SettingsRow(label, selected = label == currentQuality) { onQuality(label, cap) }
             }
@@ -1006,7 +1010,7 @@ private fun SettingsPanel(
             }
         }
 
-        SettingsSection(Icons.Filled.Subtitles, "subtitles") {
+        SettingsSection(AppIcons.Subtitles, "subtitles") {
             SettingsRow("off", selected = subSel == null) { subSel = null; engine.selectTrack(TrackKind.SUBTITLE, null) }
             subtitleTracks.forEach { t ->
                 SettingsRow(t.label, selected = t.id == subSel) {
@@ -1032,7 +1036,7 @@ private fun SettingsPanel(
                 }
             }
         }
-        SettingsSection(Icons.Filled.Subtitles, "subtitle delay") {
+        SettingsSection(AppIcons.Subtitles, "subtitle delay") {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("−0.5s", fontFamily = Mono, fontSize = 12.sp, color = MatrixGreen,
                     modifier = Modifier.background(Color(0x33FFFFFF), RoundedCornerShape(6.dp))

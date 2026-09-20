@@ -35,7 +35,6 @@ import org.phioster.sanctumd.model.SeerrProfile
 import org.phioster.sanctumd.model.SeerrRootFolder
 import org.phioster.sanctumd.model.SeerrServiceOptions
 import org.phioster.sanctumd.model.SeerrMediaDetail
-import org.phioster.sanctumd.model.SeerrSearchItem
 import org.phioster.sanctumd.model.SeerrUserInfo
 import org.phioster.sanctumd.model.SeerrSeason
 import org.phioster.sanctumd.model.SeerrTitleExtras
@@ -88,17 +87,6 @@ import retrofit2.http.Query
 )
 @Serializable internal data class SeerrIssuePage(val results: List<SeerrIssue> = emptyList())
 
-@Serializable internal data class SeerrSearchResult(
-    val id: Int = 0,
-    val mediaType: String = "",
-    val title: String? = null,        // movie
-    val name: String? = null,         // tv
-    val releaseDate: String? = null,  // movie
-    val firstAirDate: String? = null, // tv
-    val adult: Boolean = false,       // TMDB adult (porn) flag
-)
-@Serializable internal data class SeerrSearchPage(val results: List<SeerrSearchResult> = emptyList())
-
 @Serializable internal data class SeerrGenreDto(val id: Int = 0, val name: String = "")
 
 /** One Radarr/Sonarr server as Seerr has it configured. */
@@ -141,7 +129,6 @@ internal interface SeerrApi {
     @POST("api/v1/request/{id}/approve") suspend fun approve(@Path("id") id: Int): Response<ResponseBody>
     @POST("api/v1/request/{id}/decline") suspend fun decline(@Path("id") id: Int): Response<ResponseBody>
 
-    @GET("api/v1/search") suspend fun search(@Query("query") query: String): SeerrSearchPage
     @GET("api/v1/search") suspend fun searchRaw(@Query("query") query: String): JsonObject
     @POST("api/v1/request") suspend fun createRequest(@Body body: JsonObject): Response<ResponseBody>
     @GET("api/v1/discover/trending") suspend fun trending(@Query("page") page: Int = 1): JsonObject
@@ -246,20 +233,15 @@ suspend fun seerrIssues(config: ServiceConfig, filter: String): List<SeerrIssueI
     }
 }
 
-suspend fun seerrSearch(config: ServiceConfig, query: String): List<SeerrSearchItem> = withContext(Dispatchers.IO) {
-    val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
-    api.search(query).results
-        .filter { it.mediaType == "movie" || it.mediaType == "tv" }
-        .map { r ->
-            val date = r.releaseDate ?: r.firstAirDate ?: ""
-            SeerrSearchItem(
-                tmdbId = r.id,
-                title = (r.title ?: r.name ?: "#${r.id}"),
-                year = date.take(4),
-                mediaType = r.mediaType,
-                adult = r.adult,
-            )
-        }
+/**
+ * Seerr's `/search`, kept whole.
+ *
+ * The answer is a page of full TMDB records — poster, year, request status — and the same reader
+ * the discover rows use turns it into browse items. A hit can then open the detail sheet instead
+ * of being a title and a year on the way to a request dialog.
+ */
+suspend fun seerrSearch(config: ServiceConfig, query: String): List<SeerrDiscoverItem> = withContext(Dispatchers.IO) {
+    parseDiscoverItems(apiFor<SeerrApi>(config, apiKeyHeader(config)).searchRaw(query), null)
 }
 
 internal fun seerrMediaStatusText(status: Int?) = when (status) {

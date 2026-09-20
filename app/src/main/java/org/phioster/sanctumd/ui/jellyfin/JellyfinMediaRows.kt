@@ -23,11 +23,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -224,7 +220,7 @@ internal fun MediaHero(item: org.phioster.sanctumd.model.JellyMediaItem, config:
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(accent).clickable { onPlay() }.padding(horizontal = 16.dp, vertical = 7.dp),
             ) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Black, modifier = Modifier.size(18.dp))
+                Icon(AppIcons.Play, contentDescription = null, tint = Black, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
                 Text(if (item.progressPct > 0.01f) "Resume" else "Play", fontFamily = Mono, color = Black, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
@@ -269,7 +265,12 @@ internal fun MediaGridCard(item: org.phioster.sanctumd.model.JellyMediaItem, con
 
 /** Browse-header action chip — delegates to the app-wide [AppChip]. */
 @Composable
-internal fun BrowseChip(label: String, accent: Color, onClick: () -> Unit) = AppChip(label, accent, onClick)
+internal fun BrowseChip(
+    label: String,
+    accent: Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    onClick: () -> Unit,
+) = AppChip(label, accent, icon, onClick)
 
 /** A library shown as a landscape tile (poster-cropped + scrim + name) in the Media home grid. */
 @Composable

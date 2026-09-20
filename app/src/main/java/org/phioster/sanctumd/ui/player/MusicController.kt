@@ -31,6 +31,11 @@ data class MusicState(
     val hasPrev: Boolean = false,
     val queue: List<QueueTrack> = emptyList(),
     val currentIndex: Int = 0,
+    /** Jellyfin item id of the track playing right now, so a track list can mark its own row. */
+    val currentMediaId: String = "",
+    val shuffle: Boolean = false,
+    /** One of [Player.REPEAT_MODE_OFF], [Player.REPEAT_MODE_ONE], [Player.REPEAT_MODE_ALL]. */
+    val repeatMode: Int = Player.REPEAT_MODE_OFF,
 )
 
 /**
@@ -82,7 +87,13 @@ object MusicController {
     }
 
     /** Play [tracks] from [startIndex]; [headers] are the service's per-request custom headers. */
-    fun play(context: Context, tracks: List<MusicTrack>, startIndex: Int, headers: Map<String, String>) {
+    fun play(
+        context: Context,
+        tracks: List<MusicTrack>,
+        startIndex: Int,
+        headers: Map<String, String>,
+        shuffle: Boolean = false,
+    ) {
         if (tracks.isEmpty()) { report(context, "music: no playable track in this album"); return }
         // The track carries what its own server needs (auth included, since the token no longer
         // rides in the URL); [headers] stays for callers that pass service headers directly.
@@ -105,6 +116,7 @@ object MusicController {
                         )
                         .build()
                 }
+                c.shuffleModeEnabled = shuffle
                 c.setMediaItems(items, startIndex.coerceIn(0, items.size - 1), 0L)
                 c.prepare()
                 c.play()
@@ -117,6 +129,22 @@ object MusicController {
     }
 
     fun playPause() { controller?.let { if (it.isPlaying) it.pause() else it.play() } }
+
+    fun toggleShuffle() { controller?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled } }
+
+    /**
+     * Off → repeat all → repeat one → off, the order every music player uses. Left to media3
+     * rather than reordering the queue ourselves: the player owns what comes next, and a queue
+     * we shuffled by hand would disagree with the lock screen the moment anyone touched it there.
+     */
+    fun cycleRepeat() {
+        val c = controller ?: return
+        c.repeatMode = when (c.repeatMode) {
+            Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+            Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+            else -> Player.REPEAT_MODE_OFF
+        }
+    }
     fun next() { controller?.seekToNextMediaItem() }
     fun prev() { controller?.seekToPreviousMediaItem() }
     fun seekToIndex(index: Int) { controller?.seekTo(index, 0L) }
@@ -146,6 +174,9 @@ object MusicController {
             hasPrev = c.hasPreviousMediaItem(),
             queue = queue,
             currentIndex = c.currentMediaItemIndex,
+            currentMediaId = c.currentMediaItem?.mediaId.orEmpty(),
+            shuffle = c.shuffleModeEnabled,
+            repeatMode = c.repeatMode,
         )
     }
 }

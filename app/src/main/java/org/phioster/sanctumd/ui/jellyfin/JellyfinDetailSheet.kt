@@ -20,10 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.OpenInNew
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -64,6 +62,7 @@ import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.ErrRed
+import org.phioster.sanctumd.ui.theme.AppIcons
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
@@ -144,7 +143,7 @@ internal fun JellyfinDetailSheet(
             Column(Modifier.padding(horizontal = 16.dp)) {
                 Spacer(Modifier.height(14.dp))
                 if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
-                    PrimaryButton("play", Modifier.fillMaxWidth(), icon = Icons.Filled.PlayArrow) {
+                    PrimaryButton("play", Modifier.fillMaxWidth(), icon = AppIcons.Play) {
                         state.closeAll(); onPlay(org.phioster.sanctumd.ui.player.PlayRequest(d.id, d.name))
                     }
                     Spacer(Modifier.height(8.dp))
@@ -153,16 +152,16 @@ internal fun JellyfinDetailSheet(
                         org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
                             Hint("✓  downloaded — play it from the DOWNLOADS row", Modifier.padding(vertical = 8.dp))
                         org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING, org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED ->
-                            SecondaryButton("⬇  ${(dl.progress * 100).toInt()}%  ·  cancel", Modifier.fillMaxWidth()) { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) }
+                            SecondaryButton("${(dl.progress * 100).toInt()}%  ·  cancel", Modifier.fillMaxWidth(), icon = AppIcons.Download) { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) }
                         org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED ->
-                            SecondaryButton("⚠  download failed — retry", Modifier.fillMaxWidth(), accent = ErrRed) { startDownload() }
+                            SecondaryButton("download failed — retry", Modifier.fillMaxWidth(), icon = AppIcons.Failed, accent = ErrRed) { startDownload() }
                         else ->
-                            SecondaryButton("⬇  download", Modifier.fillMaxWidth()) { startDownload() }
+                            SecondaryButton("download", Modifier.fillMaxWidth(), icon = AppIcons.Download) { startDownload() }
                     }
                     Spacer(Modifier.height(12.dp))
                 }
                 if (d.kind == "Audio") {
-                    PrimaryButton("play", Modifier.fillMaxWidth(), icon = Icons.Filled.PlayArrow) {
+                    PrimaryButton("play", Modifier.fillMaxWidth(), icon = AppIcons.Play) {
                         state.closeAll()
                         // Deliberately not scope.launch: closeAll() has just taken this sheet out
                         // of the composition, and rememberCoroutineScope() dies with it — the fetch
@@ -174,17 +173,18 @@ internal fun JellyfinDetailSheet(
                         org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
                             Hint("✓  downloaded", Modifier.padding(vertical = 8.dp))
                         org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING, org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED ->
-                            SecondaryButton("⬇  ${(dl.progress * 100).toInt()}%  ·  cancel", Modifier.fillMaxWidth()) { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) }
+                            SecondaryButton("${(dl.progress * 100).toInt()}%  ·  cancel", Modifier.fillMaxWidth(), icon = AppIcons.Download) { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) }
                         else ->
-                            SecondaryButton("⬇  download", Modifier.fillMaxWidth()) { org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L, "Audio") }
+                            SecondaryButton("download", Modifier.fillMaxWidth(), icon = AppIcons.Download) { org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L, "Audio") }
                     }
                     Spacer(Modifier.height(12.dp))
                 }
                 // Favourite + cast, side by side above the watched toggle.
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     SecondaryButton(
-                        if (d.favorite) "♥  favorite" else "♡  favorite",
+                        "favorite",
                         Modifier.weight(1f),
+                        icon = if (d.favorite) AppIcons.Favorite else AppIcons.NotFavorite,
                     ) {
                         scope.launch {
                             runCatching { vm.jellyfinSetFavorite(config, d.id, !d.favorite) }
@@ -197,7 +197,7 @@ internal fun JellyfinDetailSheet(
                         }
                     }
                     if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
-                        SecondaryButton("▶  play on…", Modifier.weight(1f)) {
+                        SecondaryButton("play on…", Modifier.weight(1f), icon = AppIcons.Play) {
                             state.cast = d
                             scope.launch { onSessions(runCatching { vm.jellyfinSessionList(config) }.getOrNull() ?: sessions) }
                         }
@@ -209,8 +209,9 @@ internal fun JellyfinDetailSheet(
                 if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS || d.kind in setOf("Series", "Season")) {
                     val folder = d.kind in setOf("Series", "Season")
                     SecondaryButton(
-                        if (d.played) "✓  watched  ·  mark unwatched" else "mark as watched",
+                        if (d.played) "watched  ·  mark unwatched" else "mark as watched",
                         Modifier.fillMaxWidth(),
+                        icon = if (d.played) AppIcons.Watched else AppIcons.Unwatched,
                     ) {
                         if (folder) state.confirmWatched = Triple(d.id, d.name, !d.played)
                         else onWatched(d.id, d.name, !d.played)
@@ -218,17 +219,7 @@ internal fun JellyfinDetailSheet(
                     Spacer(Modifier.height(12.dp))
                 }
                 if (d.facts.isNotEmpty()) {
-                    d.facts.chunked(2).forEach { pair ->
-                        Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                            pair.forEach { (k, v) ->
-                                Column(Modifier.weight(1f)) {
-                                    Text(v, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(k.uppercase(), fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 9.sp)
-                                }
-                            }
-                            if (pair.size == 1) Spacer(Modifier.weight(1f))
-                        }
-                    }
+                    FactGrid(d.facts, accent)
                 }
                 if (d.genres.isNotBlank()) {
                     Spacer(Modifier.height(2.dp))

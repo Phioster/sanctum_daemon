@@ -16,16 +16,11 @@ import org.phioster.sanctumd.net.runProwlarrTestAll
 class ServiceAction(val label: String, val run: suspend (ServiceConfig) -> String)
 
 /**
- * Everything about a service type that is not its screen.
+ * Everything about a service type that is not its screen — logo and quick actions used to live
+ * in five separate `when` blocks, so a new type was a scavenger hunt.
  *
- * Before this, each new service type meant hunting down the same facts in several
- * places: the logo lived in three separate `when` blocks (app, status widget, calendar
- * widget) and the quick-action table in two. Adding one was a scavenger hunt whose
- * misses only showed up as a non-exhaustive `when` breaking the build - four CI runs
- * were lost that way. Now a service is described once, here.
- *
- * Composable screens stay out on purpose: a `when` over the type in one place is
- * clearer than composable references inside a data class.
+ * Composable screens stay out on purpose: one `when` over the type reads better than composable
+ * references inside a data class.
  */
 class ServiceSpec(
     val type: ServiceType,

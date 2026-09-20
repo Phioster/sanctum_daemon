@@ -34,7 +34,6 @@ import org.phioster.sanctumd.model.ProwlarrSystemInfo
 import org.phioster.sanctumd.model.ProwlarrTaskItem
 import org.phioster.sanctumd.model.SeerrIssueItem
 import org.phioster.sanctumd.model.SeerrRequestItem
-import org.phioster.sanctumd.model.SeerrSearchItem
 import org.phioster.sanctumd.net.arrAdd
 import org.phioster.sanctumd.net.arrAlbums
 import org.phioster.sanctumd.net.arrTracks
@@ -619,8 +618,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     // ---- Playback (streaming + progress reporting) ----
     suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String, maxBitrate: Int? = null): org.phioster.sanctumd.net.PlaybackSource =
         org.phioster.sanctumd.net.jellyfinPlaybackSource(config, itemId, maxBitrate)
-    suspend fun jellyfinAlbumTracks(config: ServiceConfig, albumId: String, albumName: String): List<org.phioster.sanctumd.net.MusicTrack> =
-        org.phioster.sanctumd.net.jellyfinAlbumTracks(config, albumId, albumName)
+    suspend fun jellyfinAlbumTracks(config: ServiceConfig, albumId: String): List<org.phioster.sanctumd.net.MusicTrack> =
+        org.phioster.sanctumd.net.jellyfinAlbumTracks(config, albumId)
+
+    suspend fun jellyfinAlbum(config: ServiceConfig, albumId: String): org.phioster.sanctumd.net.MusicAlbum =
+        org.phioster.sanctumd.net.jellyfinAlbum(config, albumId)
     suspend fun jellyfinTrack(config: ServiceConfig, itemId: String): org.phioster.sanctumd.net.MusicTrack =
         org.phioster.sanctumd.net.jellyfinTrack(config, itemId)
 
@@ -643,13 +645,26 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
             }
     }
 
-    /** Same for a whole album — see [playJellyfinTrack] for why it is not left to the screen. */
-    fun playJellyfinAlbum(config: ServiceConfig, albumId: String, albumName: String) = viewModelScope.launch {
+    /**
+     * Same for a whole album — see [playJellyfinTrack] for why it is not left to the screen.
+     * [startIndex] is which track the tap landed on; the rest of the album follows as the queue,
+     * which is what a music player does and what a list of "play just this one" would not.
+     */
+    fun playJellyfinAlbum(
+        config: ServiceConfig,
+        albumId: String,
+        startIndex: Int = 0,
+        shuffle: Boolean = false,
+    ) = viewModelScope.launch {
         val ctx = getApplication<Application>()
-        runCatching { org.phioster.sanctumd.net.jellyfinAlbumTracks(config, albumId, albumName) }
-            .onSuccess {
+        runCatching { org.phioster.sanctumd.net.jellyfinAlbumTracks(config, albumId) }
+            .onSuccess { tracks ->
+                // Shuffle is the player's mode, not a reordered list: media3 then owns what comes
+                // next, and the lock screen shows the same thing the app does. Shuffled playback
+                // starts somewhere random, the way pressing shuffle on an album is meant to.
+                val from = if (shuffle && tracks.isNotEmpty()) tracks.indices.random() else startIndex
                 org.phioster.sanctumd.ui.player.MusicController
-                    .play(ctx, it, 0, config.customHeaders)
+                    .play(ctx, tracks, from, config.customHeaders, shuffle = shuffle)
             }
             .onFailure {
                 org.phioster.sanctumd.ui.player.MusicController
@@ -1089,7 +1104,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         seerrIssues(config, filter)
     suspend fun seerrApproveReq(config: ServiceConfig, id: Int): String = seerrApprove(config, id)
     suspend fun seerrDeclineReq(config: ServiceConfig, id: Int): String = seerrDecline(config, id)
-    suspend fun seerrSearchList(config: ServiceConfig, query: String): List<SeerrSearchItem> =
+    suspend fun seerrSearchList(config: ServiceConfig, query: String): List<org.phioster.sanctumd.model.SeerrDiscoverItem> =
         seerrSearch(config, query).let { if (hideAdult.value) it.filterNot { r -> r.adult } else it }
     suspend fun seerrDiscoverList(config: ServiceConfig, kind: String): List<org.phioster.sanctumd.model.SeerrDiscoverItem> =
         seerrDiscover(config, kind).let { if (hideAdult.value) it.filterNot { d -> d.adult } else it }

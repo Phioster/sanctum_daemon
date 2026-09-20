@@ -172,9 +172,13 @@ internal fun JellyPodium(stats: List<org.phioster.sanctumd.model.JellyWatchStat>
     ) {
         slots.forEach { slot ->
             val barH = when (slot.rank) { 1 -> 64.dp; 2 -> 46.dp; else -> 34.dp }
-            val medal = when (slot.rank) { 1 -> "🥇"; 2 -> "🥈"; else -> "🥉" }
+
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(medal, fontSize = 18.sp)
+                Text(
+                    "${slot.rank}.",
+                    fontFamily = Mono, color = if (solid) Black else accent,
+                    fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                )
                 Text(
                     slot.stat?.name ?: "—",
                     fontFamily = Mono, color = if (solid) Black else MatrixGreen,
@@ -211,7 +215,7 @@ internal fun JellyTaskRow(item: org.phioster.sanctumd.model.JellyTask, accent: C
             Text(
                 if (running) "${item.progress}%" else if (item.state.isNotBlank()) "▶ run" else "",
                 fontFamily = Mono,
-                color = if (running) Color(0xFFFFAA00) else MatrixGreen,
+                color = if (running) WarnAmber else MatrixGreen,
                 fontSize = 11.sp,
             )
         }
@@ -236,7 +240,7 @@ internal fun JellyTaskRow(item: org.phioster.sanctumd.model.JellyTask, accent: C
 internal fun JellyActivityRow(item: org.phioster.sanctumd.model.JellyActivity, accent: Color) {
     val sevColor = when (item.severity.lowercase()) {
         "error", "fatal" -> ErrRed
-        "warn", "warning" -> Color(0xFFFFAA00)
+        "warn", "warning" -> WarnAmber
         else -> MatrixGreen.copy(alpha = 0.6f)
     }
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
@@ -290,7 +294,7 @@ internal fun JellyPluginRow(item: org.phioster.sanctumd.model.JellyPlugin, accen
     val statusColor = when (item.status.lowercase()) {
         "active" -> MatrixGreen
         "disabled" -> MatrixGreen.copy(alpha = 0.4f)
-        "restart" -> Color(0xFFFFAA00)
+        "restart" -> WarnAmber
         else -> ErrRed
     }
     Column(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 8.dp)) {
@@ -411,13 +415,14 @@ internal fun JellyLibraryDialog(
                 library.locations.forEach { loc ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(loc, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                        Text(
-                            if (confirmRemovePath == loc) "remove?" else "✕",
-                            fontFamily = Mono, color = ErrRed, fontSize = 12.sp,
-                            modifier = Modifier.clickable {
-                                if (confirmRemovePath == loc) onRemovePath(loc) else confirmRemovePath = loc
-                            }.padding(start = 8.dp),
-                        )
+                        val removePath = Modifier.clickable {
+                            if (confirmRemovePath == loc) onRemovePath(loc) else confirmRemovePath = loc
+                        }.padding(start = 8.dp)
+                        if (confirmRemovePath == loc) {
+                            Text("remove?", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = removePath)
+                        } else {
+                            Icon(AppIcons.Cancel, contentDescription = "Remove", tint = ErrRed, modifier = removePath.size(16.dp))
+                        }
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -554,7 +559,7 @@ internal fun JellySessionRow(
                 fontFamily = Mono, color = if (playing) MatrixGreen else MatrixGreen.copy(alpha = 0.5f),
                 fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
             )
-            if (playing) Text(if (item.paused) "paused" else "playing", fontFamily = Mono, color = if (item.paused) Color(0xFFFFAA00) else MatrixGreen, fontSize = 11.sp)
+            if (playing) Text(if (item.paused) "paused" else "playing", fontFamily = Mono, color = if (item.paused) WarnAmber else MatrixGreen, fontSize = 11.sp)
         }
         Spacer(Modifier.height(2.dp))
         Text(
@@ -572,9 +577,24 @@ internal fun JellySessionRow(
             if (item.canControl) {
                 Spacer(Modifier.height(6.dp))
                 Row {
-                    TextButton(onClick = onPlayPause) { Text(if (item.paused) "▶ play" else "❚❚ pause", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp) }
-                    TextButton(onClick = onStop) { Text("■ stop", fontFamily = Mono, color = ErrRed, fontSize = 12.sp) }
-                    TextButton(onClick = onMessage) { Text("✉ msg", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp) }
+                    TextButton(onClick = onPlayPause) {
+                        Icon(
+                            if (item.paused) AppIcons.Play else AppIcons.Pause,
+                            contentDescription = null, tint = MatrixGreen, modifier = Modifier.size(15.dp),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(if (item.paused) "play" else "pause", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
+                    }
+                    TextButton(onClick = onStop) {
+                        Icon(AppIcons.Stop, contentDescription = null, tint = ErrRed, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("stop", fontFamily = Mono, color = ErrRed, fontSize = 12.sp)
+                    }
+                    TextButton(onClick = onMessage) {
+                        Icon(AppIcons.Message, contentDescription = null, tint = MatrixGreen, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("msg", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
+                    }
                 }
             } else {
                 Spacer(Modifier.height(4.dp))

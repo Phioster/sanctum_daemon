@@ -253,10 +253,22 @@ internal fun DashCardView(
                 }
             }
             if (editMode) {
-                TextButton(onClick = { showConfig = true }, contentPadding = PaddingValues(4.dp)) { Text("⚙", fontFamily = Mono, color = MatrixGreen) }
-                if (!isFirst) TextButton(onClick = onMoveUp, contentPadding = PaddingValues(4.dp)) { Text("↑", fontFamily = Mono, color = MatrixGreen) }
-                if (!isLast) TextButton(onClick = onMoveDown, contentPadding = PaddingValues(4.dp)) { Text("↓", fontFamily = Mono, color = MatrixGreen) }
-                TextButton(onClick = onRemove, contentPadding = PaddingValues(4.dp)) { Text("✕", fontFamily = Mono, color = ErrRed) }
+                TextButton(onClick = { showConfig = true }, contentPadding = PaddingValues(4.dp)) {
+                    Icon(AppIcons.Settings, contentDescription = "Configure", tint = MatrixGreen, modifier = Modifier.size(17.dp))
+                }
+                if (!isFirst) {
+                    TextButton(onClick = onMoveUp, contentPadding = PaddingValues(4.dp)) {
+                        Icon(AppIcons.MoveUp, contentDescription = "Move up", tint = MatrixGreen, modifier = Modifier.size(17.dp))
+                    }
+                }
+                if (!isLast) {
+                    TextButton(onClick = onMoveDown, contentPadding = PaddingValues(4.dp)) {
+                        Icon(AppIcons.MoveDown, contentDescription = "Move down", tint = MatrixGreen, modifier = Modifier.size(17.dp))
+                    }
+                }
+                TextButton(onClick = onRemove, contentPadding = PaddingValues(4.dp)) {
+                    Icon(AppIcons.Cancel, contentDescription = "Remove", tint = ErrRed, modifier = Modifier.size(17.dp))
+                }
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -297,7 +309,7 @@ internal fun DashCardView(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text("▸ ${sc.name}", fontFamily = Mono, color = accentColor, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                            if (pendingSc == sc.name) Text("tap again", fontFamily = Mono, color = Color(0xFFFFAA00), fontSize = 10.sp)
+                            if (pendingSc == sc.name) Text("tap again", fontFamily = Mono, color = WarnAmber, fontSize = 10.sp)
                         }
                     }
                 }
@@ -333,7 +345,7 @@ internal fun DashCardView(
                     h.isEmpty() -> Text("✓ all healthy", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
                     else -> Column {
                         h.take(card.count).forEach { (type, msg) ->
-                            val col = when (type.lowercase()) { "error" -> ErrRed; "warning" -> Color(0xFFE0A030); else -> MatrixGreen.copy(alpha = 0.8f) }
+                            val col = when (type.lowercase()) { "error" -> ErrRed; "warning" -> WarnAmberDim; else -> MatrixGreen.copy(alpha = 0.8f) }
                             Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
                                 Text(msg, fontFamily = Mono, color = col, fontSize = 12.sp)
                                 Text(type.uppercase(), fontFamily = Mono, color = col.copy(alpha = 0.6f), fontSize = 9.sp)

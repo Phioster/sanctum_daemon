@@ -36,6 +36,7 @@ import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
+import org.phioster.sanctumd.ui.theme.WarnAmber
 
 /**
  * The indexers of one Servarr app, with the one repair that matters.
@@ -119,7 +120,7 @@ internal fun ArrIndexersDialog(
 private fun ArrIndexerRow(item: ArrIndexerItem, accent: Color) {
     val stateColor = when {
         item.failing -> ErrRed
-        item.statusUnknown -> Color(0xFFFFAA00)
+        item.statusUnknown -> WarnAmber
         else -> MatrixGreen
     }
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
@@ -141,7 +142,7 @@ private fun ArrIndexerRow(item: ArrIndexerItem, accent: Color) {
             Spacer(Modifier.height(2.dp))
             Text(
                 "health check unreachable — cannot tell",
-                fontFamily = Mono, color = Color(0xFFFFAA00), fontSize = 10.sp,
+                fontFamily = Mono, color = WarnAmber, fontSize = 10.sp,
             )
         }
         Spacer(Modifier.height(2.dp))

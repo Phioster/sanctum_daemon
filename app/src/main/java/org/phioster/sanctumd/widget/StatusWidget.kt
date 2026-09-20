@@ -43,6 +43,7 @@ import org.phioster.sanctumd.MainActivity
 import org.phioster.sanctumd.ui.theme.ThemeState
 import org.phioster.sanctumd.ui.theme.ThemeStore
 import org.phioster.sanctumd.ui.theme.dimInk
+import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.R
 import org.phioster.sanctumd.data.ServiceStore
 import org.phioster.sanctumd.data.StatusSnap
@@ -53,7 +54,7 @@ import org.phioster.sanctumd.service.ServiceRegistry
 
 private val Bg: Color get() = ThemeState.palette.background
 private val Green: Color get() = ThemeState.palette.accent
-private val Red = Color(0xFFFF5555)
+private val Red = ErrRed
 private val Dim: Color get() = ThemeState.palette.dimInk()
 
 private fun logoRes(type: ServiceType): Int = ServiceRegistry.logoRes(type)

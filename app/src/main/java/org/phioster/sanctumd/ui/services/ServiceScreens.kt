@@ -512,11 +512,14 @@ internal fun AddServiceScreen(
                 // breaking it would help nobody. But the key below travels on every request, so say
                 // so plainly instead of letting the hint in the label carry it.
                 if (url.isNotBlank() && !url.trim().startsWith("https://", ignoreCase = true)) {
-                    Text(
-                        "⚠ not https — the API key and password below travel unencrypted and anyone on the same network can read them.",
-                        fontFamily = Mono, color = Color(0xFFE0A030), fontSize = 10.sp,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
+                    Row(Modifier.padding(top = 4.dp)) {
+                        Icon(AppIcons.Failed, contentDescription = null, tint = WarnAmberDim, modifier = Modifier.size(12.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "not https — the API key and password below travel unencrypted and anyone on the same network can read them.",
+                            fontFamily = Mono, color = WarnAmberDim, fontSize = 10.sp,
+                        )
+                    }
                 }
             }
 
@@ -537,7 +540,10 @@ internal fun AddServiceScreen(
                                 Spacer(Modifier.width(6.dp))
                             }
                         }
-                        Text("✕", fontFamily = Mono, color = ErrRed, fontSize = 16.sp, modifier = Modifier.clickable { shortcuts = shortcuts.toMutableList().also { it.removeAt(i) } }.padding(8.dp))
+                        Icon(
+                            AppIcons.Cancel, contentDescription = "Remove", tint = ErrRed,
+                            modifier = Modifier.clickable { shortcuts = shortcuts.toMutableList().also { it.removeAt(i) } }.padding(8.dp).size(18.dp),
+                        )
                     }
                     Field("Name (e.g. Homelab Start)", sc.name) { v -> shortcuts = shortcuts.toMutableList().also { it[i] = sc.copy(name = v) } }
                     Field("URL (https://…)", sc.url) { v -> shortcuts = shortcuts.toMutableList().also { it[i] = sc.copy(url = v) } }
@@ -597,7 +603,7 @@ internal fun AddServiceScreen(
             }
             testResult?.let {
                 Spacer(Modifier.height(12.dp))
-                Text(it, fontFamily = Mono, color = if (it.startsWith("ok")) MatrixGreen else Color(0xFFFFAA00), fontSize = 13.sp)
+                Text(it, fontFamily = Mono, color = if (it.startsWith("ok")) MatrixGreen else WarnAmber, fontSize = 13.sp)
             }
         }
     }

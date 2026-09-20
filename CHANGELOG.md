@@ -55,6 +55,36 @@ Versioning is `major.minor.patch`; the app is in daily use, now at 2.0.
   bitmap loader ran into it once per track.
 - **The Jellyfin tile counts music too** — it showed films, series and what is playing,
   and passed over the song count the server had been sending all along.
+- **An album is an album now.** Music used to open the same expanding folder rows a
+  series does: a tap drilled one level deeper and a track needed the detail sheet before
+  it played. A Jellyfin album opens its own screen instead — the cover, the artist and
+  year, the running time, and a numbered track list where a tap plays and a long press
+  still opens the details. Play and shuffle sit on the album itself, and Now Playing has
+  the shuffle and repeat controls a player is expected to have (all, one, off).
+- **Looking a title up before adding it.** Radarr, Sonarr and Lidarr answered a search
+  with a list of titles and years, and the first tap went straight to the add dialog —
+  the plot, the poster, the runtime and the rating were in the answer and thrown away.
+  A search now has its own screen with posters, and a hit opens an info screen: cover,
+  rating, runtime, genres, plot, and whether the service already holds it. Adding is one
+  button there rather than the only thing the list can do. Seerr's search does the same,
+  through the detail sheet it already had. Both are reached from a menu entry that now
+  says **Search** instead of "Add new" / "New request" — it was findable only if you
+  already knew it was there.
+- **One place for the app's symbols.** The same action wore two different icons two
+  screens apart: some buttons drew a vector icon, others carried the character in their
+  label (`"⬇  download"`), and the mono font has no glyph for several of those, so
+  Android substituted a different font per character. Every action icon now comes from
+  one registry, named for what it means rather than what it looks like, the way colours
+  come from the theme. The mini player, the download tiles, the card editor, the Live TV
+  rows and the session controls draw icons now instead of characters; what stays text is
+  what was always text — a tick in a table, a chevron, the star on a pinned service. The
+  home screen widgets keep their character: a widget renders through RemoteViews, where
+  an icon has to be a drawable rather than the vector the app uses.
+- **And the warning colours come from the theme too.** Amber marked pending downloads,
+  blocked imports and "tap again to confirm" in 32 places, each one writing the colour
+  out by hand — two slightly different ambers, as it turned out, plus a third copy of
+  the error red. They are three named tokens now. Like the error red they deliberately
+  do not follow the palette: a warning tinted to match the accent stops reading as one.
 - **The app lock promises only what it keeps.** The switch read "Require
   fingerprint/face or device PIN on open", which sounds like the data is sealed
   behind it. It is not, on purpose: the Keystore key is not bound to user
