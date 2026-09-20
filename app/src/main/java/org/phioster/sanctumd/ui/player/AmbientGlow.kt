@@ -33,19 +33,14 @@ import org.phioster.sanctumd.net.jellyfinTrickplay
 import org.phioster.sanctumd.net.jellyfinTrickplayTile
 
 /**
- * Ambient glow in the letterbox/pillarbox bars, YouTube-style: the picture bleeds out of the frame
- * into the black bars as a soft wash of colour that follows the scene.
+ * Ambient glow in the letterbox bars: the picture bleeds into the black as a wash of colour.
  *
- * libmpv renders straight into a SurfaceView, so the app never sees the video frames and can't
- * sample them. Instead the colours come from Jellyfin's **trickplay** tiles — the scrubbing preview
- * thumbnails. One sheet holds a few minutes of them, so a single small download covers a long
- * stretch and the glow still changes with the scene (one thumbnail per [TrickplayInfo.intervalMs],
- * typically 10s). Items the server has no trickplay for simply keep their black bars.
+ * libmpv renders into a SurfaceView, so the frames are out of reach; the colours come from
+ * Jellyfin's trickplay thumbnails instead. No trickplay means plain black bars.
  *
- * The thumbnail is decoded at a fraction of its size, averaged down to a handful of pixels and then
- * stretched over the whole player. That downscale *is* the blur — there is no blur pass to pay for
- * on old devices. Stopping part of the way down is not enough: at a few dozen pixels the scene
- * stays readable in the bars, shapes and all, which is the opposite of ambient.
+ * The thumbnail is decoded small, averaged to a handful of pixels and stretched over the player.
+ * That downscale is the blur — a few dozen pixels would still show the scene, which is the
+ * opposite of ambient.
  */
 /** One frame of glow: the picture plus how strongly it may be painted (see [ambientAlpha]). */
 private data class AmbientFrame(val image: ImageBitmap, val alpha: Float)

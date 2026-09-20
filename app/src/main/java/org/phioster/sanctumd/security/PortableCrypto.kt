@@ -16,9 +16,8 @@ import javax.crypto.spec.SecretKeySpec
  *   ciphertext(incl. 16-byte GCM tag). The PBKDF2 iteration count travels in the header
  *   so it can be raised over time without breaking older exports. v1 files (MAGIC1, no
  *   iterations field, fixed 120k) are still read so previously exported backups import.
- * A wrong password fails the GCM tag check (AEADBadTagException) on decrypt. Tampering the
- * header iteration count only derives a different key → the GCM tag fails; it grants no
- * brute-force advantage, so trusting the stored count is safe (clamped to sane bounds).
+ * A wrong password fails the GCM tag check. So does a tampered iteration count — it only derives
+ * a different key — which is why trusting the stored count is safe (clamped to sane bounds).
  */
 object PortableCrypto {
     private val MAGIC1 = "SANCTUMD1".toByteArray(Charsets.US_ASCII) // 9 bytes — legacy, implicit 120k iters

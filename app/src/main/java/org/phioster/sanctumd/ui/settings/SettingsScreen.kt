@@ -596,10 +596,14 @@ internal fun BackupSection(vm: DashboardViewModel) {
     SettingsCategoryRow("import config", "restore from an encrypted backup file") {
         openLauncher.launch(arrayOf("application/octet-stream", "*/*"))
     }
-    Text(
-        "⚠ the file holds your API keys and tokens — only the password protects them. keep it somewhere safe.",
-        fontFamily = Mono, color = WarnAmberDim, fontSize = 10.sp, modifier = Modifier.padding(top = 12.dp),
-    )
+    Row(Modifier.padding(top = 12.dp)) {
+        Icon(AppIcons.Failed, contentDescription = null, tint = WarnAmberDim, modifier = Modifier.size(12.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(
+            "the file holds your API keys and tokens — only the password protects them. keep it somewhere safe.",
+            fontFamily = Mono, color = WarnAmberDim, fontSize = 10.sp,
+        )
+    }
 
     if (showExport) {
         var pw by remember { mutableStateOf("") }

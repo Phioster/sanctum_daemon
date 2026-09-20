@@ -658,7 +658,7 @@ internal fun SeerrScreen(
                     }
                     Spacer(Modifier.height(8.dp))
                     SecondaryButton(
-                        if (onWatchlist) "on watchlist  ✓" else "add to watchlist",
+                        if (onWatchlist) "on watchlist" else "add to watchlist",
                         Modifier.fillMaxWidth(),
                         icon = if (onWatchlist) AppIcons.Unwatched else AppIcons.Watched,
                         accent = if (onWatchlist) MatrixGreen else accent,

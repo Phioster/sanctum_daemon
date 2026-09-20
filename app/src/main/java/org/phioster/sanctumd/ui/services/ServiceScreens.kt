@@ -512,11 +512,14 @@ internal fun AddServiceScreen(
                 // breaking it would help nobody. But the key below travels on every request, so say
                 // so plainly instead of letting the hint in the label carry it.
                 if (url.isNotBlank() && !url.trim().startsWith("https://", ignoreCase = true)) {
-                    Text(
-                        "⚠ not https — the API key and password below travel unencrypted and anyone on the same network can read them.",
-                        fontFamily = Mono, color = WarnAmberDim, fontSize = 10.sp,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
+                    Row(Modifier.padding(top = 4.dp)) {
+                        Icon(AppIcons.Failed, contentDescription = null, tint = WarnAmberDim, modifier = Modifier.size(12.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "not https — the API key and password below travel unencrypted and anyone on the same network can read them.",
+                            fontFamily = Mono, color = WarnAmberDim, fontSize = 10.sp,
+                        )
+                    }
                 }
             }
 

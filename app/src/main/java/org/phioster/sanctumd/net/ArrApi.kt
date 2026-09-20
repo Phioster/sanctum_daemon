@@ -370,17 +370,11 @@ suspend fun arrProfiles(config: ServiceConfig): List<ArrProfile> = withContext(D
 }
 
 /**
- * Creates an unrestricted copy of an existing quality profile.
+ * An unrestricted copy of an existing quality profile — the fallback for releases that exist in
+ * one language only and never reach a custom-format profile's score floor.
  *
- * The point is a fallback for releases that only exist in one language: a custom-format profile
- * rejects them because they never reach its required score, whatever their quality. The clone
- * allows every quality and drops the score floor.
- *
- * Two deliberate choices:
- *  - **Clone, never hand-assemble.** The schema (items, formatItems, cutoff) comes from the
- *    server's own working profile, so it cannot be malformed by our guesswork.
- *  - **Never modify the source.** It may be managed by Recyclarr, which would silently revert
- *    an edit on its next sync and leave a profile that works some days and not others.
+ * Cloned rather than hand-assembled, so the schema comes from a profile the server already
+ * accepts; the source is never edited, because Recyclarr may manage it and would revert us.
  */
 suspend fun arrCloneProfileUnrestricted(
     config: ServiceConfig,
@@ -1280,17 +1274,13 @@ internal fun reportArrPush(resp: Response<ResponseBody>, label: String): String 
 // cannot do for you — clearing the *arr app's own failure lockout.
 
 /**
- * The service's own indexers, with whether each is currently locked out.
+ * The service's own indexers, with whether each is locked out.
  *
- * The state comes from the **health check**, not from an `indexerstatus` endpoint: that one
- * returns 404 on Radarr 6.3 and Sonarr 4.0 (measured against live instances), and only Prowlarr
- * has it. A locked-out indexer shows up as a health warning from `IndexerStatusCheck` naming
- * the affected indexers — the same source the web UI uses. No expiry time is available there,
- * only the fact.
+ * The state comes from the health check, not from `indexerstatus`: that endpoint 404s on Radarr
+ * 6.3 and Sonarr 4.0. `IndexerStatusCheck` names the affected indexers, without an expiry.
  *
- * If health cannot be read the indexers come back with [ArrIndexerItem.statusUnknown] rather
- * than as healthy; the list still loads, because knowing the indexers exist beats knowing
- * nothing, but it must not claim they are fine.
+ * Unreadable health gives [ArrIndexerItem.statusUnknown], not "healthy" — the list still loads,
+ * but it must not claim they are fine.
  */
 suspend fun arrIndexers(config: ServiceConfig): List<ArrIndexerItem> = withContext(Dispatchers.IO) {
     val api = apiFor<ArrApi>(config, apiKeyHeader(config))

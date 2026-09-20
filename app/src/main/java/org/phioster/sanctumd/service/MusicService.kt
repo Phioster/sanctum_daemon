@@ -16,20 +16,15 @@ import com.google.common.util.concurrent.MoreExecutors
 import java.util.concurrent.Executors
 
 /**
- * Background music playback. A [MediaSessionService] hosting one ExoPlayer + MediaSession — media3
- * supplies the media-style notification and lock-screen controls automatically, and playback keeps
- * going when the app is backgrounded. Per-service custom headers (e.g. Cloudflare Access) are added
- * to every request via a resolving data source reading [authHeaders] — and so is the Jellyfin token,
- * which used to ride in the stream URL instead. It cannot: this service is exported (media3 requires
- * it), media3's default callback accepts every controller, and `MediaMetadata.artworkUri` is bundled
- * to each one — so a token in that URL was readable by any app on the device. The artwork is fetched
- * through the same header-injecting factory, so it still loads without the URL carrying a secret.
+ * Background music playback: one ExoPlayer and MediaSession, with media3's notification and
+ * lock-screen controls.
  *
- * The session accepts every controller, the way media3 does by default. 1.59.0 shipped a callback
- * that only admitted this package — but the lock screen, Bluetooth headsets and car head units all
- * reach a media app through the platform session, and media3 gives that a fixed sentinel package
- * name (ControllerInfo.LEGACY_CONTROLLER_PACKAGE_NAME), so the callback shut them all out. What is
- * worth guarding here is the credential, and that is no longer in the metadata for anyone to read.
+ * Credentials travel as headers ([authHeaders], via a resolving data source), never in the URL:
+ * this service is exported and `MediaMetadata.artworkUri` is handed to every controller.
+ *
+ * The session accepts every controller, as media3 does by default. A callback admitting only
+ * this package locked out the lock screen, Bluetooth and car head units, which all arrive under
+ * media3's sentinel package name.
  */
 @UnstableApi
 class MusicService : MediaSessionService() {
