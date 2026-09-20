@@ -34,7 +34,6 @@ import org.phioster.sanctumd.model.ProwlarrSystemInfo
 import org.phioster.sanctumd.model.ProwlarrTaskItem
 import org.phioster.sanctumd.model.SeerrIssueItem
 import org.phioster.sanctumd.model.SeerrRequestItem
-import org.phioster.sanctumd.model.SeerrSearchItem
 import org.phioster.sanctumd.net.arrAdd
 import org.phioster.sanctumd.net.arrAlbums
 import org.phioster.sanctumd.net.arrTracks
@@ -1105,7 +1104,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         seerrIssues(config, filter)
     suspend fun seerrApproveReq(config: ServiceConfig, id: Int): String = seerrApprove(config, id)
     suspend fun seerrDeclineReq(config: ServiceConfig, id: Int): String = seerrDecline(config, id)
-    suspend fun seerrSearchList(config: ServiceConfig, query: String): List<SeerrSearchItem> =
+    suspend fun seerrSearchList(config: ServiceConfig, query: String): List<org.phioster.sanctumd.model.SeerrDiscoverItem> =
         seerrSearch(config, query).let { if (hideAdult.value) it.filterNot { r -> r.adult } else it }
     suspend fun seerrDiscoverList(config: ServiceConfig, kind: String): List<org.phioster.sanctumd.model.SeerrDiscoverItem> =
         seerrDiscover(config, kind).let { if (hideAdult.value) it.filterNot { d -> d.adult } else it }

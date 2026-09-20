@@ -15,7 +15,6 @@ import kotlinx.serialization.json.addJsonArray
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
@@ -252,15 +251,93 @@ internal fun arrItemPath(type: ServiceType) = when (type) {
     else -> "movie"
 }
 
+/** The first image of [coverType], preferring the remote copy — a lookup hit has no local one yet. */
+internal fun arrImageUrl(o: JsonObject, coverType: String = "poster"): String =
+    (o["images"] as? JsonArray)?.mapNotNull { it as? JsonObject }
+        ?.firstOrNull { jsStr(it, "coverType") == coverType }
+        ?.let { jsStr(it, "remoteUrl") ?: jsStr(it, "url") } ?: ""
+
+/** A comma-separated genre line, empty when the record carries none. */
+internal fun arrGenreLine(o: JsonObject): String =
+    (o["genres"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.content }?.joinToString(", ") ?: ""
+
+/**
+ * One headline rating.
+ *
+ * Radarr nests an object per source (`ratings.tmdb.value`), Sonarr and Lidarr answer with a flat
+ * `{votes, value}`. Both shapes turn up here, so both are read; Rotten Tomatoes is a percentage
+ * and is written as one.
+ */
+internal fun arrRating(o: JsonObject): String {
+    val r = o["ratings"] as? JsonObject ?: return ""
+    (r["value"] as? JsonPrimitive)?.doubleOrNull?.takeIf { it > 0 }?.let { return fmtRating(it) }
+    for (src in listOf("tmdb", "imdb")) {
+        (r[src] as? JsonObject)?.get("value")?.let { it as? JsonPrimitive }?.doubleOrNull
+            ?.takeIf { it > 0 }?.let { return fmtRating(it) }
+    }
+    (r["rottenTomatoes"] as? JsonObject)?.get("value")?.let { it as? JsonPrimitive }?.doubleOrNull
+        ?.takeIf { it > 0 }?.let { return "${it.toInt()}%" }
+    return ""
+}
+
+private fun fmtRating(value: Double) = String.format(java.util.Locale.US, "%.1f", value)
+
+/** Minutes as the service reports them, written the way a runtime is read: `1h 52m`, `47m`. */
+internal fun arrRuntime(minutes: Int): String = when {
+    minutes <= 0 -> ""
+    minutes < 60 -> "${minutes}m"
+    minutes % 60 == 0 -> "${minutes / 60}h"
+    else -> "${minutes / 60}h ${minutes % 60}m"
+}
+
+/** `inCinemas` and its siblings are camelCase in the API; a screen wants words. */
+internal fun arrStatusLabel(status: String): String =
+    status.replace(Regex("(?<=[a-z0-9])(?=[A-Z])"), " ").lowercase()
+
+/**
+ * Everything the add screen shows about a title that is not in the library yet.
+ *
+ * The fields differ per service — a movie has a studio, a series a network, an artist a type —
+ * so each one contributes its own facts and the rest stays shared.
+ */
+private fun lookupItem(config: ServiceConfig, obj: JsonObject): ArrLookupItem {
+    val facts = buildList {
+        arrRating(obj).takeIf { it.isNotBlank() }?.let { add("rating" to it) }
+        jsStr(obj, "certification")?.takeIf { it.isNotBlank() }?.let { add("rated" to it) }
+        arrRuntime(jsInt(obj, "runtime") ?: 0).takeIf { it.isNotBlank() }?.let { add("runtime" to it) }
+        arrStatusLabel(jsStr(obj, "status") ?: "").takeIf { it.isNotBlank() }?.let { add("status" to it) }
+        when (config.type) {
+            ServiceType.SONARR -> {
+                (obj["seasons"] as? JsonArray)?.mapNotNull { it as? JsonObject }
+                    ?.count { (jsInt(it, "seasonNumber") ?: 0) > 0 }
+                    ?.takeIf { it > 0 }?.let { add("seasons" to it.toString()) }
+                jsStr(obj, "network")?.takeIf { it.isNotBlank() }?.let { add("network" to it) }
+            }
+            ServiceType.LIDARR -> {
+                jsStr(obj, "artistType")?.takeIf { it.isNotBlank() }?.let { add("type" to it) }
+                jsStr(obj, "disambiguation")?.takeIf { it.isNotBlank() }?.let { add("known as" to it) }
+            }
+            else -> jsStr(obj, "studio")?.takeIf { it.isNotBlank() }?.let { add("studio" to it) }
+        }
+    }
+    return ArrLookupItem(
+        title = jsStr(obj, "title") ?: jsStr(obj, "artistName") ?: "?",
+        year = jsInt(obj, "year") ?: 0,
+        raw = json.encodeToString(JsonObject.serializer(), obj),
+        overview = jsStr(obj, "overview") ?: "",
+        // Lidarr artists often carry only a fanart, and a row with no picture reads as an error.
+        posterUrl = arrImageUrl(obj).ifBlank { arrImageUrl(obj, "fanart") },
+        genres = arrGenreLine(obj),
+        facts = facts,
+        libraryId = jsInt(obj, "id") ?: 0,
+    )
+}
+
 suspend fun arrLookup(config: ServiceConfig, term: String): List<ArrLookupItem> = withContext(Dispatchers.IO) {
     val base = arrBase(config.type)
     val path = arrItemPath(config.type)
-    apiFor<ArrApi>(config, apiKeyHeader(config)).lookup("$base/$path/lookup", term).map { obj ->
-        val title = (obj["title"] as? JsonPrimitive)?.content
-            ?: (obj["artistName"] as? JsonPrimitive)?.content ?: "?"
-        val year = (obj["year"] as? JsonPrimitive)?.intOrNull ?: 0
-        ArrLookupItem(title, year, json.encodeToString(JsonObject.serializer(), obj))
-    }
+    apiFor<ArrApi>(config, apiKeyHeader(config)).lookup("$base/$path/lookup", term)
+        .map { lookupItem(config, it) }
 }
 
 // ---- Global (cross-service) search ----
@@ -272,9 +349,7 @@ internal suspend fun arrSearchResults(config: ServiceConfig, term: String): List
         val title = jsStr(obj, "title") ?: jsStr(obj, "artistName") ?: "?"
         val year = jsInt(obj, "year") ?: 0
         val libId = jsLong(obj, "id") ?: 0L
-        val poster = (obj["images"] as? JsonArray)?.mapNotNull { it as? JsonObject }
-            ?.firstOrNull { jsStr(it, "coverType") == "poster" }
-            ?.let { jsStr(it, "remoteUrl") ?: jsStr(it, "url") } ?: ""
+        val poster = arrImageUrl(obj)
         SearchResult(
             serviceId = config.id,
             serviceLabel = config.label,
@@ -741,11 +816,8 @@ suspend fun arrDetail(config: ServiceConfig, id: Int): ArrDetail = withContext(D
     val o = apiFor<ArrApi>(config, apiKeyHeader(config)).itemDetail("$base/$path/$id")
     val statsObj = o["statistics"] as? JsonObject
     val sizeMb = (statsObj?.let { jsLong(it, "sizeOnDisk") } ?: jsLong(o, "sizeOnDisk") ?: 0L) / (1024 * 1024)
-    val poster = (o["images"] as? JsonArray)?.mapNotNull { it as? JsonObject }
-        ?.firstOrNull { jsStr(it, "coverType") == "poster" }
-        ?.let { jsStr(it, "remoteUrl") ?: jsStr(it, "url") } ?: ""
-    val genres = (o["genres"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.content }
-        ?.joinToString(", ") ?: ""
+    val poster = arrImageUrl(o)
+    val genres = arrGenreLine(o)
     val ratingsObj = o["ratings"] as? JsonObject
     val rating = ratingsObj?.let { r ->
         (r["tmdb"] as? JsonObject ?: r["imdb"] as? JsonObject)?.get("value")?.let { (it as? JsonPrimitive)?.doubleOrNull }
@@ -753,7 +825,7 @@ suspend fun arrDetail(config: ServiceConfig, id: Int): ArrDetail = withContext(D
     val facts = buildList {
         rating?.let { add("rating" to "%.1f".format(it)) }
         jsStr(o, "certification")?.takeIf { it.isNotBlank() }?.let { add("rated" to it) }
-        jsInt(o, "runtime")?.takeIf { it > 0 }?.let { add("runtime" to "${it}m") }
+        arrRuntime(jsInt(o, "runtime") ?: 0).takeIf { it.isNotBlank() }?.let { add("runtime" to it) }
         when (config.type) {
             ServiceType.SONARR -> {
                 statsObj?.let {

@@ -27,14 +27,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.RepeatOne
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -334,23 +326,23 @@ internal fun NowPlayingScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.toggleShuffle() }) {
                     Icon(
-                        Icons.Filled.Shuffle, contentDescription = "Shuffle",
+                        AppIcons.Shuffle, contentDescription = "Shuffle",
                         tint = if (state.shuffle) accent else MatrixGreen.copy(alpha = 0.35f),
                         modifier = Modifier.size(26.dp),
                     )
                 }
                 IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.prev() }, enabled = state.hasPrev) {
-                    Icon(Icons.Filled.SkipPrevious, contentDescription = "Prev", tint = if (state.hasPrev) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), modifier = Modifier.size(34.dp))
+                    Icon(AppIcons.Previous, contentDescription = "Prev", tint = if (state.hasPrev) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), modifier = Modifier.size(34.dp))
                 }
                 IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.playPause() }) {
-                    Icon(if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = "Play/Pause", tint = MatrixGreen, modifier = Modifier.size(56.dp))
+                    Icon(if (state.isPlaying) AppIcons.Pause else AppIcons.Play, contentDescription = "Play/Pause", tint = MatrixGreen, modifier = Modifier.size(56.dp))
                 }
                 IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.next() }, enabled = state.hasNext) {
-                    Icon(Icons.Filled.SkipNext, contentDescription = "Next", tint = if (state.hasNext) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), modifier = Modifier.size(34.dp))
+                    Icon(AppIcons.Next, contentDescription = "Next", tint = if (state.hasNext) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), modifier = Modifier.size(34.dp))
                 }
                 IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.cycleRepeat() }) {
                     Icon(
-                        if (state.repeatMode == Player.REPEAT_MODE_ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
+                        if (state.repeatMode == Player.REPEAT_MODE_ONE) AppIcons.RepeatOne else AppIcons.Repeat,
                         contentDescription = "Repeat",
                         tint = if (state.repeatMode == Player.REPEAT_MODE_OFF) MatrixGreen.copy(alpha = 0.35f) else accent,
                         modifier = Modifier.size(26.dp),

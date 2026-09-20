@@ -26,13 +26,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -46,7 +41,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -69,10 +63,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import org.phioster.sanctumd.model.ArrLibraryItem
-import org.phioster.sanctumd.model.ArrLookupItem
 import org.phioster.sanctumd.model.ArrMissingItem
 import org.phioster.sanctumd.model.ArrRelease
-import org.phioster.sanctumd.model.ArrProfile
 import org.phioster.sanctumd.model.ArrQueueItem
 import org.phioster.sanctumd.model.ArrHistoryItem
 import org.phioster.sanctumd.model.ServiceConfig
@@ -186,21 +178,6 @@ internal fun ArrScreen(
     var barMenu by remember { mutableStateOf(false) }
     var showAdd by remember { mutableStateOf(initialAddTerm != null) }
     var addTerm by remember { mutableStateOf(initialAddTerm ?: "") }
-    var addResults by remember { mutableStateOf<List<ArrLookupItem>?>(null) }
-    // Deep link from search: run the pre-filled lookup right away.
-    LaunchedEffect(Unit) {
-        if (initialAddTerm != null) {
-            addResults = runCatching { vm.arrLookupList(config, initialAddTerm) }.getOrElse { emptyList() }
-        }
-    }
-    var selected by remember { mutableStateOf<ArrLookupItem?>(null) }
-    var profiles by remember { mutableStateOf<List<ArrProfile>>(emptyList()) }
-    var folders by remember { mutableStateOf<List<String>>(emptyList()) }
-    var chosenProfile by remember { mutableStateOf<ArrProfile?>(null) }
-    var chosenFolder by remember { mutableStateOf<String?>(null) }
-    var metaProfiles by remember { mutableStateOf<List<ArrProfile>>(emptyList()) }
-    var chosenMeta by remember { mutableStateOf<ArrProfile?>(null) }
-    var monitored by remember { mutableStateOf(true) }
     // Interactive "custom search" release picker for a missing/cutoff row.
     var pickerOpen by remember { mutableStateOf(false) }
     var pickerReleases by remember { mutableStateOf<List<ArrRelease>?>(null) }
@@ -282,6 +259,24 @@ internal fun ArrScreen(
         }
     }
 
+    // The lookup takes the whole screen: a title is looked at first and only then added, so the
+    // list of hits is not a menu that fires on the first tap.
+    if (showAdd) {
+        ArrLookupScreen(
+            vm = vm,
+            config = config,
+            initialTerm = addTerm,
+            onBack = { showAdd = false },
+            onOpenLibraryItem = { id -> showAdd = false; detailId = id },
+            onAdded = { msg ->
+                showAdd = false
+                actionMsg = msg
+                scope.launch { reload(); vm.refreshAll() }
+            },
+        )
+        return
+    }
+
     if (detailId != null && supportsDetail) {
         BackHandler { detailId = null; scope.launch { reload() } }
         ArrDetailScreen(vm = vm, config = config, itemId = detailId!!, onBack = { detailId = null; scope.launch { reload() } })
@@ -306,7 +301,7 @@ internal fun ArrScreen(
                     Box {
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
-                            DropdownMenuItem(text = { Text("Add new", fontFamily = Mono) }, onClick = { barMenu = false; addTerm = ""; addResults = null; showAdd = true })
+                            DropdownMenuItem(text = { Text("Search & add", fontFamily = Mono) }, onClick = { barMenu = false; addTerm = ""; showAdd = true })
                             if (supportsImport) {
                                 DropdownMenuItem(text = { Text("Manual import", fontFamily = Mono) }, onClick = {
                                     barMenu = false; showImport = true; importItems = null; importSelected = emptySet()
@@ -486,95 +481,6 @@ internal fun ArrScreen(
                 }
             }
         }
-    }
-
-    if (showAdd) {
-        AlertDialog(
-            onDismissRequest = { showAdd = false },
-            containerColor = Surface,
-            title = { Text("Add ${config.type.label}", fontFamily = Mono, color = MatrixGreen) },
-            text = {
-                Column {
-                    Field("Search title", addTerm) { addTerm = it }
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = { scope.launch { addResults = runCatching { vm.arrLookupList(config, addTerm) }.getOrElse { emptyList() } } },
-                        enabled = addTerm.isNotBlank(),
-                    ) { Text("Search", fontFamily = Mono) }
-                    Spacer(Modifier.height(8.dp))
-                    Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
-                        val res = addResults
-                        when {
-                            res == null -> {}
-                            res.isEmpty() -> Text("no results", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                            else -> res.forEach { r ->
-                                Text(
-                                    "${r.title}${if (r.year > 0) " (${r.year})" else ""}",
-                                    fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            selected = r
-                                            showAdd = false
-                                            monitored = true
-                                            scope.launch {
-                                                profiles = runCatching { vm.arrProfilesList(config) }.getOrDefault(emptyList())
-                                                folders = runCatching { vm.arrRootFoldersList(config) }.getOrDefault(emptyList())
-                                                chosenProfile = profiles.firstOrNull()
-                                                chosenFolder = folders.firstOrNull()
-                                                if (config.type == ServiceType.LIDARR) {
-                                                    metaProfiles = runCatching { vm.arrMetaProfilesList(config) }.getOrDefault(emptyList())
-                                                    chosenMeta = metaProfiles.firstOrNull()
-                                                }
-                                            }
-                                        }
-                                        .padding(vertical = 8.dp),
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showAdd = false }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
-    selected?.let { item ->
-        AlertDialog(
-            onDismissRequest = { selected = null },
-            containerColor = Surface,
-            title = { Text("Add: ${item.title}", fontFamily = Mono, color = MatrixGreen) },
-            text = {
-                Column {
-                    DropdownField("Quality", chosenProfile?.name ?: "…", profiles.map { it.name }) { i -> chosenProfile = profiles[i] }
-                    Spacer(Modifier.height(8.dp))
-                    DropdownField("Folder", chosenFolder ?: "…", folders) { i -> chosenFolder = folders[i] }
-                    if (config.type == ServiceType.LIDARR) {
-                        Spacer(Modifier.height(8.dp))
-                        DropdownField("Metadata", chosenMeta?.name ?: "…", metaProfiles.map { it.name }) { i -> chosenMeta = metaProfiles[i] }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Monitored", fontFamily = Mono, color = MatrixGreen, modifier = Modifier.weight(1f))
-                        Switch(checked = monitored, onCheckedChange = { monitored = it })
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = chosenProfile != null && chosenFolder != null && (config.type != ServiceType.LIDARR || chosenMeta != null),
-                    onClick = {
-                        val raw = item.raw; val p = chosenProfile!!; val f = chosenFolder!!; val m = monitored; val meta = chosenMeta?.id ?: 0
-                        selected = null
-                        scope.launch {
-                            actionMsg = vm.arrAddItem(config, raw, p.id, f, m, meta)
-                            reload()
-                            vm.refreshAll()
-                        }
-                    },
-                ) { Text("Add", fontFamily = Mono, color = MatrixGreen) }
-            },
-            dismissButton = { TextButton(onClick = { selected = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
-        )
     }
 
     prowlarrSearchFor?.let { term ->

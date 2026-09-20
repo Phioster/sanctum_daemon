@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.phioster.sanctumd.ui.theme.Black
@@ -236,5 +237,28 @@ internal fun AppChip(
             Spacer(Modifier.width(6.dp))
         }
         Text(label, fontFamily = Mono, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+/**
+ * The key/value chips a title is summed up with: two per line, the value first, its label under it.
+ *
+ * Radarr, Jellyfin and Seerr all describe a title this way, and each screen used to carry its own
+ * copy of this layout. One grid means a runtime or a rating looks the same wherever it turns up.
+ */
+@Composable
+internal fun FactGrid(facts: List<Pair<String, String>>, accent: Color, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        facts.chunked(2).forEach { pair ->
+            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                pair.forEach { (k, v) ->
+                    Column(Modifier.weight(1f)) {
+                        Text(v, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(k.uppercase(), fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 9.sp)
+                    }
+                }
+                if (pair.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
     }
 }

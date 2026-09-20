@@ -42,11 +42,24 @@ data class ArrLibraryItem(
     val posterUrl: String = "",
 )
 
-/** A lookup result for adding; [raw] is the original JSON reused as the add body. */
+/**
+ * A lookup result for adding; [raw] is the original JSON reused as the add body.
+ *
+ * Everything below [raw] exists so a title can be looked at before it is added. The lookup
+ * answer is the same record the service's own web UI renders, so none of it costs a second
+ * request — the list simply used to throw it away and show a year.
+ */
 data class ArrLookupItem(
     val title: String,
     val year: Int,
     val raw: String,
+    val overview: String = "",
+    val posterUrl: String = "",
+    val genres: String = "",
+    /** label -> value chips, the same shape [ArrDetail.facts] uses. */
+    val facts: List<Pair<String, String>> = emptyList(),
+    /** The service's own id once it holds this title; 0 while it would be a new entry. */
+    val libraryId: Int = 0,
 )
 
 /** A Servarr quality profile. */
