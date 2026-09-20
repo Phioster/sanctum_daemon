@@ -238,7 +238,7 @@ internal fun ArrLookupScreen(
 
 /** One hit in the result list: the same poster-and-two-lines row the Seerr search uses. */
 @Composable
-private fun ArrLookupRow(item: ArrLookupItem, accent: Color, onOpen: () -> Unit) {
+internal fun ArrLookupRow(item: ArrLookupItem, accent: Color, onOpen: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable { onOpen() }.padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -282,7 +282,7 @@ private fun ArrLookupRow(item: ArrLookupItem, accent: Color, onOpen: () -> Unit)
  * answers the same question and should not look like a different app.
  */
 @Composable
-private fun ArrLookupInfo(
+internal fun ArrLookupInfo(
     item: ArrLookupItem,
     config: ServiceConfig,
     accent: Color,
