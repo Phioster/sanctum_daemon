@@ -44,6 +44,8 @@ import org.phioster.sanctumd.ui.theme.AppIcons
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 
 /**
  * An album, shown as a record sleeve rather than a folder: square cover, running order, and a tap
@@ -185,7 +187,7 @@ private fun AlbumTrackRow(
             modifier = Modifier.weight(1f),
         )
         if (downloaded) {
-            Text("⬇", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 11.sp)
+            Icon(AppIcons.Download, contentDescription = "Downloaded", tint = MatrixGreen.copy(alpha = 0.45f), modifier = Modifier.size(13.dp))
             Spacer(Modifier.width(8.dp))
         }
         Text(

@@ -537,7 +537,10 @@ internal fun AddServiceScreen(
                                 Spacer(Modifier.width(6.dp))
                             }
                         }
-                        Text("✕", fontFamily = Mono, color = ErrRed, fontSize = 16.sp, modifier = Modifier.clickable { shortcuts = shortcuts.toMutableList().also { it.removeAt(i) } }.padding(8.dp))
+                        Icon(
+                            AppIcons.Cancel, contentDescription = "Remove", tint = ErrRed,
+                            modifier = Modifier.clickable { shortcuts = shortcuts.toMutableList().also { it.removeAt(i) } }.padding(8.dp).size(18.dp),
+                        )
                     }
                     Field("Name (e.g. Homelab Start)", sc.name) { v -> shortcuts = shortcuts.toMutableList().also { it[i] = sc.copy(name = v) } }
                     Field("URL (https://…)", sc.url) { v -> shortcuts = shortcuts.toMutableList().also { it[i] = sc.copy(url = v) } }

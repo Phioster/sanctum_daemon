@@ -253,10 +253,22 @@ internal fun DashCardView(
                 }
             }
             if (editMode) {
-                TextButton(onClick = { showConfig = true }, contentPadding = PaddingValues(4.dp)) { Text("⚙", fontFamily = Mono, color = MatrixGreen) }
-                if (!isFirst) TextButton(onClick = onMoveUp, contentPadding = PaddingValues(4.dp)) { Text("↑", fontFamily = Mono, color = MatrixGreen) }
-                if (!isLast) TextButton(onClick = onMoveDown, contentPadding = PaddingValues(4.dp)) { Text("↓", fontFamily = Mono, color = MatrixGreen) }
-                TextButton(onClick = onRemove, contentPadding = PaddingValues(4.dp)) { Text("✕", fontFamily = Mono, color = ErrRed) }
+                TextButton(onClick = { showConfig = true }, contentPadding = PaddingValues(4.dp)) {
+                    Icon(AppIcons.Settings, contentDescription = "Configure", tint = MatrixGreen, modifier = Modifier.size(17.dp))
+                }
+                if (!isFirst) {
+                    TextButton(onClick = onMoveUp, contentPadding = PaddingValues(4.dp)) {
+                        Icon(AppIcons.MoveUp, contentDescription = "Move up", tint = MatrixGreen, modifier = Modifier.size(17.dp))
+                    }
+                }
+                if (!isLast) {
+                    TextButton(onClick = onMoveDown, contentPadding = PaddingValues(4.dp)) {
+                        Icon(AppIcons.MoveDown, contentDescription = "Move down", tint = MatrixGreen, modifier = Modifier.size(17.dp))
+                    }
+                }
+                TextButton(onClick = onRemove, contentPadding = PaddingValues(4.dp)) {
+                    Icon(AppIcons.Cancel, contentDescription = "Remove", tint = ErrRed, modifier = Modifier.size(17.dp))
+                }
             }
         }
         Spacer(Modifier.height(8.dp))

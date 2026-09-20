@@ -3,6 +3,8 @@ package org.phioster.sanctumd.ui.theme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -84,5 +86,7 @@ internal object AppIcons {
     val Back: ImageVector = Icons.AutoMirrored.Filled.ArrowBack
     val More: ImageVector = Icons.Filled.MoreVert
     val Settings: ImageVector = Icons.Filled.Settings
+    val MoveUp: ImageVector = Icons.Filled.ArrowUpward
+    val MoveDown: ImageVector = Icons.Filled.ArrowDownward
     val Info: ImageVector = Icons.Filled.Info
 }

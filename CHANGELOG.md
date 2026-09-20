@@ -75,7 +75,11 @@ Versioning is `major.minor.patch`; the app is in daily use, now at 2.0.
   label (`"⬇  download"`), and the mono font has no glyph for several of those, so
   Android substituted a different font per character. Every action icon now comes from
   one registry, named for what it means rather than what it looks like, the way colours
-  come from the theme.
+  come from the theme. The mini player, the download tiles, the card editor, the Live TV
+  rows and the session controls draw icons now instead of characters; what stays text is
+  what was always text — a tick in a table, a chevron, the star on a pinned service. The
+  home screen widgets keep their character: a widget renders through RemoteViews, where
+  an icon has to be a drawable rather than the vector the app uses.
 - **And the warning colours come from the theme too.** Amber marked pending downloads,
   blocked imports and "tap again to confirm" in 32 places, each one writing the colour
   out by hand — two slightly different ambers, as it turned out, plus a third copy of

@@ -344,13 +344,15 @@ internal fun JellyfinScreen(
                                 it.state == DownloadEntry.STATE_QUEUED)
                     }
                     if (activeDl.isNotEmpty()) {
-                        val label = if (activeDl.size == 1) "⬇ ${(activeDl.first().progress * 100).toInt()}%" else "⬇ ${activeDl.size}"
-                        Text(
-                            label, fontFamily = Mono, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                            modifier = Modifier
-                                .clickable { mode = 3; bs.stack = emptyList() }
-                                .padding(horizontal = 8.dp),
-                        )
+                        val label = if (activeDl.size == 1) "${(activeDl.first().progress * 100).toInt()}%" else "${activeDl.size}"
+                        Row(
+                            Modifier.clickable { mode = 3; bs.stack = emptyList() }.padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(AppIcons.Download, contentDescription = "Downloads", tint = accent, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(label, fontFamily = Mono, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                     Box {
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }

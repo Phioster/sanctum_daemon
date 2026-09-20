@@ -119,7 +119,7 @@ internal fun DetailChildren(
     }
 }
 
-/** Episodes here that aren't downloaded yet — what "⬇ all" would fetch. */
+/** Episodes here that aren't downloaded yet — what "download all" would fetch. */
 internal fun pendingDownloads(
     children: List<JellyMediaItem>,
     downloaded: Set<String>,
@@ -127,7 +127,7 @@ internal fun pendingDownloads(
     !it.isFolder && it.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS && it.id !in downloaded
 }
 
-/** The first few of those the viewer hasn't watched — what "⬇ next N" would fetch. */
+/** The first few of those the viewer hasn't watched — what "download next N" would fetch. */
 internal fun nextUnwatched(
     children: List<JellyMediaItem>,
     downloaded: Set<String>,

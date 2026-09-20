@@ -572,7 +572,14 @@ internal fun JellySessionRow(
             if (item.canControl) {
                 Spacer(Modifier.height(6.dp))
                 Row {
-                    TextButton(onClick = onPlayPause) { Text(if (item.paused) "▶ play" else "❚❚ pause", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp) }
+                    TextButton(onClick = onPlayPause) {
+                        Icon(
+                            if (item.paused) AppIcons.Play else AppIcons.Pause,
+                            contentDescription = null, tint = MatrixGreen, modifier = Modifier.size(15.dp),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(if (item.paused) "play" else "pause", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
+                    }
                     TextButton(onClick = onStop) { Text("■ stop", fontFamily = Mono, color = ErrRed, fontSize = 12.sp) }
                     TextButton(onClick = onMessage) { Text("✉ msg", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp) }
                 }

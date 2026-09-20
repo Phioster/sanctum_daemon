@@ -662,8 +662,15 @@ internal fun PlayerScreen(
                 }
                 Spacer(Modifier.height(8.dp))
                 Row {
-                    Text("▶  play now", fontFamily = Mono, color = Black, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(MatrixGreen).clickable { playNext(next) }.padding(horizontal = 12.dp, vertical = 6.dp))
+                    Row(
+                        Modifier.clip(RoundedCornerShape(6.dp)).background(MatrixGreen).clickable { playNext(next) }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(AppIcons.Play, contentDescription = null, tint = Black, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("play now", fontFamily = Mono, color = Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
                     Spacer(Modifier.width(8.dp))
                     Text("dismiss", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp,
                         modifier = Modifier.clickable { nextCardVisible = false; nextCountdown = -1; nextUp = null }.padding(horizontal = 10.dp, vertical = 6.dp))
