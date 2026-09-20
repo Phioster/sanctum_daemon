@@ -74,7 +74,7 @@ internal fun LazyListScope.jellyfinAlbumLevel(
 ) {
     item {
         Spacer(Modifier.height(8.dp))
-        BrowseChip("‹ back", accent, onBack)
+        BrowseChip("‹ back", accent, onClick = onBack)
         Spacer(Modifier.height(14.dp))
     }
 
