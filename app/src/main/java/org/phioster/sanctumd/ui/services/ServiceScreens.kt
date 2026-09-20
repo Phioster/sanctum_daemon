@@ -514,7 +514,7 @@ internal fun AddServiceScreen(
                 if (url.isNotBlank() && !url.trim().startsWith("https://", ignoreCase = true)) {
                     Text(
                         "⚠ not https — the API key and password below travel unencrypted and anyone on the same network can read them.",
-                        fontFamily = Mono, color = Color(0xFFE0A030), fontSize = 10.sp,
+                        fontFamily = Mono, color = WarnAmberDim, fontSize = 10.sp,
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
@@ -597,7 +597,7 @@ internal fun AddServiceScreen(
             }
             testResult?.let {
                 Spacer(Modifier.height(12.dp))
-                Text(it, fontFamily = Mono, color = if (it.startsWith("ok")) MatrixGreen else Color(0xFFFFAA00), fontSize = 13.sp)
+                Text(it, fontFamily = Mono, color = if (it.startsWith("ok")) MatrixGreen else WarnAmber, fontSize = 13.sp)
             }
         }
     }

@@ -532,7 +532,7 @@ internal fun ArrScreen(
                         si == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                         si.health.isEmpty() -> Text("all healthy", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
                         else -> si.health.forEach { (type, msg) ->
-                            val c = if (type.equals("error", true)) ErrRed else Color(0xFFFFAA00)
+                            val c = if (type.equals("error", true)) ErrRed else WarnAmber
                             Text("• $msg", fontFamily = Mono, color = c, fontSize = 11.sp)
                         }
                     }
@@ -578,7 +578,7 @@ internal fun ArrScreen(
                                     Column(Modifier.weight(1f)) {
                                         Text(it.relativePath, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         Text("→ ${it.matchedTitle}${if (it.quality.isNotBlank()) " · ${it.quality}" else ""}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        if (it.rejection.isNotBlank()) Text(it.rejection, fontFamily = Mono, color = Color(0xFFFFAA00), fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                        if (it.rejection.isNotBlank()) Text(it.rejection, fontFamily = Mono, color = WarnAmber, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                     }
                                     if (unmatched) {
                                         Text(

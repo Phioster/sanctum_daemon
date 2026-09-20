@@ -868,7 +868,7 @@ internal fun SeerrScreen(
                     if (d == null) {
                         Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                     } else {
-                        Text("${d.type} · ${d.status}", fontFamily = Mono, color = if (d.status == "open") Color(0xFFFFAA00) else MatrixGreen, fontSize = 11.sp)
+                        Text("${d.type} · ${d.status}", fontFamily = Mono, color = if (d.status == "open") WarnAmber else MatrixGreen, fontSize = 11.sp)
                         Spacer(Modifier.height(8.dp))
                         Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                             if (d.description.isNotBlank()) {
@@ -925,7 +925,7 @@ internal fun SeerrRequestRow(item: SeerrRequestItem, accent: Color, onOpen: () -
     val statusColor = when (item.status) {
         "approved" -> MatrixGreen
         "declined" -> ErrRed
-        "pending" -> Color(0xFFFFAA00)
+        "pending" -> WarnAmber
         else -> MatrixGreen.copy(alpha = 0.6f)
     }
     Box {
@@ -961,7 +961,7 @@ internal fun SeerrRequestRow(item: SeerrRequestItem, accent: Color, onOpen: () -
 
 @Composable
 internal fun SeerrIssueRow(item: SeerrIssueItem, accent: Color, onClick: () -> Unit) {
-    val statusColor = if (item.status == "open") Color(0xFFFFAA00) else MatrixGreen
+    val statusColor = if (item.status == "open") WarnAmber else MatrixGreen
     Column(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 10.dp)) {
         Text(item.title, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(2.dp))
@@ -978,7 +978,7 @@ internal fun SeerrIssueRow(item: SeerrIssueItem, accent: Color, onClick: () -> U
 internal fun SeerrDiscoverRow(item: org.phioster.sanctumd.model.SeerrDiscoverItem, accent: Color, onRequest: () -> Unit) {
     val statusColor = when (item.status) {
         "available" -> MatrixGreen
-        "processing", "pending", "partial" -> Color(0xFFFFAA00)
+        "processing", "pending", "partial" -> WarnAmber
         else -> MatrixGreen.copy(alpha = 0.5f)
     }
     Row(

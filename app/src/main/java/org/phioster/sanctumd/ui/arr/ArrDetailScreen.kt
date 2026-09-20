@@ -212,7 +212,7 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                         if (d.monitored) "monitored" else "not monitored — tap to monitor",
                         Modifier.fillMaxWidth(),
                         icon = if (d.monitored) AppIcons.Monitored else AppIcons.NotMonitored,
-                        accent = if (d.monitored) Color(0xFFFFAA00) else accent,
+                        accent = if (d.monitored) WarnAmber else accent,
                     ) {
                         scope.launch {
                             actionMsg = vm.arrSetLibraryMonitored(config, itemId, !d.monitored)
@@ -500,7 +500,7 @@ internal fun SonarrSeasonHeader(season: Int, episodeCount: Int, haveCount: Int, 
 
 @Composable
 internal fun ArrEpisodeRow(item: ArrEpisode, accent: Color, onToggleMonitor: () -> Unit, onSearch: () -> Unit) {
-    val c = if (item.hasFile) MatrixGreen else if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.4f)
+    val c = if (item.hasFile) MatrixGreen else if (item.monitored) WarnAmber else MatrixGreen.copy(alpha = 0.4f)
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).clickable { onSearch() }.padding(vertical = 6.dp)) {
@@ -514,7 +514,7 @@ internal fun ArrEpisodeRow(item: ArrEpisode, accent: Color, onToggleMonitor: () 
                 Icon(
                     if (item.monitored) AppIcons.Monitored else AppIcons.NotMonitored,
                     contentDescription = if (item.monitored) "Unmonitor" else "Monitor",
-                    tint = if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.5f),
+                    tint = if (item.monitored) WarnAmber else MatrixGreen.copy(alpha = 0.5f),
                 )
             }
             IconButton(onClick = onSearch) {
@@ -534,7 +534,7 @@ internal fun ArrAlbumRow(
     onOpen: () -> Unit,
 ) {
     val complete = item.trackCount > 0 && item.trackFileCount >= item.trackCount
-    val c = if (complete) MatrixGreen else if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.4f)
+    val c = if (complete) MatrixGreen else if (item.monitored) WarnAmber else MatrixGreen.copy(alpha = 0.4f)
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).clickable { onOpen() }.padding(vertical = 6.dp)) {
@@ -549,7 +549,7 @@ internal fun ArrAlbumRow(
                 Icon(
                     if (item.monitored) AppIcons.Monitored else AppIcons.NotMonitored,
                     contentDescription = if (item.monitored) "Unmonitor" else "Monitor",
-                    tint = if (item.monitored) Color(0xFFFFAA00) else MatrixGreen.copy(alpha = 0.5f),
+                    tint = if (item.monitored) WarnAmber else MatrixGreen.copy(alpha = 0.5f),
                 )
             }
             IconButton(onClick = onQuickSearch) {
@@ -589,13 +589,13 @@ internal fun ArrReleaseRow(item: ArrRelease, accent: Color, onGrab: () -> Unit) 
             Text(
                 if (item.approved) "· approved" else "· rejected",
                 fontFamily = Mono,
-                color = if (item.approved) MatrixGreen.copy(alpha = 0.7f) else Color(0xFFFFAA00),
+                color = if (item.approved) MatrixGreen.copy(alpha = 0.7f) else WarnAmber,
                 fontSize = 10.sp,
             )
         }
         if (!item.approved && item.rejection.isNotBlank()) {
             Spacer(Modifier.height(2.dp))
-            Text(item.rejection, fontFamily = Mono, color = Color(0xFFFFAA00).copy(alpha = 0.85f), fontSize = 10.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Text(item.rejection, fontFamily = Mono, color = WarnAmber.copy(alpha = 0.85f), fontSize = 10.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.height(6.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))

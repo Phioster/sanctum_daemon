@@ -211,7 +211,7 @@ internal fun JellyTaskRow(item: org.phioster.sanctumd.model.JellyTask, accent: C
             Text(
                 if (running) "${item.progress}%" else if (item.state.isNotBlank()) "▶ run" else "",
                 fontFamily = Mono,
-                color = if (running) Color(0xFFFFAA00) else MatrixGreen,
+                color = if (running) WarnAmber else MatrixGreen,
                 fontSize = 11.sp,
             )
         }
@@ -236,7 +236,7 @@ internal fun JellyTaskRow(item: org.phioster.sanctumd.model.JellyTask, accent: C
 internal fun JellyActivityRow(item: org.phioster.sanctumd.model.JellyActivity, accent: Color) {
     val sevColor = when (item.severity.lowercase()) {
         "error", "fatal" -> ErrRed
-        "warn", "warning" -> Color(0xFFFFAA00)
+        "warn", "warning" -> WarnAmber
         else -> MatrixGreen.copy(alpha = 0.6f)
     }
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
@@ -290,7 +290,7 @@ internal fun JellyPluginRow(item: org.phioster.sanctumd.model.JellyPlugin, accen
     val statusColor = when (item.status.lowercase()) {
         "active" -> MatrixGreen
         "disabled" -> MatrixGreen.copy(alpha = 0.4f)
-        "restart" -> Color(0xFFFFAA00)
+        "restart" -> WarnAmber
         else -> ErrRed
     }
     Column(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 8.dp)) {
@@ -554,7 +554,7 @@ internal fun JellySessionRow(
                 fontFamily = Mono, color = if (playing) MatrixGreen else MatrixGreen.copy(alpha = 0.5f),
                 fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
             )
-            if (playing) Text(if (item.paused) "paused" else "playing", fontFamily = Mono, color = if (item.paused) Color(0xFFFFAA00) else MatrixGreen, fontSize = 11.sp)
+            if (playing) Text(if (item.paused) "paused" else "playing", fontFamily = Mono, color = if (item.paused) WarnAmber else MatrixGreen, fontSize = 11.sp)
         }
         Spacer(Modifier.height(2.dp))
         Text(

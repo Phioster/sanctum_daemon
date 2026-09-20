@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -305,7 +306,12 @@ private fun ArrLookupInfo(
                         Brush.verticalGradient(listOf(Black.copy(alpha = 0.35f), Black.copy(alpha = 0.65f), Black)),
                     ),
                 )
-                IconButton(onClick = onBack, modifier = Modifier.align(Alignment.TopStart).padding(4.dp)) {
+                // The backdrop runs under the status bar on purpose; the control on top of it
+                // must not, or the arrow sits behind the clock.
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(4.dp),
+                ) {
                     Icon(AppIcons.Back, contentDescription = "Back", tint = MatrixGreen)
                 }
                 Row(Modifier.align(Alignment.BottomStart).padding(16.dp), verticalAlignment = Alignment.Bottom) {

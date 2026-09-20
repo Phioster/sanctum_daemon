@@ -89,6 +89,7 @@ import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.AppIcons
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
+import org.phioster.sanctumd.ui.theme.ErrRed
 import kotlin.math.roundToInt
 
 private fun fmt(ms: Long): String {
@@ -585,7 +586,7 @@ internal fun PlayerScreen(
         loadError?.let { err ->
             Text(
                 "playback error: $err",
-                fontFamily = Mono, color = Color(0xFFFF5555), fontSize = 13.sp,
+                fontFamily = Mono, color = ErrRed, fontSize = 13.sp,
                 modifier = Modifier.align(Alignment.Center).padding(24.dp),
             )
         }

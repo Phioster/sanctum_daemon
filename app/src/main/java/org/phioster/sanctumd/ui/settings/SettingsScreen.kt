@@ -598,7 +598,7 @@ internal fun BackupSection(vm: DashboardViewModel) {
     }
     Text(
         "⚠ the file holds your API keys and tokens — only the password protects them. keep it somewhere safe.",
-        fontFamily = Mono, color = Color(0xFFE0A030), fontSize = 10.sp, modifier = Modifier.padding(top = 12.dp),
+        fontFamily = Mono, color = WarnAmberDim, fontSize = 10.sp, modifier = Modifier.padding(top = 12.dp),
     )
 
     if (showExport) {
@@ -649,7 +649,7 @@ internal fun BackupSection(vm: DashboardViewModel) {
             title = { Text("import config", fontFamily = Mono, color = MatrixGreen) },
             text = {
                 Column {
-                    Text("This replaces your current services, ntfy settings and dashboard. Enter the file's password.", fontFamily = Mono, color = Color(0xFFE0A030), fontSize = 12.sp)
+                    Text("This replaces your current services, ntfy settings and dashboard. Enter the file's password.", fontFamily = Mono, color = WarnAmberDim, fontSize = 12.sp)
                     Field("password", pw, isPassword = true) { pw = it }
                 }
             },

@@ -33,6 +33,7 @@ import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
+import org.phioster.sanctumd.ui.theme.WarnAmber
 
 /**
  * What to look for on the Radarr/Sonarr side, stated in their terms rather than the calling
@@ -121,7 +122,7 @@ internal fun ArrCounterpartDialog(
                                 if (q.blocked) "⚠  downloaded, waiting to be imported"
                                 else "⬇  ${(q.progress * 100).toInt()}%  ·  ${q.status.lowercase()}",
                                 fontFamily = Mono,
-                                color = if (q.blocked) Color(0xFFFFAA00) else MatrixGreen,
+                                color = if (q.blocked) WarnAmber else MatrixGreen,
                                 fontSize = 11.sp,
                             )
                             Text(
@@ -132,7 +133,7 @@ internal fun ArrCounterpartDialog(
                         }
                         target.scopeNote.takeIf { it.isNotBlank() }?.let { note ->
                             Spacer(Modifier.height(6.dp))
-                            Text(note, fontFamily = Mono, color = Color(0xFFFFAA00), fontSize = 10.sp)
+                            Text(note, fontFamily = Mono, color = WarnAmber, fontSize = 10.sp)
                         }
                         Spacer(Modifier.height(12.dp))
                         Action("Search for a better version", busy) {

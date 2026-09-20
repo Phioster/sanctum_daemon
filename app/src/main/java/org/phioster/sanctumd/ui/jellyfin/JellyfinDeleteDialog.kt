@@ -32,6 +32,7 @@ import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
+import org.phioster.sanctumd.ui.theme.WarnAmber
 
 /**
  * Confirms deleting a media item, and offers to remove its Radarr/Sonarr entry in the same go.
@@ -110,7 +111,7 @@ internal fun JellyfinDeleteDialog(
                     )
                     else -> Text(
                         "Radarr/Sonarr keep their entry: removing it would take the whole series.",
-                        fontFamily = Mono, color = Color(0xFFFFAA00), fontSize = 11.sp,
+                        fontFamily = Mono, color = WarnAmber, fontSize = 11.sp,
                     )
                 }
             }

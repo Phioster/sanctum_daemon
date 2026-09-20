@@ -137,7 +137,7 @@ internal fun NtfyScreen(
             val msgs = messages
             when {
                 topic.isBlank() -> Text("no topics configured — edit the service", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
-                listError != null -> Text("error: $listError", fontFamily = Mono, color = Color(0xFFFFAA00), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
+                listError != null -> Text("error: $listError", fontFamily = Mono, color = WarnAmber, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
                 msgs == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
                 msgs.isEmpty() -> Text("no cached messages (server keeps ~12 h)", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
                 else -> LazyColumn(Modifier.fillMaxSize()) {
@@ -163,7 +163,7 @@ internal fun NtfyScreen(
             onDismissRequest = { confirmDelete = false },
             containerColor = Surface,
             title = { Text("Delete ${config.label}?", fontFamily = Mono, color = MatrixGreen) },
-            confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete", fontFamily = Mono, color = Color(0xFFFF5555)) } },
+            confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete", fontFamily = Mono, color = ErrRed) } },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
     }

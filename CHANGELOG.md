@@ -76,6 +76,11 @@ Versioning is `major.minor.patch`; the app is in daily use, now at 2.0.
   Android substituted a different font per character. Every action icon now comes from
   one registry, named for what it means rather than what it looks like, the way colours
   come from the theme.
+- **And the warning colours come from the theme too.** Amber marked pending downloads,
+  blocked imports and "tap again to confirm" in 32 places, each one writing the colour
+  out by hand — two slightly different ambers, as it turned out, plus a third copy of
+  the error red. They are three named tokens now. Like the error red they deliberately
+  do not follow the palette: a warning tinted to match the accent stops reading as one.
 - **The app lock promises only what it keeps.** The switch read "Require
   fingerprint/face or device PIN on open", which sounds like the data is sealed
   behind it. It is not, on purpose: the Keystore key is not bound to user

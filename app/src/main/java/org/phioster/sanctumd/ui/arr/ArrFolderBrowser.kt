@@ -27,6 +27,7 @@ import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
+import org.phioster.sanctumd.ui.theme.WarnAmber
 
 /**
  * Taps its way to a folder on the server instead of making the user type an absolute path.
@@ -61,7 +62,7 @@ internal fun ArrFolderBrowser(
     Column(Modifier.heightIn(max = 200.dp).verticalScroll(rememberScrollState())) {
         val l = listing
         when {
-            error != null -> Text(error!!, fontFamily = Mono, color = Color(0xFFFFAA00), fontSize = 11.sp)
+            error != null -> Text(error!!, fontFamily = Mono, color = WarnAmber, fontSize = 11.sp)
             l == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
             else -> {
                 l.parent?.let { up ->
