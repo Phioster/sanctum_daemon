@@ -1,7 +1,13 @@
 # Changelog
 
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
-Versioning is `major.minor.patch`; the app is in daily use, now at 2.0.
+Versioning is `major.minor.patch`; the app is in daily use, now at 2.0.1.
+
+## Small print (v2.0.1)
+- **The task switcher no longer shows what the lock hides.** With the app lock on, the
+  screen was covered on open — but Android had already taken its thumbnail for the
+  recents list, and that one anybody could see. On Android 13 and up the thumbnail is
+  suppressed while the lock is on. Screenshots keep working; only the preview goes.
 
 ## Everything the audit found, and a number to point at (v2.0)
 - **A tagged release at last.** Until now the only way to get Sanctumd was the
