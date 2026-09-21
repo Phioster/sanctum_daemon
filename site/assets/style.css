@@ -12,10 +12,10 @@
   --mono: 'Courier New', 'JetBrains Mono', ui-monospace, Consolas, monospace;
   --glow:  0 0 6px rgba(0, 255, 65, .85), 0 0 20px rgba(0, 255, 65, .45);
   --bloom: 0 0 20px rgba(0, 255, 65, .16), inset 0 0 22px rgba(0, 255, 65, .08);
-  --rain: .30;
+  --rain: .16;
   --vignette: .42;
 }
-:root[data-fx="max"] { --rain: .55; --vignette: .52; }
+:root[data-fx="max"] { --rain: .40; --vignette: .52; }
 :root[data-fx="off"] { --rain: 0;   --vignette: .30; }
 
 * { box-sizing: border-box; }
@@ -72,8 +72,13 @@ header { text-align: center; margin-bottom: 30px; }
   font-size: clamp(6px, 2.3vw, 13px);
   line-height: 1;
   color: var(--fg);
-  text-shadow: var(--glow);
+  /* Enger als der Ueberschriften-Glow: ueber 23 Zeilen wird aus 20px Streuung
+     eine Dunstglocke, die den schwarzen Grund grau aussehen laesst. */
+  text-shadow: 0 0 4px rgba(0, 255, 65, .7), 0 0 12px rgba(0, 255, 65, .22);
   white-space: pre;
+  /* header zentriert; geerbt wuerde der Browser JEDE Zeile einzeln zentrieren
+     und das Tor dadurch scheren (oberste Zeile +5,5 Zeichen gegen die unterste). */
+  text-align: left;
 }
 
 h1 {

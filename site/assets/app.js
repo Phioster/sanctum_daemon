@@ -136,7 +136,7 @@
   const cv = $('#rain');
   const ctx = cv.getContext('2d');
   const GLYPHS = '01</>{}[]#$%&*+-=~^|\\ABCDEFGHJKLMNPRSTUVWXYZ';
-  let cols = 0, drops = [], step = 16, raf = 0, last = 0;
+  let cols = 0, drops = [], step = 22, raf = 0, last = 0;
 
   function size() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -153,14 +153,14 @@
     raf = requestAnimationFrame(frame);
     if (t - last < 55) return;            // ~18 fps, das reicht und schont den Akku
     last = t;
-    ctx.fillStyle = 'rgba(2,8,5,.22)';
+    ctx.fillStyle = 'rgba(2,8,5,.40)';
     ctx.fillRect(0, 0, innerWidth, innerHeight);
     ctx.font = `${step - 2}px ${getComputedStyle(document.body).fontFamily}`;
     for (let i = 0; i < cols; i++) {
       const y = drops[i] * step;
-      ctx.fillStyle = Math.random() < 0.04 ? '#ccffcc' : '#00ff41';
+      ctx.fillStyle = Math.random() < 0.10 ? '#ccffcc' : 'rgba(0,255,65,.75)';
       ctx.fillText(GLYPHS[(Math.random() * GLYPHS.length) | 0], i * step, y);
-      drops[i] = y > innerHeight && Math.random() > 0.975 ? 0 : drops[i] + 1;
+      drops[i] = y > innerHeight && Math.random() > 0.99 ? 0 : drops[i] + 1;
     }
   }
 
