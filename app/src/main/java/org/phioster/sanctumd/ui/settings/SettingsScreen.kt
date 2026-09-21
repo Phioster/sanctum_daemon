@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -96,7 +97,16 @@ internal fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowIn
             )
         },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+        // Zwei Positionen statt einer: die Liste bleibt stehen, wo man sie verlassen hat, eine
+        // geoeffnete Unterseite faengt oben an. Geteilt fing jede Unterseite dort an, wo der
+        // Finger gerade in der Liste war, und bei "about" verschwand damit der Kopf mit der
+        // Versionsnummer nach oben aus dem Bild.
+        val listScroll = rememberScrollState()
+        val sectionScroll = remember(section) { ScrollState(0) }
+        Column(
+            Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)
+                .verticalScroll(if (section == null) listScroll else sectionScroll),
+        ) {
             when (section) {
                 null -> {
                     SettingsCategoryRow("notifications", "Background polling: what to check and how often") { section = "notifications" }

@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -22,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.common.SecondaryButton
 import org.phioster.sanctumd.ui.common.openInBrowser
+import org.phioster.sanctumd.ui.theme.AppIcons
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 
@@ -106,7 +105,7 @@ internal fun AboutBody(serviceTypes: List<String>) {
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 10.sp,
         modifier = Modifier.padding(top = 8.dp, bottom = 10.dp),
     )
-    SecondaryButton("copy for an issue", Modifier.fillMaxWidth(), icon = Icons.Filled.ContentCopy) {
+    SecondaryButton("copy for an issue", Modifier.fillMaxWidth(), icon = AppIcons.Copy) {
         clipboard.setText(AnnotatedString(report))
         android.widget.Toast.makeText(context, "copied", android.widget.Toast.LENGTH_SHORT).show()
     }
