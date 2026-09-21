@@ -599,7 +599,7 @@ private fun SeerrGenrePoster(item: org.phioster.sanctumd.model.SeerrDiscoverItem
 
 /** A poster tile that fills its grid cell (2:3 poster + title) for the full-screen category grid. */
 @Composable
-private fun SeerrCategoryPoster(item: org.phioster.sanctumd.model.SeerrDiscoverItem, onOpen: () -> Unit) {
+internal fun SeerrCategoryPoster(item: org.phioster.sanctumd.model.SeerrDiscoverItem, onOpen: () -> Unit) {
     Column(Modifier.clickable { onOpen() }) {
         Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(6.dp)).background(Surface)) {
             if (item.posterUrl.isNotBlank()) {
