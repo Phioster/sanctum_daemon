@@ -1261,7 +1261,7 @@ internal fun reportArrPush(resp: Response<ResponseBody>, label: String): String 
         .orEmpty()
     return when {
         rejected == true || approved == false || rejections.isNotEmpty() ->
-            "not added: ${rejections.firstOrNull() ?: "$label doesn't track this, add it there first"}"
+            "not added: ${rejections.firstOrNull() ?: "$label doesn't track this. Add it there first"}"
         approved == true -> "grabbed by $label"
         else -> "sent to $label"
     }

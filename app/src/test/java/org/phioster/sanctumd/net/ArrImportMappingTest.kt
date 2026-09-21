@@ -43,7 +43,7 @@ class ArrImportMappingTest {
 
     /** Lidarr's artist field is `artistName`, not `title`, reading `title` yields an empty label. */
     @Test fun `a track row names the artist and the album`() {
-        assertEquals("Made Flesh, Untitled With Drums", importMatchLabel(ServiceType.LIDARR, lidarrRow))
+        assertEquals("Made Flesh / Untitled With Drums", importMatchLabel(ServiceType.LIDARR, lidarrRow))
     }
 
     @Test fun `a row is matched only when its own service found everything it needs`() {
