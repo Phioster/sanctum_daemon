@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,12 +22,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -39,7 +36,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -64,7 +60,6 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import org.phioster.sanctumd.model.ArrLibraryItem
 import org.phioster.sanctumd.model.ArrMissingItem
-import org.phioster.sanctumd.model.ArrRelease
 import org.phioster.sanctumd.model.ArrQueueItem
 import org.phioster.sanctumd.model.ArrHistoryItem
 import org.phioster.sanctumd.model.ServiceConfig
@@ -127,51 +122,14 @@ internal fun ArrScreen(
     var showBlocklist by remember { mutableStateOf(false) }
     val prowlarr = remember { vm.prowlarrService() }
     var prowlarrSearchFor by remember { mutableStateOf<String?>(null) }
-    var arrSys by remember { mutableStateOf<org.phioster.sanctumd.model.ArrSystemInfo?>(null) }
-    var showImport by remember { mutableStateOf(false) }
+    var importAt by remember { mutableStateOf<ArrImportStart?>(null) }
     val rememberedPath by vm.lastImportPath.collectAsState()
-    var importFolder by remember { mutableStateOf("") }
-    // A counter, not a flag: a LaunchedEffect is cancelled the moment its key changes, so an
-    // effect that cleared its own boolean key killed the very scan it had just started
-    // ("The coroutine scope left the composition"). Bumping a token the effect never writes
-    // keeps the key stable for the whole run.
-    var scanRequest by remember { mutableStateOf(0) }
-    var importItems by remember { mutableStateOf<List<org.phioster.sanctumd.model.ArrImportItem>?>(null) }
-    var importScanning by remember { mutableStateOf(false) }
-    var importSelected by remember { mutableStateOf<Set<Int>>(emptySet()) }
 
-
-    // Assigning a target movie to an unmatched manual-import row (Radarr).
-    var assignRow by remember { mutableStateOf<Int?>(null) }
-    var assignEpisodeRow by remember { mutableStateOf<Int?>(null) }
-    var blockedQueue by remember { mutableStateOf<List<org.phioster.sanctumd.model.ArrQueueItem>>(emptyList()) }
-    var assignLibrary by remember { mutableStateOf<List<ArrLibraryItem>?>(null) }
-    var assignQuery by remember { mutableStateOf("") }
     var query by remember { mutableStateOf("") }
     var sortBy by remember { mutableStateOf(0) } // 0=Title, 1=Year, 2=Size
     var sortMenu by remember { mutableStateOf(false) }
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
-
-    suspend fun runImportScan() {
-        importScanning = true; importItems = null; importSelected = emptySet()
-        importItems = runCatching { vm.arrManualScan(config, importFolder.trim()) }.getOrElse {
-            actionMsg = "error: ${it.message}"; emptyList()
-        }
-        importSelected = importItems!!.mapIndexedNotNull { i, it -> if (it.importable) i else null }.toSet()
-        importScanning = false
-        // Next time the browser opens here rather than at the root.
-        if (importFolder.isNotBlank()) vm.rememberImportPath(importFolder.trim())
-    }
-
-    /** Opens the manual import already pointed at [path] and scans it — no browsing needed. */
-    fun openImportAt(path: String) {
-        importFolder = path
-        importItems = null
-        importSelected = emptySet()
-        showImport = true
-        scanRequest++
-    }
 
     var refreshing by remember { mutableStateOf(false) }
     LaunchedEffect(actionMsg) { if (actionMsg != null) { kotlinx.coroutines.delay(4000); actionMsg = null } }
@@ -179,10 +137,7 @@ internal fun ArrScreen(
     var showAdd by remember { mutableStateOf(initialAddTerm != null) }
     var addTerm by remember { mutableStateOf(initialAddTerm ?: "") }
     // Interactive "custom search" release picker for a missing/cutoff row.
-    var pickerOpen by remember { mutableStateOf(false) }
-    var pickerReleases by remember { mutableStateOf<List<ArrRelease>?>(null) }
-    var pickerTitle by remember { mutableStateOf("") }
-    var confirmGrab by remember { mutableStateOf<ArrRelease?>(null) }
+    var pickFor by remember { mutableStateOf<ArrMissingItem?>(null) }
 
     suspend fun loadLibrary() {
         listError = null
@@ -245,19 +200,6 @@ internal fun ArrScreen(
             vm.refreshAll()
         }
     }
-    // Open the interactive release list for a wanted item (movie/episode/album by type).
-    fun openCustomSearch(item: ArrMissingItem) {
-        pickerTitle = item.title; pickerReleases = null; pickerOpen = true
-        scope.launch {
-            pickerReleases = runCatching {
-                when (config.type) {
-                    ServiceType.SONARR -> vm.arrReleasesFor(config, movieId = null, episodeId = item.id)
-                    ServiceType.LIDARR -> vm.arrReleasesFor(config, movieId = null, episodeId = null, albumId = item.id)
-                    else -> vm.arrReleasesFor(config, movieId = item.id, episodeId = null)
-                }
-            }.getOrElse { actionMsg = "error: ${it.message}"; pickerOpen = false; emptyList() }
-        }
-    }
 
     // The lookup takes the whole screen: a title is looked at first and only then added, so the
     // list of hits is not a menu that fires on the first tap.
@@ -304,14 +246,13 @@ internal fun ArrScreen(
                             DropdownMenuItem(text = { Text("Search & add", fontFamily = Mono) }, onClick = { barMenu = false; addTerm = ""; showAdd = true })
                             if (supportsImport) {
                                 DropdownMenuItem(text = { Text("Manual import", fontFamily = Mono) }, onClick = {
-                                    barMenu = false; showImport = true; importItems = null; importSelected = emptySet()
-                                    importFolder = rememberedPath
+                                    barMenu = false
+                                    importAt = ArrImportStart(rememberedPath, scan = false)
                                 })
                             }
                             if (supportsDetail) {
                                 DropdownMenuItem(text = { Text("System & health", fontFamily = Mono) }, onClick = {
-                                    barMenu = false; showSystem = true; arrSys = null
-                                    scope.launch { arrSys = runCatching { vm.arrSystemInfo(config) }.getOrNull() }
+                                    barMenu = false; showSystem = true
                                 })
                             }
                             DropdownMenuItem(text = { Text("Indexers", fontFamily = Mono) }, onClick = { barMenu = false; showIndexers = true })
@@ -428,7 +369,7 @@ internal fun ArrScreen(
                                             item = mi,
                                             accent = accent,
                                             onSearch = { act { vm.arrSearch(config, mi.id) } },
-                                            onCustomSearch = { openCustomSearch(mi) },
+                                            onCustomSearch = { pickFor = mi },
                                             onProwlarrSearch = prowlarr?.let { { prowlarrSearchFor = mi.title } },
                                         )
                                     }
@@ -460,7 +401,7 @@ internal fun ArrScreen(
                                                 qi,
                                                 onRemove = { act { vm.arrRemove(config, qi.id) } },
                                                 onBlocklist = { act { vm.arrRemoveAndBlock(config, qi.id) } },
-                                                onImport = { openImportAt(qi.outputPath) },
+                                                onImport = { importAt = ArrImportStart(qi.outputPath, scan = true) },
                                             )
                                         }
                                     }
@@ -505,265 +446,21 @@ internal fun ArrScreen(
         ArrIndexersDialog(vm, config, accent) { showIndexers = false }
     }
 
-    if (showSystem) {
-        AlertDialog(
-            onDismissRequest = { showSystem = false },
-            containerColor = Surface,
-            title = { Text("System & health", fontFamily = Mono, color = MatrixGreen) },
-            text = {
-                val si = arrSys
-                Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
-                    Text("version ${si?.version ?: "…"}", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
-                    Spacer(Modifier.height(10.dp))
-                    Text("DISK", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                    when {
-                        si == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                        si.disks.isEmpty() -> Text("—", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                        else -> si.disks.forEach { (path, info) ->
-                            Column(Modifier.padding(vertical = 3.dp)) {
-                                Text(path, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(info, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp)
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Text("HEALTH", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                    when {
-                        si == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                        si.health.isEmpty() -> Text("all healthy", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
-                        else -> si.health.forEach { (type, msg) ->
-                            val c = if (type.equals("error", true)) ErrRed else WarnAmber
-                            Text("• $msg", fontFamily = Mono, color = c, fontSize = 11.sp)
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showSystem = false }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+    if (showSystem) ArrSystemDialog(vm, config) { showSystem = false }
+
+    importAt?.let { st ->
+        ArrImportDialog(vm, config, accent, st, onMessage = { actionMsg = it }) { importAt = null }
+    }
+
+    pickFor?.let { wanted ->
+        ArrReleasePicker(
+            vm, config, wanted, accent,
+            onMessage = { actionMsg = it },
+            onGrabbed = { scope.launch { reload() } },
+            onDismiss = { pickFor = null },
         )
     }
 
-    LaunchedEffect(scanRequest) {
-        if (scanRequest > 0 && showImport) runImportScan()
-    }
-
-    if (showImport) {
-        val items = importItems
-        AlertDialog(
-            onDismissRequest = { showImport = false },
-            containerColor = Surface,
-            title = { Text("Manual import", fontFamily = Mono, color = MatrixGreen) },
-            text = {
-                Column {
-                    ArrFolderBrowser(vm, config, accent, importFolder) { importFolder = it }
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = { scope.launch { runImportScan() } },
-                        enabled = importFolder.isNotBlank() && !importScanning,
-                    ) { Text(if (importScanning) "scanning…" else "Scan", fontFamily = Mono) }
-                    Spacer(Modifier.height(8.dp))
-                    Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
-                        when {
-                            items == null -> {}
-                            items.isEmpty() -> Text("no importable files", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                            else -> items.forEachIndexed { i, it ->
-                                val checked = i in importSelected
-                                val unmatched = !it.importable && config.type == ServiceType.RADARR
-                                Row(
-                                    Modifier.fillMaxWidth().clickable {
-                                        importSelected = if (checked) importSelected - i else importSelected + i
-                                    }.padding(vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(if (checked) "[x] " else "[ ] ", fontFamily = Mono, color = if (checked) MatrixGreen else MatrixGreen.copy(alpha = 0.4f), fontSize = 12.sp)
-                                    Column(Modifier.weight(1f)) {
-                                        Text(it.relativePath, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text("→ ${it.matchedTitle}${if (it.quality.isNotBlank()) " · ${it.quality}" else ""}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        if (it.rejection.isNotBlank()) Text(it.rejection, fontFamily = Mono, color = WarnAmber, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                    }
-                                    if (unmatched) {
-                                        Text(
-                                            "assign",
-                                            fontFamily = Mono, color = accent, fontSize = 11.sp,
-                                            modifier = Modifier
-                                                .clickable {
-                                                    // Sonarr needs episode ids, not just a series — its own two-step picker.
-                                                    if (config.type == ServiceType.SONARR) {
-                                                        assignEpisodeRow = i
-                                                    } else {
-                                                        assignRow = i; assignQuery = ""
-                                                        if (assignLibrary == null) scope.launch {
-                                                            assignLibrary = runCatching { vm.arrLibraryList(config) }.getOrDefault(emptyList())
-                                                        }
-                                                    }
-                                                }
-                                                .padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = items != null && importSelected.isNotEmpty(),
-                    onClick = {
-                        val chosen = items!!.filterIndexed { i, _ -> i in importSelected }.map { it.rawJson }
-                        showImport = false
-                        scope.launch {
-                            actionMsg = vm.arrManualImport(config, chosen)
-                            vm.refreshAll()
-                            // A hand-assigned import leaves its queue entry on importBlocked and the
-                            // source file on disk twice; surface those rather than leaving them to rot.
-                            blockedQueue = runCatching { vm.arrBlockedQueue(config) }.getOrDefault(emptyList())
-                        }
-                    },
-                ) { Text("Import (${importSelected.size})", fontFamily = Mono, color = MatrixGreen) }
-            },
-            dismissButton = { TextButton(onClick = { showImport = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
-
-    if (blockedQueue.isNotEmpty()) {
-        AlertDialog(
-            onDismissRequest = { blockedQueue = emptyList() },
-            containerColor = Surface,
-            title = { Text("Blocked in queue", fontFamily = Mono, color = MatrixGreen) },
-            text = {
-                Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
-                    Text(
-                        "These finished downloads were never imported automatically. Removing them " +
-                            "also deletes the leftover copy from the download client.",
-                        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp,
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    blockedQueue.forEach { q ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                q.title, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp,
-                                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
-                            )
-                            if (q.outputPath.isNotBlank()) {
-                                TextButton(onClick = { blockedQueue = emptyList(); openImportAt(q.outputPath) }) {
-                                    Text("import", fontFamily = Mono, color = accent, fontSize = 11.sp)
-                                }
-                            }
-                            TextButton(onClick = {
-                                scope.launch {
-                                    actionMsg = vm.arrRemove(config, q.id)
-                                    blockedQueue = runCatching { vm.arrBlockedQueue(config) }.getOrDefault(emptyList())
-                                    vm.refreshAll()
-                                }
-                            }) { Text("remove", fontFamily = Mono, color = ErrRed, fontSize = 11.sp) }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { blockedQueue = emptyList() }) { Text("Close", fontFamily = Mono, color = MatrixGreen) }
-            },
-        )
-    }
-
-    assignEpisodeRow?.let { rowIdx ->
-        SonarrAssignDialog(vm, config, accent, onDismiss = { assignEpisodeRow = null }) { a ->
-            val current = importItems
-            if (current != null) {
-                val patched = vm.arrAssignImportEpisodes(current[rowIdx].rawJson, a.seriesId, a.seriesTitle, a.episodeIds)
-                importItems = current.toMutableList().also { l ->
-                    l[rowIdx] = l[rowIdx].copy(rawJson = patched, importable = true, matchedTitle = a.label, rejection = "")
-                }
-                importSelected = importSelected + rowIdx
-            }
-            assignEpisodeRow = null
-        }
-    }
-
-    assignRow?.let { rowIdx ->
-        AlertDialog(
-            onDismissRequest = { assignRow = null },
-            containerColor = Surface,
-            title = { Text("Assign to movie", fontFamily = Mono, color = MatrixGreen) },
-            text = {
-                Column(Modifier.heightIn(max = 460.dp)) {
-                    Field("Filter", assignQuery) { assignQuery = it }
-                    Spacer(Modifier.height(8.dp))
-                    val lib = assignLibrary
-                    when {
-                        lib == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                        else -> {
-                            val filtered = lib.filter { it.title.contains(assignQuery, ignoreCase = true) }.sortedBy { it.title.lowercase() }
-                            if (filtered.isEmpty()) Text("no match", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                            else Column(Modifier.verticalScroll(rememberScrollState())) {
-                                filtered.forEach { mv ->
-                                    Text(
-                                        "${mv.title}${if (mv.year > 0) " (${mv.year})" else ""}",
-                                        fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                val current = importItems
-                                                if (current != null) {
-                                                    val patched = vm.arrAssignImportMovie(current[rowIdx].rawJson, mv.id, mv.title)
-                                                    importItems = current.toMutableList().also { l ->
-                                                        l[rowIdx] = l[rowIdx].copy(rawJson = patched, importable = true, matchedTitle = mv.title, rejection = "")
-                                                    }
-                                                    importSelected = importSelected + rowIdx
-                                                }
-                                                assignRow = null
-                                            }
-                                            .padding(vertical = 8.dp),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { assignRow = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
-
-    if (pickerOpen) {
-        AlertDialog(
-            onDismissRequest = { pickerOpen = false },
-            containerColor = Surface,
-            title = { Text("Releases", fontFamily = Mono, color = MatrixGreen, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            text = {
-                val rs = pickerReleases
-                Column(Modifier.heightIn(max = 460.dp)) {
-                    Text(pickerTitle, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Spacer(Modifier.height(8.dp))
-                    when {
-                        rs == null -> Text("searching…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                        rs.isEmpty() -> Text("no releases", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                        else -> Column(Modifier.verticalScroll(rememberScrollState())) {
-                            rs.forEach { rel -> ArrReleaseRow(rel, accent) { confirmGrab = rel } }
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { pickerOpen = false }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
-
-    confirmGrab?.let { rel ->
-        AlertDialog(
-            onDismissRequest = { confirmGrab = null },
-            containerColor = Surface,
-            title = { Text("Grab release", fontFamily = Mono, color = MatrixGreen) },
-            text = { Text(rel.title, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp) },
-            confirmButton = {
-                TextButton(onClick = {
-                    val r = rel
-                    confirmGrab = null; pickerOpen = false
-                    scope.launch { actionMsg = vm.arrGrabRelease(config, r.guid, r.indexerId); reload() }
-                }) { Text("Grab", fontFamily = Mono, color = MatrixGreen) }
-            },
-            dismissButton = { TextButton(onClick = { confirmGrab = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
 }
 
 @Composable
