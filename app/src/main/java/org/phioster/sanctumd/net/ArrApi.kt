@@ -1047,7 +1047,7 @@ suspend fun arrManualImportScan(config: ServiceConfig, folder: String): List<Arr
         val hasMatch = importHasMatch(config.type, o)
         ArrImportItem(
             relativePath = jsStr(o, "relativePath") ?: jsStr(o, "name") ?: "?",
-            matchedTitle = matched.ifBlank { "— unmatched —" },
+            matchedTitle = matched.ifBlank { "unmatched" },
             quality = quality,
             rejection = rejections.joinToString("; "),
             importable = hasMatch && importAllowed(config.type, rejections),
