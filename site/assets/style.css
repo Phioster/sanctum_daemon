@@ -57,7 +57,11 @@ a:hover { text-shadow: var(--glow); }
 * { scrollbar-width: thin; scrollbar-color: var(--border) #000; }
 
 @keyframes term-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
-.blink { animation: term-blink 1.2s steps(1) infinite; }
+/* Der Doppelpunkt der Uhr pulst nur, statt ganz zu verschwinden: im Dashboard
+   sieht man die Uhr dauernd, hier schaut jemand einmal hin - und "23 47" liest
+   sich dann wie ein Fehler statt wie ein Cursor. */
+@keyframes term-pulse { 0%, 49% { opacity: 1; } 50%, 100% { opacity: .3; } }
+.blink { animation: term-pulse 1.2s steps(1) infinite; }
 :root[data-fx="off"] .blink { animation: none; }
 
 /* ---------- Kopf ---------- */
@@ -101,7 +105,9 @@ h1 {
 .tile .v { display: block; color: var(--fg); font-size: 15px; }
 #t-clock::before { content: "[ "; color: var(--dim); white-space: pre; }
 #t-clock::after  { content: " ]"; color: var(--dim); white-space: pre; }
-#t-clock { text-shadow: var(--glow); }
+/* [ 21.09.26, 23:47 ] sind 19 Zeichen; bei 15px braucht das 171px, die Kachel
+   hat auf 360px Breite aber nur 138px - also mitskalieren statt umbrechen. */
+#t-clock { text-shadow: var(--glow); white-space: nowrap; font-size: clamp(11px, 3.2vw, 15px); }
 
 /* Suchfeld als Prompt, wie im Dashboard */
 .cmdbar { position: relative; }
