@@ -320,7 +320,15 @@ internal fun ArrEpisodeRow(item: ArrEpisode, accent: Color, onToggleMonitor: () 
                     "S%02dE%02d  %s".format(item.seasonNumber, item.episodeNumber, item.title),
                     fontFamily = Mono, color = c, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
-                Text(if (item.hasFile) "✓ downloaded" else item.airDate, fontFamily = Mono, color = c.copy(alpha = 0.7f), fontSize = 10.sp)
+                if (item.hasFile) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(AppIcons.Done, contentDescription = null, tint = c.copy(alpha = 0.7f), modifier = Modifier.size(11.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("downloaded", fontFamily = Mono, color = c.copy(alpha = 0.7f), fontSize = 10.sp)
+                    }
+                } else {
+                    Text(item.airDate, fontFamily = Mono, color = c.copy(alpha = 0.7f), fontSize = 10.sp)
+                }
             }
             IconButton(onClick = onToggleMonitor) {
                 Icon(
