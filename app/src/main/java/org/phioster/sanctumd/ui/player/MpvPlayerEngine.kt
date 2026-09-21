@@ -16,7 +16,20 @@ import java.util.Locale
  * prebuilt `dev.jdtech.mpv:libmpv` AAR; created behind a runCatching in [PlayerScreen] so a missing
  * native lib falls back to ExoPlayer.
  */
-class MpvPlayerEngine(context: Context) : MediaPlayerEngine {
+class MpvPlayerEngine(
+    context: Context,
+    tvTuning: Boolean = false,
+    /**
+     * Hand decoded frames straight to the Android surface instead of copying them out of the
+     * decoder and back through the GPU. On a TV stick that copy is the single most expensive thing
+     * in the pipeline. The cost of avoiding it: mpv no longer composites, so **subtitles and the
+     * on-screen display are not drawn**.
+     */
+    private val directOutput: Boolean = false,
+) : MediaPlayerEngine {
+
+    /** The video output mpv should use once a surface exists. */
+    private val videoOut = if (directOutput) "mediacodec_embed" else "gpu"
 
     private val mpv: MPVLib = MPVLib.create(context) ?: error("libmpv create failed")
 
@@ -54,11 +67,45 @@ class MpvPlayerEngine(context: Context) : MediaPlayerEngine {
         }
         with(mpv) {
             setOptionString("config", "no")
-            setOptionString("vo", "gpu")
+            setOptionString("vo", videoOut)
             setOptionString("gpu-context", "android")
             setOptionString("opengl-es", "yes")
-            setOptionString("hwdec", "auto")
-            setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
+            when {
+                // Zero-copy: MediaCodec renders into the surface itself, nothing round-trips through
+                // the GPU. Measured on the target stick, the copy path below dropped frames even on
+                // a 1 Mbit/s H.264 file and produced coloured noise for HEVC — so on a television
+                // this is the path that actually works, at the price of mpv-drawn subtitles.
+                directOutput -> setOptionString("hwdec", "mediacodec")
+
+                // GPU path on weak hardware: decode through MediaCodec explicitly rather than
+                // letting `auto` fall back to software, and strip every optional rendering nicety.
+                // None of them are visible from a sofa.
+                tvTuning -> {
+                    setOptionString("hwdec", "mediacodec-copy")
+                    setOptionString("profile", "fast")
+                    setOptionString("scale", "bilinear")
+                    setOptionString("dscale", "bilinear")
+                    setOptionString("cscale", "bilinear")
+                    setOptionString("dither", "no")
+                    setOptionString("deband", "no")
+                    setOptionString("interpolation", "no")
+                    setOptionString("correct-downscaling", "no")
+                    setOptionString("sigmoid-upscaling", "no")
+                }
+
+                else -> {
+                    setOptionString("hwdec", "auto")
+                    setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
+                }
+            }
+            if (tvTuning) {
+                // Applies to both television paths: a stick's wifi is the other half of the problem,
+                // so buffer generously enough that a dip in throughput never becomes a visible stall.
+                setOptionString("video-sync", "audio")
+                setOptionString("demuxer-max-bytes", "64MiB")
+                setOptionString("demuxer-readahead-secs", "20")
+                setOptionString("cache-secs", "30")
+            }
             setOptionString("ao", "audiotrack,opensles")
             // Always verify. If the bundle could not be written, mpv has no CA store and TLS
             // simply fails — the user gets a playback error. The old fallback turned verification
@@ -118,6 +165,15 @@ class MpvPlayerEngine(context: Context) : MediaPlayerEngine {
         error = lastError,
     )
 
+    override fun videoAspect(): Float {
+        if (released) return 0f
+        return displayAspect(
+            reported = (mpv.getPropertyDouble("video-params/aspect") ?: 0.0).toFloat(),
+            displayWidth = mpv.getPropertyInt("video-params/dw") ?: mpv.getPropertyInt("dwidth") ?: 0,
+            displayHeight = mpv.getPropertyInt("video-params/dh") ?: mpv.getPropertyInt("dheight") ?: 0,
+        )
+    }
+
     override fun stats(): PlaybackStats {
         if (released) return PlaybackStats()
         return PlaybackStats(
@@ -129,6 +185,9 @@ class MpvPlayerEngine(context: Context) : MediaPlayerEngine {
             fps = (mpv.getPropertyDouble("estimated-vf-fps") ?: mpv.getPropertyDouble("container-fps") ?: 0.0).toFloat(),
             bufferedPercent = (mpv.getPropertyInt("cache-buffering-state") ?: 0).coerceIn(0, 100),
             hwDecode = (mpv.getPropertyString("hwdec-current") ?: "").takeUnless { it == "no" }.orEmpty(),
+            droppedFrames = mpv.getPropertyInt("frame-drop-count") ?: 0,
+            delayedFrames = mpv.getPropertyInt("vo-delayed-frame-count") ?: 0,
+            containerFps = (mpv.getPropertyDouble("container-fps") ?: 0.0).toFloat(),
         )
     }
 
@@ -219,7 +278,7 @@ class MpvPlayerEngine(context: Context) : MediaPlayerEngine {
                             if (released) return
                             mpv.attachSurface(h.surface)
                             mpv.setOptionString("force-window", "yes")
-                            mpv.setOptionString("vo", "gpu")
+                            mpv.setOptionString("vo", videoOut)
                         }
                         override fun surfaceChanged(h: SurfaceHolder, format: Int, width: Int, height: Int) {
                             if (!released) mpv.setPropertyString("android-surface-size", "${width}x$height")

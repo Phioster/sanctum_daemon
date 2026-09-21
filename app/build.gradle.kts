@@ -30,12 +30,34 @@ android {
         applicationId = "org.phioster.nexarr"
         minSdk = 26
         targetSdk = 35
-        versionCode = 264
-        versionName = "2.0.1"
+        versionCode = 265
+        versionName = "2.1.0"
 
-        // libmpv ships native libs for several ABIs; the target device is arm64, so bundle only that
-        // to keep the APK small (drop this filter to support 32-bit / x86 devices).
+        // libmpv ships native libs for several ABIs; the phone is arm64, so bundle only that.
+        // The tv flavour adds the 32-bit one (see below).
         ndk { abiFilters += "arm64-v8a" }
+    }
+
+    // Two products out of one source tree.
+    //
+    // `phone` is the homelab console: services, dashboard, widgets, MainActivity. `tv` is a plain
+    // Jellyfin streaming client — TvActivity is its *only* launchable component, everything else is
+    // stripped from its manifest. They carry different application ids, so a television gets the
+    // streaming app and nothing else, and both can be installed side by side.
+    flavorDimensions += "device"
+    productFlavors {
+        create("phone") {
+            dimension = "device"
+        }
+        create("tv") {
+            dimension = "device"
+            applicationIdSuffix = ".tv"
+            versionNameSuffix = "-tv"
+            // Plenty of TV sticks run a 32-bit userspace on a 64-bit chip. Without this libmpv can't
+            // load at all and playback falls back to ExoPlayer — i.e. back to the codec gaps that are
+            // the entire reason this flavour exists.
+            ndk { abiFilters += "armeabi-v7a" }
+        }
     }
 
     signingConfigs {

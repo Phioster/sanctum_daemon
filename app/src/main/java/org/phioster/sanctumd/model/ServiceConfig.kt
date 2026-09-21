@@ -51,6 +51,9 @@ data class ServiceConfig(
     val username: String = "",
     val password: String = "",
     val useLogin: Boolean = false,
+    /** Jellyfin: the user the [apiKey] token belongs to, when it came from a sign-in (TV Quick
+     *  Connect / login) rather than an admin API key. Blank means "look it up". */
+    val userId: String = "",
     val customHeaders: Map<String, String> = emptyMap(),
     val topics: List<String> = emptyList(), // NTFY: subscribed topics (history + live notifications)
     val shortcuts: List<HttpShortcut> = emptyList(), // SHORTCUTS: one-tap HTTP requests

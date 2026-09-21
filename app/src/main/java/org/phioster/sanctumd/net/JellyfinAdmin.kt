@@ -241,6 +241,9 @@ suspend fun jellyfinSetPassword(config: ServiceConfig, userId: String, newPasswo
 
 /** Resolve the user id whose libraries we browse (the logged-in user, else an admin). */
 internal suspend fun jellyfinResolveUserId(config: ServiceConfig, api: JellyfinApi): String {
+    // A token obtained by signing in (TV setup) already knows its user — no lookup, and no reliance
+    // on `/Users`, which a non-admin token may not be allowed to read in full.
+    if (config.userId.isNotBlank()) return config.userId
     jellyfinUserIdCache[config.id]?.let { return it }
     val users = api.users()
     val chosen = if (config.useLogin) {

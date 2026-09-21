@@ -79,6 +79,14 @@ class ExoPlayerEngine(private val context: Context) : MediaPlayerEngine {
         return lastState
     }
 
+    override fun videoAspect(): Float {
+        if (released) return 0f
+        val v = exo.videoFormat ?: return 0f
+        val par = v.pixelWidthHeightRatio.takeIf { it > 0f } ?: 1f
+        val reported = if (v.height > 0) v.width * par / v.height else 0f
+        return displayAspect(reported, v.width, v.height)
+    }
+
     override fun stats(): PlaybackStats {
         if (released) return PlaybackStats()
         val v = exo.videoFormat

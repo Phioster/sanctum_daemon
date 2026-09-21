@@ -76,6 +76,14 @@ data class PlaybackStats(
     val fps: Float = 0f,
     val bufferedPercent: Int = 0,
     val hwDecode: String = "",
+    /** Frames the decoder threw away because it could not keep up. */
+    val droppedFrames: Int = 0,
+    /** Frames shown later than they should have been. Kept apart from [droppedFrames] on purpose:
+     *  a device that is too slow *drops*, whereas a frame rate that does not divide into the
+     *  panel's refresh rate only ever arrives *late*. Conflating them hides which one you have. */
+    val delayedFrames: Int = 0,
+    /** The file's own frame rate, as opposed to [fps] which is what is actually being rendered. */
+    val containerFps: Float = 0f,
 )
 
 /**
@@ -96,6 +104,14 @@ interface MediaPlayerEngine {
 
     /** Live technical metrics for the info panel; may be all-default while nothing is decoding yet. */
     fun stats(): PlaybackStats
+
+    /**
+     * The shape of the picture, width divided by height, or 0 while nothing is known yet.
+     *
+     * The caller sizes the surface by this instead of filling the screen: see [displayAspect] for
+     * why the zero-copy output cannot letterbox by itself.
+     */
+    fun videoAspect(): Float
 
     /** Available audio/subtitle tracks (subtitles include an implicit "off" handled by the UI). */
     fun tracks(kind: TrackKind): List<TrackOption>

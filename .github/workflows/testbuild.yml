@@ -54,7 +54,7 @@ jobs:
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
 
       - name: Unit tests
-        run: gradle testDebugUnitTest --no-daemon
+        run: gradle testPhoneDebugUnitTest --no-daemon
 
       - name: Build signed release APK
         env:
@@ -64,10 +64,13 @@ jobs:
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: gradle assembleRelease --no-daemon --stacktrace
 
-      - name: Stage APK
+      # assembleRelease builds both flavours. Both are uploaded: the TV client is the one that
+      # cannot be checked on the machine it is built on, so it has to be installable from here.
+      - name: Stage APKs
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/release/app-release.apk "out/sanctumd-test-${GITHUB_SHA::8}.apk"
+          cp app/build/outputs/apk/phone/release/app-phone-release.apk "out/sanctumd-test-${GITHUB_SHA::8}.apk"
+          cp app/build/outputs/apk/tv/release/app-tv-release.apk "out/sanctumd-tv-test-${GITHUB_SHA::8}.apk"
 
       # One day is plenty: this exists to be installed once and then forgotten, and the free
       # Actions-storage quota is only 0.5 GB.

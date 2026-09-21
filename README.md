@@ -161,6 +161,33 @@ visitor@homelab:~$ ./sanctumd --whoami
 </details>
 
 <details>
+<summary><b>android tv</b></summary>
+
+```text
+[the tv flavour]
+  a second APK from the same
+  source: a Jellyfin streaming
+  client, nothing else
+  no dashboard, no services,
+  no widgets — removed in the
+  manifest, not just hidden
+[sign-in]
+  finds servers by broadcast
+  Quick Connect: a code on the
+  screen, approved on a phone
+  username + password as
+  fallback · https tried first
+[playback]
+  libmpv, so the codec gaps of
+  cheap sticks stop mattering
+  matches the panel's refresh
+  rate before playback starts
+  direct output by default
+  remote-friendly throughout
+```
+</details>
+
+<details>
 <summary><b>privacy &amp; portability</b></summary>
 
 ```text
@@ -206,6 +233,12 @@ libmpv's are large, and bundling every architecture would multiply the
 download for hardware almost nobody runs. 32-bit and x86 devices are not
 supported; build from source with the `abiFilters` line dropped if you
 need one.
+
+**Android TV** gets its own APK — the `tv` flavour, application id
+`org.phioster.nexarr.tv`, so it installs next to the phone app rather than
+over it. It builds `armeabi-v7a` instead: plenty of TV sticks run a 32-bit
+userspace on a 64-bit chip, and without those libraries libmpv cannot load
+at all.
 
 ## ▚▚ `./build`
 

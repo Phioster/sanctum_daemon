@@ -56,7 +56,7 @@ jobs:
           restore-keys: robolectric-${{ runner.os }}-
 
       - name: Unit tests
-        run: gradle testDebugUnitTest --no-daemon
+        run: gradle testPhoneDebugUnitTest --no-daemon
 
       - name: Build signed release APK
         env:
@@ -66,10 +66,13 @@ jobs:
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: gradle assembleRelease --no-daemon --stacktrace
 
-      - name: Stage APK
+      # assembleRelease builds both flavours; each gets its own asset name so the TV client and
+      # the phone console never get mistaken for one another on the release page.
+      - name: Stage APKs
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/release/app-release.apk "out/sanctumd-${GITHUB_REF_NAME:-manual}.apk"
+          cp app/build/outputs/apk/phone/release/app-phone-release.apk "out/sanctumd-${GITHUB_REF_NAME:-manual}.apk"
+          cp app/build/outputs/apk/tv/release/app-tv-release.apk "out/sanctumd-tv-${GITHUB_REF_NAME:-manual}.apk"
 
       # Best-effort artifact upload. Non-fatal: the free Actions-storage quota can block uploads
       # (and lags 6-12 h after cleanup), but the rolling "dev" Release below is the real delivery
