@@ -36,7 +36,9 @@ Sanctumd has **no backend and no account** — it talks directly to the services
   home-screen widgets and downloads have to decrypt while the phone is locked
   in your pocket — that is the whole point of them. So the lock keeps someone
   holding your unlocked phone out of the UI; it is not a defence against an
-  attacker who already runs code as the app's user.
+  attacker who already runs code as the app's user. With the lock on, the task
+  switcher no longer keeps a thumbnail of the last screen either (Android 13 and
+  up); screenshots stay available on purpose.
 - **Media session** — the background music session accepts any controller, as
   every media app does: the lock screen, Bluetooth headsets and car head units
   all reach it through the platform session. What that exposes is the title and

@@ -186,6 +186,14 @@ internal fun showUnlockPrompt(activity: androidx.fragment.app.FragmentActivity, 
 internal fun AppLockGate(vm: DashboardViewModel, activity: androidx.fragment.app.FragmentActivity, content: @Composable () -> Unit) {
     val appLock by vm.appLock.collectAsState()
     var unlocked by vm.unlocked
+    // The lock covers the screen; the task switcher was still holding a picture of it, taken
+    // before the app went to the background. Only the thumbnail is suppressed, not screenshots --
+    // API 33 can separate the two, and below it the choice would be all or nothing.
+    LaunchedEffect(appLock) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            activity.setRecentsScreenshotEnabled(appLock != true)
+        }
+    }
     // Only an explicit false opens the gate; null means the answer is still being read.
     if (appLock == false || unlocked) {
         content()
