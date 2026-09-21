@@ -184,13 +184,16 @@ h2::after  { content: "_"; color: var(--dim); animation: term-blink 1.2s steps(1
 /* ---------- Bilder ---------- */
 
 .shots {
-  display: grid; grid-auto-flow: column; grid-auto-columns: 62%;
-  gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px;
+  display: grid; grid-auto-flow: column; grid-auto-columns: 68%;
+  gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px;
+  align-items: start;
 }
 @media (min-width: 620px) {
   .shots { grid-auto-flow: row; grid-template-columns: repeat(3, 1fr); grid-auto-columns: auto; overflow: visible; }
 }
-.shot { scroll-snap-align: start; border: 1px solid var(--border-soft); background: var(--panel); box-shadow: var(--bloom); padding: 6px; }
+/* <figure> bringt vom Browser margin:1em 40px mit - das frass 80px pro Kachel und
+   machte aus 8px Abstand rund 90px. */
+.shot { scroll-snap-align: start; margin: 0; border: 1px solid var(--border-soft); background: var(--panel); box-shadow: var(--bloom); padding: 6px; }
 .shot img { width: 100%; display: block; }
 .shot figcaption { font-size: 11px; color: var(--dim); padding-top: 6px; }
 .shot figcaption::before { content: "# "; white-space: pre; opacity: .7; }
