@@ -40,7 +40,7 @@ import org.phioster.sanctumd.ui.theme.Surface
  * What a request was actually made with, plus the actions that still apply to it.
  *
  * The row used to be tappable only while a request was pending, so a settled one could neither
- * be inspected nor removed — the most common state was the one with no interaction at all.
+ * be inspected nor removed. The most common state was the one with no interaction at all.
  * Approve and Decline appear only while it is pending; Delete always does, because it is the
  * only thing left to do with a finished request.
  */
@@ -102,7 +102,7 @@ internal fun SeerrRequestDetailDialog(
                 if (detail.rootFolder == "default" && detail.profile == "default") {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Made without steering — this used the server's own defaults.",
+                        "Made without steering, this used the server's own defaults.",
                         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 10.sp,
                     )
                 }

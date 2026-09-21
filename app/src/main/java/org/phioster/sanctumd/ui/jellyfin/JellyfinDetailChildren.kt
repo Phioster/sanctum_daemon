@@ -30,7 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Refresh
 
-/** The heading a container's contents sit under — seasons for a series, films for a collection. */
+/** The heading a container's contents sit under, seasons for a series, films for a collection. */
 internal fun childSectionTitle(kind: String): String = when (kind) {
     "Series" -> "SEASONS"
     "Season" -> "EPISODES"
@@ -41,8 +41,8 @@ internal fun childSectionTitle(kind: String): String = when (kind) {
 /**
  * What lives inside this item, as the same poster grid the browse screen uses.
  *
- * A series page lists its seasons, a season page its episodes, and tapping one opens *its* page —
- * so the path series → season → episode is three detail pages, the way Jellyfin's own clients
+ * A series page lists its seasons, a season page its episodes, and tapping one opens *its* page.
+ * So the path series → season → episode is three detail pages, the way Jellyfin's own clients
  * nest them, instead of a detail page for episodes only and flat lists above it.
  */
 @Composable
@@ -64,7 +64,7 @@ internal fun DetailChildren(
         children = null
         children = try {
             // A season's own id lists its episodes, but Jellyfin folds the season-0 Specials in
-            // with them — the number filters those back out.
+            // with them, the number filters those back out.
             vm.jellyfinItemList(config, d.id, seasonNumber = if (d.kind == "Season") d.number else null)
         } catch (c: kotlinx.coroutines.CancellationException) {
             throw c
@@ -79,7 +79,7 @@ internal fun DetailChildren(
     Spacer(Modifier.height(16.dp))
     MediaSectionHeader(childSectionTitle(d.kind), accent)
     // The chips act on what is listed below them, so they live with the list rather than in the
-    // button column above — that column is already long enough.
+    // button column above. That column is already long enough.
     if (!list.isNullOrEmpty()) {
         val done = downloads.filterValues { it.done }.keys
         val pending = pendingDownloads(list, done)
@@ -119,7 +119,7 @@ internal fun DetailChildren(
     }
 }
 
-/** Episodes here that aren't downloaded yet — what "download all" would fetch. */
+/** Episodes here that aren't downloaded yet. What "download all" would fetch. */
 internal fun pendingDownloads(
     children: List<JellyMediaItem>,
     downloaded: Set<String>,
@@ -127,7 +127,7 @@ internal fun pendingDownloads(
     !it.isFolder && it.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS && it.id !in downloaded
 }
 
-/** The first few of those the viewer hasn't watched — what "download next N" would fetch. */
+/** The first few of those the viewer hasn't watched. What "download next N" would fetch. */
 internal fun nextUnwatched(
     children: List<JellyMediaItem>,
     downloaded: Set<String>,

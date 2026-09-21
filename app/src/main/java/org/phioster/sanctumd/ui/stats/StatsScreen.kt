@@ -96,7 +96,7 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                 CircularProgressIndicator(color = MatrixGreen)
             }
             d == null || (d.tiles.isEmpty() && d.charts.isEmpty()) -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Hint("no stats — add services with data")
+                Hint("no stats. Add services with data")
             }
             else -> LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
                 if (d.tiles.isNotEmpty()) {
@@ -116,7 +116,7 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                         Spacer(Modifier.height(8.dp))
                     }
                 }
-                // The service charts had no parent heading — their own titles served as one.
+                // The service charts had no parent heading, their own titles served as one.
                 // Now that those titles are subordinate they need one, or they float indented
                 // without a section.
                 if (d.charts.isNotEmpty()) {
@@ -133,7 +133,7 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                 // plugin's own database. Loaded separately because it can be absent (the plugin
                 // is optional) and must not take the rest of the screen down with it.
                 playback?.let { pb ->
-                    // argbLong(), not value.toLong(): see ColorArgb.kt — that was the cause of
+                    // argbLong(), not value.toLong(): see ColorArgb.kt. That was the cause of
                     // black labels and invisible bar fills in 1.50.1.
                     val green = MatrixGreen.argbLong()
                     val tiles = playbackTiles(pb, green, 0xFFFFAA00L)
@@ -172,14 +172,14 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                     Spacer(Modifier.height(10.dp))
                     if (d.trendTiles.isEmpty() && d.trends.isEmpty()) {
                         Text(
-                            "collecting data — check back in a few days",
+                            "collecting data, check back in a few days",
                             fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp,
                         )
                     } else if (d.trendTiles.isEmpty()) {
                         // Figures need more history than charts do: Prowlarr produces none at
                         // all, and the disk forecast needs three data points. Without this
                         // sentence the section simply looks empty.
-                        Hint("Figures follow once more days are on record — the trends below are already growing.")
+                        Hint("Figures follow once more days are on record. The trends below are already growing.")
                         Spacer(Modifier.height(8.dp))
                     } else {
                         d.trendTiles.chunked(2).forEach { pair ->
@@ -221,7 +221,7 @@ internal fun StatChartView(chart: StatChart, onBar: ((StatBar) -> Unit)? = null)
     val accent = Color(chart.accentArgb)
     val max = chart.bars.maxOfOrNull { it.value }?.coerceAtLeast(1f) ?: 1f
     // Charts sit one level below a section, so they carry a ChartTitle rather than a
-    // SectionHeader — otherwise every chart reads as a new top-level section and the section
+    // SectionHeader. Otherwise every chart reads as a new top-level section and the section
     // above it looks empty.
     Column(Modifier.fillMaxWidth()) {
         ChartTitle(chart.title, accent)

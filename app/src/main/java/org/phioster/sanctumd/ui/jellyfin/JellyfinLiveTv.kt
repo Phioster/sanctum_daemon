@@ -45,7 +45,7 @@ import androidx.compose.material3.Icon
 /**
  * Everything the Live TV tab knows: its two lists and which of its confirmations is armed.
  *
- * Held together in one object so the tab can live in its own file — the screen around it used to
+ * Held together in one object so the tab can live in its own file, the screen around it used to
  * carry these six fields among fifty others, which is what made that file hard to work in.
  */
 internal class JellyfinLiveTvState {
@@ -181,7 +181,7 @@ internal fun LazyListScope.jellyfinLiveTvTab(
         Spacer(Modifier.height(12.dp))
         Text("CHANNELS${if (!ch.isNullOrEmpty()) " (${ch.size})" else ""}", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
     }
-    // Guide data expires daily — if no channel knows its current program, offer to run the
+    // Guide data expires daily. If no channel knows its current program, offer to run the
     // server's "Refresh Guide" task.
     if (!ch.isNullOrEmpty() && ch.none { it.nowPlaying.isNotBlank() }) {
         item {
@@ -197,7 +197,7 @@ internal fun LazyListScope.jellyfinLiveTvTab(
             ) {
                 Icon(AppIcons.Refresh, contentDescription = null, tint = accent, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("no program data — guide may be stale · refresh guide", fontFamily = Mono, color = accent, fontSize = 12.sp)
+                Text("no program data, guide may be stale · refresh guide", fontFamily = Mono, color = accent, fontSize = 12.sp)
             }
         }
     }

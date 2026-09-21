@@ -10,13 +10,13 @@ package org.phioster.sanctumd.ui.player
  * carry the aspect ratio itself; the bars are then simply the black box behind it.
  */
 
-/** Outside this a number is a broken header, not a film — better to fill than to collapse. */
+/** Outside this a number is a broken header, not a film, better to fill than to collapse. */
 private val SANE_ASPECT = 0.2f..6.0f
 
 /**
  * Width divided by height, or 0 when nothing usable is known yet (the caller fills the screen).
  *
- * [reported] is the player's own figure — mpv's `video-params/aspect` — which already accounts for
+ * [reported] is the player's own figure (mpv's `video-params/aspect`) which already accounts for
  * non-square pixels and is therefore preferred. [displayWidth] and [displayHeight] are the
  * aspect-corrected dimensions used as a fallback; the *stored* size must not be used here, because
  * an anamorphic file stores 720×576 and means it to be shown as 16:9.

@@ -11,7 +11,7 @@ import org.phioster.sanctumd.model.ServiceType
 /**
  * How a scanned manual-import row is read, and what the import command is told about it.
  *
- * This used to sit inline in the scan and execute calls, where it could not be tested — and that
+ * This used to sit inline in the scan and execute calls, where it could not be tested, and that
  * is exactly where a Sonarr row once carried a Radarr `movie` object, producing a command with
  * neither `seriesId` nor `episodeIds`: a button that looked like it worked and did nothing.
  *
@@ -35,7 +35,7 @@ internal fun importMatchLabel(type: ServiceType, o: JsonObject): String = when (
     ServiceType.LIDARR -> {
         val artist = sub(o, "artist")?.let { jsStr(it, "artistName") }
         val album = sub(o, "album")?.let { jsStr(it, "title") }
-        listOfNotNull(artist?.takeIf { it.isNotBlank() }, album?.takeIf { it.isNotBlank() }).joinToString(" — ")
+        listOfNotNull(artist?.takeIf { it.isNotBlank() }, album?.takeIf { it.isNotBlank() }).joinToString(" / ")
     }
     else -> sub(o, "movie")?.let { jsStr(it, "title") }.orEmpty()
 }
@@ -75,7 +75,7 @@ internal fun importFileBody(type: ServiceType, o: JsonObject): JsonObject = buil
  * Whether a scanned row may be imported despite what the server said about it.
  *
  * Lidarr judges each file on its own, so every file of a complete album is reported as
- * "Has missing tracks" — the other tracks are missing *from that one file*. Measured against a
+ * "Has missing tracks". The other tracks are missing *from that one file*. Measured against a
  * live Lidarr 3.1.3 (2026-08-20): all 20 rows of a complete, correctly matched album carried it.
  * Treating it as a blocker would ship a manual import that can never import anything, so it is a
  * warning here and the row stays selectable. Every other rejection still blocks, and for Radarr

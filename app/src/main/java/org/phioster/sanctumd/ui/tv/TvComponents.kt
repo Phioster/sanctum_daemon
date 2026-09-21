@@ -59,7 +59,7 @@ import org.phioster.sanctumd.ui.theme.AppIcons
  * Everything here is built on plain Compose focus rather than `androidx.tv:tv-material`: the app
  * already paints itself from [org.phioster.sanctumd.ui.theme.ThemeState], so a second Material
  * theme would only fight it. `Modifier.clickable` is focusable and fires on the D-pad centre key,
- * which is all a ten-foot UI needs — plus a visible focus state, which is the part that must never
+ * which is all a ten-foot UI needs. Plus a visible focus state, which is the part that must never
  * be subtle. On a TV you cannot see a cursor, so the focused element has to be unmistakable.
  */
 
@@ -87,7 +87,7 @@ internal fun TvFocusSurface(
             // The scale goes *after* the focus target, and that ordering is the whole trick.
             //
             // Modifiers apply outside-in, so a scale placed first puts the focusable inside the
-            // scaled layer — and the rectangle `bringIntoView` then asks the enclosing list to
+            // scaled layer, and the rectangle `bringIntoView` then asks the enclosing list to
             // reveal is the *grown* one, which no longer fits the row. The list dutifully scrolled
             // to accommodate it, and since the scale animates on every focus change, moving sideways
             // made the whole page bob up and down. Placed here, the focus node keeps its true
@@ -101,7 +101,7 @@ internal fun TvFocusSurface(
     )
 }
 
-/** Primary action button — filled when focused, outlined otherwise. */
+/** Primary action button, filled when focused, outlined otherwise. */
 @Composable
 internal fun TvButton(
     text: String,
@@ -194,12 +194,12 @@ internal fun TvSectionTitle(text: String, modifier: Modifier = Modifier) {
  *
  * Two things here exist to keep focus movement calm, and both matter more than they look:
  *
- * The card has a **fixed height** — the caption always reserves two lines, even when the item has no
+ * The card has a **fixed height**. The caption always reserves two lines, even when the item has no
  * subtitle. Cards of differing heights make `bringIntoView` request a differently-sized rectangle for
  * each neighbour, and the enclosing list then nudges itself vertically every time you move sideways.
  *
  * The **focus ring is drawn inside a padded box**. The scale-up is a draw effect that spills past the
- * layout bounds, and a list clips its items — so at the top of the screen the ring was being sliced
+ * layout bounds, and a list clips its items. So at the top of the screen the ring was being sliced
  * off by the bar above it. The padding gives the growth somewhere to go.
  */
 @Composable

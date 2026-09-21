@@ -50,7 +50,7 @@ private data class TvHomeData(
 }
 
 /**
- * The TV home screen: shelves, in the order someone sitting down actually wants them — carry on
+ * The TV home screen: shelves, in the order someone sitting down actually wants them, carry on
  * with what was started, then the next episode waiting, then what is new.
  *
  * Every row is optional: an empty one renders nothing rather than an empty gap, so a music-only or
@@ -95,7 +95,7 @@ internal fun TvHomeScreen(
         TvTopBar(config.label, onSwitchServer)
         when {
             loading && data.isEmpty -> TvMessage("lade Bibliothek…", Modifier.padding(top = 60.dp))
-            error != null && data.isEmpty -> TvMessage("server unreachable — $error", Modifier.padding(top = 60.dp), error = true)
+            error != null && data.isEmpty -> TvMessage("server unreachable: $error", Modifier.padding(top = 60.dp), error = true)
             data.isEmpty -> TvMessage("no media found", Modifier.padding(top = 60.dp))
             else -> LazyColumn(
                 Modifier.fillMaxSize(),

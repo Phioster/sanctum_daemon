@@ -16,7 +16,7 @@ import org.phioster.sanctumd.model.ServiceType
  * Sonarr and Radarr keep their own indexer failure counters: when Prowlarr answers 429 they lock
  * the indexer out on their side too, and it stays locked until a successful test resets it.
  *
- * **They expose that through the health check, not through an indexerstatus endpoint** — that
+ * **They expose that through the health check, not through an indexerstatus endpoint**, that
  * endpoint returns 404 on Radarr 6.3 and Sonarr 4.0 (measured on a live instance). The earlier
  * implementation called it anyway and swallowed the failure, so every indexer always looked
  * healthy. The tests passed because MockWebServer will happily serve an endpoint that does not

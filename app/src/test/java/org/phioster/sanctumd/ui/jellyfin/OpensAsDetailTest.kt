@@ -8,7 +8,7 @@ import org.junit.Test
  * Which folders are *things* with a page of their own, and which are just containers.
  *
  * Before this, every folder went onto the browse stack, so a season was a flat list of episode
- * rows with no artwork, synopsis or actions of its own — unlike a film, which had all three.
+ * rows with no artwork, synopsis or actions of its own. Unlike a film, which had all three.
  */
 class OpensAsDetailTest {
 

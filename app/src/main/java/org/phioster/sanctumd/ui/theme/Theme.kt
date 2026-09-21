@@ -13,7 +13,7 @@ import androidx.compose.ui.text.font.FontFamily
  * One theme.
  *
  * [accent] is everything you see: text, icons, buttons, markers. The three surface levels carry the
- * theme's base colour — that tint is where the variation between presets comes from, not from a
+ * theme's base colour. That tint is where the variation between presets comes from, not from a
  * second ink colour (tried that, it only made buttons disagree with their labels).
  */
 data class Palette(
@@ -26,7 +26,7 @@ data class Palette(
 )
 
 /**
- * Fixed presets — no free colour picker on purpose.
+ * Fixed presets, no free colour picker on purpose.
  *
  * NB for future additions: [Palette.background] doubles as the *ink* on the accent (chips, buttons,
  * FAB), so it has to stay dark enough to read on a bright accent. Nord was closest to that limit.
@@ -89,8 +89,8 @@ private fun Color.mixWith(other: Color, fraction: Float): Color = Color(
  * Applies the background choice on top of a preset, keeping its accent.
  *
  * OLED deliberately does *not* flatten the card surfaces to pure black: they stay a shade above it
- * (and keep a hint of the preset's tint) so cards remain distinguishable, while the large areas —
- * the ones that actually glow in a dark room and cost power — are true black.
+ * (and keep a hint of the preset's tint) so cards remain distinguishable, while the large areas.
+ * The ones that actually glow in a dark room and cost power. Are true black.
  */
 fun Palette.withBackground(mode: BackgroundMode): Palette = when (mode) {
     BackgroundMode.PRESET -> this
@@ -106,7 +106,7 @@ fun Palette.withBackground(mode: BackgroundMode): Palette = when (mode) {
     )
 }
 
-/** Secondary/muted ink derived from the accent — used where a fixed muted green used to sit. */
+/** Secondary/muted ink derived from the accent. Used where a fixed muted green used to sit. */
 internal fun Palette.dimInk(): Color = accent.mixWith(background, 0.45f)
 
 /** The live palette. Seeded from ThemeStore before the first frame; changing it repaints the app. */
@@ -123,14 +123,14 @@ internal val Black: Color get() = ThemeState.palette.background
 internal val Surface: Color get() = ThemeState.palette.surface
 internal val SurfaceHi: Color get() = ThemeState.palette.surfaceHi
 
-// Errors stay red in every theme — that is the one colour that must not blend in. The same holds
+// Errors stay red in every theme. That is the one colour that must not blend in. The same holds
 // for the two ambers: a warning that took on the palette's accent would read as ordinary text.
 internal val ErrRed = Color(0xFFFF5555)
 
 /** "Needs attention": pending, in progress, blocked, a confirmation waiting for its second tap. */
 internal val WarnAmber = Color(0xFFFFAA00)
 
-/** The same warning one step quieter — a paragraph of caution rather than a marker. */
+/** The same warning one step quieter, a paragraph of caution rather than a marker. */
 internal val WarnAmberDim = Color(0xFFE0A030)
 internal val Mono = FontFamily.Monospace
 

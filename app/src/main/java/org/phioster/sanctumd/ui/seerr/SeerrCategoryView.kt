@@ -104,7 +104,7 @@ internal fun SeerrCategoryView(
             }
         }
     }
-    // Hidden (but state kept) while a media detail is open on top — the detail is composed
+    // Hidden (but state kept) while a media detail is open on top. The detail is composed
     // earlier in the tree, so it would otherwise draw behind this full-screen grid.
     if (visible) Box(Modifier.fillMaxSize().background(Black)) {
         Column(Modifier.fillMaxSize()) {

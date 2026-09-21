@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Keeps streaming connections open to the user's ntfy topics and turns each incoming
- * message into a local notification — so Sanctumd shows the same live pushes the ntfy
+ * message into a local notification. So Sanctumd shows the same live pushes the ntfy
  * app would. Subscribes to the notification-settings topic plus every topic of
  * configured NTFY services; topics on the same server share one connection.
  */
@@ -44,7 +44,7 @@ class NtfyStreamService : Service() {
     /**
      * Notification ids for pushed messages are allocated here, never derived from the payload.
      *
-     * They used to be `msg.id.hashCode()` — and `msg.id` is free text chosen by whoever publishes
+     * They used to be `msg.id.hashCode()`. And `msg.id` is free text chosen by whoever publishes
      * to the topic, which for an unprotected ntfy topic is anyone who knows its name. A chosen id
      * lets a pushed message land on top of one of the app's own notifications and replace it.
      * A local counter takes that choice away; the map keeps a repeat of the same message on the
@@ -63,7 +63,7 @@ class NtfyStreamService : Service() {
 
     private var job: Job? = null
     // readTimeout is the watchdog. The user's ntfy keepalive is 90 s (kept just under
-    // Cloudflare's fixed 100 s idle cutoff), so the watchdog must exceed 90 s — otherwise
+    // Cloudflare's fixed 100 s idle cutoff), so the watchdog must exceed 90 s, otherwise
     // it fires between keepalives and reconnects endlessly. 110 s leaves jitter margin;
     // a genuinely dead link is caught ~100 s anyway when Cloudflare closes the socket.
     private val client = OkHttpClient.Builder()
@@ -79,7 +79,7 @@ class NtfyStreamService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Notifications.ensureChannels(this)
         ServiceCompat.startForeground(this, FGS_ID, ongoingNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-        // Every (re)start re-snapshots the subscriptions — settings or services may have changed.
+        // Every (re)start re-snapshots the subscriptions. Settings or services may have changed.
         job?.cancel()
         job = scope.launch { superviseStreams() }
         return START_STICKY
@@ -134,7 +134,7 @@ class NtfyStreamService : Service() {
                 }.build()
                 client.newCall(req).execute().use { resp ->
                     if (!resp.isSuccessful) throw java.io.IOException("HTTP ${resp.code}")
-                    backoff = 2_000L // connected — reset backoff
+                    backoff = 2_000L // connected, reset backoff
                     val source = resp.body?.source() ?: return@use
                     while (!source.exhausted() && currentCoroutineContext().isActive) {
                         val line = source.readUtf8Line() ?: break
@@ -178,7 +178,7 @@ class NtfyStreamService : Service() {
      * Shows a health problem and its end as one line instead of two.
      *
      * A failure is posted normally but remembered. When its restore arrives, the failure's
-     * notification is rewritten in place to say it is over and how long it lasted — so a blip that
+     * notification is rewritten in place to say it is over and how long it lasted, so a blip that
      * healed in seconds occupies one quiet slot rather than two alarms, and a problem that is still
      * open keeps looking like one.
      *
@@ -206,7 +206,7 @@ class NtfyStreamService : Service() {
         return true
     }
 
-    /** Reveal only the first 4 chars of a topic (hide the rest — for an unprotected topic the random suffix is effectively the access secret). */
+    /** Reveal only the first 4 chars of a topic (hide the rest. For an unprotected topic the random suffix is effectively the access secret). */
     private fun maskTopic(t: String): String = if (t.length <= 4) "•".repeat(t.length) else "${t.take(4)}••••••"
 
     private fun postNotification(

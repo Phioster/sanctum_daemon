@@ -12,7 +12,7 @@ import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
 
 /**
- * Sonarr cannot import a file from a series alone — it needs the concrete episode ids. The
+ * Sonarr cannot import a file from a series alone. It needs the concrete episode ids. The
  * Radarr-shaped assignment writes a `movie` object, which Sonarr's branch of the import command
  * never reads, so assigning on Sonarr used to produce a command with neither seriesId nor
  * episodeIds: a silent no-op the user could still trigger.
@@ -65,7 +65,7 @@ class ArrImportAssignTest {
         assertTrue("got $body", body.contains("\"episodeIds\":[340]"))
     }
 
-    /** The Radarr path must keep behaving exactly as before — it already works in the field. */
+    /** The Radarr path must keep behaving exactly as before. It already works in the field. */
     @Test
     fun `a movie assignment still reaches Radarr as movieId`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(201).setBody("{}"))

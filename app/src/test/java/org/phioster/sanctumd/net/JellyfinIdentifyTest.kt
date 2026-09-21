@@ -13,8 +13,8 @@ import org.phioster.sanctumd.model.ServiceType
 
 /**
  * German release names regularly leave Jellyfin matched to the wrong title, or to nothing.
- * Identify asks the metadata providers for candidates and pins the item to the chosen one —
- * the same two-step the web UI does, because a single "refresh" would only re-derive the same
+ * Identify asks the metadata providers for candidates and pins the item to the chosen one.
+ * The same two-step the web UI does, because a single "refresh" would only re-derive the same
  * wrong guess from the same filename.
  */
 class JellyfinIdentifyTest {
@@ -93,7 +93,7 @@ class JellyfinIdentifyTest {
         assertEquals("POST", req.method)
         assertTrue("got ${req.path}", req.path!!.startsWith("/Items/RemoteSearch/Apply/i1"))
         assertTrue("got ${req.path}", req.path!!.contains("replaceAllImages=true"))
-        // The chosen candidate has to travel back verbatim — that is what pins the item.
+        // The chosen candidate has to travel back verbatim. That is what pins the item.
         assertTrue("got $body", body.contains("\"Tmdb\":\"1016170\""))
         assertEquals("identified", result)
     }

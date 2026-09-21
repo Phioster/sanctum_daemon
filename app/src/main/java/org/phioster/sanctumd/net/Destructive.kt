@@ -23,7 +23,7 @@ object SafeMode {
     @Volatile
     var enabled: Boolean = false
 
-    /** Ops blocked since the process started — the settings screen shows the count. */
+    /** Ops blocked since the process started. The settings screen shows the count. */
     @Volatile
     var blockedCount: Int = 0
         internal set

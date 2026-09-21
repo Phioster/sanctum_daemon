@@ -88,7 +88,7 @@ internal fun JellyfinIdentifyDialog(
                         null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                         else -> if (list.isEmpty()) {
                             Text(
-                                "no candidates — try the original title instead of the release name",
+                                "no candidates, try the original title instead of the release name",
                                 fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp,
                             )
                         } else list.forEach { c ->

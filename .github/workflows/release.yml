@@ -27,7 +27,7 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           # Without this the action installs its default 'tools' package, which Google removed
-          # from the SDK repository — sdkmanager then exits 1 and the whole job dies.
+          # from the SDK repository, sdkmanager then exits 1 and the whole job dies.
           packages: 'platform-tools'
 
       - name: Setup Gradle
@@ -40,7 +40,7 @@ jobs:
           KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         run: |
           if [ -z "$KEYSTORE_B64" ]; then
-            echo "::error::RELEASE_KEYSTORE_BASE64 secret is not set — add the signing secrets first."
+            echo "::error::RELEASE_KEYSTORE_BASE64 secret is not set. Add the signing secrets first."
             exit 1
           fi
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
@@ -76,7 +76,7 @@ jobs:
 
       # Best-effort artifact upload. Non-fatal: the free Actions-storage quota can block uploads
       # (and lags 6-12 h after cleanup), but the rolling "dev" Release below is the real delivery
-      # path — Release assets don't count against the artifact-storage quota.
+      # path. Release assets don't count against the artifact-storage quota.
       - name: Upload artifact
         continue-on-error: true
         uses: actions/upload-artifact@v4
@@ -87,7 +87,7 @@ jobs:
           if-no-files-found: error
 
       # Rolling single "dev" Release that always holds the latest manual build's APK (replaced each
-      # run — one tag, no accumulation). This is what the install loop downloads.
+      # run, one tag, no accumulation). This is what the install loop downloads.
       - name: Publish rolling dev release
         if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
@@ -98,7 +98,7 @@ jobs:
           files: out/*.apk
 
       # What the release page says, in order of preference: a text written for that tag, else the
-      # changelog's newest section. Never the generated list of commit subjects — that is written
+      # changelog's newest section. Never the generated list of commit subjects. That is written
       # for whoever maintains the app, not for someone installing it.
       #
       # The per-tag file exists because the two audiences differ on one point: the changelog

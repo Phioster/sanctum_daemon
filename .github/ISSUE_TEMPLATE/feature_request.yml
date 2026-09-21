@@ -48,6 +48,6 @@ body:
     id: alternatives
     attributes:
       label: Alternatives / context
-      description: Anything else — mockups, similar apps, related requests.
+      description: Anything else, mockups, similar apps, related requests.
     validations:
       required: false

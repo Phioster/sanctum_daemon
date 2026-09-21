@@ -58,7 +58,7 @@ class QuickActionsConfigActivity : ComponentActivity() {
             AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID,
         ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) { finish(); return }
-        // Exported by necessity — so make sure the id is one of ours before showing anything.
+        // Exported by necessity. So make sure the id is one of ours before showing anything.
         if (!ownsAppWidget(this, QuickActionsWidgetReceiver::class.java, appWidgetId)) { finish(); return }
         setContent { ConfigScreen(appWidgetId) }
     }
@@ -84,7 +84,7 @@ class QuickActionsConfigActivity : ComponentActivity() {
             when {
                 list == null -> Text("loading…", fontFamily = FontFamily.Monospace, color = Dim, fontSize = 13.sp)
                 list.isEmpty() -> Text(
-                    "no services with quick actions — add Jellyfin/Radarr/Sonarr/Lidarr/Prowlarr/NZBGet",
+                    "no services with quick actions. Add Jellyfin/Radarr/Sonarr/Lidarr/Prowlarr/NZBGet",
                     fontFamily = FontFamily.Monospace, color = Dim, fontSize = 13.sp,
                 )
                 else -> list.forEach { svc ->

@@ -37,7 +37,7 @@ data class SeerrSearchItem(
 data class SeerrRootFolder(
     val path: String,
     val serverId: Int,
-    val isDefault: Boolean, // the server's activeDirectory — what a request uses when nothing is picked
+    val isDefault: Boolean, // the server's activeDirectory. What a request uses when nothing is picked
 )
 
 /** A quality profile a Seerr request can be steered to. */
@@ -53,7 +53,7 @@ data class SeerrServiceOptions(
     val serverId: Int,
     val rootFolders: List<SeerrRootFolder>,
     val profiles: List<SeerrProfile>,
-    /** The server's own default — what a request uses when nothing is chosen. */
+    /** The server's own default. What a request uses when nothing is chosen. */
     val defaultProfileId: Int,
 )
 
@@ -81,7 +81,7 @@ data class SeerrMediaDetail(
     val status: String, // "available" / "processing" / … / "" (not requested)
     val cast: List<ArrCastMember>,
     val onWatchlist: Boolean = false,
-    /** Seerr's own media id — NOT the TMDB id. 0 when the title is not in Seerr's library yet;
+    /** Seerr's own media id, NOT the TMDB id. 0 when the title is not in Seerr's library yet;
      *  issues can only be opened against a title Seerr actually knows. */
     val mediaId: Int = 0,
     /** Where the title streams in the chosen region; empty when it streams nowhere there. */
@@ -98,7 +98,7 @@ data class SeerrTitleExtras(
 )
 
 /**
- * What one request was actually made with — the settings behind a row.
+ * What one request was actually made with, the settings behind a row.
  *
  * [rootFolder] and [profile] read "default" when the request took the server's own, which is
  * the common case and must not look like missing data.

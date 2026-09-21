@@ -14,7 +14,7 @@ import org.phioster.sanctumd.model.ServiceType
 
 /**
  * Deleting in Jellyfin alone is a trap in an *arr setup: Radarr still knows the movie, sees the
- * file missing on its next scan and — while monitored — grabs it again. Pairing the two needs a
+ * file missing on its next scan and (while monitored) grabs it again. Pairing the two needs a
  * link that is exact rather than guessed, which is what the provider ids give us.
  */
 class JellyfinDeleteTest {

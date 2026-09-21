@@ -16,7 +16,7 @@ import org.phioster.sanctumd.net.runProwlarrTestAll
 class ServiceAction(val label: String, val run: suspend (ServiceConfig) -> String)
 
 /**
- * Everything about a service type that is not its screen — logo and quick actions used to live
+ * Everything about a service type that is not its screen. Logo and quick actions used to live
  * in five separate `when` blocks, so a new type was a scavenger hunt.
  *
  * Composable screens stay out on purpose: one `when` over the type reads better than composable
@@ -62,7 +62,7 @@ object ServiceRegistry {
         ServiceAction("RSS sync") { arrRssSync(it) },
     )
 
-    /** Every type has an entry — ServiceRegistryTest fails the build if one is missing. */
+    /** Every type has an entry. ServiceRegistryTest fails the build if one is missing. */
     operator fun get(type: ServiceType): ServiceSpec = specs.getValue(type)
 
     @DrawableRes

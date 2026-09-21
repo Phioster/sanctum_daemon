@@ -41,7 +41,7 @@ import org.phioster.sanctumd.ui.theme.WarnAmber
  * the file missing on its next scan and re-downloads it while it stays monitored. The paired
  * entry is looked up by provider id, so it is either exactly right or absent.
  *
- * Only whole movies and whole series get the pairing — for a single episode or season, removing
+ * Only whole movies and whole series get the pairing, for a single episode or season, removing
  * the *arr entry would take the entire series with it.
  */
 @Composable
@@ -106,7 +106,7 @@ internal fun JellyfinDeleteDialog(
                         }
                     }
                     pairable -> Text(
-                        "No matching Radarr/Sonarr entry — nothing there will re-download it.",
+                        "No matching Radarr/Sonarr entry. Nothing there will re-download it.",
                         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp,
                     )
                     else -> Text(

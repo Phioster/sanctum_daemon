@@ -53,7 +53,7 @@ class ArrQueueBlockedTest {
 
     /**
      * The folder a blocked download landed in is already in the queue response. Carrying it
-     * means the manual import can be opened straight at it — the alternative is the user
+     * means the manual import can be opened straight at it. The alternative is the user
      * clicking down a nested tree for a path they do not know by heart.
      */
     @Test

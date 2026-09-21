@@ -75,7 +75,7 @@ import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
 
-// Rows and dialogs for the administration tabs — users, tasks, libraries, plugins, logs.
+// Rows and dialogs for the administration tabs, users, tasks, libraries, plugins, logs.
 
 @Composable
 internal fun JellyUserDialog(

@@ -58,7 +58,7 @@ internal fun prowlarrCategoryFor(type: ServiceType): Int = when (type) {
  * Searches Prowlarr **by text** for something the service is missing, and pushes a chosen
  * release straight back to it.
  *
- * The service's own automatic search goes out by id — so when an indexer carries the wrong id on
+ * The service's own automatic search goes out by id. So when an indexer carries the wrong id on
  * a release, or none, the right file is invisible to it however often you search. A text search
  * finds it. The term starts as the title but is editable, because the release is often named
  * something else entirely.
@@ -86,7 +86,7 @@ internal fun ArrProwlarrSearchDialog(
             .getOrDefault(emptyList())
         results = found
         busy = false
-        // The indexer's listing says nothing about whether a release is worth taking — the
+        // The indexer's listing says nothing about whether a release is worth taking, the
         // service does. Judged after the list is shown, concurrently, so the results are not
         // held back by it, and a service that cannot answer simply leaves the line out.
         judged = coroutineScope {
@@ -114,7 +114,7 @@ internal fun ArrProwlarrSearchDialog(
                         null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                         else -> if (list.isEmpty()) {
                             Text(
-                                if (busy) "searching…" else "nothing found — try the original title",
+                                if (busy) "searching…" else "nothing found, try the original title",
                                 fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp,
                             )
                         } else list.forEach { rel ->
@@ -151,7 +151,7 @@ internal fun verdictPrefix(v: ArrParsedRelease): String = buildList {
  * What the target service makes of this release: quality, language, score and the custom formats
  * behind it.
  *
- * One wrapping Text rather than a Row of them — on a phone the format list runs past the edge,
+ * One wrapping Text rather than a Row of them. On a phone the format list runs past the edge,
  * and a row of fixed cells clips it away instead of breaking. The score keeps its own colour
  * through an annotated span, because its sign is the whole message.
  */

@@ -12,7 +12,7 @@ import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
 
 /**
- * A request row offered three actions and nothing else — no way to see what a request was
+ * A request row offered three actions and nothing else. No way to see what a request was
  * actually made with. The fields below are the ones a live Jellyseerr 3.3 returns for
  * `/api/v1/request/{id}`; they were read off the running instance rather than assumed, after
  * an earlier feature was built against an endpoint that turned out not to exist.
@@ -74,7 +74,7 @@ class SeerrRequestDetailTest {
         assertEquals("completed", d.status)
         assertEquals("default", d.rootFolder)
         assertEquals("default", d.profile)
-        // No profile to resolve means no service lookup at all — two requests, not four.
+        // No profile to resolve means no service lookup at all, two requests, not four.
         assertEquals(2, server.requestCount)
     }
 }

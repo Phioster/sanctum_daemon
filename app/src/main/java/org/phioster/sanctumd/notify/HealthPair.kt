@@ -4,7 +4,7 @@ package org.phioster.sanctumd.notify
  * A health message from Radarr/Sonarr/Lidarr/Prowlarr, split into what it is about and whether it
  * announces a problem or its end.
  *
- * The *arr apps send both halves — they are configured with OnHealthIssue *and* OnHealthRestored —
+ * The *arr apps send both halves. They are configured with OnHealthIssue *and* OnHealthRestored,
  * so a problem that lasts seconds still produces two messages per service. Recognising that the
  * second one answers the first is what lets them be shown as one line.
  */
@@ -21,7 +21,7 @@ private const val RESOLVED_PREFIX = "The following issue is now resolved: "
 /**
  * Reads one of those messages, or null when it is not one.
  *
- * The restore repeats the issue behind a fixed prefix — stripping it is what makes the two halves
+ * The restore repeats the issue behind a fixed prefix. Stripping it is what makes the two halves
  * comparable. A restore that arrives without the prefix keeps its text as the issue rather than
  * being discarded: an unpaired restore is still worth showing.
  */

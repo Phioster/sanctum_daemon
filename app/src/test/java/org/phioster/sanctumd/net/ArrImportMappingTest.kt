@@ -41,9 +41,9 @@ class ArrImportMappingTest {
         assertEquals("Outer Banks S05E04", importMatchLabel(ServiceType.SONARR, sonarrRow))
     }
 
-    /** Lidarr's artist field is `artistName`, not `title` — reading `title` yields an empty label. */
+    /** Lidarr's artist field is `artistName`, not `title`, reading `title` yields an empty label. */
     @Test fun `a track row names the artist and the album`() {
-        assertEquals("Made Flesh — Untitled With Drums", importMatchLabel(ServiceType.LIDARR, lidarrRow))
+        assertEquals("Made Flesh / Untitled With Drums", importMatchLabel(ServiceType.LIDARR, lidarrRow))
     }
 
     @Test fun `a row is matched only when its own service found everything it needs`() {
@@ -84,7 +84,7 @@ class ArrImportMappingTest {
 
     /**
      * Lidarr judges each file on its own, so every file of a 20-track album is reported as
-     * "Has missing tracks" — the other nineteen are missing *from that one file*. Measured against
+     * "Has missing tracks". The other nineteen are missing *from that one file*. Measured against
      * a live Lidarr 3.1.3 on 2026-08-20: all 20 rows of a complete album carried it.
      *
      * Blocking on it would have shipped a manual import that never imports anything.

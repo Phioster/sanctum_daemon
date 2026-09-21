@@ -29,7 +29,7 @@ internal fun ntfyRequest(config: ServiceConfig, url: String): Request =
     }.build()
 
 /** For an unprotected ntfy topic the (random) topic name is effectively the access secret, so
- *  never render it in full on a status card or homescreen widget — reveal only a short prefix and
+ *  never render it in full on a status card or homescreen widget, reveal only a short prefix and
  *  hide the length. Full topic stays visible only in the service config the user manages. */
 internal fun maskTopic(t: String): String = if (t.length <= 4) "•".repeat(t.length) else "${t.take(4)}••••••"
 

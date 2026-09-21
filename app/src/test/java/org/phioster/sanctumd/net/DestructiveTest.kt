@@ -13,7 +13,7 @@ import org.phioster.sanctumd.model.ServiceType
 
 /**
  * Safe mode has to be a mechanism, not a promise: a guarded call must not reach the
- * network at all while it is on. That is checked against a real server here — if the
+ * network at all while it is on. That is checked against a real server here, if the
  * request arrived, the guard failed.
  */
 class DestructiveTest {

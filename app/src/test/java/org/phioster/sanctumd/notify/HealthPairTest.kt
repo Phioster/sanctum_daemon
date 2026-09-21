@@ -30,7 +30,7 @@ class HealthPairTest {
         )
     }
 
-    /** The pairing is by service *and* issue — Prowlarr's outage must not close Sonarr's. */
+    /** The pairing is by service *and* issue. Prowlarr's outage must not close Sonarr's. */
     @Test fun `each service keeps its own issue`() {
         val a = parseHealthEvent("Prowlarr - Health Check Failure", "All indexers are unavailable due to failures")
         val b = parseHealthEvent("Lidarr - Health Check Failure", "All indexers are unavailable due to failures")

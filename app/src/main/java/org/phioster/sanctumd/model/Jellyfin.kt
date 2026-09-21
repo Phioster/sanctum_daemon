@@ -54,7 +54,7 @@ data class JellyPlugin(
 /** Live TV admin state: overall status plus configured tuners and guide providers. */
 data class JellyLiveTv(
     val enabled: Boolean,
-    val services: List<String>, // e.g. "Emby — Ok (2 tuners)"
+    val services: List<String>, // e.g. "Emby, Ok (2 tuners)"
     val tuners: List<JellyTuner>,
     val providers: List<JellyGuideProvider>,
 )
@@ -128,7 +128,7 @@ data class JellyDevice(
  * What actually got watched, from the Playback Reporting plugin's own database.
  *
  * Kept separate from the library counts: this is behaviour, not inventory. [transcodes] is the
- * number that matters operationally — every one of them was the phone re-encoding video on the
+ * number that matters operationally. Every one of them was the phone re-encoding video on the
  * fly, and [forced] names the titles responsible.
  */
 data class JellyPlaybackStats(
@@ -136,7 +136,7 @@ data class JellyPlaybackStats(
     val hours: Double,
     val since: String,
     val transcodes: Int,
-    /** Handed through untouched except for the container — cheap, and not a reason to worry. */
+    /** Handed through untouched except for the container, cheap, and not a reason to worry. */
     val remuxes: Int,
     val topTitles: List<JellyPlayEntry>,
     val devices: List<JellyPlayEntry>,
@@ -230,17 +230,17 @@ data class JellyMediaDetail(
     val facts: List<Pair<String, String>>,
     val genres: String,
     val cast: List<ArrCastMember>,
-    val kind: String = "", // "Movie"/"Episode"/"Video"/"Audio"/… — decides whether playback is offered
+    val kind: String = "", // "Movie"/"Episode"/"Video"/"Audio"/…. Decides whether playback is offered
     val subtitle: String = "", // episodes: "SeriesName · S01E02" (used for downloads/notifications)
     val played: Boolean = false, // fully watched
     val unplayedCount: Int = 0, // folders: episodes still unwatched
     val favorite: Boolean = false,
-    /** The item's own IndexNumber — a season's number, an episode's number. Null when it has
+    /** The item's own IndexNumber, a season's number, an episode's number. Null when it has
      *  none. A season needs it: the episode query filters on it, and without that filter
      *  Jellyfin folds the season-0 Specials into the aired season. */
     val number: Int? = null,
     val fileInfo: JellyFileInfo? = null, // null for folders (Series/Season) and anything without a media source
-    /** Tmdb/Imdb/Tvdb ids — how a Jellyfin item is matched to its Radarr/Sonarr entry exactly. */
+    /** Tmdb/Imdb/Tvdb ids. How a Jellyfin item is matched to its Radarr/Sonarr entry exactly. */
     val providerIds: Map<String, String> = emptyMap(),
 )
 
@@ -266,7 +266,7 @@ data class JellySubtitle(
     val name: String,
     val format: String,
     val downloads: Int,
-    /** Made for this exact file — the one that will actually be in sync. */
+    /** Made for this exact file. The one that will actually be in sync. */
     val hashMatch: Boolean,
     val forced: Boolean,
 )

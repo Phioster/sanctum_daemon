@@ -15,7 +15,7 @@ import org.phioster.sanctumd.data.ServiceStore
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
 
-/** Where the TV UI currently is. The player is not a route — it is an overlay over whatever is below. */
+/** Where the TV UI currently is. The player is not a route. It is an overlay over whatever is below. */
 sealed interface TvRoute {
     data object Home : TvRoute
     /** A library, series or season being browsed as a grid. */
@@ -30,14 +30,14 @@ data class TvPlayRequest(val itemId: String, val title: String)
 /**
  * State for the TV client: which Jellyfin server is configured, and where in the UI we are.
  *
- * Deliberately thin. Screens fetch their own data with the suspend functions in `net` — a television
+ * Deliberately thin. Screens fetch their own data with the suspend functions in `net`, a television
  * shows one screen at a time, so there is nothing to share and nothing to keep warm.
  */
 class TvViewModel(app: Application) : AndroidViewModel(app) {
 
     private val store = ServiceStore(app)
 
-    /** null until DataStore has answered — distinguishes "loading" from "nothing configured", which
+    /** null until DataStore has answered, distinguishes "loading" from "nothing configured", which
      *  otherwise makes the setup screen flash on every start. */
     private val _services = MutableStateFlow<List<ServiceConfig>?>(null)
     val services: StateFlow<List<ServiceConfig>?> = _services.asStateFlow()

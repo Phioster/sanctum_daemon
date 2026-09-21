@@ -14,7 +14,7 @@ import javax.crypto.spec.SecretKeySpec
 
 /**
  * The config export is the only copy of a user's API keys that leaves the device, and
- * the only migration path off it — so both directions are pinned here, including the
+ * the only migration path off it. So both directions are pinned here, including the
  * legacy v1 layout that older backups still use.
  */
 class PortableCryptoTest {

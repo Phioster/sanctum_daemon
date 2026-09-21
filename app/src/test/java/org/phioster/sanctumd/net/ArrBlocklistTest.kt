@@ -13,7 +13,7 @@ import org.phioster.sanctumd.model.ServiceType
 
 /**
  * With a single flaky indexer the same broken release gets grabbed again and again. Blocklisting
- * on removal is what stops that loop — and it was unreachable, because `blocklist` was pinned to
+ * on removal is what stops that loop. And it was unreachable, because `blocklist` was pinned to
  * false in the URL, the same shape of defect as the hardcoded `addImportExclusion`.
  */
 class ArrBlocklistTest {

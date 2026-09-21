@@ -58,10 +58,10 @@ internal data class ArrCounterpartTarget(
 )
 
 /**
- * The bridge from something you are looking at — a film in Jellyfin, a request in Seerr — to the
+ * The bridge from something you are looking at (a film in Jellyfin, a request in Seerr) to the
  * Radarr or Sonarr entry that manages it.
  *
- * The question that prompts it — "this copy is poor, get a better one" — can only be answered on
+ * The question that prompts it ("this copy is poor, get a better one") can only be answered on
  * the other side, and answering it meant leaving the app, opening Radarr and searching for the
  * title by hand. The match is by provider id, so it is exact or absent; a title comparison is
  * what fails on German release names.
@@ -112,7 +112,7 @@ internal fun ArrCounterpartDialog(
                 when {
                     !lookupDone -> Text("looking it up…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                     p == null -> Text(
-                        "No matching entry — this title is not managed by Radarr or Sonarr.",
+                        "No matching entry. This title is not managed by Radarr or Sonarr.",
                         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp,
                     )
                     else -> {

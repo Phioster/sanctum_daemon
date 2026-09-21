@@ -8,23 +8,23 @@ import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * Password-based AES-256-GCM for the portable config export. Unlike [Crypto] — whose
- * key lives in this device's Keystore and never leaves it — this derives the key from
+ * Password-based AES-256-GCM for the portable config export. Unlike [Crypto], whose
+ * key lives in this device's Keystore and never leaves it, this derives the key from
  * a user password with PBKDF2, so the exported file can be decrypted on another device.
  *
  * File layout (v2): MAGIC2(9) || iterations(4, big-endian) || salt(16) || iv(12) ||
  *   ciphertext(incl. 16-byte GCM tag). The PBKDF2 iteration count travels in the header
  *   so it can be raised over time without breaking older exports. v1 files (MAGIC1, no
  *   iterations field, fixed 120k) are still read so previously exported backups import.
- * A wrong password fails the GCM tag check. So does a tampered iteration count — it only derives
- * a different key — which is why trusting the stored count is safe (clamped to sane bounds).
+ * A wrong password fails the GCM tag check. So does a tampered iteration count, it only derives
+ * a different key. Which is why trusting the stored count is safe (clamped to sane bounds).
  */
 object PortableCrypto {
-    private val MAGIC1 = "SANCTUMD1".toByteArray(Charsets.US_ASCII) // 9 bytes — legacy, implicit 120k iters
-    private val MAGIC2 = "SANCTUMD2".toByteArray(Charsets.US_ASCII) // 9 bytes — carries the iteration count
+    private val MAGIC1 = "SANCTUMD1".toByteArray(Charsets.US_ASCII) // 9 bytes, legacy, implicit 120k iters
+    private val MAGIC2 = "SANCTUMD2".toByteArray(Charsets.US_ASCII) // 9 bytes. Carries the iteration count
     private const val SALT_LEN = 16
     private const val IV_LEN = 12
-    private const val ITERATIONS = 210_000        // new exports — OWASP-aligned for PBKDF2-HMAC-SHA256
+    private const val ITERATIONS = 210_000        // new exports, OWASP-aligned for PBKDF2-HMAC-SHA256
     private const val LEGACY_ITERATIONS = 120_000 // v1 files were derived with this fixed count
     private const val MAX_ITERATIONS = 5_000_000  // sanity clamp so a malformed header can't hang PBKDF2
     private const val KEY_BITS = 256

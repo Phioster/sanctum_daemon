@@ -15,7 +15,7 @@ import org.phioster.sanctumd.model.JellyMediaDetail
  * parameters: there was nothing to pass but the individual variables. Grouping the ones that
  * belong to the sheet is what makes lifting it out possible at all.
  *
- * Deliberately a plain holder with no logic — it says what is open, nothing about what that
+ * Deliberately a plain holder with no logic. It says what is open, nothing about what that
  * means. Anything that acts stays in the screen or in the sheet.
  */
 internal class JellyfinDetailState {
@@ -46,7 +46,7 @@ internal class JellyfinDetailState {
     /** The overflow menu in the sheet's header. */
     var menuOpen by mutableStateOf(false)
 
-    // Each of these holds the item a dialog was opened for — null means that dialog is closed.
+    // Each of these holds the item a dialog was opened for. Null means that dialog is closed.
     var manage by mutableStateOf<JellyMediaDetail?>(null)
 
     /** A Jellyfin collection whose Radarr counterpart is open. */
@@ -57,7 +57,7 @@ internal class JellyfinDetailState {
     var cast by mutableStateOf<JellyMediaDetail?>(null)
 
     /** The item a download-quality choice was opened for. Despite the name it is a dialog
-     *  target, not a number — it was easy to misread as one while it sat among 63 loose vars. */
+     *  target, not a number. It was easy to misread as one while it sat among 63 loose vars. */
     var downloadQuality by mutableStateOf<JellyMediaDetail?>(null)
 
     /** Marking a folder watched asks first, because it covers every episode inside it. */

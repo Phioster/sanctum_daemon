@@ -5,7 +5,7 @@ import kotlinx.coroutines.withContext
 import org.phioster.sanctumd.model.ServiceConfig
 
 /** A playable audio track resolved for the background music player. No secret rides in [streamUrl] or
- *  [artUrl] any more — [headers] carries the Jellyfin token and any per-service custom headers. */
+ *  [artUrl] any more. [headers] carries the Jellyfin token and any per-service custom headers. */
 data class MusicTrack(
     val id: String,
     val title: String,
@@ -16,7 +16,7 @@ data class MusicTrack(
     /**
      * What every request for this track needs: the service's own custom headers plus Jellyfin
      * auth. The token used to ride in the URL instead, which put it into the MediaSession's
-     * metadata — and that is readable by any app on the device. See [MusicService].
+     * metadata. And that is readable by any app on the device. See [MusicService].
      */
     val headers: Map<String, String> = emptyMap(),
     /** Track number within its disc, as the server has it; null when untagged. */
@@ -41,7 +41,7 @@ internal fun ticksToMs(ticks: Long?): Long = (ticks ?: 0L) / 10_000L
 
 /**
  * `m:ss`, or `h:mm:ss` once past an hour. A missing runtime reads as an em dash rather than
- * "0:00" — the server simply did not say, and a zero would claim it did.
+ * "0:00". The server simply did not say, and a zero would claim it did.
  */
 internal fun formatDuration(ms: Long): String {
     if (ms <= 0L) return "—"
@@ -61,7 +61,7 @@ internal fun primaryArtUrl(base: String, id: String) =
 /**
  * Which cover a track should carry: its own, else the album's, else none at all. The album's used
  * to be handed out even when the album had no cover either, so every track pointed at a URL that
- * 404s — and the media session's bitmap loader ran into it once per track, for nothing.
+ * 404s, and the media session's bitmap loader ran into it once per track, for nothing.
  */
 internal fun trackArtUrl(
     base: String,
@@ -76,7 +76,7 @@ internal fun trackArtUrl(
 }
 
 /**
- * An album and its tracks in disc/track order — one fetch for everything the album screen needs,
+ * An album and its tracks in disc/track order. One fetch for everything the album screen needs,
  * because the screen and the playback queue are the same list and must not disagree.
  */
 suspend fun jellyfinAlbum(config: ServiceConfig, albumId: String): MusicAlbum = withContext(Dispatchers.IO) {

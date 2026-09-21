@@ -27,7 +27,7 @@ class ClickTargetTest {
 
     /**
      * An id is put straight into an Intent extra, so anything that is not a plain id is refused
-     * rather than passed on — a template can be edited by hand and a typo must not travel.
+     * rather than passed on. A template can be edited by hand and a typo must not travel.
      */
     @Test fun `a malformed id is refused`() {
         assertNull(jellyfinItemIdFromClick("sanctumd://item/../../etc"))

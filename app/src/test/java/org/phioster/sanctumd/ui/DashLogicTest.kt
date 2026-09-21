@@ -7,7 +7,7 @@ import org.phioster.sanctumd.model.CardType
 import org.phioster.sanctumd.model.DashCard
 import org.phioster.sanctumd.model.DashTab
 
-/** The rearrange/edit rules behind the dashboard's ✎ mode — all the off-by-one candidates. */
+/** The rearrange/edit rules behind the dashboard's ✎ mode, all the off-by-one candidates. */
 class DashLogicTest {
 
     private fun card(id: String) = DashCard(id, CardType.RADARR_QUEUE, "svc")

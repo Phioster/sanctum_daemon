@@ -83,7 +83,7 @@ internal fun AboutBody(serviceTypes: List<String>) {
         openInBrowser(context, "$REPO/blob/master/CHANGELOG.md")
     }
     SettingsCategoryRow("report a problem", "open an issue") { openInBrowser(context, "$REPO/issues") }
-    SettingsCategoryRow("licence", "GPL-3.0 — free software") {
+    SettingsCategoryRow("licence", "GPL-3.0, free software") {
         openInBrowser(context, "$REPO/blob/master/LICENSE")
     }
 
@@ -102,7 +102,7 @@ internal fun AboutBody(serviceTypes: List<String>) {
         modifier = Modifier.padding(top = 2.dp),
     )
     Text(
-        "Kinds of services only — no names, addresses or keys, so this is safe to paste into a public issue.",
+        "Kinds of services only. No names, addresses or keys, so this is safe to paste into a public issue.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 10.sp,
         modifier = Modifier.padding(top = 8.dp, bottom = 10.dp),
     )
@@ -125,15 +125,15 @@ internal fun AboutBody(serviceTypes: List<String>) {
  * its POM, but that covers the Android packaging. The FFmpeg libraries it ships are built
  * `--enable-gpl --enable-version3` (the configuration string is in libavcodec.so), so they are
  * GPL-3.0, and mpv links against them. Anything distributing this AAR is therefore bound to
- * GPL-3.0 — which sanctumd is. Re-check when the libmpv version changes.
+ * GPL-3.0. Which sanctumd is. Re-check when the libmpv version changes.
  */
 private val THIRD_PARTY = listOf(
-    "Jetpack Compose · AndroidX · Glance — Apache-2.0",
-    "media3 / ExoPlayer — Apache-2.0",
-    "Retrofit · OkHttp — Apache-2.0",
-    "kotlinx.serialization — Apache-2.0",
-    "Coil — Apache-2.0",
-    "libmpv-android — MIT; its bundled mpv & FFmpeg are GPL-3.0",
+    "Jetpack Compose · AndroidX · Glance (Apache-2.0)",
+    "media3 / ExoPlayer (Apache-2.0)",
+    "Retrofit · OkHttp (Apache-2.0)",
+    "kotlinx.serialization (Apache-2.0)",
+    "Coil (Apache-2.0)",
+    "libmpv-android. MIT; its bundled mpv & FFmpeg are GPL-3.0",
 )
 
 /**

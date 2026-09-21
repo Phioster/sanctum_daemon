@@ -18,7 +18,7 @@ import retrofit2.http.Query
  *
  * Jellyfin renders the previews into sheets of [tileWidth] × [tileHeight] thumbnails, each
  * thumbnail [width] × [height] px and [intervalMs] apart. Sheet and cell for a playback position
- * are pure maths — see [thumbIndexAt], [sheetIndexOf] and [cellOf].
+ * are pure maths, see [thumbIndexAt], [sheetIndexOf] and [cellOf].
  */
 data class TrickplayInfo(
     val width: Int,
@@ -53,7 +53,7 @@ data class TrickplayInfo(
  * none for this item (not generated yet, or a pre-10.9 server).
  *
  * The field is keyed by media source, then by thumbnail width. Picks the widest variant that is
- * still small — the glow is blurred to nothing anyway, so a big sheet would only cost data.
+ * still small. The glow is blurred to nothing anyway, so a big sheet would only cost data.
  */
 internal fun parseTrickplay(item: JsonObject, maxWidth: Int = 480): TrickplayInfo? {
     val bySource = item["Trickplay"] as? JsonObject ?: return null
@@ -123,7 +123,7 @@ suspend fun jellyfinTrickplayTile(
 // ---- Fallback colour source: the item's own artwork, when there is no trickplay ----
 
 /**
- * A small version of the item's artwork — backdrop first (landscape, closer to a frame), else the
+ * A small version of the item's artwork, backdrop first (landscape, closer to a frame), else the
  * poster. Requested tiny on purpose: it only ever becomes a blurred wash, so 64px is plenty and the
  * download is a few kilobytes.
  */

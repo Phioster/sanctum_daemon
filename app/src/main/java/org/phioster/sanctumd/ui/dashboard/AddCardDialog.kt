@@ -60,7 +60,7 @@ internal fun AddCardDialog(
     onAdd: (org.phioster.sanctumd.model.CardType, String) -> Unit,
 ) {
     // Card types grouped by the service they pull from, only for service types the
-    // user actually has configured — like nzb360's per-service "Add new card" sheet.
+    // user actually has configured. Like nzb360's per-service "Add new card" sheet.
     // Service-less types (Section, Quick Buttons) live in a "Layout" group shown first.
     val groups = remember(services) {
         val byService = CardType.entries.groupBy { it.service }

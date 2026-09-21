@@ -12,7 +12,7 @@ import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
 
 /**
- * Jellyfin can fetch subtitles itself, per title — which covers the need Bazarr would have
+ * Jellyfin can fetch subtitles itself, per title. Which covers the need Bazarr would have
  * covered, without another service on the phone-sized server.
  *
  * Ordering matters more than it looks: a hash match is a subtitle made for this exact file, so

@@ -91,7 +91,7 @@ internal fun jsBool(o: JsonObject, key: String) = (o[key] as? JsonPrimitive)?.co
 
 /** Ratings that mark porn / XXX only. Mainstream adult ratings (18, FSK 18, NC-17, R,
  *  TV-MA, and Australia's R18+ which covers violent/horror films) are intentionally NOT
- *  blocked — only actual pornography. Australia's porn rating is X18+, not R18+. */
+ *  blocked, only actual pornography. Australia's porn rating is X18+, not R18+. */
 internal val ADULT_RATINGS = setOf("XXX", "X", "X18+", "ADULT", "PORN")
 fun isAdultRating(rating: String?): Boolean =
     rating != null && rating.trim().uppercase() in ADULT_RATINGS

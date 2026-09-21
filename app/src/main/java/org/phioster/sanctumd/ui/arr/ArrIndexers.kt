@@ -141,7 +141,7 @@ private fun ArrIndexerRow(item: ArrIndexerItem, accent: Color) {
         if (item.statusUnknown) {
             Spacer(Modifier.height(2.dp))
             Text(
-                "health check unreachable — cannot tell",
+                "health check unreachable, cannot tell",
                 fontFamily = Mono, color = WarnAmber, fontSize = 10.sp,
             )
         }

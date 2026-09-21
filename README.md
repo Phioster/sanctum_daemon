@@ -10,7 +10,7 @@
 ![License](https://img.shields.io/badge/License-GPL--3.0-238636?style=flat-square&labelColor=0d1117)
 ![Status](https://img.shields.io/badge/status-2.0-238636?style=flat-square&labelColor=0d1117)
 
-**Jellyfin admin + the \*arr / download stack — one native Android app, one matrix-terminal theme.**
+**Jellyfin admin + the \*arr / download stack. One native Android app, one matrix-terminal theme.**
 
 </div>
 
@@ -19,8 +19,8 @@ visitor@homelab:~$ ./sanctumd --whoami
 
   > one Compose app for your whole
     self-hosted stack. add services
-    once — status, queues, media,
-    requests, users, logs — all in
+    once: status, queues, media,
+    requests, users, logs, all in
     one terminal-styled UI. every
     action hits each service's own
     API directly. no backend. no
@@ -53,7 +53,7 @@ visitor@homelab:~$ ./sanctumd --whoami
 <img src="docs/logos/ntfy.png"     height="46" alt="ntfy"     title="ntfy">
 
 <sub>Jellyfin · Radarr · Sonarr · Lidarr · Prowlarr · Seerr · NZBGet · ntfy<br>
-<sub>— and any HTTP endpoint, as a shortcut</sub></sub>
+<sub>and any HTTP endpoint, as a shortcut</sub></sub>
 
 </div>
 
@@ -151,7 +151,7 @@ visitor@homelab:~$ ./sanctumd --whoami
   the phone, as a named button
   GET or POST · JSON body
   two taps to fire, never one
-  — no accidental reboots
+  no accidental reboots
   grouped under one service
 [where]
   its own screen · a dashboard
@@ -169,7 +169,7 @@ visitor@homelab:~$ ./sanctumd --whoami
   source: a Jellyfin streaming
   client, nothing else
   no dashboard, no services,
-  no widgets — removed in the
+  no widgets, removed in the
   manifest, not just hidden
 [sign-in]
   finds servers by broadcast
@@ -228,13 +228,13 @@ Grab the signed APK from the
 $ adb install -r sanctumd-v2.1.0.apk
 ```
 
-Android 8.0+ on **arm64**. The APK carries `arm64-v8a` libraries only —
+Android 8.0+ on **arm64**. The APK carries `arm64-v8a` libraries only,
 libmpv's are large, and bundling every architecture would multiply the
 download for hardware almost nobody runs. 32-bit and x86 devices are not
 supported; build from source with the `abiFilters` line dropped if you
 need one.
 
-**Android TV** gets its own APK — the `tv` flavour, application id
+**Android TV** gets its own APK, the `tv` flavour, application id
 `org.phioster.nexarr.tv`, so it installs next to the phone app rather than
 over it. That APK carries `armeabi-v7a` as well as `arm64-v8a`, which is why
 it is the larger download: plenty of TV sticks run a 32-bit userspace on a
@@ -246,8 +246,8 @@ $ adb install -r sanctumd-tv-v2.1.0.apk
 
 ## ▚▚ `./build`
 
-Every push triggers the **Build APK** workflow —
-grab the `sanctumd-debug-apk` artifact and install:
+Every push triggers the **Build APK** workflow.
+Grab the `sanctumd-debug-apk` artifact and install:
 
 ```console
 $ adb install -r sanctumd-debug.apk
@@ -266,7 +266,7 @@ $ gradle assembleDebug
 ```text
 feature-complete · in daily use
 1.0 shipped 2026-07-20, now at 2.1
-security audit passed — every finding fixed
+security audit passed, every finding fixed
 ```
 
 See [CHANGELOG.md](CHANGELOG.md) for the milestone history.
@@ -287,6 +287,6 @@ so they are written out here.
 
 <div align="center">
 
-`GPL-3.0` — Sanctumd is free software. See [LICENSE](LICENSE).
+`GPL-3.0`. Sanctumd is free software. See [LICENSE](LICENSE).
 
 </div>

@@ -127,7 +127,7 @@ class DownloadService : Service() {
         return wifiOnly && isMetered()
     }
 
-    /** True when there's no un-metered (Wi-Fi/ethernet) network — i.e. only mobile data. */
+    /** True when there's no un-metered (Wi-Fi/ethernet) network, i.e. only mobile data. */
     private fun isMetered(): Boolean = runCatching {
         val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager ?: return@runCatching false
         val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return@runCatching true
@@ -161,7 +161,7 @@ class DownloadService : Service() {
 
     private suspend fun downloadOne(entry: DownloadEntry) {
         val id = entry.itemId
-        // For episodes the subtitle holds "SeriesName · S01E02" — prefix it so the notification names the show.
+        // For episodes the subtitle holds "SeriesName · S01E02". Prefix it so the notification names the show.
         val display = if (entry.subtitle.isNotBlank()) "${entry.subtitle} · ${entry.name}" else entry.name
         if (id in cancelled) { cancelled -= id; return }
         val config = runCatching { ServiceStore(this).services.first().firstOrNull { it.id == entry.serverId } }.getOrNull()
@@ -222,7 +222,7 @@ class DownloadService : Service() {
             }
             notifyDone(id, display, "Download complete")
         } catch (c: CancellationException) {
-            throw c // real coroutine cancellation (service destroyed) — don't swallow
+            throw c // real coroutine cancellation (service destroyed), don't swallow
         } catch (d: DownloadCancelled) {
             removeEntryAndFiles(id) // user cancelled: clear the entry + any partial files for this id
             cancelled -= id
@@ -269,7 +269,7 @@ class DownloadService : Service() {
     }
 
     /** A dismissible completion/failure notification, separate from the ongoing FGS one so it
-     *  survives after the service stops — the way a downloader flips "downloading" to "done". */
+     *  survives after the service stops, the way a downloader flips "downloading" to "done". */
     private fun notifyDone(itemId: String, text: String, title: String) {
         if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) return
         val open = PendingIntent.getActivity(
@@ -354,7 +354,7 @@ class DownloadService : Service() {
         fun delete(context: Context, itemId: String) = send(context, ACTION_DELETE, itemId)
         fun clearCompleted(context: Context) = sendAction(context, ACTION_CLEAR_DONE)
         fun clearAll(context: Context) = sendAction(context, ACTION_CLEAR_ALL)
-        /** Nudge the queue (e.g. from a foreground screen) — resumes Wi-Fi-parked downloads. */
+        /** Nudge the queue (e.g. from a foreground screen), resumes Wi-Fi-parked downloads. */
         fun resume(context: Context) = runCatching { ContextCompat.startForegroundService(context, Intent(context, DownloadService::class.java)) }.let {}
 
         private fun send(context: Context, action: String, itemId: String) {

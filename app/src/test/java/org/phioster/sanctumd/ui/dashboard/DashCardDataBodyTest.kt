@@ -92,6 +92,6 @@ class DashCardDataBodyTest {
     @Test
     fun `the top watchers card blames the plugin, not the connection`() {
         show(CardType.JELLYFIN_TOP, DashCardData().apply { error = "404" })
-        compose.onNodeWithText("no playback data — install the Jellyfin “Playback Reporting” plugin").assertIsDisplayed()
+        compose.onNodeWithText("no playback data, install the Jellyfin “Playback Reporting” plugin").assertIsDisplayed()
     }
 }

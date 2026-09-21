@@ -58,8 +58,8 @@ data class DashCard(
     val icon: String = "", // optional header icon key (see tabIcon); blank = none
     val posterSize: String = "", // "small" | "large" | "" (medium) for poster-row cards
     val background: Boolean = false, // show a random shown item's art as a Ken-Burns card background
-    val theme: String = "", // "" (flat) | "solid" | "glass" — card container look
-    val density: String = "", // "compact" | "" (normal) | "detail" — row spacing / detail level
+    val theme: String = "", // "" (flat) | "solid" | "glass". Card container look
+    val density: String = "", // "compact" | "" (normal) | "detail", row spacing / detail level
 )
 
 /** Per-row appearance of the Jellyfin Media home (Continue Watching / Recently Added / Libraries),
@@ -67,7 +67,7 @@ data class DashCard(
 @Serializable
 data class MediaRowStyle(
     val accent: Long = 0, // custom accent ARGB; 0 = service default
-    val posterSize: String = "", // "small" | "" (medium) | "large" — poster rows only
+    val posterSize: String = "", // "small" | "" (medium) | "large", poster rows only
     val background: Boolean = false, // Ken-Burns fanart background behind the row
     val hidden: Boolean = false, // hide the row entirely
 )

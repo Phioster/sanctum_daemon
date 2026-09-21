@@ -72,7 +72,7 @@ import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
 import org.phioster.sanctumd.ui.theme.AppIcons
 
-// Posters, cards and rows for the Media tab — what a viewer browses.
+// Posters, cards and rows for the Media tab, what a viewer browses.
 
 @Composable
 internal fun JellyPoster(url: String, config: ServiceConfig, modifier: Modifier, shape: androidx.compose.ui.graphics.Shape, scale: ContentScale) {
@@ -113,7 +113,7 @@ internal fun WatchedBadge(
     }
 }
 
-/** Unwatched-episode count for a folder (Series/Season) — Jellyfin's blue-dot equivalent. */
+/** Unwatched-episode count for a folder (Series/Season), Jellyfin's blue-dot equivalent. */
 @Composable
 internal fun UnplayedBadge(
     count: Int,
@@ -146,7 +146,7 @@ internal fun UnplayedBadge(
  * for a part-watched folder, nothing otherwise.
  *
  * [onSetWatched] makes it tappable; it takes the state the user asked for and returns whether that
- * was applied right away — a folder toggle goes through a confirmation dialog first, so the badge
+ * was applied right away. A folder toggle goes through a confirmation dialog first, so the badge
  * must not flip until the caller says so.
  */
 @Composable
@@ -195,7 +195,7 @@ internal fun JellyPosterCard(item: org.phioster.sanctumd.model.JellyMediaItem, c
     }
 }
 
-/** Media-home section label — delegates to the app-wide [SectionHeader] so every screen matches. */
+/** Media-home section label, delegates to the app-wide [SectionHeader] so every screen matches. */
 @Composable
 internal fun MediaSectionHeader(label: String, accent: Color, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) =
     SectionHeader(label, accent, modifier, trailing)
@@ -264,7 +264,7 @@ internal fun MediaGridCard(item: org.phioster.sanctumd.model.JellyMediaItem, con
     }
 }
 
-/** Browse-header action chip — delegates to the app-wide [AppChip]. */
+/** Browse-header action chip, delegates to the app-wide [AppChip]. */
 @Composable
 internal fun BrowseChip(
     label: String,
@@ -415,7 +415,7 @@ internal fun JellyMediaRow(item: org.phioster.sanctumd.model.JellyMediaItem, con
  * A collapsible season / album section: the header row toggles its children open in place, so a
  * series' seasons (or an artist's albums) can be skimmed without drilling in and back out.
  *
- * [children] null means "still loading". The trailing `›` still opens the folder's own page — that's
+ * [children] null means "still loading". The trailing `›` still opens the folder's own page. That's
  * where the batch actions live (download all, play album, rescan), so expanding doesn't cost them.
  */
 @Composable
@@ -469,7 +469,7 @@ internal fun ExpandableFolderRow(
                     children == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp))
                     children.isEmpty() -> Text("empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp))
                     else -> children.forEach { c ->
-                        // Inside a season the show name is noise — lead with the episode number instead.
+                        // Inside a season the show name is noise, lead with the episode number instead.
                         val shown = if (!album && c.number != null) c.copy(name = "E%02d · %s".format(c.number, c.name), subtitle = "") else c
                         JellyMediaRow(shown, config, accent, onSetWatched?.let { f -> { want: Boolean -> f(c, want) } }) { onOpenChild(c) }
                     }

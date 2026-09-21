@@ -10,7 +10,7 @@ import org.junit.Test
 /**
  * `JsonNull` is a `JsonPrimitive` in kotlinx.serialization, and its `content` is the literal
  * four-character string `"null"`. So a helper that reads `.content` turns every JSON null into
- * the text "null" — which is not blank, so the usual `takeIf { it.isNotBlank() }` guards let it
+ * the text "null". Which is not blank, so the usual `takeIf { it.isNotBlank() }` guards let it
  * straight through and into the UI.
  *
  * These helpers are used ~94 times across the parsing layer, so this is pinned here rather than

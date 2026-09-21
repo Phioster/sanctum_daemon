@@ -47,7 +47,7 @@ internal val WATCH_REGION_OPTIONS: List<String> = listOf(
 )
 
 /**
- * "Where can I watch this?" — the streaming services a title is available on, the way
+ * "Where can I watch this?". The streaming services a title is available on, the way
  * werstreamt.es answers it, for the region the user reads availability in.
  *
  * Draws **nothing** when the title streams nowhere in that region: an empty row would say
@@ -84,7 +84,7 @@ internal fun WatchProviderSection(
     }
 }
 
-/** One provider: its logo, its name, and — for paid offers — how it is on offer. */
+/** One provider: its logo, its name, and (for paid offers) how it is on offer. */
 @Composable
 private fun WatchProviderTile(provider: WatchProvider, accent: Color, onClick: () -> Unit) {
     Column(
@@ -99,7 +99,7 @@ private fun WatchProviderTile(provider: WatchProvider, accent: Color, onClick: (
                 modifier = Modifier.size(46.dp).clip(RoundedCornerShape(10.dp)).background(Surface),
             )
         } else {
-            // No logo from TMDB — the initial keeps the row aligned instead of leaving a hole.
+            // No logo from TMDB. The initial keeps the row aligned instead of leaving a hole.
             Box(Modifier.size(46.dp).clip(RoundedCornerShape(10.dp)).background(Surface), Alignment.Center) {
                 Text(
                     provider.name.take(1).uppercase(),

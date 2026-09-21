@@ -48,7 +48,7 @@ internal val FOLDER_KINDS = setOf("Series", "Season")
 /**
  * One item: poster, facts, description, and the actions that belong on a remote control.
  *
- * "Play" is the first focused control on purpose — the overwhelmingly common intent is to press OK
+ * "Play" is the first focused control on purpose. The overwhelmingly common intent is to press OK
  * once more and have the film start.
  */
 @Composable
@@ -95,7 +95,7 @@ internal fun TvDetailScreen(
         TvTopBar(detail?.name ?: fallbackTitle)
         val d = detail
         when {
-            error != null && d == null -> TvMessage("could not load — $error", Modifier.padding(top = 60.dp), error = true)
+            error != null && d == null -> TvMessage("could not load: $error", Modifier.padding(top = 60.dp), error = true)
             d == null -> TvMessage("lade…", Modifier.padding(top = 60.dp))
             else -> Row(
                 Modifier.fillMaxSize().padding(horizontal = TvSidePad),

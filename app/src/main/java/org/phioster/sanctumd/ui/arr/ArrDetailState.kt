@@ -50,7 +50,7 @@ internal class ArrDetailState {
     var confirmGrab by mutableStateOf<ArrRelease?>(null)
 
     /**
-     * Loads the item, its children, and — when a Seerr is configured — the cast and where it
+     * Loads the item, its children, and (when a Seerr is configured) the cast and where it
      * streams. The extras are best-effort: a title still opens when Seerr is down.
      */
     suspend fun load(vm: DashboardViewModel, config: ServiceConfig, itemId: Int, isSonarr: Boolean, isLidarr: Boolean) {

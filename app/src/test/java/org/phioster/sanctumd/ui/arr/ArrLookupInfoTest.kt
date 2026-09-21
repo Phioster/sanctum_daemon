@@ -24,7 +24,7 @@ import org.robolectric.annotation.Config
  * never get wrong: whether the service already holds it. "add" on a title that is in the library
  * creates a duplicate; "open" on one that is not leads nowhere.
  *
- * Posters stay empty here — Robolectric loads no images, and what is asserted is the text.
+ * Posters stay empty here. Robolectric loads no images, and what is asserted is the text.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])

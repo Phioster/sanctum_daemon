@@ -350,7 +350,7 @@ internal fun SanctumdApp(vm: DashboardViewModel = viewModel()) {
     }
 
     // After a restore onto a new device the encrypted services blob can't be
-    // decrypted (its Keystore key stayed on the old device) — explain instead
+    // decrypted (its Keystore key stayed on the old device), explain instead
     // of silently showing an empty services list.
     val servicesUnreadable by vm.servicesUnreadable.collectAsState()
     if (servicesUnreadable) {

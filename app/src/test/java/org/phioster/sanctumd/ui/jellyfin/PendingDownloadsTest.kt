@@ -6,7 +6,7 @@ import org.phioster.sanctumd.model.JellyMediaItem
 
 /**
  * The bulk-download chips used to live on the browse screen, where a season was a folder. Now a
- * season is a detail page, so the same choice — which episodes to queue — is made here.
+ * season is a detail page, so the same choice (which episodes to queue) is made here.
  */
 class PendingDownloadsTest {
 

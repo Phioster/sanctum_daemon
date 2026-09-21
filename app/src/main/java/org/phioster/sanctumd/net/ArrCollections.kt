@@ -17,7 +17,7 @@ import org.phioster.sanctumd.model.ServiceType
  * Reads one entry of Radarr's `/api/v3/collection`.
  *
  * Radarr keeps the whole TMDB collection, not just the films you own, and marks each one with
- * `isExisting`. That is what makes "which films of this run am I missing" answerable — and it is
+ * `isExisting`. That is what makes "which films of this run am I missing" answerable. And it is
  * the same TMDB id Jellyfin stores on its BoxSet, so the two sides join exactly rather than by
  * title.
  */
@@ -107,7 +107,7 @@ internal fun queueFilterParam(type: ServiceType): String? = when (type) {
 /**
  * What is downloading right now for one library item.
  *
- * Uses `queue/details`, the endpoint made for this question — verified present on the live
+ * Uses `queue/details`, the endpoint made for this question. Verified present on the live
  * Radarr 6.3 and Sonarr 4.0 (both answer 200 with `[]` on an empty queue). The records are the
  * same shape `/queue` returns, which is why [ArrQueueRecord] is reused rather than a second model.
  */

@@ -7,7 +7,7 @@ import org.phioster.sanctumd.model.DashTab
  * The dashboard's list edits as pure functions.
  *
  * They used to sit inside [DashboardViewModel], tangled with DataStore writes, which made
- * the rearrange/edit rules — the part with the off-by-one risks — impossible to test.
+ * the rearrange/edit rules (the part with the off-by-one risks) impossible to test.
  * The view model now only persists whatever these return.
  */
 

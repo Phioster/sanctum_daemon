@@ -13,7 +13,7 @@ import org.phioster.sanctumd.model.ServiceType
 
 /**
  * The global search could not be filtered because its result type carried no adult flag, even
- * though both sources know it. Marking it is the whole change — and the policy stays as decided:
+ * though both sources know it. Marking it is the whole change. And the policy stays as decided:
  * pornography only. FSK 18, R and NC-17 are mainstream ratings and must keep showing up, or
  * an 18-rated horror film would silently vanish from search.
  */

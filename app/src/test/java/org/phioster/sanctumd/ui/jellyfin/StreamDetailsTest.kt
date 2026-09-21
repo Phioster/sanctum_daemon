@@ -9,7 +9,7 @@ import org.phioster.sanctumd.model.JellyStream
 /**
  * The FILE section must only show what the file actually says.
  *
- * Jellyfin reports `VideoRange` on audio streams too, as the string "Unknown" — printing it put
+ * Jellyfin reports `VideoRange` on audio streams too, as the string "Unknown", printing it put
  * a meaningless `range Unknown` row under every audio track. And an untagged track (old AVI rips
  * carry no language) must simply show no language rather than a placeholder.
  */
@@ -42,7 +42,7 @@ class StreamDetailsTest {
     }
 
     @Test fun `an untagged track simply has no language in its headline`() {
-        // "MP3 · stereo", not "unknown · MP3 · stereo" — nothing invented.
+        // "MP3 · stereo", not "unknown · MP3 · stereo", nothing invented.
         assertEquals("MP3 · stereo", streamHeadline(untaggedMp3))
     }
 
@@ -51,7 +51,7 @@ class StreamDetailsTest {
     }
 
     /**
-     * An untagged track can borrow the film's original language — but it is an inference about
+     * An untagged track can borrow the film's original language. But it is an inference about
      * the film, not a fact about the track, so it is labelled. Without the label it would look
      * exactly like the real thing read out of an MKV, and a dual-language rip with no tags would
      * be quietly mislabelled.
@@ -70,7 +70,7 @@ class StreamDetailsTest {
         assertFalse(streamDetails(untaggedMp3).map { it.first }.contains("language"))
     }
 
-    @Test fun `only audio borrows it — a video track has no language to speak of`() {
+    @Test fun `only audio borrows it, a video track has no language to speak of`() {
         val rows = streamDetails(untaggedMp3.copy(type = "Video"), assumedLanguage = "English")
         assertFalse(rows.map { it.first }.contains("language"))
     }

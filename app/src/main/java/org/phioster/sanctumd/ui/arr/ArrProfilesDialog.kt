@@ -40,7 +40,7 @@ import org.phioster.sanctumd.ui.theme.Surface
  *
  * Read-only apart from that: editing an existing profile is deliberately not offered. A profile
  * managed by Recyclarr would have the edit silently reverted on its next sync, leaving something
- * that works some days and not others — far worse than having no button.
+ * that works some days and not others, far worse than having no button.
  */
 @Composable
 internal fun ArrProfilesDialog(

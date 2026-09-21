@@ -9,7 +9,7 @@ import org.phioster.sanctumd.model.StatTile
 import java.time.LocalDate
 
 /** Time-series derivations for the stats screen's TRENDS section. All pure functions over the
- *  recorded [StatsSnapshot] history — no network, no Android — so they're straightforward to unit-test. */
+ *  recorded [StatsSnapshot] history (no network, no Android) so they're straightforward to unit-test. */
 
 /** The (day, value) points of one metric key across the recorded history, oldest first. */
 internal fun seriesFor(history: List<StatsSnapshot>, key: String): List<Pair<Long, Long>> =

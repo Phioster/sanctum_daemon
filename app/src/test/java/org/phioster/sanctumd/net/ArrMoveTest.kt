@@ -12,7 +12,7 @@ import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
 
 /**
- * Moving an item to another root folder — how something ends up in the private archive after the
+ * Moving an item to another root folder. How something ends up in the private archive after the
  * fact, instead of only at the moment it is added.
  *
  * Each service names both the route and the id field differently, and getting either wrong fails

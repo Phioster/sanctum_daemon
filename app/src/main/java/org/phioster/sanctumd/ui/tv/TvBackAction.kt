@@ -8,7 +8,7 @@ enum class BackAction { CLOSE_MENU, CLOSE_INFO, HIDE_CONTROLS, LEAVE }
  *
  * Kept out of the screen as plain logic because getting it wrong locks the viewer in: the overlay
  * is hidden for most of a film, so whatever Back does in *that* state has to be "leave". It used to
- * be swallowed by the rule that a press on a hidden overlay only wakes it — waking and hiding then
+ * be swallowed by the rule that a press on a hidden overlay only wakes it, waking and hiding then
  * took turns and the film could not be left at all while it was playing.
  */
 fun backAction(

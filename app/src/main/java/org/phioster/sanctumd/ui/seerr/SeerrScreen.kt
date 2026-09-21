@@ -114,7 +114,7 @@ internal fun SeerrScreen(
     var watchlist by remember { mutableStateOf<List<org.phioster.sanctumd.model.SeerrDiscoverItem>?>(null) }
     var genres by remember { mutableStateOf<List<Pair<Int, String>>?>(null) }
     var genreItems by remember { mutableStateOf<Map<Int, List<org.phioster.sanctumd.model.SeerrDiscoverItem>>>(emptyMap()) }
-    var genreType by remember { mutableStateOf("movies") } // "movies" | "tv" — which genre catalog the rows use
+    var genreType by remember { mutableStateOf("movies") } // "movies" | "tv". Which genre catalog the rows use
     var category by remember { mutableStateOf<Triple<Int, String, String>?>(null) } // (genreId, name, kind) for the full-screen category view
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
@@ -179,8 +179,8 @@ internal fun SeerrScreen(
             throw c
         } catch (t: Throwable) {
             // This used to swallow every failure into an empty list, on the belief that the
-            // endpoint needs a Plex-linked account. It does not — Jellyseerr keeps its own
-            // watchlist — so a real failure was being shown as "nothing on your watchlist".
+            // endpoint needs a Plex-linked account. It does not. Jellyseerr keeps its own
+            // watchlist. So a real failure was being shown as "nothing on your watchlist".
             watchlist = emptyList()
             listError = t.message
         }
@@ -347,7 +347,7 @@ internal fun SeerrScreen(
                                 val w = watchlist
                                 when {
                                     w == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    w.isEmpty() -> item { Text("watchlist is empty — add titles from a title's page, or in Seerr itself", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    w.isEmpty() -> item { Text("watchlist is empty. Add titles from a title's page, or in Seerr itself", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     else -> items(w) { di -> SeerrDiscoverRow(di, accent) { openDiscoverDetail(di) } }
                                 }
                             }

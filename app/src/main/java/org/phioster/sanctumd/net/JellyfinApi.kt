@@ -230,7 +230,7 @@ internal data class JfCounts(
     val IsForced: Boolean = false,
     val IsExternal: Boolean = false,
 )
-/** The media source as it comes with the item detail — no extra PlaybackInfo round trip needed. */
+/** The media source as it comes with the item detail, no extra PlaybackInfo round trip needed. */
 @Serializable internal data class JfDetailMediaSource(
     val Container: String? = null,
     val Size: Long? = null,
@@ -259,7 +259,7 @@ internal data class JfCounts(
     val ImageTags: Map<String, String>? = null,
     val UserData: JfUserData? = null, // watched state / resume position for this user
     val MediaSources: List<JfDetailMediaSource> = emptyList(),
-    val ProviderIds: Map<String, String>? = null, // Tmdb/Imdb/Tvdb — the exact link to the *arr side
+    val ProviderIds: Map<String, String>? = null, // Tmdb/Imdb/Tvdb, the exact link to the *arr side
 )
 
 @Serializable internal data class JfAuthReq(val Username: String, val Pw: String)
@@ -290,7 +290,7 @@ internal interface JellyfinApi {
     @GET("UserViews") suspend fun views(@Query("userId") uid: String): JfItemsResp
     @GET("Items/Latest") suspend fun latest(@Query("userId") uid: String, @Query("Limit") limit: Int = 20, @Query("ParentId") parentId: String? = null, @Query("Fields") fields: String = "OfficialRating"): List<JfItem>
     @GET("UserItems/Resume") suspend fun resume(@Query("userId") uid: String, @Query("Limit") limit: Int = 20, @Query("Fields") fields: String = "OfficialRating"): JfItemsResp
-    /** What to watch next in a series — the TV home row. Still a Shows endpoint in 10.11. */
+    /** What to watch next in a series, the TV home row. Still a Shows endpoint in 10.11. */
     @GET("Shows/NextUp") suspend fun nextUp(
         @Query("userId") uid: String,
         @Query("Limit") limit: Int = 20,
@@ -321,7 +321,7 @@ internal interface JellyfinApi {
 
     @POST("UserFavoriteItems/{id}") suspend fun markFavorite(@Path("id") id: String, @Query("userId") uid: String): Response<ResponseBody>
     @DELETE("UserFavoriteItems/{id}") suspend fun unmarkFavorite(@Path("id") id: String, @Query("userId") uid: String): Response<ResponseBody>
-    /** Tell another client (a TV, a browser) to start playing an item — the "cast" direction. */
+    /** Tell another client (a TV, a browser) to start playing an item, the "cast" direction. */
     @POST("Sessions/{id}/Playing") suspend fun playOn(
         @Path("id") sessionId: String,
         @Query("itemIds") itemIds: String,

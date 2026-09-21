@@ -8,7 +8,7 @@ import org.phioster.sanctumd.model.ServiceType
 /**
  * Which service a Seerr request lands in.
  *
- * Seerr names its two kinds "movie" and "tv" — not the "Movie"/"Series" Jellyfin uses — so this
+ * Seerr names its two kinds "movie" and "tv" (not the "Movie"/"Series" Jellyfin uses) so this
  * is a separate mapping rather than a reuse of the Jellyfin one. Getting it wrong would search
  * the wrong service and report "not in the library" for something that is.
  */

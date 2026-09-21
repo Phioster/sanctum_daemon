@@ -241,7 +241,7 @@ suspend fun jellyfinSetPassword(config: ServiceConfig, userId: String, newPasswo
 
 /** Resolve the user id whose libraries we browse (the logged-in user, else an admin). */
 internal suspend fun jellyfinResolveUserId(config: ServiceConfig, api: JellyfinApi): String {
-    // A token obtained by signing in (TV setup) already knows its user — no lookup, and no reliance
+    // A token obtained by signing in (TV setup) already knows its user, no lookup, and no reliance
     // on `/Users`, which a non-admin token may not be allowed to read in full.
     if (config.userId.isNotBlank()) return config.userId
     jellyfinUserIdCache[config.id]?.let { return it }
@@ -333,7 +333,7 @@ suspend fun jellyfinLogFiles(config: ServiceConfig): List<JellyLogFile> = withCo
     }.sortedByDescending { it.date }
 }
 
-/** Returns the tail of a server log file (last [maxLines] lines — files can be several MB). */
+/** Returns the tail of a server log file (last [maxLines] lines. Files can be several MB). */
 suspend fun jellyfinLogContent(config: ServiceConfig, name: String, maxLines: Int = 400): String = withContext(Dispatchers.IO) {
     try {
         val token = jellyfinAccessToken(config)
@@ -477,7 +477,7 @@ suspend fun jellyfinLiveTv(config: ServiceConfig): JellyLiveTv = withContext(Dis
         services = info.Services.map { s ->
             buildString {
                 append(s.Name.ifBlank { "Live TV" })
-                append(" — ").append(s.Status.ifBlank { "?" })
+                append(": ").append(s.Status.ifBlank { "?" })
                 append(" (${s.Tuners.size} tuner${if (s.Tuners.size == 1) "" else "s"})")
                 if (!s.StatusMessage.isNullOrBlank()) append(" · ${s.StatusMessage}")
             }

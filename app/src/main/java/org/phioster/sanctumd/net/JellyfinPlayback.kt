@@ -79,8 +79,8 @@ private const val TICKS_PER_MS = 10_000L
 
 /**
  * A compact device profile: ExoPlayer direct-plays common containers/codecs; anything else the
- * server transcodes to an HLS/ts h264+aac stream (handled by media3-exoplayer-hls). Kept lean —
- * the server only needs to know what we can decode vs. what to transcode. [maxBitrate] (bps), when
+ * server transcodes to an HLS/ts h264+aac stream (handled by media3-exoplayer-hls). Kept lean.
+ * The server only needs to know what we can decode vs. what to transcode. [maxBitrate] (bps), when
  * set, caps streaming and forces a transcode for anything above it (the quality selector).
  */
 private fun deviceProfile(maxBitrate: Int?): JsonObject = buildJsonObject {
@@ -119,7 +119,7 @@ private fun deviceProfile(maxBitrate: Int?): JsonObject = buildJsonObject {
 /**
  * The PlaybackInfoDto POST body. For **Auto** quality ([maxBitrate] null) we deliberately send NO
  * device profile: the server then defaults to direct-play whenever it can (matches what actually
- * plays here — a restrictive profile made it needlessly transcode). Only when a quality cap is
+ * plays here, a restrictive profile made it needlessly transcode). Only when a quality cap is
  * chosen do we send a profile whose bitrate + HLS transcode target force the server down.
  */
 private fun playbackInfoBody(userId: String, maxBitrate: Int?): JsonObject = buildJsonObject {
@@ -138,7 +138,7 @@ private fun playbackInfoBody(userId: String, maxBitrate: Int?): JsonObject = bui
 /**
  * Resolves a playable stream for [itemId]. Asks the server (PlaybackInfo + our device profile)
  * whether the file can be sent as-is (static stream) or must be transcoded (HLS), and recovers the
- * saved resume position. The access token travels in a header, never in the URL — consistent with
+ * saved resume position. The access token travels in a header, never in the URL, consistent with
  * [jellyfinImageHeaders] so it stays out of any cache.
  */
 suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String, maxBitrate: Int? = null): PlaybackSource = withContext(Dispatchers.IO) {
@@ -154,7 +154,7 @@ suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String, maxBit
     val psid = info.PlaySessionId ?: ""
     val base = config.normalizedBaseUrl // ends with '/'
 
-    // Prefer sending the original file (direct play/stream) — only fall back to a transcode when the
+    // Prefer sending the original file (direct play/stream), only fall back to a transcode when the
     // server can't do either, so a playable file never needlessly goes through ffmpeg.
     val transcode = ms.TranscodingUrl
     val (url, isHls) = when {
@@ -188,7 +188,7 @@ data class DownloadPlan(
 )
 
 /**
- * Resolves the original-file download for [itemId] (the static stream — the untouched source file,
+ * Resolves the original-file download for [itemId] (the static stream, the untouched source file,
  * never a transcode). Token travels in a header. Container + size come from the media source so the
  * download can be named and progress-tracked.
  */
@@ -208,7 +208,7 @@ suspend fun jellyfinDownloadPlan(config: ServiceConfig, itemId: String, maxBitra
             sizeBytes = ms.Size ?: 0L,
         )
     }
-    // Smaller copy: a progressive MP4 transcode (NOT the HLS playlist — that would arrive as
+    // Smaller copy: a progressive MP4 transcode (NOT the HLS playlist. That would arrive as
     // segments we'd have to stitch). The server streams it as one response, but its length is
     // unknown up front, so the size is estimated from bitrate × runtime for the progress bar.
     val runtimeSec = (ms.RunTimeTicks ?: 0L) / 10_000_000.0
@@ -227,7 +227,7 @@ suspend fun jellyfinDownloadPlan(config: ServiceConfig, itemId: String, maxBitra
     )
 }
 
-/** Download plan for an audio item — the original file via the Audio endpoint. */
+/** Download plan for an audio item, the original file via the Audio endpoint. */
 suspend fun jellyfinAudioDownloadPlan(config: ServiceConfig, itemId: String): DownloadPlan = withContext(Dispatchers.IO) {
     val token = jellyfinAccessToken(config)
     val api = jfPlaybackApi(config, token)
@@ -252,7 +252,7 @@ private fun playStateBody(src: PlaybackSource, positionMs: Long, isPaused: Boole
         if (isPaused != null) put("IsPaused", isPaused)
     }
 
-/** Tells the server playback began — so it appears in "now playing" and marks the item watching. */
+/** Tells the server playback began, so it appears in "now playing" and marks the item watching. */
 suspend fun jellyfinReportStart(config: ServiceConfig, src: PlaybackSource, positionMs: Long): Unit = withContext(Dispatchers.IO) {
     runCatching {
         val token = jellyfinAccessToken(config)
@@ -261,7 +261,7 @@ suspend fun jellyfinReportStart(config: ServiceConfig, src: PlaybackSource, posi
     Unit
 }
 
-/** Periodic progress ping — updates the resume position + Continue Watching. */
+/** Periodic progress ping, updates the resume position + Continue Watching. */
 suspend fun jellyfinReportProgress(config: ServiceConfig, src: PlaybackSource, positionMs: Long, isPaused: Boolean): Unit = withContext(Dispatchers.IO) {
     runCatching {
         val token = jellyfinAccessToken(config)
@@ -270,7 +270,7 @@ suspend fun jellyfinReportProgress(config: ServiceConfig, src: PlaybackSource, p
     Unit
 }
 
-/** Playback ended — persists the final resume position (or marks played when near the end). */
+/** Playback ended, persists the final resume position (or marks played when near the end). */
 suspend fun jellyfinReportStopped(config: ServiceConfig, src: PlaybackSource, positionMs: Long): Unit = withContext(Dispatchers.IO) {
     runCatching {
         val token = jellyfinAccessToken(config)

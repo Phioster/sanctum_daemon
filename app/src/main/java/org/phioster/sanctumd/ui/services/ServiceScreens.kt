@@ -83,7 +83,7 @@ import org.phioster.sanctumd.ui.theme.*
 import org.phioster.sanctumd.ServiceLogo
 import org.phioster.sanctumd.ui.theme.AppIcons
 
-/** Compact, tidy status error for the service cards — the raw DNS/connection exception is verbose and
+/** Compact, tidy status error for the service cards. The raw DNS/connection exception is verbose and
  *  ugly (and the [err] badge already flags the failure), so collapse the common ones to a one-liner. */
 internal fun friendlyStatusError(raw: String?): String {
     val e = raw?.trim().orEmpty()
@@ -141,7 +141,7 @@ internal fun ServiceCard(
                         )
                     }
                     // The type line is noise when the service is simply called after its type
-                    // (the common case) — only show it when the label says something else.
+                    // (the common case). Only show it when the label says something else.
                     if (!config.label.equals(config.type.label, ignoreCase = true)) {
                         Text(config.type.label, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                     }
@@ -527,7 +527,7 @@ internal fun AddServiceScreen(
             Field("Label", label) { label = it; labelEdited = true }
             if (type != ServiceType.SHORTCUTS) {
                 Field("Base URL (https://…)", url) { url = it }
-                // Cleartext stays allowed — a homelab on http://192.168.x.x is the normal case and
+                // Cleartext stays allowed. A homelab on http://192.168.x.x is the normal case and
                 // breaking it would help nobody. But the key below travels on every request, so say
                 // so plainly instead of letting the hint in the label carry it.
                 if (url.isNotBlank() && !url.trim().startsWith("https://", ignoreCase = true)) {
@@ -535,7 +535,7 @@ internal fun AddServiceScreen(
                         Icon(AppIcons.Failed, contentDescription = null, tint = WarnAmberDim, modifier = Modifier.size(12.dp))
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            "not https — the API key and password below travel unencrypted and anyone on the same network can read them.",
+                            "not https, the API key and password below travel unencrypted and anyone on the same network can read them.",
                             fontFamily = Mono, color = WarnAmberDim, fontSize = 10.sp,
                         )
                     }

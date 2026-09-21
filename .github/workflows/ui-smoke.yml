@@ -31,7 +31,7 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           # Without this the action installs its default 'tools' package, which Google removed
-          # from the SDK repository — sdkmanager then exits 1 and the whole job dies.
+          # from the SDK repository, sdkmanager then exits 1 and the whole job dies.
           packages: 'platform-tools'
 
       - name: Setup Gradle
@@ -48,7 +48,7 @@ jobs:
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
       # The emulator died on start with "Not enough space to create userdata partition:
-      # available 7150 MB, need 7372 MB" — 222 MB short. The "Timeout waiting for emulator to
+      # available 7150 MB, need 7372 MB", 222 MB short. The "Timeout waiting for emulator to
       # boot" that followed was only the consequence. The runner ships several toolchains this
       # job never touches; dropping them frees tens of GB.
       - name: Free disk space

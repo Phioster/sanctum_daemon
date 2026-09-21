@@ -13,7 +13,7 @@ import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
 
 /**
- * The detail view shows what the file actually is — container, size and every track. Jellyfin
+ * The detail view shows what the file actually is, container, size and every track. Jellyfin
  * ships that with the item itself, so it has to be read off the existing detail response rather
  * than costing a second round trip.
  */

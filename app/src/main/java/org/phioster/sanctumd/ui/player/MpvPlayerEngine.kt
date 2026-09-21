@@ -12,7 +12,7 @@ import java.util.Locale
 
 /**
  * libmpv implementation of [MediaPlayerEngine]. Plays essentially any codec/container the file uses
- * (no server transcode) and renders image/ASS subtitles — the "plays everything" engine. Uses the
+ * (no server transcode) and renders image/ASS subtitles, the "plays everything" engine. Uses the
  * prebuilt `dev.jdtech.mpv:libmpv` AAR; created behind a runCatching in [PlayerScreen] so a missing
  * native lib falls back to ExoPlayer.
  */
@@ -73,7 +73,7 @@ class MpvPlayerEngine(
             when {
                 // Zero-copy: MediaCodec renders into the surface itself, nothing round-trips through
                 // the GPU. Measured on the target stick, the copy path below dropped frames even on
-                // a 1 Mbit/s H.264 file and produced coloured noise for HEVC — so on a television
+                // a 1 Mbit/s H.264 file and produced coloured noise for HEVC, so on a television
                 // this is the path that actually works, at the price of mpv-drawn subtitles.
                 directOutput -> setOptionString("hwdec", "mediacodec")
 
@@ -108,7 +108,7 @@ class MpvPlayerEngine(
             }
             setOptionString("ao", "audiotrack,opensles")
             // Always verify. If the bundle could not be written, mpv has no CA store and TLS
-            // simply fails — the user gets a playback error. The old fallback turned verification
+            // simply fails. The user gets a playback error. The old fallback turned verification
             // OFF instead and said nothing, which is the one outcome nobody would have chosen:
             // the stream carries auth headers, so a silent downgrade hands them to anyone on path.
             setOptionString("tls-verify", "yes")
@@ -139,7 +139,7 @@ class MpvPlayerEngine(
         headerLines(headers).forEach { mpv.setOptionString("http-header-fields-append", it) }
         // The resume position goes in as the `start` option, NOT as a loadfile argument: since mpv
         // 0.38 the third loadfile parameter is the playlist *index* (an integer), so the old
-        // `loadfile <url> replace start=120` failed to parse and the file never loaded at all — i.e.
+        // `loadfile <url> replace start=120` failed to parse and the file never loaded at all, i.e.
         // every partially-watched item refused to play (and the dead player then reported position 0
         // to Jellyfin, which wiped its resume point). The bundled libmpv 1.0.0 is mpv 0.41.
         // Always set it explicitly so a previous file's value can't leak into the next one.
@@ -249,7 +249,7 @@ class MpvPlayerEngine(
         }
         val subs = matches(TrackKind.SUBTITLE, languageAliases(subLang))
         val pick = subs.firstOrNull { it.second } ?: subs.firstOrNull().takeIf { subMode == "any" }
-        // No match in "forced" mode means subtitles stay off on purpose — otherwise the file's own
+        // No match in "forced" mode means subtitles stay off on purpose, otherwise the file's own
         // default track would show up, which is exactly what the preference exists to prevent.
         mpv.setPropertyString("sid", pick?.first?.toString() ?: "no")
     }
@@ -300,7 +300,7 @@ class MpvPlayerEngine(
  * One `Name: value` line per header, for mpv's `http-header-fields`.
  *
  * Kept separate from the setting because *how* they are set is the whole problem: the option is a
- * comma-separated list, and a Jellyfin `Authorization` header is made of commas —
+ * comma-separated list, and a Jellyfin `Authorization` header is made of commas.
  * `MediaBrowser Token="…", Client="…", Device="…"`. Set in one go it arrived as four broken header
  * lines, the server answered 400 Bad Request, and the player sat on "buffering…" forever with
  * nothing on screen to say why. They are appended one at a time instead.

@@ -17,7 +17,7 @@ import org.phioster.sanctumd.ui.theme.Black
  * The whole TV client: sign-in when no server is configured, otherwise the browse stack with the
  * player as an overlay on top.
  *
- * The player is not a route because it must survive whatever is underneath it — leaving playback
+ * The player is not a route because it must survive whatever is underneath it, leaving playback
  * returns to exactly the screen (and scroll position) it was started from.
  */
 @UnstableApi
@@ -36,7 +36,7 @@ fun TvApp(vm: TvViewModel, onExit: () -> Unit) {
 
             else -> {
                 /**
-                 * Series and seasons open their detail page, not the grid — that page carries the
+                 * Series and seasons open their detail page, not the grid. That page carries the
                  * "carry on watching" button, so getting back into a show is one press rather than
                  * a hunt through seasons for the episode you were on. Libraries and other containers
                  * still drill straight in, and anything playable opens its own page.

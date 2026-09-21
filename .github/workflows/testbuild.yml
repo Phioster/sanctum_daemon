@@ -6,7 +6,7 @@
 # with `gh run download` and installed over an existing install: same key, so it updates in place
 # rather than forcing a reinstall the way a debug-key build would.
 #
-# Triggered by pushing a `probe/**` branch — no release, no tag, nothing anyone else can see.
+# Triggered by pushing a `probe/**` branch. No release, no tag, nothing anyone else can see.
 name: Test build
 
 on:
@@ -48,7 +48,7 @@ jobs:
           KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         run: |
           if [ -z "$KEYSTORE_B64" ]; then
-            echo "::error::RELEASE_KEYSTORE_BASE64 secret is not set — add the signing secrets first."
+            echo "::error::RELEASE_KEYSTORE_BASE64 secret is not set. Add the signing secrets first."
             exit 1
           fi
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
