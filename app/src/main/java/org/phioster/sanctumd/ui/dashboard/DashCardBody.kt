@@ -30,6 +30,9 @@ import org.phioster.sanctumd.model.JellyMediaItem
 import org.phioster.sanctumd.model.SeerrDiscoverItem
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.ui.DashboardViewModel
+import org.phioster.sanctumd.ui.jellyfin.JellyPodium
+import org.phioster.sanctumd.ui.jellyfin.JellyPosterCard
+import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
