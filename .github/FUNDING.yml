@@ -1,8 +1,8 @@
-# Shows a "Sponsor" button on the repo. Uncomment/fill only what you actually
-# have set up — leaving everything commented simply shows no button (harmless).
-#
-# github: [Phioster]           # requires GitHub Sponsors enabled on your account
-# ko_fi: your-handle
-# buy_me_a_coffee: your-handle
+# Shows a "Sponsor" button on the repo. Only what is actually set up belongs here --
+# a handle that does not exist renders a dead button.
+ko_fi: phioster
+buy_me_a_coffee: phioster
+
+# github: [Phioster]           # requires GitHub Sponsors enabled on the account
 # liberapay: your-handle
 # custom: ["https://your-donation-link"]
