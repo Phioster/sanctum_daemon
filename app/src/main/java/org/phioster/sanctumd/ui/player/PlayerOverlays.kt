@@ -38,19 +38,18 @@ import org.phioster.sanctumd.ui.theme.Mono
 /** The little overlay that a brightness or volume swipe puts in the middle of the picture. */
 @Composable
 internal fun BoxScope.SwipeHud(isBrightness: Boolean, value: Float) {
-        Row(
-            Modifier.align(Alignment.Center)
-                .background(Color(0xB3000000), RoundedCornerShape(10.dp))
-                .padding(horizontal = 18.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Icon(
-                if (isBright) Icons.Filled.BrightnessMedium else AppIcons.Audio,
-                contentDescription = null, tint = MatrixGreen, modifier = Modifier.size(22.dp),
-            )
-            Text("${(value * 100).roundToInt()}%", fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-        }
+    Row(
+        Modifier.align(Alignment.Center)
+            .background(Color(0xB3000000), RoundedCornerShape(10.dp))
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(
+            if (isBrightness) Icons.Filled.BrightnessMedium else AppIcons.Audio,
+            contentDescription = null, tint = MatrixGreen, modifier = Modifier.size(22.dp),
+        )
+        Text("${(value * 100).roundToInt()}%", fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, fontWeight = FontWeight.Bold)
     }
 }
 
