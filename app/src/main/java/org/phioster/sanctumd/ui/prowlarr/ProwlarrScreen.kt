@@ -9,15 +9,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
@@ -110,23 +107,10 @@ internal fun ProwlarrScreen(
     var catMenu by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
     var confirmGrab by remember { mutableStateOf<ProwlarrRelease?>(null) }
-    var systemInfo by remember { mutableStateOf<org.phioster.sanctumd.model.ProwlarrSystemInfo?>(null) }
-    var tasks by remember { mutableStateOf<List<org.phioster.sanctumd.model.ProwlarrTaskItem>?>(null) }
     var showSystem by remember { mutableStateOf(false) }
     var confirmDelIndexer by remember { mutableStateOf<ProwlarrIndexerItem?>(null) }
     var editIndexer by remember { mutableStateOf<ProwlarrIndexerItem?>(null) }
-    var editForm by remember { mutableStateOf<org.phioster.sanctumd.model.ProwlarrIndexerEdit?>(null) }
-    var editValues by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
-    var editSaving by remember { mutableStateOf(false) }
     var showAddSchema by remember { mutableStateOf(false) }
-    var schemas by remember { mutableStateOf<List<org.phioster.sanctumd.net.ProwlarrSchemaEntry>?>(null) }
-    var schemaQuery by remember { mutableStateOf("") }
-    var addEntry by remember { mutableStateOf<org.phioster.sanctumd.net.ProwlarrSchemaEntry?>(null) }
-    var addName by remember { mutableStateOf("") }
-    var addValues by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
-    var addSaving by remember { mutableStateOf(false) }
-    var addTesting by remember { mutableStateOf(false) }
-    var addMsg by remember { mutableStateOf<String?>(null) }
     val arrTargets = remember { vm.arrTargets() }
 
     suspend fun loadIndexers() {
@@ -198,16 +182,11 @@ internal fun ProwlarrScreen(
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
                             DropdownMenuItem(text = { Text("Add indexer", fontFamily = Mono) }, onClick = {
-                                barMenu = false; showAddSchema = true; schemas = null; schemaQuery = ""
-                                scope.launch { schemas = runCatching { vm.prowlarrIndexerSchemasOf(config) }.getOrDefault(emptyList()) }
+                                barMenu = false; showAddSchema = true
                             })
                             DropdownMenuItem(text = { Text("Test all indexers", fontFamily = Mono) }, onClick = { barMenu = false; act({ vm.prowlarrTestAll(config) }, false) })
                             DropdownMenuItem(text = { Text("System & tasks", fontFamily = Mono) }, onClick = {
-                                barMenu = false; showSystem = true; systemInfo = null; tasks = null
-                                scope.launch {
-                                    systemInfo = runCatching { vm.prowlarrSystemInfo(config) }.getOrNull()
-                                    tasks = runCatching { vm.prowlarrTaskList(config) }.getOrDefault(emptyList())
-                                }
+                                barMenu = false; showSystem = true
                             })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
@@ -290,12 +269,7 @@ internal fun ProwlarrScreen(
                                             onTest = { act({ vm.prowlarrTest(config, row.id) }, false) },
                                             onToggle = { act({ vm.prowlarrToggle(config, row.id, !row.enable) }, true) },
                                             onEdit = {
-                                                editIndexer = row; editForm = null; editValues = emptyMap()
-                                                scope.launch {
-                                                    val f = runCatching { vm.prowlarrIndexerEditOf(config, row.id) }.getOrNull()
-                                                    editForm = f
-                                                    editValues = f?.fields?.associate { it.name to it.value } ?: emptyMap()
-                                                }
+                                                editIndexer = row
                                             },
                                             onDelete = { confirmDelIndexer = row },
                                         )
@@ -360,203 +334,32 @@ internal fun ProwlarrScreen(
     }
 
     confirmDelIndexer?.let { ix ->
-        AlertDialog(
-            onDismissRequest = { confirmDelIndexer = null },
-            containerColor = Surface,
-            title = { Text("Delete indexer?", fontFamily = Mono, color = MatrixGreen) },
-            text = { Text("Remove \"${ix.name}\" from Prowlarr. This does not touch the connected apps.", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 13.sp) },
-            confirmButton = {
-                TextButton(onClick = { confirmDelIndexer = null; act({ vm.prowlarrDelete(config, ix.id) }, true) }) {
-                    Text("Delete", fontFamily = Mono, color = ErrRed)
-                }
-            },
-            dismissButton = { TextButton(onClick = { confirmDelIndexer = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        ProwlarrDeleteIndexerDialog(
+            indexer = ix,
+            onConfirm = { act({ vm.prowlarrDelete(config, ix.id) }, true) },
+            onDismiss = { confirmDelIndexer = null },
         )
     }
 
     editIndexer?.let { ix ->
-        AlertDialog(
-            onDismissRequest = { if (!editSaving) editIndexer = null },
-            containerColor = Surface,
-            title = { Text("Edit ${editForm?.name ?: ix.name}", fontFamily = Mono, color = MatrixGreen, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            text = {
-                val form = editForm
-                if (form == null) {
-                    Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                } else if (form.fields.isEmpty()) {
-                    Text("no editable settings", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                } else {
-                    Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
-                        form.fields.forEach { f ->
-                            ProwlarrFieldInput(f, editValues[f.name] ?: f.value) { editValues = editValues + (f.name to it) }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = editForm != null && !editSaving,
-                    onClick = {
-                        val id = ix.id
-                        val vals = editValues
-                        editSaving = true
-                        scope.launch {
-                            actionMsg = vm.prowlarrSaveIndexerOf(config, id, vals)
-                            editSaving = false
-                            editIndexer = null
-                            loadIndexers()
-                        }
-                    },
-                ) { Text(if (editSaving) "saving…" else "Save", fontFamily = Mono, color = MatrixGreen) }
-            },
-            dismissButton = { TextButton(onClick = { if (!editSaving) editIndexer = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        ProwlarrEditIndexerDialog(
+            vm, config, ix,
+            onMessage = { actionMsg = it },
+            onSaved = { scope.launch { loadIndexers() } },
+            onDismiss = { editIndexer = null },
         )
     }
 
     if (showAddSchema) {
-        AlertDialog(
-            onDismissRequest = { showAddSchema = false },
-            containerColor = Surface,
-            title = { Text("Add indexer", fontFamily = Mono, color = MatrixGreen) },
-            text = {
-                Column(Modifier.heightIn(max = 480.dp)) {
-                    Field("search", schemaQuery) { schemaQuery = it }
-                    Spacer(Modifier.height(8.dp))
-                    val list = schemas
-                    when {
-                        list == null -> Text("loading catalogue…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                        else -> {
-                            val filtered = list.filter { schemaQuery.isBlank() || it.name.contains(schemaQuery, ignoreCase = true) }
-                            LazyColumn(Modifier.heightIn(max = 400.dp)) {
-                                if (filtered.isEmpty()) {
-                                    item { Text("no matches", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp) }
-                                }
-                                items(filtered.take(120)) { s ->
-                                    Column(
-                                        Modifier.fillMaxWidth().clickable {
-                                            addEntry = s; addName = s.name; addMsg = null
-                                            addValues = s.fields.associate { it.name to it.value }
-                                            showAddSchema = false
-                                        }.padding(vertical = 10.dp),
-                                    ) {
-                                        Text(s.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text(
-                                            listOfNotNull(s.protocol.ifBlank { null }, s.privacy.ifBlank { null }).joinToString(" · "),
-                                            fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 10.sp,
-                                        )
-                                        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = { showAddSchema = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+        ProwlarrAddIndexerFlow(
+            vm, config, accent,
+            onMessage = { actionMsg = it },
+            onAdded = { scope.launch { loadIndexers() } },
+            onDismiss = { showAddSchema = false },
         )
     }
 
-    addEntry?.let { entry ->
-        AlertDialog(
-            onDismissRequest = { if (!addSaving) addEntry = null },
-            containerColor = Surface,
-            title = { Text("Add ${entry.name}", fontFamily = Mono, color = MatrixGreen, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            text = {
-                Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
-                    addMsg?.let { m ->
-                        val ok = !m.startsWith("error")
-                        Text(
-                            m,
-                            fontFamily = Mono, color = if (ok) MatrixGreen else ErrRed, fontSize = 12.sp,
-                            modifier = Modifier.padding(bottom = 8.dp),
-                        )
-                    }
-                    Field("name", addName) { addName = it }
-                    Spacer(Modifier.height(6.dp))
-                    entry.fields.forEach { f ->
-                        ProwlarrFieldInput(f, addValues[f.name] ?: f.value) { addValues = addValues + (f.name to it) }
-                    }
-                }
-            },
-            confirmButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(
-                        enabled = addName.isNotBlank() && !addSaving && !addTesting,
-                        onClick = {
-                            val e = entry
-                            val nm = addName
-                            val vals = addValues
-                            addTesting = true; addMsg = null
-                            scope.launch {
-                                addMsg = vm.prowlarrTestNewIndexerOf(config, e, nm, vals)
-                                addTesting = false
-                            }
-                        },
-                    ) { Text(if (addTesting) "testing…" else "Test", fontFamily = Mono, color = accent) }
-                    TextButton(
-                        enabled = addName.isNotBlank() && !addSaving && !addTesting,
-                        onClick = {
-                            val e = entry
-                            val nm = addName
-                            val vals = addValues
-                            addSaving = true; addMsg = null
-                            scope.launch {
-                                val res = vm.prowlarrAddIndexerOf(config, e, nm, vals)
-                                addSaving = false
-                                if (res.startsWith("error")) {
-                                    addMsg = res // keep the dialog open so the user can fix the field
-                                } else {
-                                    actionMsg = res
-                                    addEntry = null
-                                    loadIndexers()
-                                }
-                            }
-                        },
-                    ) { Text(if (addSaving) "adding…" else "Add", fontFamily = Mono, color = MatrixGreen) }
-                }
-            },
-            dismissButton = { TextButton(onClick = { if (!addSaving && !addTesting) addEntry = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
-
-    if (showSystem) {
-        AlertDialog(
-            onDismissRequest = { showSystem = false },
-            containerColor = Surface,
-            title = { Text("System & tasks", fontFamily = Mono, color = MatrixGreen) },
-            text = {
-                Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
-                    val si = systemInfo
-                    Text("version ${si?.version ?: "…"}", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
-                    Spacer(Modifier.height(8.dp))
-                    SectionHeader("HEALTH")
-                    when {
-                        si == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                        si.health.isEmpty() -> Text("all healthy", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
-                        else -> si.health.forEach { (type, msg) ->
-                            val c = if (type.equals("error", true)) ErrRed else WarnAmber
-                            Text("• $msg", fontFamily = Mono, color = c, fontSize = 12.sp)
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    SectionHeader("TASKS")
-                    val tk = tasks
-                    when {
-                        tk == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                        tk.isEmpty() -> Text("no tasks", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                        else -> tk.forEach { t ->
-                            Column(Modifier.padding(vertical = 4.dp)) {
-                                Text(t.name, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
-                                Text("last ${t.lastExecution.ifBlank { "—" }} · next ${t.nextExecution.ifBlank { "—" }}", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp)
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showSystem = false }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
+    if (showSystem) ProwlarrSystemDialog(vm, config) { showSystem = false }
 }
 
 @Composable
@@ -579,7 +382,7 @@ internal fun ProwlarrHistoryRow(item: org.phioster.sanctumd.model.ProwlarrHistor
 }
 
 @Composable
-private fun ProwlarrFieldInput(f: org.phioster.sanctumd.model.ProwlarrField, value: String, onChange: (String) -> Unit) {
+internal fun ProwlarrFieldInput(f: org.phioster.sanctumd.model.ProwlarrField, value: String, onChange: (String) -> Unit) {
     when {
         f.type == "checkbox" -> JellyToggle(f.label, value.toBoolean()) { onChange(it.toString()) }
         f.type == "select" && f.options.isNotEmpty() -> {
