@@ -39,6 +39,8 @@ import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.WarnAmber
 import org.phioster.sanctumd.ui.theme.WarnAmberDim
 import org.phioster.sanctumd.ui.theme.AppIcons
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
 
 /**
  * What a card shows below its heading, for every type whose content is just its data.
@@ -234,7 +236,8 @@ internal fun ShortcutsCardBody(
                         .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("▸ ${sc.name}", fontFamily = Mono, color = accentColor, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    Icon(AppIcons.Bullet, contentDescription = null, tint = accentColor, modifier = Modifier.size(14.dp))
+                    Text(sc.name, fontFamily = Mono, color = accentColor, fontSize = 13.sp, modifier = Modifier.weight(1f))
                     if (pendingSc == sc.name) Text("tap again", fontFamily = Mono, color = WarnAmber, fontSize = 10.sp)
                 }
             }
@@ -260,10 +263,8 @@ internal fun QuickActionsCardBody(
         if (actions.isEmpty()) empty("no actions available")
         else Column {
             actions.forEach { (svc, qa) ->
-                Text(
-                    "▸ ${qa.label}",
-                    fontFamily = Mono, color = accentColor, fontSize = 13.sp,
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    Modifier.fillMaxWidth()
                         .clickable {
                             scope.launch {
                                 val res = runCatching { qa.run(vm, svc) }.getOrElse { it.message ?: "failed" }
@@ -271,7 +272,11 @@ internal fun QuickActionsCardBody(
                             }
                         }
                         .padding(vertical = 8.dp),
-                )
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(AppIcons.Bullet, contentDescription = null, tint = accentColor, modifier = Modifier.size(14.dp))
+                    Text(qa.label, fontFamily = Mono, color = accentColor, fontSize = 13.sp)
+                }
             }
         }
 }

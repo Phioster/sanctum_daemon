@@ -456,15 +456,17 @@ internal fun ServicesContent(
                 // View switcher, one chip showing the current mode, the rest behind a menu.
                 Box(Modifier.padding(bottom = 10.dp)) {
                     var viewMenu by remember { mutableStateOf(false) }
-                    Text(
-                        "view: $viewMode ▾",
-                        fontFamily = Mono, fontSize = 11.sp, color = MatrixGreen,
-                        modifier = Modifier
+                    Row(
+                        Modifier
                             .clip(RoundedCornerShape(6.dp))
                             .border(1.dp, MatrixGreen.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
                             .clickable { viewMenu = true }
                             .padding(horizontal = 10.dp, vertical = 5.dp),
-                    )
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("view: $viewMode", fontFamily = Mono, fontSize = 11.sp, color = MatrixGreen)
+                        Icon(AppIcons.Expanded, contentDescription = null, tint = MatrixGreen, modifier = Modifier.size(14.dp))
+                    }
                     androidx.compose.material3.DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
                         listOf("cards", "compact", "grid", "mixed").forEach { key ->
                             androidx.compose.material3.DropdownMenuItem(
@@ -722,8 +724,8 @@ internal fun WidgetTabContent(
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("◀", fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, modifier = Modifier.clickable { onMoveTab(-1) }.padding(end = 12.dp))
-                        Text("▶", fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, modifier = Modifier.clickable { onMoveTab(1) })
+                        Icon(AppIcons.Back, contentDescription = "move tab left", tint = MatrixGreen, modifier = Modifier.size(18.dp).clickable { onMoveTab(-1) }.padding(end = 12.dp))
+                        Icon(AppIcons.Forward, contentDescription = "move tab right", tint = MatrixGreen, modifier = Modifier.size(18.dp).clickable { onMoveTab(1) })
                     }
                     Text("+ new tab", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, modifier = Modifier.clickable { onAddTab() })
                     Text("edit tab", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, modifier = Modifier.clickable { onEditTab() })

@@ -64,6 +64,8 @@ import org.phioster.sanctumd.ui.services.*
 import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.theme.*
 import org.phioster.sanctumd.ServiceLogo
+import androidx.compose.foundation.layout.size
+import org.phioster.sanctumd.ui.theme.AppIcons
 
 /** HTTP-shortcuts service screen: fire one-tap requests (tap again to confirm). */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -129,7 +131,8 @@ internal fun ShortcutsScreen(
                         .padding(vertical = 12.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("▸ ${sc.name}", fontFamily = Mono, color = accent, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                        Icon(AppIcons.Bullet, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp))
+                        Text(sc.name, fontFamily = Mono, color = accent, fontSize = 15.sp, modifier = Modifier.weight(1f))
                         when {
                             running == sc.name -> Text("running…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
                             pending == sc.name -> Text("tap again to run", fontFamily = Mono, color = WarnAmber, fontSize = 11.sp)

@@ -65,6 +65,7 @@ import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
 import org.phioster.sanctumd.ui.theme.AppIcons
+import androidx.compose.material3.Icon
 
 /** Dashboard card: a month calendar grid of upcoming releases merged across all *arr,
  *  month-switchable, services marked by their accent colour; tap a day for its list. */
@@ -107,7 +108,7 @@ internal fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenSe
 
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("◀", fontFamily = Mono, color = accent, fontSize = 16.sp, modifier = Modifier.clickable { month = month.minusMonths(1) }.padding(horizontal = 10.dp, vertical = 4.dp))
+            Icon(AppIcons.Back, contentDescription = "earlier month", tint = accent, modifier = Modifier.size(18.dp).clickable { month = month.minusMonths(1) }.padding(horizontal = 10.dp, vertical = 4.dp))
             Text(
                 month.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy")),
                 fontFamily = Mono, color = accent, fontSize = 14.sp, fontWeight = FontWeight.Bold,
@@ -121,7 +122,7 @@ internal fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenSe
                         .padding(horizontal = 6.dp, vertical = 4.dp),
                 )
             }
-            Text("▶", fontFamily = Mono, color = accent, fontSize = 16.sp, modifier = Modifier.clickable { month = month.plusMonths(1) }.padding(horizontal = 10.dp, vertical = 4.dp))
+            Icon(AppIcons.Forward, contentDescription = "later month", tint = accent, modifier = Modifier.size(18.dp).clickable { month = month.plusMonths(1) }.padding(horizontal = 10.dp, vertical = 4.dp))
         }
         Spacer(Modifier.height(4.dp))
         Row(Modifier.fillMaxWidth()) {

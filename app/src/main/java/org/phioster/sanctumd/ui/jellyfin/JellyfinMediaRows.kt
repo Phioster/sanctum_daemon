@@ -436,10 +436,10 @@ internal fun ExpandableFolderRow(
             Modifier.fillMaxWidth().clickable { onToggle() }.padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                if (expanded) "▾" else "▸",
-                fontFamily = Mono, color = accent, fontSize = 14.sp,
-                modifier = Modifier.width(18.dp),
+            Icon(
+                if (expanded) AppIcons.Expanded else AppIcons.Collapsed,
+                contentDescription = if (expanded) "collapse" else "expand",
+                tint = accent, modifier = Modifier.width(18.dp).size(16.dp),
             )
             Box {
                 if (folder.posterUrl.isNotBlank()) {

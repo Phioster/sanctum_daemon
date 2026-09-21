@@ -781,12 +781,23 @@ private fun TvPlayerMenu(
                             .background(if (active) MatrixGreen else Color.Transparent)
                             .padding(horizontal = 10.dp, vertical = 8.dp),
                     ) {
-                        Text(
-                            (if (entry.selected) "● " else "○ ") + entry.label.trim(),
-                            color = if (active) Black else MatrixGreen,
-                            fontFamily = Mono,
-                            fontSize = 15.sp,
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
+                        ) {
+                            Icon(
+                                if (entry.selected) AppIcons.Selected else AppIcons.NotSelected,
+                                contentDescription = null,
+                                tint = if (active) Black else MatrixGreen,
+                                modifier = Modifier.size(15.dp),
+                            )
+                            Text(
+                                entry.label.trim(),
+                                color = if (active) Black else MatrixGreen,
+                                fontFamily = Mono,
+                                fontSize = 15.sp,
+                            )
+                        }
                     }
                 }
             }

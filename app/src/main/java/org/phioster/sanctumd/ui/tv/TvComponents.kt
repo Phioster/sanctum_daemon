@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,6 +37,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,13 +47,12 @@ import androidx.compose.ui.unit.sp
 import org.phioster.sanctumd.model.JellyMediaItem
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.ui.jellyfin.JellyPoster
+import org.phioster.sanctumd.ui.theme.AppIcons
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
 import org.phioster.sanctumd.ui.theme.SurfaceHi
-import androidx.compose.material3.Icon
-import org.phioster.sanctumd.ui.theme.AppIcons
 
 /**
  * Shared TV widgets.
@@ -108,6 +109,7 @@ internal fun TvButton(
     modifier: Modifier = Modifier,
     focusRequester: FocusRequester? = null,
     enabled: Boolean = true,
+    leading: ImageVector? = null,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -122,13 +124,18 @@ internal fun TvButton(
             .clickable(enabled = enabled) { onClick() }
             .padding(horizontal = 22.dp, vertical = 11.dp),
     ) {
-        Text(
-            text,
-            color = if (focused) Black else MatrixGreen,
-            fontFamily = Mono,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            leading?.let {
+                Icon(it, contentDescription = null, tint = if (focused) Black else MatrixGreen, modifier = Modifier.size(17.dp))
+            }
+            Text(
+                text,
+                color = if (focused) Black else MatrixGreen,
+                fontFamily = Mono,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+            )
+        }
     }
 }
 

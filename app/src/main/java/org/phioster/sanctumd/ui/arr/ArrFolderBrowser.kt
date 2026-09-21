@@ -28,6 +28,10 @@ import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.WarnAmber
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
+import org.phioster.sanctumd.ui.theme.AppIcons
+import androidx.compose.foundation.layout.width
 
 /**
  * Taps its way to a folder on the server instead of making the user type an absolute path.
@@ -79,8 +83,14 @@ internal fun ArrFolderBrowser(
                             .let { m -> if (e.isDirectory) m.clickable { onPathChange(e.path) } else m }
                             .padding(vertical = 6.dp),
                     ) {
+                        if (e.isDirectory) {
+                            Icon(AppIcons.Folder, contentDescription = "folder", tint = MatrixGreen, modifier = Modifier.size(13.dp))
+                            Spacer(Modifier.width(4.dp))
+                        } else {
+                            Spacer(Modifier.width(17.dp))
+                        }
                         Text(
-                            (if (e.isDirectory) "▸ " else "  ") + e.name,
+                            e.name,
                             fontFamily = Mono, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             color = if (e.isDirectory) MatrixGreen else MatrixGreen.copy(alpha = 0.45f),
                             modifier = Modifier.weight(1f),

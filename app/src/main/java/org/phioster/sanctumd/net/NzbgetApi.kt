@@ -204,7 +204,7 @@ internal suspend fun nzbgetStatus(config: ServiceConfig): ServiceStatus {
     val queue = runCatching { api.listgroups().result.size }.getOrDefault(0)
     return ServiceStatus(
         ok = true,
-        note = if (st.DownloadPaused) "⏸ paused" else "▶ active",
+        note = if (st.DownloadPaused) "paused" else "active",
         stats = listOf(
             "KB/s" to (st.DownloadRate / 1024).toString(),
             "Queue" to queue.toString(),

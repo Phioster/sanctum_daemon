@@ -2,16 +2,18 @@ package org.phioster.sanctumd.ui.theme
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowRight
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
@@ -19,15 +21,17 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.OpenInNew
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.RadioButtonChecked
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
@@ -88,6 +92,8 @@ internal object AppIcons {
     val Favorite: ImageVector = Icons.Filled.Favorite
     val NotFavorite: ImageVector = Icons.Filled.FavoriteBorder
     val Pinned: ImageVector = Icons.Filled.PushPin
+    val Selected: ImageVector = Icons.Filled.RadioButtonChecked
+    val NotSelected: ImageVector = Icons.Filled.RadioButtonUnchecked
     val Collapsed: ImageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight
     val Expanded: ImageVector = Icons.Filled.KeyboardArrowDown
     val Monitored: ImageVector = Icons.Filled.Bookmark
@@ -97,6 +103,9 @@ internal object AppIcons {
 
     // ── Navigation ──
     val Back: ImageVector = Icons.AutoMirrored.Filled.ArrowBack
+    val Forward: ImageVector = Icons.AutoMirrored.Filled.ArrowForward
+    /** Marks a line in a list that can be tapped, such as a shortcut or a quick action. */
+    val Bullet: ImageVector = Icons.AutoMirrored.Filled.ArrowRight
     val More: ImageVector = Icons.Filled.MoreVert
     val Settings: ImageVector = Icons.Filled.Settings
     val MoveUp: ImageVector = Icons.Filled.ArrowUpward
