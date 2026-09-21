@@ -1,6 +1,9 @@
 package org.phioster.sanctumd.ui.arr
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -97,6 +100,24 @@ internal fun ArrSystemDialog(
                             Text("• $msg", fontFamily = Mono, color = c, fontSize = 11.sp)
                         }
                     }
+                    if (si != null && si.about.isNotEmpty()) {
+                        Spacer(Modifier.height(12.dp))
+                        Text("ABOUT", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                        si.about.forEach { (label, value) ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                                Text(
+                                    label,
+                                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp,
+                                    modifier = Modifier.width(74.dp),
+                                )
+                                Text(
+                                    value,
+                                    fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = { TextButton(onClick = onDismiss) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
@@ -105,7 +126,7 @@ internal fun ArrSystemDialog(
 
 /**
  * The interactive release list for one wanted item: what the indexers have, and a confirmation
- * before grabbing. Closing it throws the list away -- it is a live search, not a cached one.
+ * before grabbing. Closing it throws the list away, it is a live search, not a cached one.
  */
 @Composable
 internal fun ArrReleasePicker(

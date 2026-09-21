@@ -168,7 +168,19 @@ internal interface LidarrApi {
     val freeSpace: Long = 0,
     val totalSpace: Long = 0,
 )
-@Serializable internal data class ArrSystemStatusRec(val version: String = "")
+/** /system/status returns the whole About block; until now only [version] was kept. Costs no
+ *  extra request, the rest was simply being thrown away. */
+@Serializable internal data class ArrSystemStatusRec(
+    val version: String = "",
+    val runtimeVersion: String = "",
+    val databaseType: String = "",
+    val databaseVersion: String = "",
+    val migrationVersion: Int = 0,
+    val appData: String = "",
+    val startupPath: String = "",
+    val mode: String = "",
+    val startTime: String = "",
+)
 @Serializable internal data class ArrHealthRecord(
     val type: String = "",
     val message: String = "",
@@ -973,11 +985,36 @@ suspend fun arrSystem(config: ServiceConfig): ArrSystemInfo = withContext(Dispat
     val base = arrBase(config.type)
     val api = apiFor<ArrApi>(config, apiKeyHeader(config))
     coroutineScope {
-        val versionD = async { runCatching { api.systemStatus("$base/system/status").version }.getOrDefault("?") }
+        val statusD = async { runCatching { api.systemStatus("$base/system/status") }.getOrNull() }
         val healthD = async { runCatching { api.healthChecks("$base/health").map { it.type to it.message } }.getOrDefault(emptyList()) }
-        ArrSystemInfo(version = versionD.await(), health = healthD.await())
+        val st = statusD.await()
+        ArrSystemInfo(
+            version = st?.version?.ifBlank { null } ?: "?",
+            health = healthD.await(),
+            about = st?.let(::arrAbout).orEmpty(),
+        )
     }
 }
+
+/** The same rows the service shows under About, in the order that matters most first. */
+private fun arrAbout(st: ArrSystemStatusRec): List<Pair<String, String>> = buildList {
+    if (st.runtimeVersion.isNotBlank()) add(".NET" to st.runtimeVersion)
+    val db = "${st.databaseType} ${st.databaseVersion}".trim()
+    if (db.isNotBlank()) add("database" to db)
+    if (st.migrationVersion > 0) add("migration" to st.migrationVersion.toString())
+    if (st.mode.isNotBlank()) add("mode" to st.mode)
+    uptimeSince(st.startTime)?.let { add("uptime" to it) }
+    if (st.appData.isNotBlank()) add("app data" to st.appData)
+    if (st.startupPath.isNotBlank()) add("startup" to st.startupPath)
+}
+
+/** "4d 10:19" from an ISO timestamp. Hand-rolled rather than Duration.toHoursPart(), which needs
+ *  a newer API level than this app sets as its minimum. */
+private fun uptimeSince(startTime: String): String? = runCatching {
+    val secs = java.time.Duration.between(java.time.Instant.parse(startTime), java.time.Instant.now()).seconds
+    if (secs < 0) return null
+    "%dd %02d:%02d".format(secs / 86_400, (secs % 86_400) / 3_600, (secs % 3_600) / 60)
+}.getOrNull()
 
 /** How long /diskspace may take. It stats every mount, and on a server that is not a tidy Docker
  *  host (a \*arr running under proot, for instance) that can pass a minute. The shared 20 s read

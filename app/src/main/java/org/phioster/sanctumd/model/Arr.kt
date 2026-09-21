@@ -175,6 +175,7 @@ data class ArrRelease(
 data class ArrSystemInfo(
     val version: String,
     val health: List<Pair<String, String>>, // type -> message
+    val about: List<Pair<String, String>> = emptyList(), // label -> value, as the service reports it
 )
 
 /** A history event in a Servarr app. */
