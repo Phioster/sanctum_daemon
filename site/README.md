@@ -34,10 +34,13 @@ default. `prefers-reduced-motion` starts it at `off` and keeps the rain off rega
 ## The header
 
 The gate is the app icon (`docs/icon.png`) run through Glyphsmith's glyph pipeline: the
-`ascii-typewriter` character set and the `box` edge set, with the edge angle bucketed the
-way `EdgeGlyphs.glyphFor` does it. Its diagonals (`U+2571`, `U+2572`) are box-drawing, not
-ASCII — which is why `DejaVu Sans Mono` leads the font stack, as it covers that block
-fully.
+`ascii-typewriter` character set and the `ascii` edge set, with the edge angle bucketed the
+way `EdgeGlyphs.glyphFor` does it.
+
+It is deliberately pure ASCII. The `box` edge set looks better, but its diagonals
+(`U+2571`, `U+2572`) are missing from `DroidSansMono` — the font Android maps `monospace`
+to — so they would be pulled from a fallback font at a different advance width and the
+whole grid would shear. Checked against the fonts on a real device, not assumed.
 
 ## Deploying
 
