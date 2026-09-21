@@ -3,6 +3,21 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## A new signing key, and four screens taken apart (v2.1.1)
+- **Signed with a new key.** The password to the old one was only in the build secrets,
+  where nobody can read it back. If those were ever lost, the app could never be updated
+  again and everyone would have had to uninstall it. So the key was replaced now, while
+  the release had no downloads yet and it costs almost nothing. The cost is one
+  reinstall: this build cannot update over 2.1.0, Android refuses that. Export your
+  configuration first (settings, backup / data), install, then import it back.
+- **Four screens taken apart.** Seerr went from 810 lines to 378, the \*arr screen from
+  668 to 370, Jellyfin from 585 to 433, Prowlarr from 474 to 280. Dialogs now hold and
+  load their own state instead of being fed by the screen behind them. Nothing about
+  this is visible; it is the kind of work that makes the next change possible.
+- **Characters stopped standing in for icons.** A tick, a star and a heart were sitting
+  in labels where the font decides how they look. They come from the theme now. Three
+  German strings in the television client were translated as well.
+
 ## A second app for the television (v2.1)
 - **Films play again.** 2.0 handed libmpv all its HTTP headers as one string, and the option
   that takes them splits on commas -- a Jellyfin `Authorization` header is made of commas, so
