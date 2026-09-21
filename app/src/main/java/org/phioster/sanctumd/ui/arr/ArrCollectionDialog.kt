@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.ui.Alignment
+import org.phioster.sanctumd.ui.theme.AppIcons
 
 /**
  * A film run as Radarr knows it, opened from the Jellyfin collection you are looking at.
