@@ -86,7 +86,7 @@ class MpvPlayerEngine(context: Context) : MediaPlayerEngine {
         if (released) return
         lastError = null; eof = false; posSec = 0.0; durSec = 0.0
         if (headers.isNotEmpty()) {
-            mpv.setOptionString("http-header-fields", headers.entries.joinToString(",") { "${it.key}: ${it.value}" })
+            mpv.setOptionString("http-header-fields", mpvHeaderFields(headers))
         }
         // The resume position goes in as the `start` option, NOT as a loadfile argument: since mpv
         // 0.38 the third loadfile parameter is the playlist *index* (an integer), so the old
@@ -234,3 +234,18 @@ class MpvPlayerEngine(context: Context) : MediaPlayerEngine {
         )
     }
 }
+
+/**
+ * Headers in the form mpv's `http-header-fields` actually accepts.
+ *
+ * That option is a *list*, comma-separated — and a Jellyfin `Authorization` header is nothing but
+ * commas: `MediaBrowser Token="…", Client="…", Device="…"`. Joined naively it arrives as four
+ * broken headers and the server answers 400 with no video and an endless buffering spinner.
+ *
+ * mpv's own escape for a list item containing a comma is a byte-length prefix, `%<n>%<item>`.
+ */
+internal fun mpvHeaderFields(headers: Map<String, String>): String =
+    headers.entries.joinToString(",") { (k, v) ->
+        val line = "$k: $v"
+        "%${line.toByteArray(Charsets.UTF_8).size}%$line"
+    }
