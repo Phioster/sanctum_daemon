@@ -9,7 +9,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import android.os.Build
 import androidx.compose.runtime.collectAsState
@@ -17,7 +16,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,7 +39,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Audiotrack
-import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Info
@@ -66,7 +63,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -592,33 +588,9 @@ internal fun PlayerScreen(
         }
 
         // Swipe HUD (brightness / volume).
-        adjustHud?.let { (isBright, value) ->
-            Row(
-                Modifier.align(Alignment.Center)
-                    .background(Color(0xB3000000), RoundedCornerShape(10.dp))
-                    .padding(horizontal = 18.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Icon(
-                    if (isBright) Icons.Filled.BrightnessMedium else AppIcons.Audio,
-                    contentDescription = null, tint = MatrixGreen, modifier = Modifier.size(22.dp),
-                )
-                Text("${(value * 100).roundToInt()}%", fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            }
-        }
+        adjustHud?.let { (isBright, value) -> SwipeHud(isBright, value) }
 
-        if (seekHud != 0) {
-            Text(
-                if (seekHud > 0) "»  +10s" else "«  −10s",
-                fontFamily = Mono, color = MatrixGreen, fontSize = 16.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .align(if (seekHud > 0) Alignment.CenterEnd else Alignment.CenterStart)
-                    .padding(horizontal = 40.dp)
-                    .background(Color(0xB3000000), RoundedCornerShape(10.dp))
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-            )
-        }
+        if (seekHud != 0) SeekHud(seekHud)
 
         // ── Skip intro / outro ──
         val activeSegment = segments.withIndex().firstOrNull { (i, seg) ->
@@ -626,151 +598,51 @@ internal fun PlayerScreen(
         }
         if (activeSegment != null && !inPip && nextCountdown < 0 && !nextCardVisible) {
             val (idx, seg) = activeSegment
-            Text(
-                if (seg.kind.equals("Outro", true)) "skip outro  »" else "skip intro  »",
-                fontFamily = Mono, color = Black, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 20.dp, bottom = if (controlsVisible) 76.dp else 28.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MatrixGreen)
-                    .clickable { skipped = skipped + idx; engine.seekTo(seg.endMs) }
-                    .padding(horizontal = 16.dp, vertical = 9.dp),
-            )
+            SkipSegmentButton(
+                isOutro = seg.kind.equals("Outro", true),
+                bottomPadding = if (controlsVisible) 76.dp else 28.dp,
+            ) { skipped = skipped + idx; engine.seekTo(seg.endMs) }
         }
 
         // ── Next episode ──
         val next = nextUp
         if (nextCardVisible && next != null && !inPip) {
-            Column(
-                Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 20.dp, bottom = if (controlsVisible) 76.dp else 28.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xE6000000))
-                    .clickable { playNext(next) }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-            ) {
-                Text(
-                    if (nextCountdown > 0) "NEXT IN ${nextCountdown}s" else "NEXT EPISODE",
-                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(next.name, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (next.subtitle.isNotBlank()) {
-                    Text(next.subtitle, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                Spacer(Modifier.height(8.dp))
-                Row {
-                    Row(
-                        Modifier.clip(RoundedCornerShape(6.dp)).background(MatrixGreen).clickable { playNext(next) }
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(AppIcons.Play, contentDescription = null, tint = Black, modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("play now", fontFamily = Mono, color = Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Text("dismiss", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp,
-                        modifier = Modifier.clickable { nextCardVisible = false; nextCountdown = -1; nextUp = null }.padding(horizontal = 10.dp, vertical = 6.dp))
-                }
-            }
+            NextEpisodeCard(
+                next = next,
+                countdown = nextCountdown,
+                bottomPadding = if (controlsVisible) 76.dp else 28.dp,
+                onPlay = { playNext(next) },
+                onDismiss = { nextCardVisible = false; nextCountdown = -1; nextUp = null },
+            )
         }
 
         // ── Resume prompt ──
         resumeAsk?.let { pos ->
-            Column(
-                Modifier
-                    .align(Alignment.Center)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xF0000000))
-                    .padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text("continue watching?", fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(12.dp))
-                Row {
-                    Text("resume ${fmt(pos)}", fontFamily = Mono, color = Black, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(MatrixGreen)
-                            .clickable { engine.seekTo(pos); resumeTarget = pos; resumeApplied = true; resumeAsk = null }
-                            .padding(horizontal = 14.dp, vertical = 8.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Text("start over", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp,
-                        modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(Color(0x33FFFFFF))
-                            .clickable { resumeAsk = null }
-                            .padding(horizontal = 14.dp, vertical = 8.dp))
-                }
-            }
+            ResumePrompt(
+                label = fmt(pos),
+                onResume = { engine.seekTo(pos); resumeTarget = pos; resumeApplied = true; resumeAsk = null },
+                onStartOver = { resumeAsk = null },
+            )
         }
 
         if (controlsVisible && !inPip) {
-            // Top scrim + bar: back, title, settings gear.
-            Row(
-                Modifier.fillMaxWidth().align(Alignment.TopCenter)
-                    .background(Brush.verticalGradient(listOf(Color(0xAA000000), Color.Transparent)))
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = { leave() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close", tint = MatrixGreen)
-                }
-                Text(curTitle, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    IconButton(onClick = { enterPip(activity, videoAspect) }) {
-                        Icon(Icons.Filled.PictureInPictureAlt, contentDescription = "Picture in picture", tint = MatrixGreen)
-                    }
-                }
-                IconButton(onClick = { infoOpen = true; controlsVisible = true }) {
-                    Icon(Icons.Filled.Info, contentDescription = "Info", tint = MatrixGreen)
-                }
-                if (localFileUri == null) {
-                    IconButton(onClick = { settingsOpen = true; controlsVisible = true }) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MatrixGreen)
-                    }
-                }
-            }
-
-            // Center transport: -10s / play-pause / +10s.
-            Row(
-                Modifier.align(Alignment.Center),
-                horizontalArrangement = Arrangement.spacedBy(28.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = { engine.seekBy(-10_000) }) {
-                    Icon(Icons.Filled.Replay10, contentDescription = "Back 10s", tint = MatrixGreen, modifier = Modifier.size(40.dp))
-                }
-                IconButton(onClick = { engine.togglePlay(); state = engine.snapshot() }) {
-                    Icon(
-                        if (state.isPlaying) AppIcons.Pause else AppIcons.Play,
-                        contentDescription = "Play/Pause", tint = MatrixGreen, modifier = Modifier.size(56.dp),
-                    )
-                }
-                IconButton(onClick = { engine.seekBy(10_000) }) {
-                    Icon(Icons.Filled.Forward10, contentDescription = "Forward 10s", tint = MatrixGreen, modifier = Modifier.size(40.dp))
-                }
-            }
-
-            // Bottom scrim + seek bar + times.
-            Column(
-                Modifier.fillMaxWidth().align(Alignment.BottomCenter)
-                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xAA000000))))
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-            ) {
-                val dur = state.durationMs.coerceAtLeast(1)
-                val pos = if (scrubbing) (scrubPos * dur).toLong() else state.positionMs
-                PlayerSeekBar(
-                    fraction = pos.toFloat() / dur,
-                    scrubbing = scrubbing,
-                    onScrub = { scrubbing = true; scrubPos = it },
-                    onScrubEnd = { engine.seekTo((it * dur).toLong()); scrubbing = false },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(fmt(pos), fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp)
-                    Text(fmt(state.durationMs), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp)
-                }
-            }
+            PlayerControls(
+                title = curTitle,
+                state = state,
+                scrubbing = scrubbing,
+                scrubPos = scrubPos,
+                showPip = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O,
+                showSettings = localFileUri == null,
+                fmt = ::fmt,
+                onLeave = { leave() },
+                onPip = { enterPip(activity, videoAspect) },
+                onInfo = { infoOpen = true; controlsVisible = true },
+                onSettings = { settingsOpen = true; controlsVisible = true },
+                onTogglePlay = { engine.togglePlay(); state = engine.snapshot() },
+                onSeekBy = { engine.seekBy(it) },
+                onSeekTo = { engine.seekTo(it); scrubbing = false },
+                onScrub = { scrubbing = true; scrubPos = it },
+            )
         }
 
         if (settingsOpen && !inPip) {
@@ -829,6 +701,97 @@ internal fun PlayerScreen(
 
 /** Left-side info panel: media details (overview / facts / genres) + live playback metrics
  *  (resolution, codec, bitrate, buffer fill, decode). Opened from the ⓘ button in the top bar. */
+/**
+ * Everything the player draws over the picture while the controls are up: the bar at the top,
+ * the transport in the middle, the seek bar at the bottom. Given values and callbacks only, so
+ * it says nothing about how playback works.
+ */
+@Composable
+internal fun BoxScope.PlayerControls(
+    title: String,
+    state: PlaybackState,
+    scrubbing: Boolean,
+    scrubPos: Float,
+    showPip: Boolean,
+    showSettings: Boolean,
+    fmt: (Long) -> String,
+    onLeave: () -> Unit,
+    onPip: () -> Unit,
+    onInfo: () -> Unit,
+    onSettings: () -> Unit,
+    onTogglePlay: () -> Unit,
+    onSeekBy: (Long) -> Unit,
+    onSeekTo: (Long) -> Unit,
+    onScrub: (Float) -> Unit,
+) {
+        // Top scrim + bar: back, title, settings gear.
+        Row(
+            Modifier.fillMaxWidth().align(Alignment.TopCenter)
+                .background(Brush.verticalGradient(listOf(Color(0xAA000000), Color.Transparent)))
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onLeave) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close", tint = MatrixGreen)
+            }
+            Text(title, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            if (showPip) {
+                IconButton(onClick = onPip) {
+                    Icon(Icons.Filled.PictureInPictureAlt, contentDescription = "Picture in picture", tint = MatrixGreen)
+                }
+            }
+            IconButton(onClick = onInfo) {
+                Icon(Icons.Filled.Info, contentDescription = "Info", tint = MatrixGreen)
+            }
+            if (showSettings) {
+                IconButton(onClick = onSettings) {
+                    Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MatrixGreen)
+                }
+            }
+        }
+
+        // Center transport: -10s / play-pause / +10s.
+        Row(
+            Modifier.align(Alignment.Center),
+            horizontalArrangement = Arrangement.spacedBy(28.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = { onSeekBy(-10_000) }) {
+                Icon(Icons.Filled.Replay10, contentDescription = "Back 10s", tint = MatrixGreen, modifier = Modifier.size(40.dp))
+            }
+            IconButton(onClick = onTogglePlay) {
+                Icon(
+                    if (state.isPlaying) AppIcons.Pause else AppIcons.Play,
+                    contentDescription = "Play/Pause", tint = MatrixGreen, modifier = Modifier.size(56.dp),
+                )
+            }
+            IconButton(onClick = { onSeekBy(10_000) }) {
+                Icon(Icons.Filled.Forward10, contentDescription = "Forward 10s", tint = MatrixGreen, modifier = Modifier.size(40.dp))
+            }
+        }
+
+        // Bottom scrim + seek bar + times.
+        Column(
+            Modifier.fillMaxWidth().align(Alignment.BottomCenter)
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xAA000000))))
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+        ) {
+            val dur = state.durationMs.coerceAtLeast(1)
+            val pos = if (scrubbing) (scrubPos * dur).toLong() else state.positionMs
+            PlayerSeekBar(
+                fraction = pos.toFloat() / dur,
+                scrubbing = scrubbing,
+                onScrub = onScrub,
+                onScrubEnd = { onSeekTo((it * dur).toLong()) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(fmt(pos), fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp)
+                Text(fmt(state.durationMs), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp)
+            }
+        }
+}
+
 @Composable
 private fun InfoPanel(
     vm: DashboardViewModel,
