@@ -47,6 +47,8 @@ internal fun ArrDetailDialogs(
     itemId: Int,
     accent: Color,
     onBack: () -> Unit,
+    /** Opens the release picker for an album — the only thing here the screen has to do itself. */
+    onSearchAlbum: (albumId: Int, title: String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val st = state
@@ -77,7 +79,7 @@ internal fun ArrDetailDialogs(
                 confirmButton = {
                     TextButton(onClick = {
                         val a = al; st.trackAlbum = null
-                        openReleases(movieId = null, episodeId = null, albumId = a.id, title = a.title)
+                        onSearchAlbum(a.id, a.title)
                     }) { Text("Search releases", fontFamily = Mono, color = MatrixGreen) }
                 },
                 dismissButton = { TextButton(onClick = { st.trackAlbum = null }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },

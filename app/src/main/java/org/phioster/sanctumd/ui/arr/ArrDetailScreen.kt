@@ -285,7 +285,9 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
         }
     }
 
-    ArrDetailDialogs(st, vm, config, itemId, accent, onBack)
+    ArrDetailDialogs(st, vm, config, itemId, accent, onBack) { albumId, title ->
+        openReleases(movieId = null, episodeId = null, albumId = albumId, title = title)
+    }
 }
 
 @Composable
