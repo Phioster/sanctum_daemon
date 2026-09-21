@@ -19,8 +19,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -36,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -77,6 +80,7 @@ import org.phioster.sanctumd.ui.player.PlaybackState
 import org.phioster.sanctumd.ui.player.PlaybackStats
 import org.phioster.sanctumd.ui.player.TrackKind
 import org.phioster.sanctumd.ui.player.TrackOption
+import org.phioster.sanctumd.ui.theme.AppIcons
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.ui.theme.MatrixGreen
@@ -113,7 +117,7 @@ private fun findActivity(context: Context): Activity? {
 }
 
 /** A button on the control bar's lower strip. */
-private data class BarButton(val label: String, val onClick: () -> Unit)
+private data class BarButton(val label: String, val icon: ImageVector? = null, val onClick: () -> Unit)
 
 /** One line in the track menu. Headers are shown but skipped when moving the selection. */
 private data class TvMenuEntry(
@@ -343,20 +347,25 @@ internal fun TvPlayerScreen(
     }
 
     val buttons: List<BarButton> = buildList {
-        add(BarButton(if (state.isPlaying) "❚❚  Pause" else "▶  Wiedergabe") { engine.togglePlay() })
-        add(BarButton("Ton & Untertitel") { menuNonce++; menuOpen = true })
+        add(
+            BarButton(
+                if (state.isPlaying) "pause" else "play",
+                if (state.isPlaying) AppIcons.Pause else AppIcons.Play,
+            ) { engine.togglePlay() },
+        )
+        add(BarButton("audio & subtitles", AppIcons.Subtitles) { menuNonce++; menuOpen = true })
         if (activeSegment >= 0 && activeSegment !in skipped) {
-            add(BarButton("skip intro") {
+            add(BarButton("skip intro", AppIcons.Next) {
                 skipped = skipped + activeSegment
                 engine.seekTo(segments[activeSegment].endMs)
             })
         }
-        nextEpisode?.let { next -> add(BarButton("next episode") { playNext(next) }) }
-        add(BarButton(if (infoOpen) "Technik aus" else "Technik") {
+        nextEpisode?.let { next -> add(BarButton("next episode", AppIcons.Next) { playNext(next) }) }
+        add(BarButton(if (infoOpen) "hide stats" else "stats", AppIcons.Info) {
             infoOpen = !infoOpen
             if (infoOpen) stats = engine.stats()
         })
-        add(BarButton("beenden") { leave() })
+        add(BarButton("leave", AppIcons.Cancel) { leave() })
     }
     val safeButtonIndex = buttonIndex.coerceIn(0, buttons.lastIndex)
 
@@ -381,7 +390,7 @@ internal fun TvPlayerScreen(
             add(TvMenuEntry("  Bildrate an Film anpassen", selected = matchRefresh) {
                 scope.launch { store.setTvMatchRefresh(!matchRefresh) }
             })
-            add(TvMenuEntry("  Direktausgabe (empfohlen) — ohne Untertitel", selected = directOutput) {
+            add(TvMenuEntry("  direct output (recommended) — no subtitles", selected = directOutput) {
                 scope.launch { store.setTvDirectOutput(!directOutput) }
             })
         }
@@ -492,7 +501,7 @@ internal fun TvPlayerScreen(
         if (loadError != null) {
             Box(Modifier.fillMaxSize().background(Black.copy(alpha = 0.85f)), Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Wiedergabe fehlgeschlagen", color = ErrRed, fontFamily = Mono, fontSize = 20.sp)
+                    Text("playback failed", color = ErrRed, fontFamily = Mono, fontSize = 20.sp)
                     Spacer(Modifier.height(10.dp))
                     Text(loadError ?: "", color = MatrixGreen.copy(alpha = 0.7f), fontFamily = Mono, fontSize = 13.sp)
                     Spacer(Modifier.height(20.dp))
@@ -613,12 +622,14 @@ private fun TvPlayerControls(
                         )
                         .padding(horizontal = 18.dp, vertical = 10.dp),
                 ) {
-                    Text(
-                        button.label,
-                        color = if (active) Black else MatrixGreen,
-                        fontFamily = Mono,
-                        fontSize = 14.sp,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val ink = if (active) Black else MatrixGreen
+                        button.icon?.let {
+                            Icon(it, contentDescription = null, tint = ink, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        Text(button.label, color = ink, fontFamily = Mono, fontSize = 14.sp)
+                    }
                 }
             }
         }
@@ -655,7 +666,7 @@ private fun TvPlayerInfo(
             if (stats.videoCodec.isNotBlank()) append("  ${stats.videoCodec}")
             if (stats.bitrateKbps > 0) append("  ${stats.bitrateKbps} kbit/s")
         },
-        "Ton" to stats.audioCodec.ifBlank { "—" },
+        "audio" to stats.audioCodec.ifBlank { "—" },
         "hwdec" to stats.hwDecode.ifBlank { "SOFTWARE (no hardware decoder!)" },
         "Bildrate" to buildString {
             append(if (stats.containerFps > 0f) "%.3f fps".format(stats.containerFps) else "—")
@@ -670,7 +681,7 @@ private fun TvPlayerInfo(
                 append("]")
             }
         },
-        "verworfen (zu langsam)" to stats.droppedFrames.toString(),
+        "dropped (too slow)" to stats.droppedFrames.toString(),
         "late (cadence)" to stats.delayedFrames.toString(),
         "Ausgabe" to if (directOutput) "direkt (zero-copy)" else "Standard (GPU-Kopie)",
         "Quelle" to if (transcoding) "Transkodierung (HLS)" else "Direktwiedergabe",

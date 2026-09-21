@@ -155,7 +155,7 @@ internal fun TvDetailScreen(
                             TvButton(
                                 when {
                                     next != null -> "▶  ${next.subtitle.ifBlank { next.name }}"
-                                    resolvingNext -> "▶  suche Folge…"
+                                    resolvingNext -> "finding the episode…"
                                     else -> "no episode found"
                                 },
                                 focusRequester = playFocus,
