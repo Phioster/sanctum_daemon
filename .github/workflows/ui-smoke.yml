@@ -39,8 +39,10 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
+      # Only the phone flavour: that is the one the smoke test launches, and building
+      # the TV variant too just costs time here.
       - name: Build debug APK
-        run: gradle assembleDebug --no-daemon
+        run: gradle assemblePhoneDebug --no-daemon
 
       - name: Install maestro
         run: |
@@ -80,7 +82,7 @@ jobs:
           emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none
           script: |
             adb wait-for-device
-            adb install -r app/build/outputs/apk/debug/*.apk
+            adb install -r app/build/outputs/apk/phone/debug/app-phone-debug.apk
             maestro test .maestro/01_launch_smoke.yaml
 
       - name: Upload maestro output
