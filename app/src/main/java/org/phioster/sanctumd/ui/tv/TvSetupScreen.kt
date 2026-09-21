@@ -194,7 +194,7 @@ private fun ServerPickStep(onManual: () -> Unit, onPicked: (String, String) -> U
                 focusRequester = firstFocus.takeIf { servers.isEmpty() && !scanning },
                 onClick = onManual,
             )
-            TvButton(if (scanning) "suche…" else "erneut suchen", enabled = !scanning) { scanNonce++ }
+            TvButton(if (scanning) "searching…" else "search again", enabled = !scanning) { scanNonce++ }
         }
     }
 }
