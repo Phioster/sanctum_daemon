@@ -86,7 +86,7 @@ internal fun DashSessionRow(item: org.phioster.sanctumd.model.JellySession, acce
 }
 
 @Composable
-internal fun DashLineRow(title: String, subtitle: String, accent: Color, density: String = "", titleColor: Color = MatrixGreen, onClick: (() -> Unit)? = null, leading: ImageVector? = null) {
+internal fun DashLineRow(title: String, subtitle: String, accent: Color, density: String = "", titleColor: Color = MatrixGreen, leading: ImageVector? = null, onClick: (() -> Unit)? = null) {
     val vpad = when (density) { "compact" -> 2.dp; "detail" -> 9.dp; else -> 5.dp }
     val showSub = density != "compact" && subtitle.isNotBlank()
     Column(Modifier.fillMaxWidth().let { if (onClick != null) it.clickable { onClick() } else it }.padding(vertical = vpad)) {
