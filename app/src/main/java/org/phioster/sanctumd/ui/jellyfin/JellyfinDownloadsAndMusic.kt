@@ -97,9 +97,9 @@ internal fun DownloadCard(
             Box(Modifier.fillMaxSize().background(Color(0x55000000)), contentAlignment = Alignment.Center) {
                 when (entry.state) {
                     org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
-                        Icon(AppIcons.Play, contentDescription = null, tint = MatrixGreen, modifier = Modifier.size(26.dp))
+                        Icon(AppIcons.Play, contentDescription = "done", tint = MatrixGreen, modifier = Modifier.size(26.dp))
                     org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED ->
-                        Icon(AppIcons.Failed, contentDescription = null, tint = MatrixGreen, modifier = Modifier.size(24.dp))
+                        Icon(AppIcons.Failed, contentDescription = "failed", tint = MatrixGreen, modifier = Modifier.size(24.dp))
                     else ->
                         Text("${(entry.progress * 100).toInt()}%", fontFamily = Mono, color = MatrixGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 }

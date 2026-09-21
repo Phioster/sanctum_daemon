@@ -330,7 +330,7 @@ internal fun DashCardView(
                                     .background(if (cfgBg) MatrixGreen else Surface)
                                     .border(1.dp, if (cfgBg) MatrixGreen else MatrixGreen.copy(alpha = 0.4f), RoundedCornerShape(5.dp)),
                                 contentAlignment = Alignment.Center,
-                            ) { if (cfgBg) Icon(AppIcons.Done, contentDescription = null, tint = Black, modifier = Modifier.size(14.dp)) }
+                            ) { if (cfgBg) Icon(AppIcons.Done, contentDescription = "checked", tint = Black, modifier = Modifier.size(14.dp)) }
                             Spacer(Modifier.width(10.dp))
                             Text("Fanart background (Ken Burns)", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
                         }
