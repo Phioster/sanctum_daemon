@@ -30,6 +30,16 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
+      # Robolectric fetches its android-all runtime from Maven the first time a test needs it --
+      # at test time, not at build time. A hiccup there fails the run with an IOException and
+      # nothing to do with the code (it happened once already), so the download is kept.
+      - name: Cache Robolectric runtimes
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-${{ runner.os }}-${{ hashFiles('app/build.gradle.kts') }}
+          restore-keys: robolectric-${{ runner.os }}-
+
       - name: Unit tests
         run: gradle testDebugUnitTest --no-daemon
 

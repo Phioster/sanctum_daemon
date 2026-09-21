@@ -45,6 +45,16 @@ jobs:
           fi
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
 
+      # Robolectric fetches its android-all runtime from Maven the first time a test needs it --
+      # at test time, not at build time. A hiccup there fails the run with an IOException and
+      # nothing to do with the code (it happened once already), so the download is kept.
+      - name: Cache Robolectric runtimes
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-${{ runner.os }}-${{ hashFiles('app/build.gradle.kts') }}
+          restore-keys: robolectric-${{ runner.os }}-
+
       - name: Unit tests
         run: gradle testDebugUnitTest --no-daemon
 
@@ -84,12 +94,21 @@ jobs:
           prerelease: true
           files: out/*.apk
 
-      # The release page reads the changelog's newest section rather than a generated list of
-      # commit subjects: the section is written for people installing the app, the subjects are
-      # written for whoever maintains it.
-      - name: Release notes from the changelog
+      # What the release page says, in order of preference: a text written for that tag, else the
+      # changelog's newest section. Never the generated list of commit subjects — that is written
+      # for whoever maintains the app, not for someone installing it.
+      #
+      # The per-tag file exists because the two audiences differ on one point: the changelog
+      # accounts for a security finding in full, which belongs in the repository, while the front
+      # page of a release names the category and points at the changelog for the rest.
+      - name: Release notes
         if: startsWith(github.ref, 'refs/tags/')
-        run: awk '/^## /{n++} n==1 && !/^## /' CHANGELOG.md > out/notes.md
+        run: |
+          if [ -f ".github/release-notes/${GITHUB_REF_NAME}.md" ]; then
+            cp ".github/release-notes/${GITHUB_REF_NAME}.md" out/notes.md
+          else
+            awk '/^## /{n++} n==1 && !/^## /' CHANGELOG.md > out/notes.md
+          fi
 
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
