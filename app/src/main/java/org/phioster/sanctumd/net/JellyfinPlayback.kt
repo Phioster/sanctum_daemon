@@ -20,13 +20,6 @@ import retrofit2.http.Query
 // ---- Playback: streaming source resolution + progress reporting ----
 
 /** One media source option the server offers for an item. */
-/** Only the fields we need: the video track's true frame rate, for display-mode matching. */
-@Serializable internal data class JfMediaStream(
-    val Type: String = "",
-    val RealFrameRate: Double? = null,
-    val AverageFrameRate: Double? = null,
-)
-
 @Serializable internal data class JfMediaSource(
     val Id: String = "",
     val MediaStreams: List<JfMediaStream> = emptyList(),
