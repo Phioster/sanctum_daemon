@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,16 +50,15 @@ import org.phioster.sanctumd.ui.services.*
 import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
-import org.phioster.sanctumd.ui.common.*
 
 @Composable
 internal fun OnboardingScreen(onDismiss: (openAdd: Boolean) -> Unit) {
     val pages = listOf(
-        OnboardPage("👁", "WELCOME TO SANCTUMD", "One dark, matrix-green cockpit for your whole homelab — run Jellyfin and steer your *arr and download stack without app-hopping."),
-        OnboardPage("🧩", "CONNECT YOUR STACK", "Point it at Jellyfin, Radarr / Sonarr / Lidarr, Prowlarr, NZBGet, Jellyseerr and ntfy — just a URL and API key each. Your keys stay encrypted on this phone and go nowhere else."),
-        OnboardPage("🗂", "MAKE IT YOUR OWN", "Spin up tabs and drop in cards — download queues, release calendars, live stats, even a watch leaderboard. Tap ✎ to rearrange, and pin widgets to your home screen."),
-        OnboardPage("🔔", "NEVER MISS A BEAT", "Instant push comes straight from your own ntfy topic, backed by quiet background checks for fresh media, finished downloads and new requests."),
-        OnboardPage("🔒", "PRIVATE BY DESIGN", "Secrets are encrypted, the app can lock behind your fingerprint or face, and an encrypted export carries your whole setup to a new phone."),
+        OnboardPage(AppIcons.Dashboard, "WELCOME TO SANCTUMD", "One dark, matrix-green cockpit for your whole homelab — run Jellyfin and steer your *arr and download stack without app-hopping."),
+        OnboardPage(AppIcons.Server, "CONNECT YOUR STACK", "Point it at Jellyfin, Radarr / Sonarr / Lidarr, Prowlarr, NZBGet, Jellyseerr and ntfy — just a URL and API key each. Your keys stay encrypted on this phone and go nowhere else."),
+        OnboardPage(AppIcons.Edit, "MAKE IT YOUR OWN", "Spin up tabs and drop in cards — download queues, release calendars, live stats, even a watch leaderboard. Tap the pencil to rearrange, and pin widgets to your home screen."),
+        OnboardPage(AppIcons.Notify, "NEVER MISS A BEAT", "Instant push comes straight from your own ntfy topic, backed by quiet background checks for fresh media, finished downloads and new requests."),
+        OnboardPage(AppIcons.Locked, "PRIVATE BY DESIGN", "Secrets are encrypted, the app can lock behind your fingerprint or face, and an encrypted export carries your whole setup to a new phone."),
     )
     val pager = rememberPagerState { pages.size }
     val scope = rememberCoroutineScope()
@@ -75,7 +75,7 @@ internal fun OnboardingScreen(onDismiss: (openAdd: Boolean) -> Unit) {
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(p.icon, fontSize = 60.sp)
+                Icon(p.icon, contentDescription = null, tint = MatrixGreen, modifier = Modifier.size(56.dp))
                 Spacer(Modifier.height(24.dp))
                 Text(p.title, fontFamily = Mono, color = MatrixGreen, fontSize = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(16.dp))

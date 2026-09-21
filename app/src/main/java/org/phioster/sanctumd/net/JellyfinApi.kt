@@ -192,6 +192,7 @@ internal data class JfCounts(
     val ParentIndexNumber: Int? = null,
     val IndexNumber: Int? = null,
     val AlbumArtist: String? = null,
+    val RunTimeTicks: Long? = null, // audio: track length, in 100-ns ticks
     val LocationType: String? = null, // "FileSystem"/"Remote" = present; "Virtual" = metadata only, no file
     val ImageTags: Map<String, String>? = null,
     val OfficialRating: String? = null,
@@ -206,6 +207,37 @@ internal data class JfCounts(
     val PrimaryImageTag: String? = null,
 )
 @Serializable internal data class JfStudio(val Name: String = "")
+
+/** A single track of a media source; every field is optional on the server side. */
+@Serializable internal data class JfMediaStream(
+    val Type: String = "",
+    val Codec: String? = null,
+    val Profile: String? = null,
+    val Language: String? = null,
+    val DisplayLanguage: String? = null,
+    val DisplayTitle: String? = null,
+    val Width: Int? = null,
+    val Height: Int? = null,
+    val AverageFrameRate: Double? = null,
+    val RealFrameRate: Double? = null,
+    val BitDepth: Int? = null,
+    val BitRate: Int? = null,
+    val Channels: Int? = null,
+    val ChannelLayout: String? = null,
+    val SampleRate: Int? = null,
+    val VideoRange: String? = null,
+    val IsDefault: Boolean = false,
+    val IsForced: Boolean = false,
+    val IsExternal: Boolean = false,
+)
+/** The media source as it comes with the item detail — no extra PlaybackInfo round trip needed. */
+@Serializable internal data class JfDetailMediaSource(
+    val Container: String? = null,
+    val Size: Long? = null,
+    val Path: String? = null,
+    val Bitrate: Int? = null,
+    val MediaStreams: List<JfMediaStream> = emptyList(),
+)
 @Serializable internal data class JfItemDetail(
     val Id: String = "",
     val Name: String = "",
@@ -226,6 +258,8 @@ internal data class JfCounts(
     val People: List<JfPerson> = emptyList(),
     val ImageTags: Map<String, String>? = null,
     val UserData: JfUserData? = null, // watched state / resume position for this user
+    val MediaSources: List<JfDetailMediaSource> = emptyList(),
+    val ProviderIds: Map<String, String>? = null, // Tmdb/Imdb/Tvdb — the exact link to the *arr side
 )
 
 @Serializable internal data class JfAuthReq(val Username: String, val Pw: String)
@@ -250,20 +284,21 @@ internal interface JellyfinApi {
     @GET("Users/{id}") suspend fun user(@Path("id") id: String): JsonObject
     @POST("Users/New") suspend fun createUser(@Body body: JsonObject): Response<ResponseBody>
     @POST("Users/{id}/Policy") suspend fun setPolicy(@Path("id") id: String, @Body body: JsonObject): Response<ResponseBody>
-    @POST("Users/{id}/Password") suspend fun setPassword(@Path("id") id: String, @Body body: JsonObject): Response<ResponseBody>
+    @POST("Users/Password") suspend fun setPassword(@Query("userId") id: String, @Body body: JsonObject): Response<ResponseBody>
     @DELETE("Users/{id}") suspend fun deleteUser(@Path("id") id: String): Response<ResponseBody>
     @GET("Library/VirtualFolders") suspend fun virtualFolders(): List<JfVirtualFolder>
-    @GET("Users/{uid}/Views") suspend fun views(@Path("uid") uid: String): JfItemsResp
-    @GET("Users/{uid}/Items/Latest") suspend fun latest(@Path("uid") uid: String, @Query("Limit") limit: Int = 20, @Query("ParentId") parentId: String? = null, @Query("Fields") fields: String = "OfficialRating"): List<JfItem>
-    @GET("Users/{uid}/Items/Resume") suspend fun resume(@Path("uid") uid: String, @Query("Limit") limit: Int = 20, @Query("Fields") fields: String = "OfficialRating"): JfItemsResp
+    @GET("UserViews") suspend fun views(@Query("userId") uid: String): JfItemsResp
+    @GET("Items/Latest") suspend fun latest(@Query("userId") uid: String, @Query("Limit") limit: Int = 20, @Query("ParentId") parentId: String? = null, @Query("Fields") fields: String = "OfficialRating"): List<JfItem>
+    @GET("UserItems/Resume") suspend fun resume(@Query("userId") uid: String, @Query("Limit") limit: Int = 20, @Query("Fields") fields: String = "OfficialRating"): JfItemsResp
+    /** What to watch next in a series — the TV home row. Still a Shows endpoint in 10.11. */
     @GET("Shows/NextUp") suspend fun nextUp(
         @Query("userId") uid: String,
         @Query("Limit") limit: Int = 20,
         @Query("Fields") fields: String = "OfficialRating",
         @Query("seriesId") seriesId: String? = null,
     ): JfItemsResp
-    @GET("Users/{uid}/Items") suspend fun items(
-        @Path("uid") uid: String,
+    @GET("Items") suspend fun items(
+        @Query("userId") uid: String,
         @Query("ParentId") parentId: String,
         @Query("SortBy") sortBy: String = "IsFolder,SortName",
         @Query("SortOrder") sortOrder: String = "Ascending",
@@ -273,8 +308,8 @@ internal interface JellyfinApi {
     ): JfItemsResp
 
     /** Flat query: the favourites row, and reading UserData for a specific set of ids. */
-    @GET("Users/{uid}/Items") suspend fun itemQuery(
-        @Path("uid") uid: String,
+    @GET("Items") suspend fun itemQuery(
+        @Query("userId") uid: String,
         @Query("Ids") ids: String? = null,
         @Query("Filters") filters: String? = null,
         @Query("Recursive") recursive: Boolean = true,
@@ -284,8 +319,8 @@ internal interface JellyfinApi {
         @Query("Fields") fields: String = "PrimaryImageAspectRatio,OfficialRating",
     ): JfItemsResp
 
-    @POST("Users/{uid}/FavoriteItems/{id}") suspend fun markFavorite(@Path("uid") uid: String, @Path("id") id: String): Response<ResponseBody>
-    @DELETE("Users/{uid}/FavoriteItems/{id}") suspend fun unmarkFavorite(@Path("uid") uid: String, @Path("id") id: String): Response<ResponseBody>
+    @POST("UserFavoriteItems/{id}") suspend fun markFavorite(@Path("id") id: String, @Query("userId") uid: String): Response<ResponseBody>
+    @DELETE("UserFavoriteItems/{id}") suspend fun unmarkFavorite(@Path("id") id: String, @Query("userId") uid: String): Response<ResponseBody>
     /** Tell another client (a TV, a browser) to start playing an item — the "cast" direction. */
     @POST("Sessions/{id}/Playing") suspend fun playOn(
         @Path("id") sessionId: String,
@@ -293,12 +328,12 @@ internal interface JellyfinApi {
         @Query("playCommand") playCommand: String = "PlayNow",
         @Query("startPositionTicks") startPositionTicks: Long = 0,
     ): Response<ResponseBody>
-    @GET("Users/{uid}/Items/{id}") suspend fun itemDetail(@Path("uid") uid: String, @Path("id") id: String): JfItemDetail
+    @GET("Items/{id}") suspend fun itemDetail(@Path("id") id: String, @Query("userId") uid: String): JfItemDetail
     // Watched state. On a Series/Season the server cascades to every episode underneath.
-    @POST("Users/{uid}/PlayedItems/{id}") suspend fun markPlayed(@Path("uid") uid: String, @Path("id") id: String): Response<ResponseBody>
-    @DELETE("Users/{uid}/PlayedItems/{id}") suspend fun markUnplayed(@Path("uid") uid: String, @Path("id") id: String): Response<ResponseBody>
-    @GET("Users/{uid}/Items") suspend fun searchItems(
-        @Path("uid") uid: String,
+    @POST("UserPlayedItems/{id}") suspend fun markPlayed(@Path("id") id: String, @Query("userId") uid: String): Response<ResponseBody>
+    @DELETE("UserPlayedItems/{id}") suspend fun markUnplayed(@Path("id") id: String, @Query("userId") uid: String): Response<ResponseBody>
+    @GET("Items") suspend fun searchItems(
+        @Query("userId") uid: String,
         @Query("searchTerm") term: String,
         @Query("Recursive") recursive: Boolean = true,
         @Query("IncludeItemTypes") types: String = "Movie,Series,MusicAlbum",
@@ -306,6 +341,21 @@ internal interface JellyfinApi {
         @Query("Fields") fields: String = "OfficialRating",
     ): JfItemsResp
     @POST("Items/{id}/Refresh") suspend fun refreshItem(@Path("id") id: String): Response<ResponseBody>
+    @DELETE("Items/{id}") suspend fun deleteItem(@Path("id") id: String): Response<ResponseBody>
+    @GET("Items/{id}/RemoteSearch/Subtitles/{lang}") suspend fun subtitleSearch(
+        @Path("id") id: String,
+        @Path("lang") language: String,
+    ): List<JsonObject>
+    @POST("Items/{id}/RemoteSearch/Subtitles/{subId}") suspend fun subtitleDownload(
+        @Path("id") id: String,
+        @Path("subId") subtitleId: String,
+    ): Response<ResponseBody>
+    @POST("Items/RemoteSearch/{kind}") suspend fun remoteSearch(@Path("kind") kind: String, @Body body: JsonObject): List<JsonObject>
+    @POST("Items/RemoteSearch/Apply/{id}") suspend fun applyRemoteSearch(
+        @Path("id") id: String,
+        @Query("replaceAllImages") replaceAllImages: Boolean,
+        @Body body: JsonObject,
+    ): Response<ResponseBody>
     @POST("Sessions/{id}/Playing/{cmd}") suspend fun playCommand(@Path("id") id: String, @Path("cmd") cmd: String): Response<ResponseBody>
     @POST("Sessions/{id}/Message") suspend fun message(@Path("id") id: String, @Body body: JfMessageReq): Response<ResponseBody>
     @POST("Library/Refresh") suspend fun refreshLibrary(): Response<ResponseBody>
@@ -371,4 +421,4 @@ internal interface JellyfinApi {
 /** Returns the token to use for Jellyfin data calls (API key, or a login token). */
 internal val jellyfinAuthLock = kotlinx.coroutines.sync.Mutex()
 
-internal fun jfApi(config: ServiceConfig, token: String) = apiFor<JellyfinApi>(config, mapOf("X-Emby-Token" to token))
+internal fun jfApi(config: ServiceConfig, token: String) = apiFor<JellyfinApi>(config, jellyfinAuth(token))

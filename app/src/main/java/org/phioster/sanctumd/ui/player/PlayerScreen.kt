@@ -44,23 +44,16 @@ import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Forward10
-import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Subtitles
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -93,8 +86,10 @@ import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.net.PlaybackSource
 import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.theme.Black
+import org.phioster.sanctumd.ui.theme.AppIcons
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
+import org.phioster.sanctumd.ui.theme.ErrRed
 import kotlin.math.roundToInt
 
 private fun fmt(ms: Long): String {
@@ -198,6 +193,8 @@ internal fun PlayerScreen(
     val autoplayNext by vm.autoplayNext.collectAsState()
     val autoSkipSegments by vm.autoSkipSegments.collectAsState()
     val askResume by vm.askResume.collectAsState()
+    val ambientGlow by vm.ambientGlow.collectAsState()
+    var ambientStatus by remember(curItem) { mutableStateOf("—") }
     val nextLeadSec by vm.nextEpisodeLead.collectAsState()
 
     // Live (per-playback) subtitle tuning, seeded from the saved preference.
@@ -570,13 +567,26 @@ internal fun PlayerScreen(
             },
         )
 
+        // Ambient glow: the picture bleeds into the black bars, fed by Jellyfin's trickplay tiles.
+        // Skipped for local files (no server to ask) and in PiP (no bars worth lighting up).
+        val ambientRect = ambientVideoRect(boxSize.width, boxSize.height, videoAspect, zoomScale)
+        if (ambientGlow && !inPip && localFileUri == null) {
+            AmbientGlow(
+                config = config,
+                itemId = curItem,
+                positionMs = state.positionMs,
+                videoRect = ambientRect,
+                onStatus = { ambientStatus = it },
+            )
+        }
+
         if ((source == null && loadError == null && localFileUri == null) || (state.isBuffering && loadError == null)) {
             CircularProgressIndicator(color = MatrixGreen, modifier = Modifier.align(Alignment.Center))
         }
         loadError?.let { err ->
             Text(
                 "playback error: $err",
-                fontFamily = Mono, color = Color(0xFFFF5555), fontSize = 13.sp,
+                fontFamily = Mono, color = ErrRed, fontSize = 13.sp,
                 modifier = Modifier.align(Alignment.Center).padding(24.dp),
             )
         }
@@ -591,7 +601,7 @@ internal fun PlayerScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Icon(
-                    if (isBright) Icons.Filled.BrightnessMedium else Icons.Filled.VolumeUp,
+                    if (isBright) Icons.Filled.BrightnessMedium else AppIcons.Audio,
                     contentDescription = null, tint = MatrixGreen, modifier = Modifier.size(22.dp),
                 )
                 Text("${(value * 100).roundToInt()}%", fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -652,8 +662,15 @@ internal fun PlayerScreen(
                 }
                 Spacer(Modifier.height(8.dp))
                 Row {
-                    Text("▶  play now", fontFamily = Mono, color = Black, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(MatrixGreen).clickable { playNext(next) }.padding(horizontal = 12.dp, vertical = 6.dp))
+                    Row(
+                        Modifier.clip(RoundedCornerShape(6.dp)).background(MatrixGreen).clickable { playNext(next) }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(AppIcons.Play, contentDescription = null, tint = Black, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("play now", fontFamily = Mono, color = Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
                     Spacer(Modifier.width(8.dp))
                     Text("dismiss", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp,
                         modifier = Modifier.clickable { nextCardVisible = false; nextCountdown = -1; nextUp = null }.padding(horizontal = 10.dp, vertical = 6.dp))
@@ -725,7 +742,7 @@ internal fun PlayerScreen(
                 }
                 IconButton(onClick = { engine.togglePlay(); state = engine.snapshot() }) {
                     Icon(
-                        if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        if (state.isPlaying) AppIcons.Pause else AppIcons.Play,
                         contentDescription = "Play/Pause", tint = MatrixGreen, modifier = Modifier.size(56.dp),
                     )
                 }
@@ -742,15 +759,12 @@ internal fun PlayerScreen(
             ) {
                 val dur = state.durationMs.coerceAtLeast(1)
                 val pos = if (scrubbing) (scrubPos * dur).toLong() else state.positionMs
-                Slider(
-                    value = pos.toFloat().coerceIn(0f, dur.toFloat()),
-                    onValueChange = { scrubbing = true; scrubPos = it / dur.toFloat() },
-                    onValueChangeFinished = { engine.seekTo((scrubPos * dur).toLong()); scrubbing = false },
-                    valueRange = 0f..dur.toFloat(),
-                    colors = SliderDefaults.colors(
-                        thumbColor = MatrixGreen, activeTrackColor = MatrixGreen,
-                        inactiveTrackColor = MatrixGreen.copy(alpha = 0.25f),
-                    ),
+                PlayerSeekBar(
+                    fraction = pos.toFloat() / dur,
+                    scrubbing = scrubbing,
+                    onScrub = { scrubbing = true; scrubPos = it },
+                    onScrubEnd = { engine.seekTo((it * dur).toLong()); scrubbing = false },
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(fmt(pos), fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp)
@@ -792,6 +806,12 @@ internal fun PlayerScreen(
                 else -> "…"
             }
             InfoPanel(
+                ambient = when {
+                    !ambientGlow -> "off"
+                    localFileUri != null -> "off · local file"
+                    ambientRect == null -> "$ambientStatus · no bars to fill"
+                    else -> ambientStatus
+                },
                 vm = vm,
                 config = config,
                 itemId = curItem,
@@ -818,6 +838,7 @@ private fun InfoPanel(
     engine: MediaPlayerEngine,
     isLocal: Boolean,
     playMethod: String,
+    ambient: String,
     segments: List<org.phioster.sanctumd.net.MediaSegment>,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
@@ -884,6 +905,7 @@ private fun InfoPanel(
         InfoStat("bitrate", if (stats.bitrateKbps > 0) "${stats.bitrateKbps} kbps" else "—")
         InfoStat("buffer", "${stats.bufferedPercent}%")
         if (stats.hwDecode.isNotBlank()) InfoStat("decode", "hw · ${stats.hwDecode}")
+        InfoStat("ambient", ambient)
 
         // What the server reported for intro/outro — the honest answer to "why did the skip button
         // (or the next-episode card) show up when it did".
@@ -970,7 +992,7 @@ private fun SettingsPanel(
             }
         }
 
-        SettingsSection(Icons.Filled.HighQuality, "quality") {
+        SettingsSection(AppIcons.Quality, "quality") {
             QUALITY_OPTIONS.forEach { (label, cap) ->
                 SettingsRow(label, selected = label == currentQuality) { onQuality(label, cap) }
             }
@@ -988,7 +1010,7 @@ private fun SettingsPanel(
             }
         }
 
-        SettingsSection(Icons.Filled.Subtitles, "subtitles") {
+        SettingsSection(AppIcons.Subtitles, "subtitles") {
             SettingsRow("off", selected = subSel == null) { subSel = null; engine.selectTrack(TrackKind.SUBTITLE, null) }
             subtitleTracks.forEach { t ->
                 SettingsRow(t.label, selected = t.id == subSel) {
@@ -1014,7 +1036,7 @@ private fun SettingsPanel(
                 }
             }
         }
-        SettingsSection(Icons.Filled.Subtitles, "subtitle delay") {
+        SettingsSection(AppIcons.Subtitles, "subtitle delay") {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("−0.5s", fontFamily = Mono, fontSize = 12.sp, color = MatrixGreen,
                     modifier = Modifier.background(Color(0x33FFFFFF), RoundedCornerShape(6.dp))

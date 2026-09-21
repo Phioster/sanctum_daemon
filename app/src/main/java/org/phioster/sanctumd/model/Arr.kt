@@ -23,6 +23,13 @@ data class ArrQueueItem(
     val title: String,
     val status: String,
     val progress: Float,
+    /** Downloaded but the app refuses to import it — needs a hand, and leaves the file lying twice. */
+    val blocked: Boolean = false,
+    /**
+     * The folder the download landed in. Empty when the service did not report one, and then
+     * there is nothing to open — the manual-import shortcut must not be offered.
+     */
+    val outputPath: String = "",
 )
 
 /** A library entry (movie/series/artist). */
@@ -35,11 +42,24 @@ data class ArrLibraryItem(
     val posterUrl: String = "",
 )
 
-/** A lookup result for adding; [raw] is the original JSON reused as the add body. */
+/**
+ * A lookup result for adding; [raw] is the original JSON reused as the add body.
+ *
+ * Everything below [raw] exists so a title can be looked at before it is added. The lookup
+ * answer is the same record the service's own web UI renders, so none of it costs a second
+ * request — the list simply used to throw it away and show a year.
+ */
 data class ArrLookupItem(
     val title: String,
     val year: Int,
     val raw: String,
+    val overview: String = "",
+    val posterUrl: String = "",
+    val genres: String = "",
+    /** label -> value chips, the same shape [ArrDetail.facts] uses. */
+    val facts: List<Pair<String, String>> = emptyList(),
+    /** The service's own id once it holds this title; 0 while it would be a new entry. */
+    val libraryId: Int = 0,
 )
 
 /** A Servarr quality profile. */
@@ -75,6 +95,34 @@ data class ArrImportItem(
     val rejection: String,
     val importable: Boolean,
     val rawJson: String,
+)
+
+/**
+ * A TMDB collection as Radarr knows it — the whole film run, not only the parts you own.
+ *
+ * [qualityProfileId] and [rootFolderPath] come from the collection itself: Radarr already says
+ * where films of this run belong, so adding a missing one needs no further questions.
+ */
+data class ArrCollection(
+    val id: Int,
+    val title: String,
+    val tmdbId: Int,
+    val monitored: Boolean,
+    val qualityProfileId: Int,
+    val rootFolderPath: String,
+    val movies: List<ArrCollectionMovie>,
+) {
+    /** Films of the run that are neither owned nor deliberately excluded. */
+    val missing: List<ArrCollectionMovie> get() = movies.filter { !it.existing && !it.excluded }
+}
+
+/** One film of an [ArrCollection]. */
+data class ArrCollectionMovie(
+    val tmdbId: Int,
+    val title: String,
+    val year: Int,
+    val existing: Boolean,
+    val excluded: Boolean,
 )
 
 /** A Lidarr album (shown in the artist detail screen). */
@@ -132,8 +180,74 @@ data class ArrSystemInfo(
 
 /** A history event in a Servarr app. */
 data class ArrHistoryItem(
+    /** The history entry's own id — what blocking a past release is addressed to. */
+    val id: Int,
     val title: String,
     val eventType: String,
     val date: String,
     val quality: String,
+)
+
+/**
+ * An indexer as Sonarr/Radarr/Lidarr sees it — which is not the same view Prowlarr has.
+ *
+ * Each *arr app keeps its own failure counter: when Prowlarr answers a query with
+ * "429 Indexer is disabled till …", the app records that as a failure and locks the indexer
+ * out on its own side, with its own escalating backoff. So an indexer can be healthy in
+ * Prowlarr and still dead in Sonarr, which is why [disabledTill] is worth showing: it is the
+ * difference between "recovers on its own at 02:03" and "needs a hand".
+ */
+data class ArrIndexerItem(
+    val id: Int,
+    val name: String,
+    val protocol: String, // "usenet" or "torrent"
+    val priority: Int,
+    val enableRss: Boolean,
+    val enableAutomaticSearch: Boolean,
+    val enableInteractiveSearch: Boolean,
+    /** Locked out right now, per the service's own health check. */
+    val failing: Boolean = false,
+    /**
+     * The health check could not be read, so nothing is known about this indexer's state.
+     * Kept distinct from [failing] and from healthy on purpose: reporting an unreachable
+     * status source as "fine" is how the previous version lied with a straight face.
+     */
+    val statusUnknown: Boolean = false,
+)
+
+/** One entry when browsing the server's filesystem (manual import). */
+data class ArrFsEntry(
+    val name: String,
+    val path: String,
+    val isDirectory: Boolean,
+    val size: Long = 0L,
+)
+
+/** A folder's contents. [parent] is null at the top, where there is nowhere to go up to. */
+data class ArrFsListing(
+    val parent: String?,
+    val entries: List<ArrFsEntry>,
+)
+
+/** A release the app was told never to grab again. */
+data class ArrBlocklistItem(
+    val id: Int,
+    val title: String,
+    val date: String,
+)
+
+/**
+ * What a Servarr app makes of a release name: the quality it parses out, and what its own custom
+ * formats score it at.
+ *
+ * The indexer's listing says none of this. A name can look like a clean 1080p Bluray and still be
+ * scored far below zero because a marker in it — "MD" for mic-dubbed, say — is one the profile
+ * penalises. That is exactly the judgement worth seeing before picking a file.
+ */
+data class ArrParsedRelease(
+    val quality: String,
+    val score: Int,
+    val formats: String, // joined custom-format names, "" if none
+    val languages: String,
+    val matchedTitle: String, // which title the app thinks this release belongs to
 )

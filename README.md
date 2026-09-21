@@ -8,7 +8,7 @@
 ![Kotlin](https://img.shields.io/badge/Kotlin-Compose-238636?style=flat-square&labelColor=0d1117&logo=kotlin&logoColor=3fb950)
 ![SDK](https://img.shields.io/badge/SDK-35-238636?style=flat-square&labelColor=0d1117)
 ![License](https://img.shields.io/badge/License-GPL--3.0-238636?style=flat-square&labelColor=0d1117)
-![Status](https://img.shields.io/badge/status-heading_to_1.0-238636?style=flat-square&labelColor=0d1117)
+![Status](https://img.shields.io/badge/status-2.0-238636?style=flat-square&labelColor=0d1117)
 
 **Jellyfin admin + the \*arr / download stack — one native Android app, one matrix-terminal theme.**
 
@@ -49,9 +49,11 @@ visitor@homelab:~$ ./sanctumd --whoami
 <img src="docs/logos/lidarr.png"   height="46" alt="Lidarr"   title="Lidarr">&nbsp;&nbsp;&nbsp;
 <img src="docs/logos/prowlarr.png" height="46" alt="Prowlarr" title="Prowlarr">&nbsp;&nbsp;&nbsp;
 <img src="docs/logos/seerr.png"    height="46" alt="Seerr"    title="Seerr">&nbsp;&nbsp;&nbsp;
-<img src="docs/logos/nzbget.png"   height="46" alt="NZBGet"   title="NZBGet">
+<img src="docs/logos/nzbget.png"   height="46" alt="NZBGet"   title="NZBGet">&nbsp;&nbsp;&nbsp;
+<img src="docs/logos/ntfy.png"     height="46" alt="ntfy"     title="ntfy">
 
-<sub>Jellyfin · Radarr · Sonarr · Lidarr · Prowlarr · Seerr · NZBGet</sub>
+<sub>Jellyfin · Radarr · Sonarr · Lidarr · Prowlarr · Seerr · NZBGet · ntfy<br>
+<sub>— and any HTTP endpoint, as a shortcut</sub></sub>
 
 </div>
 
@@ -74,12 +76,14 @@ visitor@homelab:~$ ./sanctumd --whoami
   queue · history · add
   interactive search → grab
   manual import · per-ep monitoring
+  cast · where-to-stream (via Seerr)
   system & health
 
 [seerr]
   requests · issues · discover
   watchlist · per-season requests
   approve/decline · media detail
+  where-to-stream, per region
   users & stats
 
 [prowlarr]
@@ -119,15 +123,40 @@ visitor@homelab:~$ ./sanctumd --whoami
 <summary><b>notifications</b></summary>
 
 ```text
+[ntfy]
+  add it like any other service
+  browse a topic's messages
+  (the server keeps ~12 h)
+  several topics per server
 [live-push]
   direct ntfy topic subscription
   → instant local notifications
   reuses your webhook topic
   per-server merge · catch-up
   masked topic in the title
+  tap one → the title it is
+  about, in the app it lives in
 [fallback]
   on-device polling worker for
   new media / imports / requests
+```
+</details>
+
+<details>
+<summary><b>http shortcuts</b></summary>
+
+```text
+[shortcuts]
+  any URL you want to hit from
+  the phone, as a named button
+  GET or POST · JSON body
+  two taps to fire, never one
+  — no accidental reboots
+  grouped under one service
+[where]
+  its own screen · a dashboard
+  card · a home-screen widget
+  · a quick-action button
 ```
 </details>
 
@@ -163,6 +192,21 @@ min SDK 26 (Android 8.0)
 target SDK 35 (Android 15)
 ```
 
+## ▚▚ `./install`
+
+Grab the signed APK from the
+[latest release](https://github.com/Phioster/sanctum_daemon/releases/latest):
+
+```console
+$ adb install -r sanctumd-v2.0.0.apk
+```
+
+Android 8.0+ on **arm64**. The APK carries `arm64-v8a` libraries only —
+libmpv's are large, and bundling every architecture would multiply the
+download for hardware almost nobody runs. 32-bit and x86 devices are not
+supported; build from source with the `abiFilters` line dropped if you
+need one.
+
 ## ▚▚ `./build`
 
 Every push triggers the **Build APK** workflow —
@@ -184,10 +228,8 @@ $ gradle assembleDebug
 
 ```text
 feature-complete · in daily use
-heading to 1.0:
-  release-signing
-  full code-review
-  publish
+1.0 shipped 2026-07-20, now at 2.0
+security audit passed — every finding fixed
 ```
 
 See [CHANGELOG.md](CHANGELOG.md) for the milestone history.

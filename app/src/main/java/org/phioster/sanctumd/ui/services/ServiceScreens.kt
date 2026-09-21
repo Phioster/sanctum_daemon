@@ -80,7 +80,6 @@ import org.phioster.sanctumd.ui.seerr.*
 import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
-import org.phioster.sanctumd.ui.common.*
 import org.phioster.sanctumd.ServiceLogo
 
 /** Compact, tidy status error for the service cards — the raw DNS/connection exception is verbose and
@@ -267,7 +266,8 @@ internal fun ServiceTile(
                     Text("connecting…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp)
                 status.ok && status.stats.isNotEmpty() ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        status.stats.take(3).forEach { (k, v) ->
+                        // Four since Jellyfin gained its song count; every other service has three.
+                        status.stats.take(4).forEach { (k, v) ->
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(v, fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen, fontSize = 15.sp, maxLines = 1)
                                 Text(k.uppercase(), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -508,6 +508,19 @@ internal fun AddServiceScreen(
             Field("Label", label) { label = it; labelEdited = true }
             if (type != ServiceType.SHORTCUTS) {
                 Field("Base URL (https://…)", url) { url = it }
+                // Cleartext stays allowed — a homelab on http://192.168.x.x is the normal case and
+                // breaking it would help nobody. But the key below travels on every request, so say
+                // so plainly instead of letting the hint in the label carry it.
+                if (url.isNotBlank() && !url.trim().startsWith("https://", ignoreCase = true)) {
+                    Row(Modifier.padding(top = 4.dp)) {
+                        Icon(AppIcons.Failed, contentDescription = null, tint = WarnAmberDim, modifier = Modifier.size(12.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "not https — the API key and password below travel unencrypted and anyone on the same network can read them.",
+                            fontFamily = Mono, color = WarnAmberDim, fontSize = 10.sp,
+                        )
+                    }
+                }
             }
 
             if (type == ServiceType.SHORTCUTS) {
@@ -527,7 +540,10 @@ internal fun AddServiceScreen(
                                 Spacer(Modifier.width(6.dp))
                             }
                         }
-                        Text("✕", fontFamily = Mono, color = ErrRed, fontSize = 16.sp, modifier = Modifier.clickable { shortcuts = shortcuts.toMutableList().also { it.removeAt(i) } }.padding(8.dp))
+                        Icon(
+                            AppIcons.Cancel, contentDescription = "Remove", tint = ErrRed,
+                            modifier = Modifier.clickable { shortcuts = shortcuts.toMutableList().also { it.removeAt(i) } }.padding(8.dp).size(18.dp),
+                        )
                     }
                     Field("Name (e.g. Homelab Start)", sc.name) { v -> shortcuts = shortcuts.toMutableList().also { it[i] = sc.copy(name = v) } }
                     Field("URL (https://…)", sc.url) { v -> shortcuts = shortcuts.toMutableList().also { it[i] = sc.copy(url = v) } }
@@ -555,7 +571,7 @@ internal fun AddServiceScreen(
             }
 
             if (type.usesApiKeyHeader || (type == ServiceType.JELLYFIN && !jellyLogin)) {
-                Field("API key", apiKey) { apiKey = it }
+                Field("API key", apiKey, isPassword = true) { apiKey = it }
             }
             if (type == ServiceType.NTFY) {
                 Field("Topics (comma-separated)", topics) { topics = it }
@@ -587,7 +603,7 @@ internal fun AddServiceScreen(
             }
             testResult?.let {
                 Spacer(Modifier.height(12.dp))
-                Text(it, fontFamily = Mono, color = if (it.startsWith("ok")) MatrixGreen else Color(0xFFFFAA00), fontSize = 13.sp)
+                Text(it, fontFamily = Mono, color = if (it.startsWith("ok")) MatrixGreen else WarnAmber, fontSize = 13.sp)
             }
         }
     }

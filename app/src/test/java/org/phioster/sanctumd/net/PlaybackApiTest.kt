@@ -52,7 +52,13 @@ class PlaybackApiTest {
         assertEquals("ms1", src.mediaSourceId)
         assertEquals(600_000L, src.startPositionMs)
         assertEquals(7_200_000L, src.runTimeMs)
-        assertEquals("tk", src.authHeaders["X-Emby-Token"])
+        assertTrue("got ${src.authHeaders}", src.authHeaders["Authorization"]!!.contains("Token=\"tk\""))
+        // Pins route and argument order: both parameters are Strings, so a swapped call would
+        // compile silently and ask the server for the item id as a user.
+        server.takeRequest() // resolveUserId
+        val itemReq = server.takeRequest().path!!
+        assertTrue("got $itemReq", itemReq.startsWith("/Items/item42?"))
+        assertTrue("got $itemReq", itemReq.contains("userId=u1"))
     }
 
     @Test

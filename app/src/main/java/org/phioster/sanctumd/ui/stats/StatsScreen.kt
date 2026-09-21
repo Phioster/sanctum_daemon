@@ -1,6 +1,7 @@
 package org.phioster.sanctumd.ui.stats
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,14 +40,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.phioster.sanctumd.model.StatBar
 import org.phioster.sanctumd.model.StatChart
 import org.phioster.sanctumd.model.StatTile
 import org.phioster.sanctumd.model.StatsData
 import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.common.Hint
+import org.phioster.sanctumd.ui.common.ChartTitle
 import org.phioster.sanctumd.ui.common.SectionHeader
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.MatrixGreen
+import org.phioster.sanctumd.ui.theme.argbLong
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
 
@@ -58,6 +62,17 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
     var data by remember { mutableStateOf<StatsData?>(null) }
     var loading by remember { mutableStateOf(true) }
     var reloadTick by remember { mutableStateOf(0) }
+    var playback by remember { mutableStateOf<org.phioster.sanctumd.model.JellyPlaybackStats?>(null) }
+    var jellyfinServiceId by remember { mutableStateOf<String?>(null) }
+
+    // Its own effect, and every failure swallowed: the Playback Reporting plugin is optional, and
+    // a server without it answers 404. That must leave the section absent, not the screen broken.
+    LaunchedEffect(reloadTick) {
+        val jf = runCatching { vm.services.value }.getOrNull()
+            ?.firstOrNull { it.type == org.phioster.sanctumd.model.ServiceType.JELLYFIN }
+        jellyfinServiceId = jf?.id
+        playback = jf?.let { runCatching { vm.jellyfinPlayback(it) }.getOrNull() }
+    }
     LaunchedEffect(reloadTick) {
         loading = true
         data = runCatching { vm.loadStats() }.getOrNull()
@@ -87,6 +102,10 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                 if (d.tiles.isNotEmpty()) {
                     item {
                         Spacer(Modifier.height(10.dp))
+                        // Without this roof the charts below would hang there untitled, now that
+                        // their own titles sit one level down.
+                        SectionHeader("OVERVIEW")
+                        Spacer(Modifier.height(10.dp))
                         // Tiles wrap two per row.
                         d.tiles.chunked(2).forEach { pair ->
                             Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -97,10 +116,55 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                         Spacer(Modifier.height(8.dp))
                     }
                 }
+                // The service charts had no parent heading — their own titles served as one.
+                // Now that those titles are subordinate they need one, or they float indented
+                // without a section.
+                if (d.charts.isNotEmpty()) {
+                    item {
+                        SectionHeader("SERVICES")
+                        Spacer(Modifier.height(10.dp))
+                    }
+                }
                 items(d.charts) { chart ->
                     StatChartView(chart)
                     Spacer(Modifier.height(18.dp))
                 }
+                // WIEDERGABE: what actually got watched, straight from the Playback Reporting
+                // plugin's own database. Loaded separately because it can be absent (the plugin
+                // is optional) and must not take the rest of the screen down with it.
+                playback?.let { pb ->
+                    // argbLong(), not value.toLong(): see ColorArgb.kt — that was the cause of
+                    // black labels and invisible bar fills in 1.50.1.
+                    val green = MatrixGreen.argbLong()
+                    val tiles = playbackTiles(pb, green, 0xFFFFAA00L)
+                    val charts = playbackCharts(pb, green, 0xFFFFAA00L)
+                    if (tiles.isNotEmpty()) {
+                        item {
+                            Spacer(Modifier.height(6.dp))
+                            SectionHeader("PLAYBACK")
+                            Spacer(Modifier.height(10.dp))
+                            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                tiles.forEach { t -> StatTileView(t, Modifier.weight(1f)) }
+                            }
+                            if (pb.since.isNotBlank()) {
+                                Text(
+                                    "since ${pb.since}",
+                                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 10.sp,
+                                )
+                            }
+                            Spacer(Modifier.height(10.dp))
+                        }
+                        items(charts) { chart ->
+                            StatChartView(chart) { bar ->
+                                jellyfinServiceId?.let { sid ->
+                                    vm.setRoute(org.phioster.sanctumd.ui.PendingRoute("service", sid, bar.id))
+                                }
+                            }
+                            Spacer(Modifier.height(18.dp))
+                        }
+                    }
+                }
+
                 // TRENDS section: derived from the recorded stat history (grows over days).
                 item {
                     Spacer(Modifier.height(6.dp))
@@ -111,7 +175,13 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                             "collecting data — check back in a few days",
                             fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp,
                         )
-                    } else if (d.trendTiles.isNotEmpty()) {
+                    } else if (d.trendTiles.isEmpty()) {
+                        // Figures need more history than charts do: Prowlarr produces none at
+                        // all, and the disk forecast needs three data points. Without this
+                        // sentence the section simply looks empty.
+                        Hint("Figures follow once more days are on record — the trends below are already growing.")
+                        Spacer(Modifier.height(8.dp))
+                    } else {
                         d.trendTiles.chunked(2).forEach { pair ->
                             Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 pair.forEach { t -> StatTileView(t, Modifier.weight(1f)) }
@@ -132,7 +202,7 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun StatTileView(tile: StatTile, modifier: Modifier) {
+internal fun StatTileView(tile: StatTile, modifier: Modifier) {
     val accent = Color(tile.accentArgb)
     Column(
         modifier
@@ -147,15 +217,23 @@ private fun StatTileView(tile: StatTile, modifier: Modifier) {
 }
 
 @Composable
-private fun StatChartView(chart: StatChart) {
+internal fun StatChartView(chart: StatChart, onBar: ((StatBar) -> Unit)? = null) {
     val accent = Color(chart.accentArgb)
     val max = chart.bars.maxOfOrNull { it.value }?.coerceAtLeast(1f) ?: 1f
+    // Charts sit one level below a section, so they carry a ChartTitle rather than a
+    // SectionHeader — otherwise every chart reads as a new top-level section and the section
+    // above it looks empty.
     Column(Modifier.fillMaxWidth()) {
-        SectionHeader(chart.title, accent)
+        ChartTitle(chart.title, accent)
         Spacer(Modifier.height(8.dp))
         chart.bars.forEach { bar ->
             val color = bar.colorArgb?.let { Color(it) } ?: accent
-            Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+            val tappable = onBar != null && bar.id.isNotBlank()
+            Column(
+                Modifier.fillMaxWidth()
+                    .let { m -> if (tappable) m.clickable { onBar!!(bar) } else m }
+                    .padding(bottom = 8.dp),
+            ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(bar.label, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                     Spacer(Modifier.height(0.dp))

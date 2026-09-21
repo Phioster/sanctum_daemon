@@ -29,11 +29,15 @@ import org.phioster.sanctumd.model.SearchResult
 import org.phioster.sanctumd.model.SeerrDiscoverItem
 import org.phioster.sanctumd.model.SeerrIssueDetail
 import org.phioster.sanctumd.model.SeerrIssueItem
+import org.phioster.sanctumd.model.SeerrRequestDetail
 import org.phioster.sanctumd.model.SeerrRequestItem
+import org.phioster.sanctumd.model.SeerrProfile
+import org.phioster.sanctumd.model.SeerrRootFolder
+import org.phioster.sanctumd.model.SeerrServiceOptions
 import org.phioster.sanctumd.model.SeerrMediaDetail
-import org.phioster.sanctumd.model.SeerrSearchItem
 import org.phioster.sanctumd.model.SeerrUserInfo
 import org.phioster.sanctumd.model.SeerrSeason
+import org.phioster.sanctumd.model.SeerrTitleExtras
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceStatus
 import retrofit2.http.Body
@@ -83,18 +87,22 @@ import retrofit2.http.Query
 )
 @Serializable internal data class SeerrIssuePage(val results: List<SeerrIssue> = emptyList())
 
-@Serializable internal data class SeerrSearchResult(
-    val id: Int = 0,
-    val mediaType: String = "",
-    val title: String? = null,        // movie
-    val name: String? = null,         // tv
-    val releaseDate: String? = null,  // movie
-    val firstAirDate: String? = null, // tv
-    val adult: Boolean = false,       // TMDB adult (porn) flag
-)
-@Serializable internal data class SeerrSearchPage(val results: List<SeerrSearchResult> = emptyList())
-
 @Serializable internal data class SeerrGenreDto(val id: Int = 0, val name: String = "")
+
+/** One Radarr/Sonarr server as Seerr has it configured. */
+@Serializable internal data class SeerrServiceServer(
+    val id: Int = 0,
+    val name: String = "",
+    val isDefault: Boolean = false,
+    val activeDirectory: String = "", // the root folder a request lands in when none is chosen
+    val activeProfileId: Int = 0, // the quality profile a request uses when none is chosen
+)
+@Serializable internal data class SeerrServiceRootFolder(val id: Int = 0, val path: String = "")
+@Serializable internal data class SeerrServiceProfile(val id: Int = 0, val name: String = "")
+@Serializable internal data class SeerrServiceDetail(
+    val rootFolders: List<SeerrServiceRootFolder> = emptyList(),
+    val profiles: List<SeerrServiceProfile> = emptyList(),
+)
 
 internal interface SeerrApi {
     @GET("api/v1/request/count") suspend fun counts(): SeerrCounts
@@ -121,7 +129,6 @@ internal interface SeerrApi {
     @POST("api/v1/request/{id}/approve") suspend fun approve(@Path("id") id: Int): Response<ResponseBody>
     @POST("api/v1/request/{id}/decline") suspend fun decline(@Path("id") id: Int): Response<ResponseBody>
 
-    @GET("api/v1/search") suspend fun search(@Query("query") query: String): SeerrSearchPage
     @GET("api/v1/search") suspend fun searchRaw(@Query("query") query: String): JsonObject
     @POST("api/v1/request") suspend fun createRequest(@Body body: JsonObject): Response<ResponseBody>
     @GET("api/v1/discover/trending") suspend fun trending(@Query("page") page: Int = 1): JsonObject
@@ -130,7 +137,12 @@ internal interface SeerrApi {
     @GET("api/v1/discover/watchlist") suspend fun watchlist(@Query("page") page: Int = 1): JsonObject
     @POST("api/v1/watchlist") suspend fun addWatchlist(@Body body: JsonObject): Response<ResponseBody>
     @DELETE("api/v1/watchlist/{id}") suspend fun deleteWatchlist(@Path("id") tmdbId: Int, @Query("mediaType") mediaType: String): Response<ResponseBody>
+    @GET("api/v1/service/{type}") suspend fun services(@Path("type") type: String): List<SeerrServiceServer>
+    @GET("api/v1/service/{type}/{id}") suspend fun serviceDetail(@Path("type") type: String, @Path("id") id: Int): SeerrServiceDetail
+    @GET("api/v1/request/{id}") suspend fun requestDetail(@Path("id") id: Int): JsonObject
     @GET("api/v1/issue/{id}") suspend fun issueDetail(@Path("id") id: Int): JsonObject
+    @DELETE("api/v1/request/{id}") suspend fun deleteRequest(@Path("id") id: Int): Response<ResponseBody>
+    @POST("api/v1/issue") suspend fun createIssue(@Body body: JsonObject): Response<ResponseBody>
     @POST("api/v1/issue/{id}/comment") suspend fun addComment(@Path("id") id: Int, @Body body: JsonObject): Response<ResponseBody>
     @POST("api/v1/issue/{id}/{status}") suspend fun setIssueStatus(@Path("id") id: Int, @Path("status") status: String): Response<ResponseBody>
     @DELETE("api/v1/issue/{id}") suspend fun deleteIssue(@Path("id") id: Int): Response<ResponseBody>
@@ -141,6 +153,7 @@ internal fun seerrStatusText(status: Int) = when (status) {
     2 -> "approved"
     3 -> "declined"
     4 -> "failed"
+    5 -> "completed" // every finished request carries this; unmapped it rendered as "?"
     else -> "?"
 }
 
@@ -220,36 +233,15 @@ suspend fun seerrIssues(config: ServiceConfig, filter: String): List<SeerrIssueI
     }
 }
 
-suspend fun seerrSearch(config: ServiceConfig, query: String): List<SeerrSearchItem> = withContext(Dispatchers.IO) {
-    val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
-    api.search(query).results
-        .filter { it.mediaType == "movie" || it.mediaType == "tv" }
-        .map { r ->
-            val date = r.releaseDate ?: r.firstAirDate ?: ""
-            SeerrSearchItem(
-                tmdbId = r.id,
-                title = (r.title ?: r.name ?: "#${r.id}"),
-                year = date.take(4),
-                mediaType = r.mediaType,
-                adult = r.adult,
-            )
-        }
-}
-
-suspend fun seerrCreateRequest(config: ServiceConfig, item: SeerrSearchItem): String = destructive("create a Seerr request") {
-    withContext(Dispatchers.IO) {
-        try {
-            val body = buildJsonObject {
-                put("mediaType", item.mediaType)
-                put("mediaId", item.tmdbId)
-                if (item.mediaType == "tv") put("seasons", "all")
-            }
-            val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).createRequest(body)
-            if (r.isSuccessful) "requested" else "error: HTTP ${r.code()}"
-        } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
-        }
-    }
+/**
+ * Seerr's `/search`, kept whole.
+ *
+ * The answer is a page of full TMDB records — poster, year, request status — and the same reader
+ * the discover rows use turns it into browse items. A hit can then open the detail sheet instead
+ * of being a title and a year on the way to a request dialog.
+ */
+suspend fun seerrSearch(config: ServiceConfig, query: String): List<SeerrDiscoverItem> = withContext(Dispatchers.IO) {
+    parseDiscoverItems(apiFor<SeerrApi>(config, apiKeyHeader(config)).searchRaw(query), null)
 }
 
 internal fun seerrMediaStatusText(status: Int?) = when (status) {
@@ -356,7 +348,14 @@ suspend fun seerrDiscoverGenre(
     parseDiscoverItems(page, def)
 }
 
-/** The signed-in user's Plex watchlist (synced via Seerr). Items carry tmdbId + mediaType. */
+/**
+ * The signed-in user's watchlist. Items carry tmdbId + mediaType.
+ *
+ * Jellyseerr keeps its own watchlist — a Plex link is not required (verified against a live
+ * instance 2026-08-20). Note the asymmetry, which is Jellyseerr's design and not a mistake here:
+ * reading goes through `discover/watchlist`, while adding and removing go to `/watchlist`
+ * (a plain GET on that path answers 405).
+ */
 suspend fun seerrWatchlist(config: ServiceConfig): List<SeerrDiscoverItem> = withContext(Dispatchers.IO) {
     val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
     val page = api.watchlist()
@@ -426,8 +425,102 @@ suspend fun seerrUsers(config: ServiceConfig): List<SeerrUserInfo> = withContext
     }
 }
 
-/** Create a request; [seasons] null = movie or all seasons, else the chosen season numbers. */
-suspend fun seerrRequest(config: ServiceConfig, tmdbId: Int, mediaType: String, seasons: List<Int>?): String = destructive("create a Seerr request for tmdb $tmdbId") {
+/**
+ * What Seerr offers for [mediaType] ("movie" → Radarr, anything else → Sonarr): its root
+ * folders and quality profiles, plus which of each is the default.
+ *
+ * Read from Seerr's own service config rather than from Radarr/Sonarr directly — the values
+ * travel back to Seerr, so they have to be ones Seerr knows, and this works even when the *arr
+ * service is not configured in Sanctumd at all.
+ *
+ * Empty when Seerr has no server of that kind, which the caller reads as "no choice to offer"
+ * rather than as an error.
+ */
+suspend fun seerrServiceOptions(config: ServiceConfig, mediaType: String): SeerrServiceOptions =
+    withContext(Dispatchers.IO) {
+        val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
+        val kind = if (mediaType == "movie") "radarr" else "sonarr"
+        val servers = api.services(kind)
+        val server = servers.firstOrNull { it.isDefault } ?: servers.firstOrNull()
+            ?: return@withContext SeerrServiceOptions(0, emptyList(), emptyList(), 0)
+        val detail = api.serviceDetail(kind, server.id)
+        SeerrServiceOptions(
+            serverId = server.id,
+            rootFolders = detail.rootFolders.map {
+                SeerrRootFolder(it.path, server.id, isDefault = it.path == server.activeDirectory)
+            },
+            profiles = detail.profiles.map { SeerrProfile(it.id, it.name) },
+            defaultProfileId = server.activeProfileId,
+        )
+    }
+
+/**
+ * The settings one request was made with, for the detail view behind a row.
+ *
+ * Resolves the quality profile to its name only when one was actually chosen — an unsteered
+ * request needs no service lookup, so the common case stays at two calls instead of four.
+ */
+suspend fun seerrRequestDetail(config: ServiceConfig, id: Int): SeerrRequestDetail =
+    withContext(Dispatchers.IO) {
+        val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
+        val o = api.requestDetail(id)
+        val media = o["media"] as? JsonObject ?: JsonObject(emptyMap())
+        val type = jsStr(o, "type") ?: jsStr(media, "mediaType") ?: "movie"
+        val tmdb = jsInt(media, "tmdbId") ?: 0
+        val title = api.resolveTitle(SeerrMedia(tmdb, type), type)
+        val who = (o["requestedBy"] as? JsonObject)?.let {
+            jsStr(it, "jellyfinUsername") ?: jsStr(it, "plexUsername") ?: jsStr(it, "username") ?: jsStr(it, "email")
+        }
+        val profileId = jsInt(o, "profileId")
+        val profileName = profileId?.let { wanted ->
+            runCatching { seerrServiceOptions(config, type).profiles.firstOrNull { it.id == wanted }?.name }
+                .getOrNull() ?: "#$wanted"
+        } ?: "default"
+        val status = jsInt(o, "status") ?: 0
+        SeerrRequestDetail(
+            id = jsInt(o, "id") ?: id,
+            title = title,
+            status = seerrStatusText(status),
+            mediaType = type,
+            requestedBy = who.orEmpty(),
+            created = jsStr(o, "createdAt").orEmpty().take(19).replace('T', ' '),
+            rootFolder = jsStr(o, "rootFolder")?.takeIf { it.isNotBlank() } ?: "default",
+            profile = profileName,
+            seasonCount = jsInt(o, "seasonCount") ?: 0,
+            is4k = jsBool(o, "is4k") == true,
+            pending = status == 1,
+            tmdbId = tmdb,
+            tvdbId = jsInt(media, "tvdbId") ?: 0,
+        )
+    }
+
+/** Removes a request entirely — the only way back once it has been approved. */
+suspend fun seerrDeleteRequest(config: ServiceConfig, id: Int): String =
+    destructive("delete Seerr request $id") {
+        withContext(Dispatchers.IO) {
+            try {
+                okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).deleteRequest(id), "deleted")
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
+
+/**
+ * Create a request; [seasons] null = movie or all seasons, else the chosen season numbers.
+ *
+ * [rootFolder] steers the media into a specific library folder. It is only sent when the user
+ * picked one — otherwise the body stays exactly as Seerr's own default handling expects it.
+ */
+suspend fun seerrRequest(
+    config: ServiceConfig,
+    tmdbId: Int,
+    mediaType: String,
+    seasons: List<Int>?,
+    rootFolder: String? = null,
+    serverId: Int? = null,
+    profileId: Int? = null,
+): String = destructive("create a Seerr request for tmdb $tmdbId") {
     withContext(Dispatchers.IO) {
         try {
             val body = buildJsonObject {
@@ -437,9 +530,38 @@ suspend fun seerrRequest(config: ServiceConfig, tmdbId: Int, mediaType: String, 
                     if (seasons.isNullOrEmpty()) put("seasons", "all")
                     else putJsonArray("seasons") { seasons.forEach { add(it) } }
                 }
+                if (rootFolder != null) {
+                    put("rootFolder", rootFolder)
+                    if (serverId != null) put("serverId", serverId)
+                }
+                if (profileId != null) put("profileId", profileId)
             }
             val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).createRequest(body)
             if (r.isSuccessful) "requested" else "error: HTTP ${r.code()}"
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
+}
+
+/**
+ * Opens an issue on a title. [issueType] is Seerr's own numbering — see [seerrIssueType]:
+ * 1 video, 2 audio, 3 subtitle, 4 other.
+ */
+suspend fun seerrCreateIssue(
+    config: ServiceConfig,
+    mediaId: Int,
+    issueType: Int,
+    message: String,
+): String = destructive("report a Seerr issue on media $mediaId") {
+    withContext(Dispatchers.IO) {
+        try {
+            val body = buildJsonObject {
+                put("issueType", issueType)
+                put("message", message)
+                put("mediaId", mediaId)
+            }
+            okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).createIssue(body), "reported")
         } catch (t: Throwable) {
             "error: ${t.message ?: t.javaClass.simpleName}"
         }
@@ -520,17 +642,40 @@ internal suspend fun seerrSearchResults(config: ServiceConfig, term: String): Li
             mediaType = d.mediaType,
             year = d.year.toIntOrNull() ?: 0,
             inLibrary = d.status == "available",
+            adult = d.adult,
         )
     }
 }
 
-/** Resolves cast for a tmdbId via a Seerr/Overseerr TMDB proxy. */
-suspend fun seerrCast(seerrConfig: ServiceConfig, tmdbId: Int, isTv: Boolean): List<ArrCastMember> = withContext(Dispatchers.IO) {
-    if (tmdbId <= 0) return@withContext emptyList()
-    val api = apiFor<SeerrApi>(seerrConfig, apiKeyHeader(seerrConfig))
-    val detail = if (isTv) api.tvRaw(tmdbId) else api.movieRaw(tmdbId)
-    val cast = (detail["credits"] as? JsonObject)?.get("cast") as? JsonArray ?: return@withContext emptyList()
-    cast.mapNotNull { it as? JsonObject }.take(20).map { c ->
+/** Common ISO 639-1 codes to a readable name; anything else falls back to the code itself. */
+private val LANGUAGE_NAMES = mapOf(
+    "en" to "English", "de" to "German", "fr" to "French", "es" to "Spanish",
+    "it" to "Italian", "ja" to "Japanese", "ko" to "Korean", "zh" to "Chinese",
+    "ru" to "Russian", "pt" to "Portuguese", "nl" to "Dutch", "sv" to "Swedish",
+    "da" to "Danish", "no" to "Norwegian", "fi" to "Finnish", "pl" to "Polish",
+    "tr" to "Turkish", "cs" to "Czech", "hu" to "Hungarian", "el" to "Greek",
+)
+
+/**
+ * The film's original language, for an audio track that carries no language of its own.
+ *
+ * An inference about the title rather than a fact about the file, so the caller labels it. Empty
+ * when Seerr does not report one — nothing is invented to fill the gap.
+ */
+suspend fun seerrOriginalLanguage(seerrConfig: ServiceConfig, tmdbId: Int, isTv: Boolean): String =
+    withContext(Dispatchers.IO) {
+        if (tmdbId <= 0) return@withContext ""
+        val api = apiFor<SeerrApi>(seerrConfig, apiKeyHeader(seerrConfig))
+        val detail = runCatching { if (isTv) api.tvRaw(tmdbId) else api.movieRaw(tmdbId) }.getOrNull()
+            ?: return@withContext ""
+        val code = jsStr(detail, "originalLanguage")?.trim().orEmpty()
+        if (code.isBlank()) "" else LANGUAGE_NAMES[code.lowercase()] ?: code.uppercase()
+    }
+
+/** The cast list of a Seerr movie/tv detail payload, capped at the faces a row can show. */
+internal fun parseCast(detail: JsonObject): List<ArrCastMember> {
+    val cast = (detail["credits"] as? JsonObject)?.get("cast") as? JsonArray ?: return emptyList()
+    return cast.mapNotNull { it as? JsonObject }.take(20).map { c ->
         val profile = jsStr(c, "profilePath")
         ArrCastMember(
             name = jsStr(c, "name") ?: "?",
@@ -540,8 +685,32 @@ suspend fun seerrCast(seerrConfig: ServiceConfig, tmdbId: Int, isTv: Boolean): L
     }
 }
 
+/**
+ * Cast plus streaming availability for a tmdbId, via a Seerr/Overseerr TMDB proxy.
+ *
+ * Radarr/Sonarr know neither, and Seerr answers both from the same detail payload — fetching
+ * them separately would double the round trip for no gain. [region] is the country availability
+ * is read for ("" follows the device).
+ */
+suspend fun seerrTitleExtras(
+    seerrConfig: ServiceConfig,
+    tmdbId: Int,
+    isTv: Boolean,
+    region: String = "",
+): SeerrTitleExtras = withContext(Dispatchers.IO) {
+    if (tmdbId <= 0) return@withContext SeerrTitleExtras()
+    val api = apiFor<SeerrApi>(seerrConfig, apiKeyHeader(seerrConfig))
+    val detail = if (isTv) api.tvRaw(tmdbId) else api.movieRaw(tmdbId)
+    SeerrTitleExtras(cast = parseCast(detail), availability = parseWatchProviders(detail, region))
+}
+
 /** Full media detail (poster, facts, genres, cast, availability) for a Seerr movie/show. */
-suspend fun seerrMediaDetail(config: ServiceConfig, tmdbId: Int, mediaType: String): SeerrMediaDetail = withContext(Dispatchers.IO) {
+suspend fun seerrMediaDetail(
+    config: ServiceConfig,
+    tmdbId: Int,
+    mediaType: String,
+    region: String = "",
+): SeerrMediaDetail = withContext(Dispatchers.IO) {
     val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
     val isTv = mediaType == "tv"
     val o = if (isTv) api.tvRaw(tmdbId) else api.movieRaw(tmdbId)
@@ -552,14 +721,7 @@ suspend fun seerrMediaDetail(config: ServiceConfig, tmdbId: Int, mediaType: Stri
     val runtime = jsInt(o, "runtime")
     val genres = (o["genres"] as? JsonArray)?.mapNotNull { (it as? JsonObject)?.let { g -> jsStr(g, "name") } }?.joinToString(" · ") ?: ""
     val statusInt = (o["mediaInfo"] as? JsonObject)?.let { jsInt(it, "status") }
-    val cast = ((o["credits"] as? JsonObject)?.get("cast") as? JsonArray)?.mapNotNull { it as? JsonObject }?.take(20)?.map { c ->
-        val profile = jsStr(c, "profilePath")
-        ArrCastMember(
-            name = jsStr(c, "name") ?: "?",
-            character = jsStr(c, "character") ?: "",
-            profileUrl = if (!profile.isNullOrBlank()) "https://image.tmdb.org/t/p/w185$profile" else "",
-        )
-    } ?: emptyList()
+    val cast = parseCast(o)
     val facts = buildList {
         date.take(4).takeIf { it.isNotBlank() }?.let { add("year" to it) }
         runtime?.takeIf { it > 0 }?.let { add("runtime" to "$it min") }
@@ -577,6 +739,10 @@ suspend fun seerrMediaDetail(config: ServiceConfig, tmdbId: Int, mediaType: Stri
         status = seerrMediaStatusText(statusInt),
         cast = cast,
         onWatchlist = jsBool(o, "onUserWatchlist") ?: false,
+        // Seerr's own id, not the TMDB one — issues are filed against this. Absent until the
+        // title exists in Seerr's library, which is also when an issue would make no sense.
+        mediaId = (o["mediaInfo"] as? JsonObject)?.let { jsInt(it, "id") } ?: 0,
+        availability = parseWatchProviders(o, region),
     )
 }
 

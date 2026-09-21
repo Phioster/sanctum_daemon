@@ -39,7 +39,9 @@ internal interface JellyfinSegmentsApi {
     @GET("MediaSegments/{id}")
     suspend fun segments(
         @Path("id") id: String,
-        @Query("includeSegmentTypes") types: String = "Intro,Outro",
+        // Repeated parameters, not a comma list: a comma list parses to no valid enum value
+        // and the server filters every segment away, answering with an empty list.
+        @Query("includeSegmentTypes") types: List<String> = listOf("Intro", "Outro"),
     ): JfSegmentsResp
 
     /** Older Intro Skipper plugin route (seconds, intro only). */
@@ -55,7 +57,7 @@ internal interface JellyfinSegmentsApi {
 }
 
 internal fun jfSegmentsApi(config: ServiceConfig, token: String) =
-    apiFor<JellyfinSegmentsApi>(config, mapOf("X-Emby-Token" to token))
+    apiFor<JellyfinSegmentsApi>(config, jellyfinAuth(token))
 
 /**
  * Intro and outro ranges for [itemId], empty when the server can't tell us (no plugin, older
@@ -89,7 +91,7 @@ suspend fun jellyfinNextEpisode(config: ServiceConfig, itemId: String): NextEpis
     runCatching {
         val token = jellyfinAccessToken(config)
         val uid = jellyfinResolveUserId(config, jfApi(config, token))
-        val detail = jfApi(config, token).itemDetail(uid, itemId)
+        val detail = jfApi(config, token).itemDetail(id = itemId, uid = uid)
         val seriesId = detail.SeriesId ?: return@runCatching null
         val episodes = jfSegmentsApi(config, token).seriesEpisodes(seriesId, uid).Items
             .filter { it.LocationType != "Virtual" }

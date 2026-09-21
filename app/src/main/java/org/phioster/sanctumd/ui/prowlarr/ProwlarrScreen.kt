@@ -80,7 +80,6 @@ import org.phioster.sanctumd.ui.services.*
 import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
-import org.phioster.sanctumd.ui.common.*
 import org.phioster.sanctumd.ServiceLogo
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -536,7 +535,7 @@ internal fun ProwlarrScreen(
                         si == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                         si.health.isEmpty() -> Text("all healthy", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
                         else -> si.health.forEach { (type, msg) ->
-                            val c = if (type.equals("error", true)) ErrRed else Color(0xFFFFAA00)
+                            val c = if (type.equals("error", true)) ErrRed else WarnAmber
                             Text("• $msg", fontFamily = Mono, color = c, fontSize = 12.sp)
                         }
                     }
@@ -645,6 +644,9 @@ internal fun ProwlarrReleaseRow(
     arrTargets: List<ServiceConfig>,
     onGrab: () -> Unit,
     onSendTo: (ServiceConfig) -> Unit,
+    /** Extra line for this release, drawn **inside** the row — after the divider it would read
+     *  as a heading for the next one. */
+    detail: (@Composable () -> Unit)? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     val meta = buildString {
@@ -666,6 +668,10 @@ internal fun ProwlarrReleaseRow(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(meta, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 Text(item.categories, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            detail?.let {
+                Spacer(Modifier.height(4.dp))
+                it()
             }
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))

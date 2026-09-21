@@ -125,6 +125,6 @@ internal fun IconPickerGrid(selected: String, onPick: (String) -> Unit) {
     }
 }
 
-internal data class OnboardPage(val icon: String, val title: String, val body: String)
+internal data class OnboardPage(val icon: ImageVector, val title: String, val body: String)
 
 /** First-run welcome flow: a few swipeable pages, then "get started" opens Add-service. */

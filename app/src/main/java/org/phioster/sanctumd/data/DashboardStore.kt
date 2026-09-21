@@ -21,6 +21,7 @@ private val TABS_KEY = stringPreferencesKey("tabs_json")
 private val APP_LOCK_KEY = booleanPreferencesKey("app_lock")
 private val ONBOARDING_KEY = booleanPreferencesKey("onboarding_done")
 private val HIDE_ADULT_KEY = booleanPreferencesKey("hide_adult")
+private val WATCH_REGION_KEY = stringPreferencesKey("watch_region")
 private val SWIPE_TABS_KEY = booleanPreferencesKey("swipe_tabs")
 private val SWIPE_DRAWER_KEY = booleanPreferencesKey("swipe_drawer")
 private val DRAWER_BAND_KEY = floatPreferencesKey("drawer_band")
@@ -31,6 +32,7 @@ private val HIDDEN_LIBRARIES_KEY = stringPreferencesKey("hidden_libraries_json")
 private val MEDIA_ROW_STYLES_KEY = stringPreferencesKey("media_row_styles_json")
 private val PLAYER_SWIPE_MAG_KEY = floatPreferencesKey("player_swipe_magnitude")
 private val PLAYER_SWIPE_MARGIN_KEY = floatPreferencesKey("player_swipe_margin")
+private val IMPORT_LAST_PATH_KEY = stringPreferencesKey("import_last_path")
 private val AUDIO_LANG_KEY = stringPreferencesKey("player_audio_lang")
 private val SUB_LANG_KEY = stringPreferencesKey("player_sub_lang")
 private val SUB_MODE_KEY = stringPreferencesKey("player_sub_mode")
@@ -38,6 +40,7 @@ private val SUB_SCALE_KEY = floatPreferencesKey("player_sub_scale")
 private val AUTOPLAY_NEXT_KEY = booleanPreferencesKey("player_autoplay_next")
 private val AUTO_SKIP_KEY = booleanPreferencesKey("player_auto_skip_segments")
 private val ASK_RESUME_KEY = booleanPreferencesKey("player_ask_resume")
+private val AMBIENT_GLOW_KEY = booleanPreferencesKey("player_ambient_glow")
 private val NEXT_LEAD_KEY = intPreferencesKey("player_next_lead_seconds")
 private val SERVICE_VIEW_KEY = stringPreferencesKey("service_view_mode")
 private val COLLAPSED_GROUPS_KEY = stringPreferencesKey("collapsed_groups_json")
@@ -81,6 +84,13 @@ class DashboardStore(private val context: Context) {
         context.dashboardDataStore.edit { it[HIDE_ADULT_KEY] = enabled }
     }
 
+    /** Country whose streaming availability the detail screens show; "" follows the device region. */
+    val watchRegion: Flow<String> = context.dashboardDataStore.data.map { it[WATCH_REGION_KEY] ?: "" }
+
+    suspend fun setWatchRegion(code: String) {
+        context.dashboardDataStore.edit { it[WATCH_REGION_KEY] = code.trim().uppercase() }
+    }
+
     // Dashboard gestures: swipe left/right in the upper area switches tabs; a right-swipe in the
     // bottom band opens the Services drawer. [drawerBand] = band height as fraction from the bottom (max 0.5).
     val swipeTabs: Flow<Boolean> = context.dashboardDataStore.data.map { it[SWIPE_TABS_KEY] ?: true }
@@ -111,6 +121,8 @@ class DashboardStore(private val context: Context) {
     // ── Playback preferences ──────────────────────────────────────────────────────────────────
     // Language codes are ISO-639 ("de"/"en"/…); [subtitleMode] is "forced" (only a forced track for
     // the chosen language, else nothing), "any" (forced first, then a normal track) or "off".
+    /** Where the last manual import was scanned — the browser starts there instead of at "/". */
+    val lastImportPath: Flow<String> = context.dashboardDataStore.data.map { it[IMPORT_LAST_PATH_KEY] ?: "" }
     val audioLanguage: Flow<String> = context.dashboardDataStore.data.map { it[AUDIO_LANG_KEY] ?: "de" }
     val subtitleLanguage: Flow<String> = context.dashboardDataStore.data.map { it[SUB_LANG_KEY] ?: "de" }
     val subtitleMode: Flow<String> = context.dashboardDataStore.data.map { it[SUB_MODE_KEY] ?: "forced" }
@@ -118,6 +130,9 @@ class DashboardStore(private val context: Context) {
     val autoplayNext: Flow<Boolean> = context.dashboardDataStore.data.map { it[AUTOPLAY_NEXT_KEY] ?: true }
     val autoSkipSegments: Flow<Boolean> = context.dashboardDataStore.data.map { it[AUTO_SKIP_KEY] ?: false }
     val askResume: Flow<Boolean> = context.dashboardDataStore.data.map { it[ASK_RESUME_KEY] ?: true }
+    /** Ambient glow in the letterbox bars. */
+    val ambientGlow: Flow<Boolean> = context.dashboardDataStore.data.map { it[AMBIENT_GLOW_KEY] ?: true }
+    suspend fun setLastImportPath(v: String) { context.dashboardDataStore.edit { it[IMPORT_LAST_PATH_KEY] = v } }
     suspend fun setAudioLanguage(v: String) { context.dashboardDataStore.edit { it[AUDIO_LANG_KEY] = v } }
     suspend fun setSubtitleLanguage(v: String) { context.dashboardDataStore.edit { it[SUB_LANG_KEY] = v } }
     suspend fun setSubtitleMode(v: String) { context.dashboardDataStore.edit { it[SUB_MODE_KEY] = v } }
@@ -125,6 +140,7 @@ class DashboardStore(private val context: Context) {
     suspend fun setAutoplayNext(v: Boolean) { context.dashboardDataStore.edit { it[AUTOPLAY_NEXT_KEY] = v } }
     suspend fun setAutoSkipSegments(v: Boolean) { context.dashboardDataStore.edit { it[AUTO_SKIP_KEY] = v } }
     suspend fun setAskResume(v: Boolean) { context.dashboardDataStore.edit { it[ASK_RESUME_KEY] = v } }
+    suspend fun setAmbientGlow(v: Boolean) { context.dashboardDataStore.edit { it[AMBIENT_GLOW_KEY] = v } }
 
     /** TV: ask the panel for a refresh rate that is a whole multiple of the film's frame rate.
      *  Applied before playback starts — switching mid-stream tears the surface out from under

@@ -34,7 +34,6 @@ import org.phioster.sanctumd.model.ProwlarrSystemInfo
 import org.phioster.sanctumd.model.ProwlarrTaskItem
 import org.phioster.sanctumd.model.SeerrIssueItem
 import org.phioster.sanctumd.model.SeerrRequestItem
-import org.phioster.sanctumd.model.SeerrSearchItem
 import org.phioster.sanctumd.net.arrAdd
 import org.phioster.sanctumd.net.arrAlbums
 import org.phioster.sanctumd.net.arrTracks
@@ -52,7 +51,7 @@ import org.phioster.sanctumd.net.arrReleases
 import org.phioster.sanctumd.net.arrSearchAll
 import org.phioster.sanctumd.net.arrSystem
 import org.phioster.sanctumd.net.serviceSearch
-import org.phioster.sanctumd.net.seerrCast
+import org.phioster.sanctumd.net.seerrTitleExtras
 import org.phioster.sanctumd.net.arrLibrarySearch
 import org.phioster.sanctumd.net.arrLookup
 import org.phioster.sanctumd.net.arrMetadataProfiles
@@ -73,7 +72,6 @@ import org.phioster.sanctumd.net.runNzbRate
 import org.phioster.sanctumd.net.seerrApprove
 import org.phioster.sanctumd.net.seerrDecline
 import org.phioster.sanctumd.net.seerrAddComment
-import org.phioster.sanctumd.net.seerrCreateRequest
 import org.phioster.sanctumd.net.seerrDeleteIssueById
 import org.phioster.sanctumd.net.seerrDiscover
 import org.phioster.sanctumd.net.seerrIssueDetail
@@ -242,8 +240,13 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     /** Drop the unreadable blob so the user can re-add their services. */
     fun clearUnreadableServices() = viewModelScope.launch { store.clearUnreadable() }
 
-    val appLock: StateFlow<Boolean> =
-        dashStore.appLock.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
+    /**
+     * null while the setting is still being read. The gate must not treat "not yet known" as
+     * "not locked": with `false` as the initial value the protected screen composed on every cold
+     * start and the lock only slid in front of it afterwards.
+     */
+    val appLock: StateFlow<Boolean?> =
+        dashStore.appLock.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, null)
 
     fun setAppLock(enabled: Boolean) = viewModelScope.launch { dashStore.setAppLock(enabled) }
 
@@ -275,6 +278,12 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setHideAdult(enabled: Boolean) = viewModelScope.launch { dashStore.setHideAdult(enabled) }
 
+    /** Country the streaming availability on detail screens is read for; "" follows the device. */
+    val watchRegion: StateFlow<String> =
+        dashStore.watchRegion.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, "")
+
+    fun setWatchRegion(code: String) = viewModelScope.launch { dashStore.setWatchRegion(code) }
+
     /** Dashboard gestures: tab-swipe (upper area) + drawer-open swipe (bottom band, fraction ≤ 0.5). */
     val swipeTabs: StateFlow<Boolean> =
         dashStore.swipeTabs.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, true)
@@ -293,6 +302,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     fun setPlayerSwipeMargin(v: Float) = viewModelScope.launch { dashStore.setPlayerSwipeMargin(v) }
 
     /** Playback preferences (track languages, subtitle look, autoplay, segment skipping, resume). */
+    /** Where the last manual import was scanned; the folder browser opens there. */
+    val lastImportPath: StateFlow<String> =
+        dashStore.lastImportPath.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, "")
+    fun rememberImportPath(path: String) { viewModelScope.launch { dashStore.setLastImportPath(path) } }
+
     val audioLanguage: StateFlow<String> =
         dashStore.audioLanguage.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, "de")
     val subtitleLanguage: StateFlow<String> =
@@ -307,6 +321,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         dashStore.autoSkipSegments.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
     val askResume: StateFlow<Boolean> =
         dashStore.askResume.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, true)
+    val ambientGlow: StateFlow<Boolean> =
+        dashStore.ambientGlow.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, true)
+    fun setAmbientGlow(v: Boolean) = viewModelScope.launch { dashStore.setAmbientGlow(v) }
     fun setAudioLanguage(v: String) = viewModelScope.launch { dashStore.setAudioLanguage(v) }
     fun setSubtitleLanguage(v: String) = viewModelScope.launch { dashStore.setSubtitleLanguage(v) }
     fun setSubtitleMode(v: String) = viewModelScope.launch { dashStore.setSubtitleMode(v) }
@@ -601,10 +618,59 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     // ---- Playback (streaming + progress reporting) ----
     suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String, maxBitrate: Int? = null): org.phioster.sanctumd.net.PlaybackSource =
         org.phioster.sanctumd.net.jellyfinPlaybackSource(config, itemId, maxBitrate)
-    suspend fun jellyfinAlbumTracks(config: ServiceConfig, albumId: String, albumName: String): List<org.phioster.sanctumd.net.MusicTrack> =
-        org.phioster.sanctumd.net.jellyfinAlbumTracks(config, albumId, albumName)
+    suspend fun jellyfinAlbumTracks(config: ServiceConfig, albumId: String): List<org.phioster.sanctumd.net.MusicTrack> =
+        org.phioster.sanctumd.net.jellyfinAlbumTracks(config, albumId)
+
+    suspend fun jellyfinAlbum(config: ServiceConfig, albumId: String): org.phioster.sanctumd.net.MusicAlbum =
+        org.phioster.sanctumd.net.jellyfinAlbum(config, albumId)
     suspend fun jellyfinTrack(config: ServiceConfig, itemId: String): org.phioster.sanctumd.net.MusicTrack =
         org.phioster.sanctumd.net.jellyfinTrack(config, itemId)
+
+    /**
+     * Fetching a track and handing it to the player belongs here, not in a screen. The detail sheet
+     * closes itself before it asks to play, and a rememberCoroutineScope() dies with its composable
+     * — so the fetch was cancelled before it ever reached the network, and 1.59.0 had no way to say
+     * so. viewModelScope outlives the composition.
+     */
+    fun playJellyfinTrack(config: ServiceConfig, itemId: String) = viewModelScope.launch {
+        val ctx = getApplication<Application>()
+        runCatching { org.phioster.sanctumd.net.jellyfinTrack(config, itemId) }
+            .onSuccess {
+                org.phioster.sanctumd.ui.player.MusicController
+                    .play(ctx, listOf(it), 0, config.customHeaders)
+            }
+            .onFailure {
+                org.phioster.sanctumd.ui.player.MusicController
+                    .report(ctx, "music: ${it.message ?: it.javaClass.simpleName}", it)
+            }
+    }
+
+    /**
+     * Same for a whole album — see [playJellyfinTrack] for why it is not left to the screen.
+     * [startIndex] is which track the tap landed on; the rest of the album follows as the queue,
+     * which is what a music player does and what a list of "play just this one" would not.
+     */
+    fun playJellyfinAlbum(
+        config: ServiceConfig,
+        albumId: String,
+        startIndex: Int = 0,
+        shuffle: Boolean = false,
+    ) = viewModelScope.launch {
+        val ctx = getApplication<Application>()
+        runCatching { org.phioster.sanctumd.net.jellyfinAlbumTracks(config, albumId) }
+            .onSuccess { tracks ->
+                // Shuffle is the player's mode, not a reordered list: media3 then owns what comes
+                // next, and the lock screen shows the same thing the app does. Shuffled playback
+                // starts somewhere random, the way pressing shuffle on an album is meant to.
+                val from = if (shuffle && tracks.isNotEmpty()) tracks.indices.random() else startIndex
+                org.phioster.sanctumd.ui.player.MusicController
+                    .play(ctx, tracks, from, config.customHeaders, shuffle = shuffle)
+            }
+            .onFailure {
+                org.phioster.sanctumd.ui.player.MusicController
+                    .report(ctx, "music: ${it.message ?: it.javaClass.simpleName}", it)
+            }
+    }
 
     // ---- Stats screen: aggregate numbers + bar charts across every configured service ----
     suspend fun loadStats(): org.phioster.sanctumd.model.StatsData = kotlinx.coroutines.coroutineScope {
@@ -821,6 +887,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                 .map { cfg -> async { serviceSearch(cfg, term) } }
                 .awaitAll()
                 .flatten()
+                .let { if (hideAdult.value) it.filterNot { r -> r.adult } else it }
         }
 
     suspend fun searchMissing(config: ServiceConfig): String = runSearchMissing(config)
@@ -852,6 +919,21 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun sendReleaseToArr(arrConfig: ServiceConfig, release: ProwlarrRelease): String =
         arrPushRelease(arrConfig, release)
     /** Configured Radarr/Sonarr services, for the "send to" menu. */
+    suspend fun arrIndexersOf(config: ServiceConfig): List<org.phioster.sanctumd.model.ArrIndexerItem> =
+        org.phioster.sanctumd.net.arrIndexers(config)
+    suspend fun arrTestIndexers(config: ServiceConfig): String =
+        org.phioster.sanctumd.net.arrTestAllIndexers(config)
+
+    /** Every Servarr app that owns indexers — a lockout normally hits all of them at once. */
+    fun indexerServices(): List<ServiceConfig> = _services.value.filter {
+        it.type == ServiceType.RADARR || it.type == ServiceType.SONARR || it.type == ServiceType.LIDARR
+    }
+    suspend fun arrRepairAllIndexers(): List<Pair<String, String>> =
+        org.phioster.sanctumd.net.arrRepairIndexers(indexerServices())
+
+    /** The configured Prowlarr, if there is one — the text-search counterpart to [arrTargets]. */
+    fun prowlarrService(): ServiceConfig? = _services.value.firstOrNull { it.type == ServiceType.PROWLARR }
+
     fun arrTargets(): List<ServiceConfig> =
         _services.value.filter { it.type == ServiceType.RADARR || it.type == ServiceType.SONARR }
     suspend fun nzbgetPause(config: ServiceConfig): String = runNzbgetPause(config)
@@ -937,6 +1019,58 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrSearchAllItems(config: ServiceConfig, cutoff: Boolean): String = arrSearchAll(config, cutoff)
     suspend fun arrRssSyncNow(config: ServiceConfig): String = org.phioster.sanctumd.net.arrRssSync(config)
     suspend fun arrSystemInfo(config: ServiceConfig): org.phioster.sanctumd.model.ArrSystemInfo = arrSystem(config)
+    suspend fun jellyfinSubtitles(config: ServiceConfig, itemId: String, language: String): List<org.phioster.sanctumd.model.JellySubtitle> =
+        org.phioster.sanctumd.net.jellyfinSubtitleCandidates(config, itemId, language)
+    suspend fun jellyfinGetSubtitle(config: ServiceConfig, itemId: String, subtitleId: String): String =
+        org.phioster.sanctumd.net.jellyfinDownloadSubtitle(config, itemId, subtitleId)
+    suspend fun jellyfinIdentifySearch(
+        config: ServiceConfig,
+        itemId: String,
+        kind: String,
+        name: String,
+        year: Int?,
+    ): List<org.phioster.sanctumd.model.JellyIdentifyCandidate> =
+        org.phioster.sanctumd.net.jellyfinIdentifyCandidates(config, itemId, kind, name, year)
+    suspend fun jellyfinIdentifyApply(config: ServiceConfig, itemId: String, rawCandidate: String): String =
+        org.phioster.sanctumd.net.jellyfinApplyIdentify(
+            config, itemId, org.phioster.sanctumd.net.JellyIdentifyCandidateRaw(rawCandidate),
+        )
+    suspend fun jellyfinDelete(config: ServiceConfig, itemId: String): String =
+        org.phioster.sanctumd.net.jellyfinDeleteItem(config, itemId)
+    suspend fun arrQueueForLibraryItem(config: ServiceConfig, itemId: Int): List<org.phioster.sanctumd.model.ArrQueueItem> =
+        org.phioster.sanctumd.net.arrQueueForItem(config, itemId)
+    suspend fun jellyfinPlayback(config: ServiceConfig): org.phioster.sanctumd.model.JellyPlaybackStats =
+        org.phioster.sanctumd.net.jellyfinPlaybackStats(config)
+    suspend fun arrCollectionOf(config: ServiceConfig, tmdbCollectionId: Int): org.phioster.sanctumd.model.ArrCollection? =
+        org.phioster.sanctumd.net.arrCollectionByTmdb(config, tmdbCollectionId)
+    suspend fun arrAddFromCollection(
+        config: ServiceConfig,
+        collection: org.phioster.sanctumd.model.ArrCollection,
+        movie: org.phioster.sanctumd.model.ArrCollectionMovie,
+        searchNow: Boolean,
+    ): String = org.phioster.sanctumd.net.arrAddCollectionMovie(config, collection, movie, searchNow)
+    suspend fun arrFindByIds(config: ServiceConfig, tmdbId: String?, tvdbId: String?): org.phioster.sanctumd.model.ArrLibraryItem? =
+        org.phioster.sanctumd.net.arrFindByProviderId(config, tmdbId, tvdbId)
+    suspend fun arrDeleteItem(config: ServiceConfig, id: Int, deleteFiles: Boolean, addImportExclusion: Boolean): String =
+        org.phioster.sanctumd.net.arrDelete(config, id, deleteFiles, addImportExclusion)
+    suspend fun arrRemoveAndBlock(config: ServiceConfig, id: Int): String =
+        org.phioster.sanctumd.net.arrQueueRemove(config, id, blocklist = true)
+    suspend fun arrBlocklistOf(config: ServiceConfig): List<org.phioster.sanctumd.model.ArrBlocklistItem> =
+        org.phioster.sanctumd.net.arrBlocklist(config)
+    suspend fun arrBlockFromHistory(config: ServiceConfig, id: Int): String =
+        org.phioster.sanctumd.net.arrBlocklistFromHistory(config, id)
+    suspend fun arrUnblock(config: ServiceConfig, id: Int): String =
+        org.phioster.sanctumd.net.arrBlocklistRemove(config, id)
+    suspend fun arrParse(config: ServiceConfig, title: String): org.phioster.sanctumd.model.ArrParsedRelease? =
+        org.phioster.sanctumd.net.arrParseRelease(config, title)
+    suspend fun arrMoveItem(config: ServiceConfig, id: Int, rootFolderPath: String): String =
+        org.phioster.sanctumd.net.arrMoveToRootFolder(config, id, rootFolderPath)
+    suspend fun arrCloneProfile(config: ServiceConfig, sourceId: Int, newName: String): String =
+        org.phioster.sanctumd.net.arrCloneProfileUnrestricted(config, sourceId, newName)
+    suspend fun arrBlockedQueue(config: ServiceConfig): List<org.phioster.sanctumd.model.ArrQueueItem> =
+        org.phioster.sanctumd.net.arrBlockedQueueItems(config)
+    suspend fun arrBrowsePath(config: ServiceConfig, path: String): org.phioster.sanctumd.model.ArrFsListing =
+        org.phioster.sanctumd.net.arrBrowse(config, path)
     suspend fun arrManualScan(config: ServiceConfig, folder: String): List<org.phioster.sanctumd.model.ArrImportItem> =
         arrManualImportScan(config, folder)
     suspend fun arrManualImport(config: ServiceConfig, rawItems: List<String>): String =
@@ -944,9 +1078,23 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     /** Patches a scanned manual-import row to target [movieId] (Radarr, unmatched files). */
     fun arrAssignImportMovie(rawJson: String, movieId: Int, title: String): String =
         org.phioster.sanctumd.net.arrImportAssignMovie(rawJson, movieId, title)
-    suspend fun arrCast(tmdbId: Int, isTv: Boolean): List<org.phioster.sanctumd.model.ArrCastMember> {
-        val seerr = _services.value.firstOrNull { it.type == ServiceType.SEERR } ?: return emptyList()
-        return seerrCast(seerr, tmdbId, isTv)
+    /** Patches a scanned manual-import row to target concrete episodes (Sonarr, unmatched files). */
+    fun arrAssignImportEpisodes(rawJson: String, seriesId: Int, seriesTitle: String, episodeIds: List<Int>): String =
+        org.phioster.sanctumd.net.arrImportAssignEpisodes(rawJson, seriesId, seriesTitle, episodeIds)
+    /**
+     * Cast and streaming availability for a Radarr/Sonarr title, resolved through Seerr.
+     *
+     * Empty without a configured Seerr — it is the only TMDB source the app has.
+     */
+    suspend fun arrTitleExtras(tmdbId: Int, isTv: Boolean): org.phioster.sanctumd.model.SeerrTitleExtras {
+        val seerr = _services.value.firstOrNull { it.type == ServiceType.SEERR }
+            ?: return org.phioster.sanctumd.model.SeerrTitleExtras()
+        return seerrTitleExtras(seerr, tmdbId, isTv, watchRegion.value)
+    }
+    /** The film's original language via Seerr, or "" when there is no Seerr or no answer. */
+    suspend fun originalLanguage(tmdbId: Int, isTv: Boolean): String {
+        val seerr = _services.value.firstOrNull { it.type == ServiceType.SEERR } ?: return ""
+        return runCatching { org.phioster.sanctumd.net.seerrOriginalLanguage(seerr, tmdbId, isTv) }.getOrDefault("")
     }
     fun hasSeerr(): Boolean = _services.value.any { it.type == ServiceType.SEERR }
 
@@ -956,10 +1104,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         seerrIssues(config, filter)
     suspend fun seerrApproveReq(config: ServiceConfig, id: Int): String = seerrApprove(config, id)
     suspend fun seerrDeclineReq(config: ServiceConfig, id: Int): String = seerrDecline(config, id)
-    suspend fun seerrSearchList(config: ServiceConfig, query: String): List<SeerrSearchItem> =
+    suspend fun seerrSearchList(config: ServiceConfig, query: String): List<org.phioster.sanctumd.model.SeerrDiscoverItem> =
         seerrSearch(config, query).let { if (hideAdult.value) it.filterNot { r -> r.adult } else it }
-    suspend fun seerrRequestItem(config: ServiceConfig, item: SeerrSearchItem): String =
-        seerrCreateRequest(config, item)
     suspend fun seerrDiscoverList(config: ServiceConfig, kind: String): List<org.phioster.sanctumd.model.SeerrDiscoverItem> =
         seerrDiscover(config, kind).let { if (hideAdult.value) it.filterNot { d -> d.adult } else it }
     suspend fun seerrWatchlistOf(config: ServiceConfig): List<org.phioster.sanctumd.model.SeerrDiscoverItem> =
@@ -973,13 +1119,28 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun seerrDiscoverGenreOf(config: ServiceConfig, kind: String, genreId: Int, sortBy: String? = null, page: Int = 1): List<org.phioster.sanctumd.model.SeerrDiscoverItem> =
         org.phioster.sanctumd.net.seerrDiscoverGenre(config, kind, genreId, sortBy, page).let { if (hideAdult.value) it.filterNot { d -> d.adult } else it }
     suspend fun seerrMediaDetailById(config: ServiceConfig, tmdbId: Int, mediaType: String): org.phioster.sanctumd.model.SeerrMediaDetail =
-        seerrMediaDetail(config, tmdbId, mediaType)
+        seerrMediaDetail(config, tmdbId, mediaType, watchRegion.value)
     suspend fun seerrStats(config: ServiceConfig): List<Pair<String, String>> = seerrRequestStats(config)
     suspend fun seerrUserList(config: ServiceConfig): List<org.phioster.sanctumd.model.SeerrUserInfo> = seerrUsers(config)
     suspend fun seerrSeasonsList(config: ServiceConfig, tmdbId: Int): List<org.phioster.sanctumd.model.SeerrSeason> =
         seerrSeasons(config, tmdbId)
-    suspend fun seerrRequestMedia(config: ServiceConfig, tmdbId: Int, mediaType: String, seasons: List<Int>?): String =
-        seerrRequest(config, tmdbId, mediaType, seasons)
+    suspend fun seerrRequestMedia(
+        config: ServiceConfig,
+        tmdbId: Int,
+        mediaType: String,
+        seasons: List<Int>?,
+        rootFolder: String? = null,
+        serverId: Int? = null,
+        profileId: Int? = null,
+    ): String = seerrRequest(config, tmdbId, mediaType, seasons, rootFolder, serverId, profileId)
+    suspend fun seerrReportIssue(config: ServiceConfig, mediaId: Int, issueType: Int, message: String): String =
+        org.phioster.sanctumd.net.seerrCreateIssue(config, mediaId, issueType, message)
+    suspend fun seerrOptionsOf(config: ServiceConfig, mediaType: String): org.phioster.sanctumd.model.SeerrServiceOptions =
+        org.phioster.sanctumd.net.seerrServiceOptions(config, mediaType)
+    suspend fun seerrRequestDetailOf(config: ServiceConfig, id: Int): org.phioster.sanctumd.model.SeerrRequestDetail =
+        org.phioster.sanctumd.net.seerrRequestDetail(config, id)
+    suspend fun seerrDeleteReq(config: ServiceConfig, id: Int): String =
+        org.phioster.sanctumd.net.seerrDeleteRequest(config, id)
     suspend fun seerrIssueDetailOf(config: ServiceConfig, id: Int): org.phioster.sanctumd.model.SeerrIssueDetail =
         seerrIssueDetail(config, id)
     suspend fun seerrComment(config: ServiceConfig, id: Int, message: String): String =

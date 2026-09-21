@@ -7,4 +7,6 @@ data class NtfyMessage(
     val topic: String,
     val title: String, // "" when the message has no usable title
     val text: String,
+    /** Optional target the publisher attached; see jellyfinItemIdFromClick. */
+    val click: String = "",
 )

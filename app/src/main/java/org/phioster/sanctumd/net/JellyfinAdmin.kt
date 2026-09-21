@@ -53,6 +53,7 @@ internal suspend fun jellyfinSearchResults(config: ServiceConfig, term: String):
             jellyItemId = it.Id,
             year = it.ProductionYear ?: 0,
             inLibrary = true, // it's on the Jellyfin server
+            adult = isAdultRating(it.OfficialRating),
         )
     }
 }
@@ -74,7 +75,7 @@ internal suspend fun jellyfinAccessToken(config: ServiceConfig): String {
 internal suspend fun jellyfinStatus(config: ServiceConfig): ServiceStatus {
     val token = jellyfinAccessToken(config)
     val note = if (config.useLogin) jellyfinSession[config.id]?.second else null
-    val jf = apiFor<JellyfinApi>(config, mapOf("X-Emby-Token" to token))
+    val jf = apiFor<JellyfinApi>(config, jellyfinAuth(token))
     val counts = jf.counts()
     val playing = jf.sessions().count { it.NowPlayingItem != null }
     return ServiceStatus(
@@ -83,6 +84,7 @@ internal suspend fun jellyfinStatus(config: ServiceConfig): ServiceStatus {
         stats = listOf(
             "Movies" to counts.MovieCount.toString(),
             "Series" to counts.SeriesCount.toString(),
+            "Songs" to counts.SongCount.toString(),
             "Playing" to playing.toString(),
         ),
     )
@@ -93,7 +95,7 @@ suspend fun runJellyfinScan(config: ServiceConfig): String = destructive("trigge
     withContext(Dispatchers.IO) {
         try {
             val token = jellyfinAccessToken(config)
-            val resp = apiFor<JellyfinApi>(config, mapOf("X-Emby-Token" to token)).refreshLibrary()
+            val resp = apiFor<JellyfinApi>(config, jellyfinAuth(token)).refreshLibrary()
             if (resp.isSuccessful) "library scan started" else "error: HTTP ${resp.code()}"
         } catch (t: Throwable) {
             "error: ${t.message ?: t.javaClass.simpleName}"
@@ -503,7 +505,7 @@ suspend fun jellyfinChannels(config: ServiceConfig): List<JellyChannel> = withCo
     }
 }
 
-suspend fun jellyfinAddTuner(config: ServiceConfig, type: String, url: String): String = destructive("add Jellyfin tuner $url") {
+suspend fun jellyfinAddTuner(config: ServiceConfig, type: String, url: String): String = destructive("add Jellyfin tuner at ${hostOnly(url)}") {
     withContext(Dispatchers.IO) {
         try {
             val token = jellyfinAccessToken(config)

@@ -124,6 +124,46 @@ data class JellyDevice(
     val lastActivity: String,
 )
 
+/**
+ * What actually got watched, from the Playback Reporting plugin's own database.
+ *
+ * Kept separate from the library counts: this is behaviour, not inventory. [transcodes] is the
+ * number that matters operationally — every one of them was the phone re-encoding video on the
+ * fly, and [forced] names the titles responsible.
+ */
+data class JellyPlaybackStats(
+    val plays: Int,
+    val hours: Double,
+    val since: String,
+    val transcodes: Int,
+    /** Handed through untouched except for the container — cheap, and not a reason to worry. */
+    val remuxes: Int,
+    val topTitles: List<JellyPlayEntry>,
+    val devices: List<JellyPlayEntry>,
+    val forced: List<JellyPlayEntry>,
+)
+
+/** One aggregated row. [itemId] is empty for rows that aren't a media item (a device, say). */
+data class JellyPlayEntry(
+    val label: String,
+    val itemId: String = "",
+    val plays: Int = 0,
+    val hours: Double = 0.0,
+    val detail: String = "",
+)
+
+/** How Jellyfin delivered a file: untouched, remuxed, or re-encoded. */
+enum class PlaybackKind { DIRECT, STREAM, TRANSCODE }
+
+/**
+ * What a transcode cost the server, read out of the same label.
+ *
+ * [REMUX] is the one worth separating: `Transcode (v:direct a:direct)` re-encoded nothing at all,
+ * it only changed the container. On a server that runs on a phone that is the difference between
+ * a number to act on and a number to ignore.
+ */
+enum class TranscodeCost { NONE, REMUX, AUDIO, VIDEO, FULL }
+
 /** One entry in the watch-time leaderboard (from the Playback Reporting plugin). */
 data class JellyWatchStat(
     val name: String,
@@ -146,6 +186,41 @@ data class JellyMediaItem(
     val favorite: Boolean = false,
 )
 
+/**
+ * One track inside a media file, exactly as Jellyfin reports it.
+ *
+ * Everything is optional on the server side, so absent values arrive as empty/zero and the
+ * UI simply leaves those rows out rather than printing "unknown".
+ */
+data class JellyStream(
+    val type: String, // "Video" / "Audio" / "Subtitle"
+    val codec: String = "",
+    val profile: String = "",
+    val language: String = "",
+    val displayTitle: String = "",
+    val width: Int = 0,
+    val height: Int = 0,
+    val frameRate: Double = 0.0,
+    val bitDepth: Int = 0,
+    val bitrate: Int = 0,
+    val channels: Int = 0,
+    val channelLayout: String = "",
+    val sampleRate: Int = 0,
+    val videoRange: String = "",
+    val isDefault: Boolean = false,
+    val isForced: Boolean = false,
+    val isExternal: Boolean = false,
+)
+
+/** The file behind a playable item: container, size and every track in it. */
+data class JellyFileInfo(
+    val container: String,
+    val sizeBytes: Long,
+    val path: String,
+    val bitrate: Int,
+    val streams: List<JellyStream>,
+)
+
 /** Full detail for a single media item. */
 data class JellyMediaDetail(
     val id: String,
@@ -160,4 +235,38 @@ data class JellyMediaDetail(
     val played: Boolean = false, // fully watched
     val unplayedCount: Int = 0, // folders: episodes still unwatched
     val favorite: Boolean = false,
+    /** The item's own IndexNumber — a season's number, an episode's number. Null when it has
+     *  none. A season needs it: the episode query filters on it, and without that filter
+     *  Jellyfin folds the season-0 Specials into the aired season. */
+    val number: Int? = null,
+    val fileInfo: JellyFileInfo? = null, // null for folders (Series/Season) and anything without a media source
+    /** Tmdb/Imdb/Tvdb ids — how a Jellyfin item is matched to its Radarr/Sonarr entry exactly. */
+    val providerIds: Map<String, String> = emptyMap(),
+)
+
+/**
+ * One metadata candidate offered when re-identifying an item.
+ *
+ * [raw] is the provider's own result object, kept verbatim: Jellyfin wants it handed straight
+ * back to pin the item, and re-assembling it from parsed fields would drop whatever the
+ * provider sent that we did not model.
+ */
+data class JellyIdentifyCandidate(
+    val name: String,
+    val year: Int,
+    val provider: String,
+    val imageUrl: String,
+    val raw: String,
+)
+
+/** One subtitle a provider offers for an item. */
+data class JellySubtitle(
+    val id: String,
+    val provider: String,
+    val name: String,
+    val format: String,
+    val downloads: Int,
+    /** Made for this exact file — the one that will actually be in sync. */
+    val hashMatch: Boolean,
+    val forced: Boolean,
 )

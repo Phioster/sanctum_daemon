@@ -72,7 +72,6 @@ import org.phioster.sanctumd.ui.seerr.*
 import org.phioster.sanctumd.ui.services.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
-import org.phioster.sanctumd.ui.common.*
 import org.phioster.sanctumd.showUnlockPrompt
 
 /** Dedicated settings hub: categories on the first level, one section per screen. */
@@ -120,7 +119,7 @@ internal fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowIn
                 "playback" -> PlaybackSection(vm)
                 "gestures" -> GesturesSection(vm)
                 "backup / data" -> BackupSection(vm)
-                "about" -> AboutSection()
+                "about" -> AboutSection(vm)
             }
             Spacer(Modifier.height(32.dp))
         }
@@ -220,6 +219,21 @@ internal fun ContentSection(vm: DashboardViewModel) {
     NotifyToggleRow("Hide adult content (XXX)", "Hides pornographic titles from Jellyfin browsing and Seerr discovery", hide) { vm.setHideAdult(it) }
     Text(
         "Only real porn is hidden — XXX / X / X18+ / Adult ratings on Jellyfin and the TMDB adult flag on Seerr. Mainstream 18-rated films (horror, NC-17, R, FSK 18, R18+) stay visible. Doesn't touch Radarr/Sonarr or global search.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
+    )
+
+    val region by vm.watchRegion.collectAsState()
+    SettingsPickerRow(
+        "Streaming region",
+        listOf("" to "device (${org.phioster.sanctumd.net.watchRegionOf("")})") +
+            org.phioster.sanctumd.ui.common.WATCH_REGION_OPTIONS.map { it to it },
+        region,
+    ) { vm.setWatchRegion(it) }
+    Text(
+        "Which country the \"streaming\" row on Seerr, Radarr and Sonarr detail screens is read for — " +
+            "a title is on different services one border over. The data is TMDB's, fetched through your " +
+            "configured Seerr, so the row only appears when Seerr is set up, and it stays hidden for titles " +
+            "that stream nowhere in that country.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
     )
 }
@@ -322,6 +336,7 @@ internal fun PlaybackSection(vm: DashboardViewModel) {
     val autoplay by vm.autoplayNext.collectAsState()
     val autoSkip by vm.autoSkipSegments.collectAsState()
     val askResume by vm.askResume.collectAsState()
+    val ambientGlow by vm.ambientGlow.collectAsState()
 
     SettingsPickerRow(
         "Audio language",
@@ -389,6 +404,16 @@ internal fun PlaybackSection(vm: DashboardViewModel) {
     Text(
         "Intro/outro ranges come from the server: Jellyfin 10.10+ media segments, or the Intro Skipper plugin. Without either, no skip button appears.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
+    )
+
+    NotifyToggleRow(
+        "Ambient glow",
+        "Lets the picture bleed into the black bars, following the scene",
+        ambientGlow,
+    ) { vm.setAmbientGlow(it) }
+    Text(
+        "The colours come from the server's trickplay previews — the same images you see when scrubbing. Items the server has no trickplay for keep plain black bars, as do downloads played offline.",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
     )
 }
 
@@ -493,7 +518,7 @@ internal fun GesturesSection(vm: DashboardViewModel) {
 internal fun SecuritySection(vm: DashboardViewModel) {
     val context = LocalContext.current
     val appLock by vm.appLock.collectAsState()
-    NotifyToggleRow("App lock", "Require fingerprint/face or device PIN on open", appLock) { on ->
+    NotifyToggleRow("App lock", "Fingerprint/face or device PIN before the app shows anything", appLock == true) { on ->
         if (!on) { vm.setAppLock(false); return@NotifyToggleRow }
         val bm = androidx.biometric.BiometricManager.from(context)
         val authenticators = androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK or
@@ -508,7 +533,7 @@ internal fun SecuritySection(vm: DashboardViewModel) {
         }
     }
     Text(
-        "Locks on cold start and after more than 2 minutes in the background. Live push keeps running while locked.",
+        "Locks on cold start and after more than 2 minutes in the background. It gates the SCREEN, not the stored data: live push, widgets and downloads keep running while locked — and keep decrypting to do it. That is the trade for notifications that arrive while the phone is in your pocket.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
     )
 
@@ -532,21 +557,6 @@ internal fun SecuritySection(vm: DashboardViewModel) {
             modifier = Modifier.padding(top = 4.dp),
         )
     }
-}
-
-@Composable
-internal fun AboutSection() {
-    val context = LocalContext.current
-    val version = remember {
-        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
-    }
-    Text("> sanctumd_", fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
-    Text("v$version", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 13.sp)
-    Spacer(Modifier.height(12.dp))
-    Text(
-        "Unified dashboard for Jellyfin and the *arr stack.\nGPL-3.0 · github.com/Phioster/sanctum_daemon",
-        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 11.sp,
-    )
 }
 
 @Composable
@@ -586,15 +596,22 @@ internal fun BackupSection(vm: DashboardViewModel) {
     SettingsCategoryRow("import config", "restore from an encrypted backup file") {
         openLauncher.launch(arrayOf("application/octet-stream", "*/*"))
     }
-    Text(
-        "⚠ the file holds your API keys and tokens — only the password protects them. keep it somewhere safe.",
-        fontFamily = Mono, color = Color(0xFFE0A030), fontSize = 10.sp, modifier = Modifier.padding(top = 12.dp),
-    )
+    Row(Modifier.padding(top = 12.dp)) {
+        Icon(AppIcons.Failed, contentDescription = null, tint = WarnAmberDim, modifier = Modifier.size(12.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(
+            "the file holds your API keys and tokens — only the password protects them. keep it somewhere safe.",
+            fontFamily = Mono, color = WarnAmberDim, fontSize = 10.sp,
+        )
+    }
 
     if (showExport) {
         var pw by remember { mutableStateOf("") }
         var pw2 by remember { mutableStateOf("") }
-        val valid = pw.length >= 6 && pw == pw2
+        // 12, not 6: the file is meant to be sent around, its header names the scheme, and
+        // behind the password sits EVERY credential at once. 210k rounds do not buy six
+        // characters' worth of slack.
+        val valid = pw.length >= 12 && pw == pw2
         val doExport: (Boolean) -> Unit = { share ->
             scope.launch {
                 val bytes = runCatching { vm.exportConfig(pw) }.getOrNull()
@@ -613,7 +630,7 @@ internal fun BackupSection(vm: DashboardViewModel) {
             title = { Text("export config", fontFamily = Mono, color = MatrixGreen) },
             text = {
                 Column {
-                    Text("Choose a password (min 6). You'll need it to import.", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp)
+                    Text("Choose a password (min 12). You'll need it to import.", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp)
                     Field("password", pw, isPassword = true) { pw = it }
                     Field("repeat password", pw2, isPassword = true) { pw2 = it }
                 }
@@ -636,7 +653,7 @@ internal fun BackupSection(vm: DashboardViewModel) {
             title = { Text("import config", fontFamily = Mono, color = MatrixGreen) },
             text = {
                 Column {
-                    Text("This replaces your current services, ntfy settings and dashboard. Enter the file's password.", fontFamily = Mono, color = Color(0xFFE0A030), fontSize = 12.sp)
+                    Text("This replaces your current services, ntfy settings and dashboard. Enter the file's password.", fontFamily = Mono, color = WarnAmberDim, fontSize = 12.sp)
                     Field("password", pw, isPassword = true) { pw = it }
                 }
             },
@@ -662,6 +679,9 @@ internal fun BackupSection(vm: DashboardViewModel) {
 internal fun shareConfig(context: android.content.Context, bytes: ByteArray) {
     runCatching {
         val dir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
+        // Clear what an earlier share left behind: the blob is encrypted, but there is no reason
+        // for a bundle of every credential to sit in the cache until the OS feels like reaping it.
+        dir.listFiles()?.forEach { it.delete() }
         val file = java.io.File(dir, "sanctumd-config.sanctum")
         file.writeBytes(bytes)
         val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)

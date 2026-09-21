@@ -38,5 +38,20 @@ fun parseNtfyLine(line: String): NtfyMessage? {
         topic = str("topic").orEmpty(),
         title = title,
         text = text,
+        click = str("click").orEmpty(),
     )
+}
+
+/**
+ * The Jellyfin item id a notification points at, or null when it points at nothing useful.
+ *
+ * ntfy carries an optional `click` address per message. The Jellyfin webhook templates put
+ * `sanctumd://item/<ItemId>` there, which is the only exact link available — the visible text of
+ * those messages is prose ("Jiggi schaut … · Android TV") with no id in it, and guessing the
+ * title back out of that sentence is the title-matching that fails on German release names.
+ */
+fun jellyfinItemIdFromClick(click: String?): String? {
+    val prefix = "sanctumd://item/"
+    val id = click?.trim()?.takeIf { it.startsWith(prefix) }?.removePrefix(prefix)?.substringBefore('?')
+    return id?.takeIf { it.isNotBlank() && it.all { c -> c.isLetterOrDigit() || c == '-' } }
 }

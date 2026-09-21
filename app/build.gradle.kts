@@ -30,8 +30,8 @@ android {
         applicationId = "org.phioster.nexarr"
         minSdk = 26
         targetSdk = 35
-        versionCode = 247
-        versionName = "1.49.0"
+        versionCode = 264
+        versionName = "2.0.1"
 
         // libmpv ships native libs for several ABIs; the phone is arm64, so bundle only that.
         // The tv flavour adds the 32-bit one (see below).
@@ -83,8 +83,17 @@ android {
             isMinifyEnabled = false
             // Real release key when configured; otherwise fall back to the debug key so
             // `assembleRelease` still works for anyone building without the signing secrets.
+            //
+            // That fallback key is committed and its password is Android's public one, so anyone
+            // can build an update that Android accepts in place of such a build — inheriting its
+            // data directory and its Keystore alias. It stays buildable, but it is marked: a
+            // release nobody can tell apart from a signed one is the dangerous version.
             signingConfig = if (hasReleaseKeystore) signingConfigs.getByName("release")
                             else signingConfigs.getByName("debug")
+            if (!hasReleaseKeystore) {
+                versionNameSuffix = "-UNSIGNED-debugkey"
+                logger.warn("sanctumd: no release keystore — signing with the PUBLIC debug key. Not for distribution.")
+            }
         }
     }
 
@@ -105,6 +114,9 @@ android {
         // The parsers under test are plain Kotlin; anything that does touch an Android
         // stub should get a default rather than the usual "not mocked" exception.
         unitTests.isReturnDefaultValues = true
+        // Compose layout tests run on Robolectric in the normal (fast, emulator-free) unit
+        // test job rather than as instrumented tests — they need real resources for that.
+        unitTests.isIncludeAndroidResources = true
     }
 
     lint {
@@ -184,4 +196,12 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+
+    // Compose layout tests. A pure unit test cannot see that a composable measures to the
+    // wrong size, which is how a section once grew into a screen-high empty block while every
+    // test stayed green. Robolectric keeps these in the fast job — no emulator involved.
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation(platform("androidx.compose:compose-bom:2024.12.01"))
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

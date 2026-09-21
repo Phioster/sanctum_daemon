@@ -7,13 +7,14 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonArray
+import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
@@ -25,10 +26,15 @@ import org.phioster.sanctumd.model.ArrAlbum
 import org.phioster.sanctumd.model.ArrTrack
 import org.phioster.sanctumd.model.ArrDetail
 import org.phioster.sanctumd.model.ArrEpisode
+import org.phioster.sanctumd.model.ArrIndexerItem
+import org.phioster.sanctumd.model.ArrBlocklistItem
+import org.phioster.sanctumd.model.ArrFsEntry
+import org.phioster.sanctumd.model.ArrFsListing
 import org.phioster.sanctumd.model.ArrHistoryItem
 import org.phioster.sanctumd.model.ArrImportItem
 import org.phioster.sanctumd.model.ArrLibraryItem
 import org.phioster.sanctumd.model.ArrLookupItem
+import org.phioster.sanctumd.model.ArrParsedRelease
 import org.phioster.sanctumd.model.ArrMissingItem
 import org.phioster.sanctumd.model.ArrProfile
 import org.phioster.sanctumd.model.ArrQueueItem
@@ -100,6 +106,11 @@ internal interface LidarrApi {
     val status: String = "",
     val size: Double = 0.0,
     val sizeleft: Double = 0.0,
+    // "importBlocked" after a download the app refuses to import by itself. Absent on older
+    // versions, which must read as "not blocked" rather than as a cleanup prompt.
+    val trackedDownloadState: String? = null,
+    // Where the download actually landed — what a manual import needs to be pointed at.
+    val outputPath: String? = null,
 )
 @Serializable internal data class ArrQueuePage(val records: List<ArrQueueRecord> = emptyList())
 
@@ -116,6 +127,8 @@ internal interface LidarrApi {
     val sizeOnDisk: Long = 0,
     val statistics: ArrStats? = null,
     val images: List<ArrImageRec> = emptyList(),
+    val tmdbId: Int = 0, // Radarr (and newer Sonarr)
+    val tvdbId: Int = 0, // Sonarr
 )
 
 @Serializable internal data class ArrProfileRecord(val id: Int = 0, val name: String = "")
@@ -156,17 +169,43 @@ internal interface LidarrApi {
     val totalSpace: Long = 0,
 )
 @Serializable internal data class ArrSystemStatusRec(val version: String = "")
-@Serializable internal data class ArrHealthRecord(val type: String = "", val message: String = "")
+@Serializable internal data class ArrHealthRecord(
+    val type: String = "",
+    val message: String = "",
+    val source: String = "", // e.g. "IndexerStatusCheck"
+)
 
 @Serializable internal data class ArrGrabReq(val guid: String, val indexerId: Int)
 
 @Serializable internal data class ArrHistoryRec(
+    val id: Int = 0,
     val eventType: String = "",
     val date: String = "",
     val sourceTitle: String = "",
     val quality: ArrQualityRef = ArrQualityRef(),
 )
 @Serializable internal data class ArrHistoryPage(val records: List<ArrHistoryRec> = emptyList())
+
+@Serializable internal data class ArrIndexerRecord(
+    val id: Int = 0,
+    val name: String = "",
+    val protocol: String = "",
+    val priority: Int = 0,
+    val enableRss: Boolean = false,
+    val enableAutomaticSearch: Boolean = false,
+    val enableInteractiveSearch: Boolean = false,
+)
+
+@Serializable internal data class ArrFsNode(
+    val name: String = "",
+    val path: String = "",
+    val size: Long? = null,
+)
+@Serializable internal data class ArrFsResp(
+    val parent: String? = null,
+    val directories: List<ArrFsNode> = emptyList(),
+    val files: List<ArrFsNode> = emptyList(),
+)
 
 internal interface ArrApi {
     @GET suspend fun missing(@Url url: String): ArrMissingPage
@@ -193,6 +232,15 @@ internal interface ArrApi {
     @GET suspend fun systemStatus(@Url url: String): ArrSystemStatusRec
     @GET suspend fun healthChecks(@Url url: String): List<ArrHealthRecord>
     @GET suspend fun manualImport(@Url url: String): List<JsonObject>
+    /** Any endpoint that answers with a plain JSON array, parsed by the caller. */
+    @GET suspend fun jsonList(@Url url: String): List<JsonObject>
+    /** `queue/details` answers with a bare array of the same records `/queue` pages. */
+    @GET suspend fun queueDetails(@Url url: String): List<ArrQueueRecord>
+    @GET suspend fun filesystem(@Url url: String): ArrFsResp
+    @GET suspend fun blocklist(@Url url: String): ArrBlocklistPage
+    @GET suspend fun parseRelease(@Url url: String): JsonObject
+    @GET suspend fun indexers(@Url url: String): List<ArrIndexerRecord>
+    @POST suspend fun postEmpty(@Url url: String): Response<ResponseBody>
 }
 
 internal fun arrBase(type: ServiceType) = if (type == ServiceType.LIDARR) "api/v1" else "api/v3"
@@ -203,15 +251,93 @@ internal fun arrItemPath(type: ServiceType) = when (type) {
     else -> "movie"
 }
 
+/** The first image of [coverType], preferring the remote copy — a lookup hit has no local one yet. */
+internal fun arrImageUrl(o: JsonObject, coverType: String = "poster"): String =
+    (o["images"] as? JsonArray)?.mapNotNull { it as? JsonObject }
+        ?.firstOrNull { jsStr(it, "coverType") == coverType }
+        ?.let { jsStr(it, "remoteUrl") ?: jsStr(it, "url") } ?: ""
+
+/** A comma-separated genre line, empty when the record carries none. */
+internal fun arrGenreLine(o: JsonObject): String =
+    (o["genres"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.content }?.joinToString(", ") ?: ""
+
+/**
+ * One headline rating.
+ *
+ * Radarr nests an object per source (`ratings.tmdb.value`), Sonarr and Lidarr answer with a flat
+ * `{votes, value}`. Both shapes turn up here, so both are read; Rotten Tomatoes is a percentage
+ * and is written as one.
+ */
+internal fun arrRating(o: JsonObject): String {
+    val r = o["ratings"] as? JsonObject ?: return ""
+    (r["value"] as? JsonPrimitive)?.doubleOrNull?.takeIf { it > 0 }?.let { return fmtRating(it) }
+    for (src in listOf("tmdb", "imdb")) {
+        (r[src] as? JsonObject)?.get("value")?.let { it as? JsonPrimitive }?.doubleOrNull
+            ?.takeIf { it > 0 }?.let { return fmtRating(it) }
+    }
+    (r["rottenTomatoes"] as? JsonObject)?.get("value")?.let { it as? JsonPrimitive }?.doubleOrNull
+        ?.takeIf { it > 0 }?.let { return "${it.toInt()}%" }
+    return ""
+}
+
+private fun fmtRating(value: Double) = String.format(java.util.Locale.US, "%.1f", value)
+
+/** Minutes as the service reports them, written the way a runtime is read: `1h 52m`, `47m`. */
+internal fun arrRuntime(minutes: Int): String = when {
+    minutes <= 0 -> ""
+    minutes < 60 -> "${minutes}m"
+    minutes % 60 == 0 -> "${minutes / 60}h"
+    else -> "${minutes / 60}h ${minutes % 60}m"
+}
+
+/** `inCinemas` and its siblings are camelCase in the API; a screen wants words. */
+internal fun arrStatusLabel(status: String): String =
+    status.replace(Regex("(?<=[a-z0-9])(?=[A-Z])"), " ").lowercase()
+
+/**
+ * Everything the add screen shows about a title that is not in the library yet.
+ *
+ * The fields differ per service — a movie has a studio, a series a network, an artist a type —
+ * so each one contributes its own facts and the rest stays shared.
+ */
+private fun lookupItem(config: ServiceConfig, obj: JsonObject): ArrLookupItem {
+    val facts = buildList {
+        arrRating(obj).takeIf { it.isNotBlank() }?.let { add("rating" to it) }
+        jsStr(obj, "certification")?.takeIf { it.isNotBlank() }?.let { add("rated" to it) }
+        arrRuntime(jsInt(obj, "runtime") ?: 0).takeIf { it.isNotBlank() }?.let { add("runtime" to it) }
+        arrStatusLabel(jsStr(obj, "status") ?: "").takeIf { it.isNotBlank() }?.let { add("status" to it) }
+        when (config.type) {
+            ServiceType.SONARR -> {
+                (obj["seasons"] as? JsonArray)?.mapNotNull { it as? JsonObject }
+                    ?.count { (jsInt(it, "seasonNumber") ?: 0) > 0 }
+                    ?.takeIf { it > 0 }?.let { add("seasons" to it.toString()) }
+                jsStr(obj, "network")?.takeIf { it.isNotBlank() }?.let { add("network" to it) }
+            }
+            ServiceType.LIDARR -> {
+                jsStr(obj, "artistType")?.takeIf { it.isNotBlank() }?.let { add("type" to it) }
+                jsStr(obj, "disambiguation")?.takeIf { it.isNotBlank() }?.let { add("known as" to it) }
+            }
+            else -> jsStr(obj, "studio")?.takeIf { it.isNotBlank() }?.let { add("studio" to it) }
+        }
+    }
+    return ArrLookupItem(
+        title = jsStr(obj, "title") ?: jsStr(obj, "artistName") ?: "?",
+        year = jsInt(obj, "year") ?: 0,
+        raw = json.encodeToString(JsonObject.serializer(), obj),
+        overview = jsStr(obj, "overview") ?: "",
+        // Lidarr artists often carry only a fanart, and a row with no picture reads as an error.
+        posterUrl = arrImageUrl(obj).ifBlank { arrImageUrl(obj, "fanart") },
+        genres = arrGenreLine(obj),
+        facts = facts,
+        libraryId = jsInt(obj, "id") ?: 0,
+    )
+}
+
 suspend fun arrLookup(config: ServiceConfig, term: String): List<ArrLookupItem> = withContext(Dispatchers.IO) {
     val base = arrBase(config.type)
     val path = arrItemPath(config.type)
-    apiFor<ArrApi>(config, apiKeyHeader(config)).lookup("$base/$path/lookup", term).map { obj ->
-        val title = (obj["title"] as? JsonPrimitive)?.content
-            ?: (obj["artistName"] as? JsonPrimitive)?.content ?: "?"
-        val year = (obj["year"] as? JsonPrimitive)?.intOrNull ?: 0
-        ArrLookupItem(title, year, json.encodeToString(JsonObject.serializer(), obj))
-    }
+    apiFor<ArrApi>(config, apiKeyHeader(config)).lookup("$base/$path/lookup", term)
+        .map { lookupItem(config, it) }
 }
 
 // ---- Global (cross-service) search ----
@@ -223,9 +349,7 @@ internal suspend fun arrSearchResults(config: ServiceConfig, term: String): List
         val title = jsStr(obj, "title") ?: jsStr(obj, "artistName") ?: "?"
         val year = jsInt(obj, "year") ?: 0
         val libId = jsLong(obj, "id") ?: 0L
-        val poster = (obj["images"] as? JsonArray)?.mapNotNull { it as? JsonObject }
-            ?.firstOrNull { jsStr(it, "coverType") == "poster" }
-            ?.let { jsStr(it, "remoteUrl") ?: jsStr(it, "url") } ?: ""
+        val poster = arrImageUrl(obj)
         SearchResult(
             serviceId = config.id,
             serviceLabel = config.label,
@@ -243,6 +367,79 @@ internal suspend fun arrSearchResults(config: ServiceConfig, term: String): List
 suspend fun arrProfiles(config: ServiceConfig): List<ArrProfile> = withContext(Dispatchers.IO) {
     apiFor<ArrApi>(config, apiKeyHeader(config)).profiles("${arrBase(config.type)}/qualityprofile")
         .map { ArrProfile(it.id, it.name) }
+}
+
+/**
+ * An unrestricted copy of an existing quality profile — the fallback for releases that exist in
+ * one language only and never reach a custom-format profile's score floor.
+ *
+ * Cloned rather than hand-assembled, so the schema comes from a profile the server already
+ * accepts; the source is never edited, because Recyclarr may manage it and would revert us.
+ */
+suspend fun arrCloneProfileUnrestricted(
+    config: ServiceConfig,
+    sourceId: Int,
+    newName: String,
+): String = destructive("create quality profile '$newName' on ${config.label}") {
+    withContext(Dispatchers.IO) {
+        try {
+            val base = arrBase(config.type)
+            val api = apiFor<ArrApi>(config, apiKeyHeader(config))
+            val src = api.itemDetail("$base/qualityprofile/$sourceId")
+            val items = allowEveryQuality(src["items"] ?: JsonArray(emptyList()))
+            val body = buildJsonObject {
+                src.forEach { (k, v) ->
+                    when (k) {
+                        "id" -> {} // a create must not carry the source's id
+                        "name" -> put("name", newName)
+                        "minFormatScore", "cutoffFormatScore" -> put(k, 0)
+                        "items" -> put(k, items)
+                        // Keeping the source's cutoff would contradict the point of the copy:
+                        // every film on it would count as "cutoff unmet" forever and the app
+                        // would keep hunting upgrades it is not supposed to care about.
+                        "cutoff" -> {
+                            // Not an elvis chain: JsonObjectBuilder.put returns the *previous*
+                            // value, which is null here, so `put(...) ?: put(k, v)` would always
+                            // fall through and put the source value back.
+                            val lowest = lowestAllowedQualityId(items)
+                            if (lowest != null) put("cutoff", lowest) else put(k, v)
+                        }
+                        else -> put(k, v)
+                    }
+                }
+            }
+            okOr(api.add("$base/qualityprofile", body), "created")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
+}
+
+/**
+ * The id of the lowest-ranked allowed entry — Servarr lists qualities worst first, so that is
+ * simply the first one. Groups carry their own id and are referenced by it.
+ */
+private fun lowestAllowedQualityId(items: JsonElement): Int? {
+    val list = (items as? JsonArray) ?: return null
+    val first = list.firstOrNull { (it as? JsonObject)?.get("allowed")?.toString() == "true" } as? JsonObject
+        ?: return null
+    (first["quality"] as? JsonObject)?.let { q -> return jsInt(q, "id") }
+    return jsInt(first, "id")
+}
+
+/** Flips every quality (and every quality inside a group) to allowed. */
+private fun allowEveryQuality(items: JsonElement): JsonElement = when (items) {
+    is JsonArray -> JsonArray(items.map { allowEveryQuality(it) })
+    is JsonObject -> buildJsonObject {
+        items.forEach { (k, v) ->
+            when (k) {
+                "allowed" -> put("allowed", true)
+                "items" -> put(k, allowEveryQuality(v)) // grouped qualities nest one level deeper
+                else -> put(k, v)
+            }
+        }
+    }
+    else -> items
 }
 
 suspend fun arrRootFolders(config: ServiceConfig): List<String> = withContext(Dispatchers.IO) {
@@ -358,11 +555,30 @@ suspend fun arrCalendarRange(config: ServiceConfig, start: java.time.Instant, en
     }.filter { it.date.isNotBlank() }.sortedBy { it.date }
 }
 
+/**
+ * Queue entries stuck on `importBlocked` — what a hand-assigned manual import leaves behind.
+ *
+ * The import itself succeeds, but the queue entry stays and the source file remains on disk a
+ * second time (download folder and library are different filesystems here, so no hardlink).
+ * Deliberately a list to show rather than something to clear automatically: which entry belongs
+ * to which imported file can only be guessed from title similarity, and these are exactly the
+ * German release names that defeat such matching in the first place.
+ */
+suspend fun arrBlockedQueueItems(config: ServiceConfig): List<ArrQueueItem> =
+    arrQueue(config).filter { it.blocked }
+
 suspend fun arrQueue(config: ServiceConfig): List<ArrQueueItem> = withContext(Dispatchers.IO) {
     val base = arrBase(config.type)
     apiFor<ArrApi>(config, apiKeyHeader(config)).queue("$base/queue?pageSize=100").records.map { r ->
         val prog = if (r.size > 0) ((r.size - r.sizeleft) / r.size).toFloat().coerceIn(0f, 1f) else 0f
-        ArrQueueItem(r.id, r.title, r.status, prog)
+        ArrQueueItem(
+            id = r.id,
+            title = r.title,
+            status = r.status,
+            progress = prog,
+            blocked = r.trackedDownloadState == "importBlocked",
+            outputPath = r.outputPath.orEmpty(),
+        )
     }
 }
 
@@ -387,12 +603,68 @@ suspend fun arrSearchItem(config: ServiceConfig, id: Int): String = destructive(
     }
 }
 
-suspend fun arrQueueRemove(config: ServiceConfig, id: Int): String = destructive("remove queue item $id on ${config.type.label}") {
+/**
+ * Removes a queue item. [blocklist] additionally tells the app never to grab that release
+ * again — the way out of the loop where a flaky indexer keeps serving the same broken file.
+ */
+@Serializable internal data class ArrBlocklistRecord(
+    val id: Int = 0,
+    val sourceTitle: String = "",
+    val date: String = "",
+)
+@Serializable internal data class ArrBlocklistPage(val records: List<ArrBlocklistRecord> = emptyList())
+
+/** Releases this app refuses to grab again. */
+suspend fun arrBlocklist(config: ServiceConfig): List<ArrBlocklistItem> = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    apiFor<ArrApi>(config, apiKeyHeader(config))
+        .blocklist("$base/blocklist?page=1&pageSize=50&sortKey=date&sortDirection=descending")
+        .records.map { ArrBlocklistItem(it.id, it.sourceTitle, it.date.take(10)) }
+}
+
+/**
+ * Blocks a release that is no longer in the queue, by marking its history entry as failed.
+ *
+ * The queue-based route only works while a download is running. When an indexer serves several
+ * wrongly-tagged releases for one title, that would mean waiting for each to be grabbed before it
+ * could be blocked — one download at a time.
+ */
+suspend fun arrBlocklistFromHistory(config: ServiceConfig, id: Int): String =
+    destructive("blocklist history entry $id on ${config.label}") {
+        withContext(Dispatchers.IO) {
+            try {
+                val base = arrBase(config.type)
+                okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).postEmpty("$base/history/failed/$id"), "blocklisted")
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
+
+/** Lifts a blocklist entry — without this a release blocked by mistake stays blocked forever. */
+suspend fun arrBlocklistRemove(config: ServiceConfig, id: Int): String =
+    destructive("unblock release $id on ${config.label}") {
+        withContext(Dispatchers.IO) {
+            try {
+                val base = arrBase(config.type)
+                val r = apiFor<ArrApi>(config, apiKeyHeader(config)).deleteQueue("$base/blocklist/$id")
+                if (r.isSuccessful) "removed" else "error: HTTP ${r.code()}"
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
+
+suspend fun arrQueueRemove(
+    config: ServiceConfig,
+    id: Int,
+    blocklist: Boolean = false,
+): String = destructive("remove queue item $id on ${config.type.label}") {
     withContext(Dispatchers.IO) {
         try {
             val base = arrBase(config.type)
             val r = apiFor<ArrApi>(config, apiKeyHeader(config))
-                .deleteQueue("$base/queue/$id?removeFromClient=true&blocklist=false")
+                .deleteQueue("$base/queue/$id?removeFromClient=true&blocklist=$blocklist")
             if (r.isSuccessful) "removed" else "error: HTTP ${r.code()}"
         } catch (t: Throwable) {
             "error: ${t.message ?: t.javaClass.simpleName}"
@@ -421,6 +693,61 @@ suspend fun arrLibrary(config: ServiceConfig): List<ArrLibraryItem> = withContex
 }
 
 /** Search at the library level (whole movie/series/artist). */
+/**
+ * The library entry matching a Jellyfin item, found by provider id rather than by title.
+ *
+ * Title matching is exactly what fails on this setup — a German release name rarely equals the
+ * *arr title — so an id match or nothing. Returning null means "offer no paired deletion",
+ * never "offer the closest thing".
+ */
+suspend fun arrFindByProviderId(config: ServiceConfig, tmdbId: String?, tvdbId: String?): ArrLibraryItem? =
+    withContext(Dispatchers.IO) {
+        val tmdb = tmdbId?.toIntOrNull()
+        val tvdb = tvdbId?.toIntOrNull()
+        if (tmdb == null && tvdb == null) return@withContext null
+        val base = arrBase(config.type)
+        val path = arrItemPath(config.type)
+        apiFor<ArrApi>(config, apiKeyHeader(config)).library("$base/$path")
+            .firstOrNull { (tmdb != null && it.tmdbId == tmdb) || (tvdb != null && it.tvdbId == tvdb) }
+            ?.let { ArrLibraryItem(id = it.id, title = it.title, subtitle = "", year = it.year, sizeMb = 0L) }
+    }
+
+/**
+ * Moves an item to another root folder, taking its files along.
+ *
+ * Each service names the route and the id field after its own kind — and getting either wrong
+ * fails **quietly**: the editor endpoint answers `202` for an empty selection, so a body with the
+ * wrong field name is indistinguishable from a move that worked. Hence the per-type mapping here
+ * rather than a shared "ids" guess.
+ *
+ * `moveFiles` is not optional in practice: without it the entry points at the new folder while
+ * the files stay in the old one.
+ */
+suspend fun arrMoveToRootFolder(
+    config: ServiceConfig,
+    id: Int,
+    rootFolderPath: String,
+): String = destructive("move ${config.type.label} item $id to $rootFolderPath") {
+    withContext(Dispatchers.IO) {
+        try {
+            val base = arrBase(config.type)
+            val (path, idField) = when (config.type) {
+                ServiceType.SONARR -> "series" to "seriesIds"
+                ServiceType.LIDARR -> "artist" to "artistIds"
+                else -> "movie" to "movieIds"
+            }
+            val body = buildJsonObject {
+                putJsonArray(idField) { add(id) }
+                put("rootFolderPath", rootFolderPath)
+                put("moveFiles", true)
+            }
+            okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).putUrl("$base/$path/editor", body), "moved")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
+}
+
 suspend fun arrLibrarySearch(config: ServiceConfig, id: Int): String = destructive("search library item $id on ${config.type.label}") {
     withContext(Dispatchers.IO) {
         try {
@@ -483,11 +810,8 @@ suspend fun arrDetail(config: ServiceConfig, id: Int): ArrDetail = withContext(D
     val o = apiFor<ArrApi>(config, apiKeyHeader(config)).itemDetail("$base/$path/$id")
     val statsObj = o["statistics"] as? JsonObject
     val sizeMb = (statsObj?.let { jsLong(it, "sizeOnDisk") } ?: jsLong(o, "sizeOnDisk") ?: 0L) / (1024 * 1024)
-    val poster = (o["images"] as? JsonArray)?.mapNotNull { it as? JsonObject }
-        ?.firstOrNull { jsStr(it, "coverType") == "poster" }
-        ?.let { jsStr(it, "remoteUrl") ?: jsStr(it, "url") } ?: ""
-    val genres = (o["genres"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.content }
-        ?.joinToString(", ") ?: ""
+    val poster = arrImageUrl(o)
+    val genres = arrGenreLine(o)
     val ratingsObj = o["ratings"] as? JsonObject
     val rating = ratingsObj?.let { r ->
         (r["tmdb"] as? JsonObject ?: r["imdb"] as? JsonObject)?.get("value")?.let { (it as? JsonPrimitive)?.doubleOrNull }
@@ -495,7 +819,7 @@ suspend fun arrDetail(config: ServiceConfig, id: Int): ArrDetail = withContext(D
     val facts = buildList {
         rating?.let { add("rating" to "%.1f".format(it)) }
         jsStr(o, "certification")?.takeIf { it.isNotBlank() }?.let { add("rated" to it) }
-        jsInt(o, "runtime")?.takeIf { it > 0 }?.let { add("runtime" to "${it}m") }
+        arrRuntime(jsInt(o, "runtime") ?: 0).takeIf { it.isNotBlank() }?.let { add("runtime" to it) }
         when (config.type) {
             ServiceType.SONARR -> {
                 statsObj?.let {
@@ -661,32 +985,72 @@ suspend fun arrSystem(config: ServiceConfig): ArrSystemInfo = withContext(Dispat
     }
 }
 
+/**
+ * Lists one folder on the server so the manual import can be pointed at it by tapping rather
+ * than by typing an absolute path on a phone keyboard.
+ *
+ * Files are requested too, not just folders: without them you cannot tell whether the folder
+ * you are standing in is the one holding the release.
+ */
+suspend fun arrBrowse(config: ServiceConfig, path: String): ArrFsListing = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    val encoded = java.net.URLEncoder.encode(path, "UTF-8")
+    val resp = apiFor<ArrApi>(config, apiKeyHeader(config))
+        .filesystem("$base/filesystem?path=$encoded&includeFiles=true")
+    ArrFsListing(
+        parent = resp.parent?.takeIf { it.isNotBlank() },
+        // Folders first: browsing is the point, files are only there to confirm the location.
+        entries = resp.directories.map { ArrFsEntry(it.name, it.path, isDirectory = true) } +
+            resp.files.map { ArrFsEntry(it.name, it.path, isDirectory = false, size = it.size ?: 0L) },
+    )
+}
+
+/**
+ * Asks the service what it makes of a release name — quality, custom formats and their score.
+ *
+ * Prowlarr can only report what the indexer said; whether a release is worth taking is the
+ * *arr app's judgement, and it is not visible in the name. Returns null when the service cannot
+ * answer, so the caller shows nothing rather than a misleading zero.
+ */
+suspend fun arrParseRelease(config: ServiceConfig, title: String): ArrParsedRelease? =
+    withContext(Dispatchers.IO) {
+        val base = arrBase(config.type)
+        val encoded = java.net.URLEncoder.encode(title, "UTF-8")
+        val o = runCatching { apiFor<ArrApi>(config, apiKeyHeader(config)).parseRelease("$base/parse?title=$encoded") }
+            .getOrNull() ?: return@withContext null
+        val parsed = o["parsedMovieInfo"] as? JsonObject ?: o["parsedEpisodeInfo"] as? JsonObject
+        val quality = ((parsed?.get("quality") as? JsonObject)?.get("quality") as? JsonObject)
+            ?.let { jsStr(it, "name") }.orEmpty()
+        val formats = (o["customFormats"] as? JsonArray)
+            ?.mapNotNull { (it as? JsonObject)?.let { f -> jsStr(f, "name") } }.orEmpty()
+        val languages = (parsed?.get("languages") as? JsonArray)
+            ?.mapNotNull { (it as? JsonObject)?.let { l -> jsStr(l, "name") } }.orEmpty()
+        val matched = (o["movie"] as? JsonObject ?: o["series"] as? JsonObject)
+            ?.let { jsStr(it, "title") }.orEmpty()
+        ArrParsedRelease(
+            quality = quality,
+            score = jsInt(o, "customFormatScore") ?: 0,
+            formats = formats.joinToString(", "),
+            languages = languages.joinToString(", "),
+            matchedTitle = matched,
+        )
+    }
+
 /** Scans a folder for manually-importable files (Radarr/Sonarr). */
 suspend fun arrManualImportScan(config: ServiceConfig, folder: String): List<ArrImportItem> = withContext(Dispatchers.IO) {
     val base = arrBase(config.type)
     val encoded = java.net.URLEncoder.encode(folder, "UTF-8")
     apiFor<ArrApi>(config, apiKeyHeader(config)).manualImport("$base/manualimport?folder=$encoded&filterExistingFiles=false").map { o ->
         val quality = ((o["quality"] as? JsonObject)?.get("quality") as? JsonObject)?.let { jsStr(it, "name") } ?: ""
-        val matched = when (config.type) {
-            ServiceType.SONARR -> {
-                val series = jsStr((o["series"] as? JsonObject) ?: JsonObject(emptyMap()), "title")
-                val eps = (o["episodes"] as? JsonArray)?.mapNotNull { (it as? JsonObject) }
-                    ?.joinToString(",") { "S%02dE%02d".format(jsInt(it, "seasonNumber") ?: 0, jsInt(it, "episodeNumber") ?: 0) }
-                listOfNotNull(series?.takeIf { it.isNotBlank() }, eps?.takeIf { it.isNotBlank() }).joinToString(" ")
-            }
-            else -> jsStr((o["movie"] as? JsonObject) ?: JsonObject(emptyMap()), "title") ?: ""
-        }
+        val matched = importMatchLabel(config.type, o)
         val rejections = (o["rejections"] as? JsonArray)?.mapNotNull { (it as? JsonObject)?.let { r -> jsStr(r, "reason") } } ?: emptyList()
-        val hasMatch = when (config.type) {
-            ServiceType.SONARR -> (o["series"] as? JsonObject) != null && (o["episodes"] as? JsonArray)?.isNotEmpty() == true
-            else -> (o["movie"] as? JsonObject) != null
-        }
+        val hasMatch = importHasMatch(config.type, o)
         ArrImportItem(
             relativePath = jsStr(o, "relativePath") ?: jsStr(o, "name") ?: "?",
             matchedTitle = matched.ifBlank { "— unmatched —" },
             quality = quality,
             rejection = rejections.joinToString("; "),
-            importable = hasMatch && rejections.isEmpty(),
+            importable = hasMatch && importAllowed(config.type, rejections),
             rawJson = json.encodeToString(JsonObject.serializer(), o),
         )
     }
@@ -698,22 +1062,7 @@ suspend fun arrManualImportExecute(config: ServiceConfig, rawItems: List<String>
         try {
             val base = arrBase(config.type)
             val files = rawItems.map { raw ->
-                val o = json.parseToJsonElement(raw).jsonObject
-                buildJsonObject {
-                    jsStr(o, "path")?.let { put("path", it) }
-                    jsStr(o, "folderName")?.let { put("folderName", it) }
-                    o["quality"]?.let { put("quality", it) }
-                    o["languages"]?.let { put("languages", it) }
-                    jsStr(o, "releaseGroup")?.let { put("releaseGroup", it) }
-                    if (config.type == ServiceType.SONARR) {
-                        (o["series"] as? JsonObject)?.let { s -> jsInt(s, "id")?.let { put("seriesId", it) } }
-                        (o["episodes"] as? JsonArray)?.let { eps ->
-                            putJsonArray("episodeIds") { eps.mapNotNull { (it as? JsonObject)?.let { e -> jsInt(e, "id") } }.forEach { add(it) } }
-                        }
-                    } else {
-                        (o["movie"] as? JsonObject)?.let { m -> jsInt(m, "id")?.let { put("movieId", it) } }
-                    }
-                }
+                importFileBody(config.type, json.parseToJsonElement(raw).jsonObject)
             }
             val body = buildJsonObject {
                 put("name", "ManualImport")
@@ -741,6 +1090,29 @@ fun arrImportAssignMovie(rawJson: String, movieId: Int, title: String): String {
     })
 }
 
+/**
+ * The Sonarr counterpart of [arrImportAssignMovie].
+ *
+ * A series alone is not enough: [arrManualImportExecute] sends `seriesId` **and** `episodeIds`,
+ * and Sonarr refuses a file it cannot pin to concrete episodes. Assigning through the movie
+ * helper on Sonarr therefore produced a command carrying neither — an import the user could
+ * trigger and that silently did nothing.
+ */
+fun arrImportAssignEpisodes(
+    rawJson: String,
+    seriesId: Int,
+    seriesTitle: String,
+    episodeIds: List<Int>,
+): String {
+    val o = json.parseToJsonElement(rawJson).jsonObject
+    return json.encodeToString(JsonObject.serializer(), buildJsonObject {
+        o.forEach { (k, v) -> if (k != "series" && k != "episodes" && k != "rejections") put(k, v) }
+        putJsonObject("series") { put("id", seriesId); put("title", seriesTitle) }
+        putJsonArray("episodes") { episodeIds.forEach { id -> addJsonObject { put("id", id) } } }
+        putJsonArray("rejections") {}
+    })
+}
+
 suspend fun arrGrab(config: ServiceConfig, guid: String, indexerId: Int): String = destructive("grab a release on ${config.type.label}") {
     withContext(Dispatchers.IO) {
         try {
@@ -752,13 +1124,18 @@ suspend fun arrGrab(config: ServiceConfig, guid: String, indexerId: Int): String
     }
 }
 
-suspend fun arrDelete(config: ServiceConfig, id: Int, deleteFiles: Boolean): String = destructive("delete ${config.type.label} item $id (files: $deleteFiles)") {
+suspend fun arrDelete(
+    config: ServiceConfig,
+    id: Int,
+    deleteFiles: Boolean,
+    addImportExclusion: Boolean = false,
+): String = destructive("delete ${config.type.label} item $id (files: $deleteFiles)") {
     withContext(Dispatchers.IO) {
         try {
             val base = arrBase(config.type)
             val path = arrItemPath(config.type)
             val r = apiFor<ArrApi>(config, apiKeyHeader(config))
-                .deleteItem("$base/$path/$id?deleteFiles=$deleteFiles&addImportExclusion=false")
+                .deleteItem("$base/$path/$id?deleteFiles=$deleteFiles&addImportExclusion=$addImportExclusion")
             if (r.isSuccessful) "deleted" else "error: HTTP ${r.code()}"
         } catch (t: Throwable) {
             "error: ${t.message ?: t.javaClass.simpleName}"
@@ -771,6 +1148,7 @@ suspend fun arrHistory(config: ServiceConfig): List<ArrHistoryItem> = withContex
     val url = "$base/history?page=1&pageSize=50&sortKey=date&sortDirection=descending"
     apiFor<ArrApi>(config, apiKeyHeader(config)).history(url).records.map { h ->
         ArrHistoryItem(
+            id = h.id,
             title = h.sourceTitle,
             eventType = h.eventType,
             date = h.date.take(16).replace('T', ' '),
@@ -888,3 +1266,69 @@ internal fun reportArrPush(resp: Response<ResponseBody>, label: String): String 
         else -> "sent to $label"
     }
 }
+
+// ---- Indexers ----
+//
+// Prowlarr owns the indexer definitions, so this deliberately offers no add/edit/delete: the
+// next Prowlarr sync would overwrite it anyway. What it offers is the one thing Prowlarr
+// cannot do for you — clearing the *arr app's own failure lockout.
+
+/**
+ * The service's own indexers, with whether each is locked out.
+ *
+ * The state comes from the health check, not from `indexerstatus`: that endpoint 404s on Radarr
+ * 6.3 and Sonarr 4.0. `IndexerStatusCheck` names the affected indexers, without an expiry.
+ *
+ * Unreadable health gives [ArrIndexerItem.statusUnknown], not "healthy" — the list still loads,
+ * but it must not claim they are fine.
+ */
+suspend fun arrIndexers(config: ServiceConfig): List<ArrIndexerItem> = withContext(Dispatchers.IO) {
+    val api = apiFor<ArrApi>(config, apiKeyHeader(config))
+    val base = arrBase(config.type)
+    val records = api.indexers("$base/indexer")
+    val warning = runCatching {
+        api.healthChecks("$base/health")
+            .filter { it.source == "IndexerStatusCheck" || it.message.contains(INDEXERS_UNAVAILABLE, true) }
+            .joinToString(" ") { it.message }
+    }
+    records.map {
+        ArrIndexerItem(
+            id = it.id,
+            name = it.name,
+            protocol = it.protocol,
+            priority = it.priority,
+            enableRss = it.enableRss,
+            enableAutomaticSearch = it.enableAutomaticSearch,
+            enableInteractiveSearch = it.enableInteractiveSearch,
+            // The warning lists the indexers by name; substring is what the message gives us.
+            failing = warning.getOrNull()?.contains(it.name, ignoreCase = true) == true,
+            statusUnknown = warning.isFailure,
+        )
+    }
+}
+
+/** Matched as a fallback in case a future version renames the check's source. */
+private const val INDEXERS_UNAVAILABLE = "Indexers unavailable due to failures"
+
+/**
+ * Tests every indexer of one service. A successful test makes the app record a success, which
+ * is what clears the failure lockout — the same thing a Test on its settings page does.
+ */
+suspend fun arrTestAllIndexers(config: ServiceConfig): String = withContext(Dispatchers.IO) {
+    try {
+        okOr(
+            apiFor<ArrApi>(config, apiKeyHeader(config)).postEmpty("${arrBase(config.type)}/indexer/testall"),
+            "tested",
+        )
+    } catch (t: Throwable) {
+        "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+/**
+ * The cross-service repair: tests the indexers of every given service in turn and reports one
+ * outcome per service. Sequential on purpose — these all end up querying the same indexer, and
+ * hammering it in parallel is what triggers the lockout in the first place.
+ */
+suspend fun arrRepairIndexers(configs: List<ServiceConfig>): List<Pair<String, String>> =
+    configs.map { it.label to arrTestAllIndexers(it) }

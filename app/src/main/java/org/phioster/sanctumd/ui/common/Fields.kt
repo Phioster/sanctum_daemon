@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Button
@@ -25,7 +26,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.phioster.sanctumd.ui.theme.Black
@@ -148,6 +149,25 @@ internal fun SectionHeader(label: String, accent: Color = MatrixGreen, modifier:
     }
 }
 
+/**
+ * The title of a single chart or table *inside* a section — one level below [SectionHeader].
+ *
+ * They used to share [SectionHeader], which made every chart look like a new top-level section:
+ * under "TRENDS" the first thing you saw was "prowlarr · grabs per day" in the identical style,
+ * so TRENDS itself read as empty. No accent tick, not bold, and indented to the same depth as the
+ * content it labels — so a chart visibly belongs to the section above it.
+ */
+@Composable
+internal fun ChartTitle(label: String, accent: Color = MatrixGreen, modifier: Modifier = Modifier) {
+    Text(
+        label.uppercase(),
+        fontFamily = Mono,
+        color = accent.copy(alpha = 0.85f),
+        fontSize = 11.sp,
+        modifier = modifier.padding(start = 11.dp),
+    )
+}
+
 /** The app-wide muted hint line (loading / empty / "nothing here"). One style for all of them. */
 @Composable
 internal fun Hint(text: String, modifier: Modifier = Modifier) {
@@ -192,13 +212,53 @@ internal fun SecondaryButton(label: String, modifier: Modifier = Modifier, icon:
     }
 }
 
-/** A compact bordered action chip — the standard chip for inline actions (back / scan / filters). */
+/**
+ * A compact bordered action chip — the standard chip for inline actions (back / scan / filters).
+ *
+ * [icon] is a vector, not a character in the label, on purpose. Symbols written as text depend on
+ * what the mono font happens to cover: ▶ came out solid, ⬇ and ⟳ thin from some fallback font, and
+ * ⤨ arrived as a completely different glyph. A vector renders the same everywhere.
+ */
 @Composable
-internal fun AppChip(label: String, accent: Color = MatrixGreen, onClick: () -> Unit) {
-    Text(
-        label, fontFamily = Mono, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-        modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(SurfaceHi)
+internal fun AppChip(
+    label: String,
+    accent: Color = MatrixGreen,
+    icon: ImageVector? = null,
+    onClick: () -> Unit,
+) {
+    Row(
+        Modifier.clip(RoundedCornerShape(8.dp)).background(SurfaceHi)
             .border(1.dp, accent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
             .clickable { onClick() }.padding(horizontal = 12.dp, vertical = 8.dp),
-    )
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icon != null) {
+            Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(15.dp))
+            Spacer(Modifier.width(6.dp))
+        }
+        Text(label, fontFamily = Mono, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+/**
+ * The key/value chips a title is summed up with: two per line, the value first, its label under it.
+ *
+ * Radarr, Jellyfin and Seerr all describe a title this way, and each screen used to carry its own
+ * copy of this layout. One grid means a runtime or a rating looks the same wherever it turns up.
+ */
+@Composable
+internal fun FactGrid(facts: List<Pair<String, String>>, accent: Color, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        facts.chunked(2).forEach { pair ->
+            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                pair.forEach { (k, v) ->
+                    Column(Modifier.weight(1f)) {
+                        Text(v, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(k.uppercase(), fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 9.sp)
+                    }
+                }
+                if (pair.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
 }

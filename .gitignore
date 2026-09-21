@@ -21,3 +21,4 @@ signing.properties
 # Other secrets
 google-services.json
 secrets.properties
+.claude/

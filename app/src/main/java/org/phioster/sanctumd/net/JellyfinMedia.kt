@@ -18,8 +18,12 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import org.phioster.sanctumd.model.ArrCastMember
+import org.phioster.sanctumd.model.JellyFileInfo
+import org.phioster.sanctumd.model.JellyIdentifyCandidate
+import org.phioster.sanctumd.model.JellyStream
 import org.phioster.sanctumd.model.JellyWatchStat
 import org.phioster.sanctumd.model.JellyMediaDetail
+import org.phioster.sanctumd.model.JellySubtitle
 import org.phioster.sanctumd.model.JellyMediaItem
 import org.phioster.sanctumd.model.ServiceConfig
 
@@ -35,7 +39,7 @@ internal fun jellyImageUrl(config: ServiceConfig, id: String, tag: String?, toke
 /** Headers for loading Jellyfin images (Coil), keeping the token out of the URL. */
 fun jellyfinImageHeaders(config: ServiceConfig): Map<String, String> {
     val token = if (!config.useLogin) config.apiKey else jellyfinSession[config.id]?.first.orEmpty()
-    return if (token.isNotBlank()) mapOf("X-Emby-Token" to token) else emptyMap()
+    return if (token.isNotBlank()) jellyfinAuth(token) else emptyMap()
 }
 
 internal fun jfSubtitle(item: JfItem): String = when (item.Type) {
@@ -122,7 +126,7 @@ suspend fun jellyfinItemDetail(config: ServiceConfig, itemId: String): JellyMedi
     val token = jellyfinAccessToken(config)
     val api = jfApi(config, token)
     val uid = jellyfinResolveUserId(config, api)
-    val d = api.itemDetail(uid, itemId)
+    val d = api.itemDetail(id = itemId, uid = uid)
     val facts = buildList {
         d.ProductionYear?.takeIf { it > 0 }?.let { add("year" to it.toString()) }
         d.RunTimeTicks?.takeIf { it > 0 }?.let { add("runtime" to "${it / 600_000_000} min") }
@@ -158,8 +162,61 @@ suspend fun jellyfinItemDetail(config: ServiceConfig, itemId: String): JellyMedi
         played = d.UserData?.Played == true,
         unplayedCount = d.UserData?.UnplayedItemCount ?: 0,
         favorite = d.UserData?.IsFavorite == true,
+        number = d.IndexNumber,
+        fileInfo = d.MediaSources.firstOrNull()?.toFileInfo(),
+        providerIds = d.ProviderIds.orEmpty(),
     )
 }
+
+/**
+ * Deletes an item and its file from Jellyfin.
+ *
+ * On its own this is only half a deletion in an *arr setup: Radarr/Sonarr still hold the entry,
+ * notice the missing file on their next scan and re-download it while it stays monitored. The
+ * caller is expected to offer the paired removal — see [arrFindByProviderId].
+ */
+suspend fun jellyfinDeleteItem(config: ServiceConfig, itemId: String): String =
+    destructive("delete Jellyfin item $itemId (removes the file)") {
+        withContext(Dispatchers.IO) {
+            try {
+                val token = jellyfinAccessToken(config)
+                val api = jfApi(config, token)
+                jellyfinResolveUserId(config, api) // fails fast with a clear error if auth is broken
+                okOr(api.deleteItem(itemId), "deleted")
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
+
+/** The first media source turned into what the FILE section renders. */
+private fun JfDetailMediaSource.toFileInfo() = JellyFileInfo(
+    container = Container?.substringBefore(',').orEmpty(),
+    sizeBytes = Size ?: 0L,
+    path = Path.orEmpty(),
+    bitrate = Bitrate ?: 0,
+    streams = MediaStreams.map { s ->
+        JellyStream(
+            type = s.Type,
+            codec = s.Codec.orEmpty(),
+            profile = s.Profile.orEmpty(),
+            language = s.DisplayLanguage ?: s.Language.orEmpty(),
+            displayTitle = s.DisplayTitle.orEmpty(),
+            width = s.Width ?: 0,
+            height = s.Height ?: 0,
+            frameRate = s.AverageFrameRate ?: s.RealFrameRate ?: 0.0,
+            bitDepth = s.BitDepth ?: 0,
+            bitrate = s.BitRate ?: 0,
+            channels = s.Channels ?: 0,
+            channelLayout = s.ChannelLayout.orEmpty(),
+            sampleRate = s.SampleRate ?: 0,
+            videoRange = s.VideoRange.orEmpty(),
+            isDefault = s.IsDefault,
+            isForced = s.IsForced,
+            isExternal = s.IsExternal,
+        )
+    },
+)
 
 /** The user's favourites across the whole library, newest names first. */
 suspend fun jellyfinFavorites(config: ServiceConfig): List<JellyMediaItem> = withContext(Dispatchers.IO) {
@@ -187,7 +244,7 @@ suspend fun jellyfinSetFavorite(config: ServiceConfig, itemId: String, favorite:
     val token = jellyfinAccessToken(config)
     val api = jfApi(config, token)
     val uid = jellyfinResolveUserId(config, api)
-    val resp = if (favorite) api.markFavorite(uid, itemId) else api.unmarkFavorite(uid, itemId)
+    val resp = if (favorite) api.markFavorite(id = itemId, uid = uid) else api.unmarkFavorite(id = itemId, uid = uid)
     if (!resp.isSuccessful) error("HTTP ${resp.code()}")
 }
 
@@ -212,7 +269,7 @@ suspend fun jellyfinSetPlayed(config: ServiceConfig, itemId: String, played: Boo
     val token = jellyfinAccessToken(config)
     val api = jfApi(config, token)
     val uid = jellyfinResolveUserId(config, api)
-    val resp = if (played) api.markPlayed(uid, itemId) else api.markUnplayed(uid, itemId)
+    val resp = if (played) api.markPlayed(id = itemId, uid = uid) else api.markUnplayed(id = itemId, uid = uid)
     if (!resp.isSuccessful) error("HTTP ${resp.code()}")
 }
 
@@ -261,5 +318,117 @@ suspend fun jellyfinTopWatchers(config: ServiceConfig, limit: Int = 3): List<Jel
         val name = row.getOrNull(0)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
         val secs = row.getOrNull(1)?.toDoubleOrNull()?.toLong() ?: 0L
         JellyWatchStat(name, secs)
+    }
+}
+
+// ---- Identify: pinning an item to the right metadata entry ----
+//
+// A plain refresh would only re-derive the same wrong guess from the same filename, which is
+// why this is a two-step: ask the providers what they have, then pin the chosen one.
+
+/** Wraps the provider's own result object so it can be handed back to Jellyfin verbatim. */
+data class JellyIdentifyCandidateRaw(val json: String)
+
+/**
+ * Metadata candidates for [itemId]. [kind] is the Jellyfin item type — a series must not be
+ * looked up against the movie database, so it decides the endpoint.
+ */
+suspend fun jellyfinIdentifyCandidates(
+    config: ServiceConfig,
+    itemId: String,
+    kind: String,
+    name: String,
+    year: Int?,
+): List<JellyIdentifyCandidate> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val api = jfApi(config, token)
+    val endpoint = when (kind) {
+        "Series" -> "Series"
+        "Episode" -> "Episode"
+        "MusicAlbum" -> "MusicAlbum"
+        else -> "Movie"
+    }
+    val body = buildJsonObject {
+        putJsonObject("SearchInfo") {
+            put("Name", name)
+            if (year != null) put("Year", year)
+            put("ItemId", itemId)
+        }
+        put("ItemId", itemId)
+        // Ask everything that is configured; a disabled provider is usually why nothing matched.
+        put("IncludeDisabledProviders", true)
+    }
+    api.remoteSearch(endpoint, body).map { o ->
+        JellyIdentifyCandidate(
+            name = jsStr(o, "Name") ?: "?",
+            year = jsInt(o, "ProductionYear") ?: 0,
+            provider = jsStr(o, "SearchProviderName") ?: "",
+            imageUrl = jsStr(o, "ImageUrl") ?: "",
+            raw = json.encodeToString(JsonObject.serializer(), o),
+        )
+    }
+}
+
+/** Pins [itemId] to the chosen candidate and pulls its artwork along with it. */
+suspend fun jellyfinApplyIdentify(
+    config: ServiceConfig,
+    itemId: String,
+    candidate: JellyIdentifyCandidateRaw,
+): String = destructive("re-identify Jellyfin item $itemId") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            val body = json.parseToJsonElement(candidate.json).jsonObject
+            okOr(jfApi(config, token).applyRemoteSearch(itemId, replaceAllImages = true, body = body), "identified")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
+}
+
+// ---- Subtitles ----
+//
+// Jellyfin fetches these itself, per title. That covers what a dedicated subtitle service would
+// do, without another process on a phone-sized server.
+
+/**
+ * Subtitle candidates for [itemId] in [language] (three-letter ISO, e.g. "ger").
+ *
+ * Ordered by usefulness rather than by whatever the provider returned: a hash match was made
+ * for this exact file and will be in sync, so it goes first; after that the most downloaded,
+ * which is the best available proxy for "not a broken rip".
+ */
+suspend fun jellyfinSubtitleCandidates(
+    config: ServiceConfig,
+    itemId: String,
+    language: String,
+): List<JellySubtitle> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    jfApi(config, token).subtitleSearch(itemId, language).map { o ->
+        JellySubtitle(
+            id = jsStr(o, "Id") ?: "",
+            provider = jsStr(o, "ProviderName") ?: "",
+            name = jsStr(o, "Name") ?: "",
+            format = jsStr(o, "Format") ?: "",
+            downloads = jsInt(o, "DownloadCount") ?: 0,
+            hashMatch = jsBool(o, "IsHashMatch") == true,
+            forced = jsBool(o, "IsForced") == true,
+        )
+    }.sortedWith(compareByDescending<JellySubtitle> { it.hashMatch }.thenByDescending { it.downloads })
+}
+
+/** Downloads a chosen subtitle onto the item. */
+suspend fun jellyfinDownloadSubtitle(
+    config: ServiceConfig,
+    itemId: String,
+    subtitleId: String,
+): String = destructive("download a subtitle for Jellyfin item $itemId") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).subtitleDownload(itemId, subtitleId), "downloaded")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }

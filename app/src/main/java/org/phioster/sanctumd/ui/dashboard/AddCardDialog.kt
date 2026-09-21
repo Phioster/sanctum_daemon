@@ -51,7 +51,6 @@ import org.phioster.sanctumd.ui.services.*
 import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
-import org.phioster.sanctumd.ui.common.*
 import org.phioster.sanctumd.ServiceLogo
 
 @Composable
@@ -92,7 +91,7 @@ internal fun AddCardDialog(
                             .padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (svcType != null) ServiceLogo(svcType, 18.dp) else Text("●", color = accent, fontSize = 12.sp)
+                        if (svcType != null) ServiceLogo(svcType, 18.dp) else Text("●", fontFamily = Mono, color = accent, fontSize = 12.sp)
                         Spacer(Modifier.width(8.dp))
                         Text(svcType?.label ?: "Layout", fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         Text("${types.size} cards", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp)

@@ -31,6 +31,23 @@ Sanctumd has **no backend and no account** — it talks directly to the services
   the same way. Both are excluded from cloud backup and device transfer.
 - **Portable export** — password-based AES-256-GCM (PBKDF2-HMAC-SHA256), so the
   file can be decrypted only with the password, on any device.
+- **App lock** — the optional biometric lock gates the *screen*, not the data.
+  The Keystore key is not bound to user authentication, because live push,
+  home-screen widgets and downloads have to decrypt while the phone is locked
+  in your pocket — that is the whole point of them. So the lock keeps someone
+  holding your unlocked phone out of the UI; it is not a defence against an
+  attacker who already runs code as the app's user. With the lock on, the task
+  switcher no longer keeps a thumbnail of the last screen either (Android 13 and
+  up); screenshots stay available on purpose.
+- **Media session** — the background music session accepts any controller, as
+  every media app does: the lock screen, Bluetooth headsets and car head units
+  all reach it through the platform session. What that exposes is the title and
+  artist of what is playing. It used to expose more — the artwork URL carried
+  the Jellyfin token — and *that* is the part that was fixed: the credential now
+  travels as a request header and is not in the metadata at all. A callback
+  admitting only this package shipped in 1.59.0 and was withdrawn in 2.0: media3
+  gives the platform session a fixed sentinel package name, so the callback shut
+  out the lock screen along with everyone else.
 - **Network** — every request goes straight to your configured service over the
   URL and headers you set (Cloudflare Access supported). Cleartext HTTP is
   permitted because self-hosted LAN services commonly use it.

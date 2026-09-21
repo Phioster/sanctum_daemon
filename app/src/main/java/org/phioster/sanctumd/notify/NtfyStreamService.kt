@@ -38,6 +38,29 @@ import java.util.concurrent.TimeUnit
 class NtfyStreamService : Service() {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    /** Health problems seen but not yet resolved, keyed by "service|issue". */
+    private val openHealth = mutableMapOf<String, OpenHealth>()
+
+    /**
+     * Notification ids for pushed messages are allocated here, never derived from the payload.
+     *
+     * They used to be `msg.id.hashCode()` — and `msg.id` is free text chosen by whoever publishes
+     * to the topic, which for an unprotected ntfy topic is anyone who knows its name. A chosen id
+     * lets a pushed message land on top of one of the app's own notifications and replace it.
+     * A local counter takes that choice away; the map keeps a repeat of the same message on the
+     * same notification.
+     */
+    private val remoteIds = mutableMapOf<String, Int>()
+    private var nextRemoteId = REMOTE_ID_BASE
+
+    @Synchronized
+    private fun remoteNotificationId(key: String): Int =
+        remoteIds.getOrPut(key) { ++nextRemoteId }
+    /** Id of the configured Jellyfin service, so a notification can point into it. */
+    private var jellyfinServiceId: String? = null
+
+    private data class OpenHealth(val id: Int, val timeSeconds: Long)
+
     private var job: Job? = null
     // readTimeout is the watchdog. The user's ntfy keepalive is 90 s (kept just under
     // Cloudflare's fixed 100 s idle cutoff), so the watchdog must exceed 90 s — otherwise
@@ -72,6 +95,7 @@ class NtfyStreamService : Service() {
         val store = NotifyStore(applicationContext)
         val settings = store.currentSettings()
         val services = runCatching { ServiceStore(applicationContext).services.first() }.getOrDefault(emptyList())
+        jellyfinServiceId = services.firstOrNull { it.type == ServiceType.JELLYFIN }?.id
         val subs = buildSubs(settings, services)
         if (subs.isEmpty()) { stopSelf(); return }
         val mainTopic = settings.ntfyTopic
@@ -143,16 +167,65 @@ class NtfyStreamService : Service() {
         // Messages from a secondary topic carry a MASKED topic as prefix so they're tellable apart
         // without leaking the (often unprotected) topic name in the notification.
         val title = if (msg.topic.isNotBlank() && msg.topic != mainTopic) "[${maskTopic(msg.topic)}] $base" else base
-        postNotification(msg.id.ifEmpty { msg.text }.hashCode(), title, msg.text)
+        val id = remoteNotificationId(msg.topic + "|" + msg.id.ifEmpty { msg.text })
+        if (!collapseHealthPair(parseHealthEvent(base, msg.text), msg.topic, id, title, msg.time)) {
+            postNotification(id, title, msg.text, msg.time, jellyfinItemIdFromClick(msg.click))
+        }
         if (msg.time > 0) store.saveNtfyCursor(msg.time, recentIds + msg.id, cursorScope)
+    }
+
+    /**
+     * Shows a health problem and its end as one line instead of two.
+     *
+     * A failure is posted normally but remembered. When its restore arrives, the failure's
+     * notification is rewritten in place to say it is over and how long it lasted — so a blip that
+     * healed in seconds occupies one quiet slot rather than two alarms, and a problem that is still
+     * open keeps looking like one.
+     *
+     * Returns true when the caller should not post anything further.
+     */
+    private fun collapseHealthPair(event: HealthEvent?, topic: String, id: Int, title: String, timeSeconds: Long): Boolean {
+        if (event == null) return false
+        // Bound to the topic: otherwise a publisher on ANY topic the app listens to could send a
+        // "resolved" that rewrites a still-open failure from a different one out of the shade.
+        val key = "$topic|${event.service}|${event.issue}"
+        if (!event.resolved) {
+            openHealth[key] = OpenHealth(id, timeSeconds)
+            return false
+        }
+        val open = openHealth.remove(key) ?: return false
+        val lasted = if (timeSeconds > 0 && open.timeSeconds > 0) timeSeconds - open.timeSeconds else -1
+        val howLong = when {
+            lasted < 0 -> ""
+            lasted < 60 -> " after ${lasted}s"
+            lasted < 3600 -> " after ${lasted / 60}m"
+            else -> " after ${lasted / 3600}h"
+        }
+        // Reusing the failure's id replaces that notification rather than adding one.
+        postNotification(open.id, "$title — resolved$howLong", event.issue, timeSeconds)
+        return true
     }
 
     /** Reveal only the first 4 chars of a topic (hide the rest — for an unprotected topic the random suffix is effectively the access secret). */
     private fun maskTopic(t: String): String = if (t.length <= 4) "•".repeat(t.length) else "${t.take(4)}••••••"
 
-    private fun postNotification(id: Int, title: String, text: String) {
+    private fun postNotification(
+        id: Int,
+        title: String,
+        text: String,
+        whenSeconds: Long = 0L,
+        jellyfinItemId: String? = null,
+    ) {
         if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) return
-        val launch = packageManager.getLaunchIntentForPackage(packageName)
+        val launch = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+            // The same carrier the launcher shortcuts and the global search already use, so the
+            // tap lands on the item's own page rather than wherever the app was last left.
+            if (jellyfinItemId != null && jellyfinServiceId != null) {
+                putExtra("route", "service")
+                putExtra("serviceId", jellyfinServiceId)
+                putExtra("itemId", jellyfinItemId)
+            }
+        }
         val pi = launch?.let { PendingIntent.getActivity(this, id, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT) }
         val n = NotificationCompat.Builder(this, Notifications.CH_LIVE)
             .setSmallIcon(org.phioster.sanctumd.R.drawable.ic_notify)
@@ -162,6 +235,10 @@ class NtfyStreamService : Service() {
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(pi)
             .setAutoCancel(true)
+            // The message's own time, not this moment. A phone that was asleep delivers a whole
+            // backlog at once, and stamping those with the delivery time made a 12-second outage
+            // at 02:03 read as six separate alarms at 06:26.
+            .apply { if (whenSeconds > 0) { setWhen(whenSeconds * 1000L); setShowWhen(true) } }
             .build()
         runCatching { NotificationManagerCompat.from(this).notify(id, n) }
     }
@@ -213,4 +290,11 @@ class NtfyStreamService : Service() {
          *  stops itself when no subscriptions remain. */
         fun restart(ctx: Context) = start(ctx)
     }
+
 }
+
+/**
+ * Where locally allocated ids for pushed notifications start. Far from the app's own ids, which
+ * are hashes spread over the whole int range, so a remote message cannot be steered onto one.
+ */
+private const val REMOTE_ID_BASE = 900_000_000

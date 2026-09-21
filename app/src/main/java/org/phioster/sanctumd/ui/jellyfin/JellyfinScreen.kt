@@ -1,62 +1,39 @@
 package org.phioster.sanctumd.ui.jellyfin
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.border
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.VideoLibrary
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Devices
-import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -66,9 +43,9 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -85,28 +62,39 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.phioster.sanctumd.ServiceLogo
+import org.phioster.sanctumd.model.DownloadEntry
+import org.phioster.sanctumd.model.JellyMediaItem
+import org.phioster.sanctumd.model.MediaRowStyle
 import org.phioster.sanctumd.model.ServiceConfig
+import org.phioster.sanctumd.net.MusicTrack
+import org.phioster.sanctumd.service.DownloadService
 import org.phioster.sanctumd.ui.DashboardViewModel
-import org.phioster.sanctumd.ui.theme.Black
-import org.phioster.sanctumd.ui.theme.ErrRed
-import org.phioster.sanctumd.ui.theme.MatrixGreen
-import org.phioster.sanctumd.ui.theme.Mono
-import org.phioster.sanctumd.ui.theme.Surface
-import org.phioster.sanctumd.ui.common.*
 import org.phioster.sanctumd.ui.arr.*
+import org.phioster.sanctumd.ui.common.*
 import org.phioster.sanctumd.ui.dashboard.*
 import org.phioster.sanctumd.ui.home.*
 import org.phioster.sanctumd.ui.ntfy.*
 import org.phioster.sanctumd.ui.nzbget.*
 import org.phioster.sanctumd.ui.onboarding.*
+import org.phioster.sanctumd.ui.player.MusicController
+import org.phioster.sanctumd.ui.player.PlayRequest
+import org.phioster.sanctumd.ui.player.PlayerScreen
 import org.phioster.sanctumd.ui.prowlarr.*
 import org.phioster.sanctumd.ui.search.*
 import org.phioster.sanctumd.ui.seerr.*
@@ -114,8 +102,11 @@ import org.phioster.sanctumd.ui.services.*
 import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
-import org.phioster.sanctumd.ui.common.*
-import org.phioster.sanctumd.ServiceLogo
+import org.phioster.sanctumd.ui.theme.Black
+import org.phioster.sanctumd.ui.theme.ErrRed
+import org.phioster.sanctumd.ui.theme.MatrixGreen
+import org.phioster.sanctumd.ui.theme.Mono
+import org.phioster.sanctumd.ui.theme.Surface
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.media3.common.util.UnstableApi::class)
 @Composable
@@ -133,35 +124,15 @@ internal fun JellyfinScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var mode by remember { mutableStateOf(3) } // 0=Now Playing, 1=Users, 2=Dashboard, 3=Media (default), 4=Live TV
-    var sessions by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellySession>?>(null) }
-    var users by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyUser>?>(null) }
-    var dashInfo by remember { mutableStateOf<org.phioster.sanctumd.model.JellySystemInfo?>(null) }
-    var tasks by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyTask>?>(null) }
-    var activity by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyActivity>?>(null) }
-    var devices by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyDevice>?>(null) }
+    val ps = rememberJellyfinPeopleState()
+    val ad = rememberJellyfinAdminState()
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var refreshing by remember { mutableStateOf(false) }
     var barMenu by remember { mutableStateOf(false) }
-    var messageFor by remember { mutableStateOf<String?>(null) }
-    var messageText by remember { mutableStateOf("") }
-    var confirmRestart by remember { mutableStateOf(false) }
-    // True while a restart is being confirmed (server polled until back) — keeps its status message from auto-clearing.
-    var restartInProgress by remember { mutableStateOf(false) }
-    // Dashboard sub-section opened from the tile overview (null = show the tiles).
-    var dashSection by remember { mutableStateOf<String?>(null) }
-    var libraries by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyLibrary>?>(null) }
-    var editUser by remember { mutableStateOf<org.phioster.sanctumd.model.JellyUser?>(null) }
-    var showCreateUser by remember { mutableStateOf(false) }
-    var newUserName by remember { mutableStateOf("") }
-    var newUserPass by remember { mutableStateOf("") }
-    var mediaViews by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
-    var mediaContents by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
-    var resumeItems by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
-    var latestItems by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
-    var browseStack by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>>(emptyList()) }
-    var mediaDetail by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
-    var playRequest by remember { mutableStateOf<org.phioster.sanctumd.ui.player.PlayRequest?>(null) }
+    val ds = rememberJellyfinDetailState()
+    val bs = rememberJellyfinBrowseState()
+    var playRequest by remember { mutableStateOf<PlayRequest?>(null) }
     val downloads by vm.downloads.collectAsState(initial = emptyMap())
     val wifiOnly by vm.downloadsWifiOnly.collectAsState()
     val deleteWatched by vm.downloadsDeleteWatched.collectAsState()
@@ -172,161 +143,144 @@ internal fun JellyfinScreen(
     val mediaStyles by vm.mediaRowStyles.collectAsState()
     var configRow by remember { mutableStateOf<String?>(null) } // "resume"/"recent"/"libraries" being styled
     var rowPickerOpen by remember { mutableStateOf(false) } // the shared "customize rows" entry
-    val musicState by org.phioster.sanctumd.ui.player.MusicController.state.collectAsState()
+    val musicState by MusicController.state.collectAsState()
     var nowPlayingOpen by remember { mutableStateOf(false) }
     // Attach to any running music session so the now-playing bar appears immediately.
-    LaunchedEffect(Unit) { org.phioster.sanctumd.ui.player.MusicController.bind(context) }
+    LaunchedEffect(Unit) { MusicController.bind(context) }
     // Foregrounding the app resumes any Wi-Fi-parked downloads (a background FGS start is blocked).
-    val hasQueued = downloads.values.any { it.state == org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED }
-    LaunchedEffect(hasQueued) { if (hasQueued) org.phioster.sanctumd.service.DownloadService.resume(context) }
+    val hasQueued = downloads.values.any { it.state == DownloadEntry.STATE_QUEUED }
+    LaunchedEffect(hasQueued) { if (hasQueued) DownloadService.resume(context) }
     // Deep link from search: open the item-detail dialog on top of the media tab.
     LaunchedEffect(Unit) {
         if (initialItemId != null) {
-            mediaDetail = runCatching { vm.jellyfinMediaDetail(config, initialItemId) }.getOrNull()
+            runCatching { vm.jellyfinMediaDetail(config, initialItemId) }.getOrNull()?.let { ds.open(it) }
         }
     }
-    var logFiles by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyLogFile>?>(null) }
-    var logView by remember { mutableStateOf<String?>(null) } // log file name being viewed
-    var logText by remember { mutableStateOf<String?>(null) } // its content (null = loading)
-    var plugins by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyPlugin>?>(null) }
-    var editLibrary by remember { mutableStateOf<org.phioster.sanctumd.model.JellyLibrary?>(null) }
-    var showAddLibrary by remember { mutableStateOf(false) }
-    var pluginDetail by remember { mutableStateOf<org.phioster.sanctumd.model.JellyPlugin?>(null) }
-    var showCatalog by remember { mutableStateOf(false) }
-    var catalog by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyPackage>?>(null) }
-    var liveTv by remember { mutableStateOf<org.phioster.sanctumd.model.JellyLiveTv?>(null) }
-    var channels by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyChannel>?>(null) }
-    var showAddTuner by remember { mutableStateOf(false) }
-    var showAddProvider by remember { mutableStateOf(false) }
-    var confirmDeleteTuner by remember { mutableStateOf<String?>(null) }
-    var confirmDeleteProvider by remember { mutableStateOf<String?>(null) }
+    val tvState = rememberJellyfinLiveTvState()
 
-    // Browse sorting/filtering, plus a client-side name filter over what's loaded.
-    var browseSort by remember { mutableStateOf("IsFolder,SortName") }
-    var browseDesc by remember { mutableStateOf(false) }
-    var browseUnwatched by remember { mutableStateOf(false) }
-    var browseFilter by remember { mutableStateOf("") }
-    var favorites by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyMediaItem>?>(null) }
-    var castTarget by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
-    var downloadQuality by remember { mutableStateOf<org.phioster.sanctumd.model.JellyMediaDetail?>(null) }
 
     /** Drop finished downloads whose item is watched on the server, when the user asked for that. */
     suspend fun sweepWatchedDownloads() {
         if (!vm.downloadsDeleteWatched.value) return
-        val done = downloads.values.filter { it.serverId == config.id && it.state == org.phioster.sanctumd.model.DownloadEntry.STATE_DONE }
+        val done = downloads.values.filter { it.serverId == config.id && it.state == DownloadEntry.STATE_DONE }
         if (done.isEmpty()) return
         val watched = runCatching { vm.jellyfinPlayedIds(config, done.map { it.itemId }) }.getOrDefault(emptySet())
-        watched.forEach { org.phioster.sanctumd.service.DownloadService.delete(context, it) }
+        watched.forEach { DownloadService.delete(context, it) }
     }
 
-    suspend fun loadSessions() {
-        listError = null
-        try { sessions = vm.jellyfinSessionList(config) } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
-    }
+    suspend fun loadSessions() { listError = ps.loadSessions(vm, config) }
     suspend fun loadUsers() {
-        listError = null
-        try {
-            users = vm.jellyfinUserList(config)
-            if (libraries == null) libraries = vm.jellyfinLibraryList(config)
-        } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
+        listError = ps.loadUsers(vm, config)
+        runCatching { ad.ensureLibraries(vm, config) }
     }
-    suspend fun loadDashboard() {
-        listError = null
-        try {
-            dashInfo = vm.jellyfinInfo(config)
-            tasks = vm.jellyfinTaskList(config)
-            activity = vm.jellyfinActivityLog(config)
-            devices = runCatching { vm.jellyfinDeviceList(config) }.getOrDefault(emptyList())
-            libraries = runCatching { vm.jellyfinLibraryList(config) }.getOrDefault(emptyList())
-            plugins = runCatching { vm.jellyfinPluginList(config) }.getOrDefault(emptyList())
-            logFiles = runCatching { vm.jellyfinLogList(config) }.getOrDefault(emptyList())
-        } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
+    suspend fun loadDashboard() { listError = ad.reload(vm, config) }
+    suspend fun loadLiveTv() { listError = tvState.reload(vm, config) }
+    suspend fun loadMedia() {
+        listError = if (bs.stack.isEmpty()) bs.loadHome(vm, config).also { sweepWatchedDownloads() }
+        else bs.loadFolder(vm, config, bs.stack.last())
     }
-    suspend fun loadLiveTv() {
-        listError = null
-        confirmDeleteTuner = null; confirmDeleteProvider = null
-        try {
-            liveTv = vm.jellyfinLiveTvStatus(config)
-            channels = runCatching { vm.jellyfinChannelList(config) }.getOrDefault(emptyList())
-        } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
-    }
-    suspend fun loadMediaHome() {
-        listError = null
-        try {
-            mediaViews = vm.jellyfinViews(config)
-            resumeItems = vm.jellyfinContinue(config)
-            latestItems = vm.jellyfinRecent(config, null)
-            favorites = runCatching { vm.jellyfinFavoriteList(config) }.getOrDefault(emptyList())
-            sweepWatchedDownloads()
-        } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
-    }
-    suspend fun loadMediaFolder(parent: org.phioster.sanctumd.model.JellyMediaItem) {
-        listError = null
-        mediaContents = null
-        try {
-            mediaContents = vm.jellyfinItemList(
-                config, parent.id,
-                seasonNumber = if (parent.kind == "Season") parent.number else null,
-                sortBy = browseSort, descending = browseDesc, unwatchedOnly = browseUnwatched,
-            )
-        } catch (c: kotlinx.coroutines.CancellationException) { throw c } catch (t: Throwable) { listError = t.message }
-    }
-    LaunchedEffect(mode) { dashSection = null; when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv(); else -> {} } }
+    LaunchedEffect(mode) { ad.section = null; when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv(); else -> {} } }
     // System back from an open dashboard category returns to the tile overview.
-    BackHandler(enabled = mode == 2 && dashSection != null) { dashSection = null }
+    BackHandler(enabled = mode == 2 && ad.section != null) { ad.section = null }
     // Action results (e.g. "restarting") shouldn't linger — clear them after a few seconds,
     // except while a restart is polling for the server to come back.
-    LaunchedEffect(actionMsg, restartInProgress) {
-        if (actionMsg != null && !restartInProgress) { kotlinx.coroutines.delay(4000); actionMsg = null }
+    LaunchedEffect(actionMsg, ad.restartInProgress) {
+        if (actionMsg != null && !ad.restartInProgress) { kotlinx.coroutines.delay(4000); actionMsg = null }
     }
-    LaunchedEffect(mode, browseStack, browseSort, browseDesc, browseUnwatched) {
-        if (mode == 3) { if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last()) }
-    }
-    BackHandler(enabled = mode == 3 && (mediaDetail != null || browseStack.isNotEmpty())) {
-        if (mediaDetail != null) mediaDetail = null else browseStack = browseStack.dropLast(1)
-    }
-    fun openMedia(it: org.phioster.sanctumd.model.JellyMediaItem) {
-        if (it.isFolder) browseStack = browseStack + it
-        else scope.launch { mediaDetail = runCatching { vm.jellyfinMediaDetail(config, it.id) }.getOrElse { null } }
+    LaunchedEffect(mode, bs.stack, bs.sort, bs.desc, bs.unwatched) { if (mode == 3) loadMedia() }
+    ds.manage?.let { target ->
+        val counterpart = org.phioster.sanctumd.ui.arr.ArrCounterpartTarget(
+            serviceType = arrServiceTypeFor(target.kind) ?: org.phioster.sanctumd.model.ServiceType.RADARR,
+            tmdbId = target.providerIds["Tmdb"],
+            tvdbId = target.providerIds["Tvdb"],
+            scopeNote = counterpartScopeNote(target.kind),
+        )
+        org.phioster.sanctumd.ui.arr.ArrCounterpartDialog(vm, counterpart, accent, onDismiss = { ds.manage = null }) { msg ->
+            ds.manage = null
+            actionMsg = msg
+            scope.launch { vm.refreshAll() }
+        }
     }
 
-    // ── Season / album accordion ──────────────────────────────────────────────────────────────────
-    // Which folders are open in the current browse level, and their lazily loaded children.
-    var expandedFolders by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var folderChildren by remember { mutableStateOf<Map<String, List<org.phioster.sanctumd.model.JellyMediaItem>>>(emptyMap()) }
-    suspend fun loadChildren(f: org.phioster.sanctumd.model.JellyMediaItem) {
-        val kids = runCatching {
-            vm.jellyfinItemList(config, f.id, if (f.kind == "Season") f.number else null)
-        }.getOrDefault(emptyList())
-        folderChildren = folderChildren + (f.id to kids)
+    ds.collection?.let { target ->
+        val tmdb = target.providerIds["Tmdb"]?.toIntOrNull()
+        if (tmdb != null) {
+            org.phioster.sanctumd.ui.arr.ArrCollectionDialog(
+                vm, tmdb, accent,
+                onDismiss = { ds.collection = null },
+            ) { msg ->
+                actionMsg = msg
+                scope.launch { vm.refreshAll() }
+            }
+        }
     }
-    fun toggleFolder(f: org.phioster.sanctumd.model.JellyMediaItem) {
-        if (f.id in expandedFolders) {
-            expandedFolders = expandedFolders - f.id
+
+    ds.subtitles?.let { target ->
+        JellyfinSubtitlesDialog(
+            vm, config, target, accent,
+            onDismiss = { ds.subtitles = null },
+        ) { msg ->
+            ds.subtitles = null
+            actionMsg = msg
+        }
+    }
+
+    ds.identify?.let { target ->
+        JellyfinIdentifyDialog(
+            vm, config, target, accent,
+            onDismiss = { ds.identify = null },
+        ) { msg ->
+            ds.identify = null
+            actionMsg = msg
+            // Metadata changed underneath us; re-read the sheet rather than show the old title.
+            scope.launch {
+                runCatching { vm.jellyfinMediaDetail(config, target.id) }.getOrNull()?.let { ds.replaceTop(it) }
+                vm.refreshAll()
+            }
+        }
+    }
+
+    ds.delete?.let { target ->
+        JellyfinDeleteDialog(
+            vm, config, target, accent,
+            onDismiss = { ds.delete = null },
+        ) { msg ->
+            ds.delete = null
+            ds.closeAll() // the item is gone; its sheet must not linger
+            actionMsg = msg
+            scope.launch { vm.refreshAll() }
+        }
+    }
+
+    BackHandler(enabled = mode == 3 && (ds.detail != null || bs.stack.isNotEmpty())) {
+        if (!ds.back()) bs.stack = bs.stack.dropLast(1)
+    }
+    fun openMedia(it: JellyMediaItem) {
+        if (it.isFolder && !opensAsDetail(it.kind)) bs.stack = bs.stack + it
+        else scope.launch { runCatching { vm.jellyfinMediaDetail(config, it.id) }.getOrNull()?.let { d -> ds.open(d) } }
+    }
+    fun toggleFolder(f: JellyMediaItem) {
+        if (f.id in bs.expanded) {
+            bs.expanded = bs.expanded - f.id
         } else {
-            expandedFolders = expandedFolders + f.id
-            if (folderChildren[f.id] == null) scope.launch { loadChildren(f) }
+            bs.expanded = bs.expanded + f.id
+            if (bs.children[f.id] == null) scope.launch { bs.loadChildren(vm, config, f) }
         }
     }
     // Leaving a folder level closes everything — the state belongs to the level you were on.
-    LaunchedEffect(browseStack) { expandedFolders = emptySet(); folderChildren = emptyMap() }
+    LaunchedEffect(bs.stack) { bs.expanded = emptySet(); bs.children = emptyMap() }
 
     // ── Watched toggle ────────────────────────────────────────────────────────────────────────────
     // Marking a Series/Season cascades to every episode on the server, so folders confirm first.
     // Non-folders flip straight away; the badge keeps its own optimistic state, we reload behind it.
-    var confirmWatched by remember { mutableStateOf<Triple<String, String, Boolean>?>(null) } // id, name, target
-    suspend fun reloadMedia() {
-        if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last())
-        // Keep open accordion sections in sync — their episodes carry watched state too.
-        mediaContents.orEmpty().filter { it.id in expandedFolders }.forEach { loadChildren(it) }
-    }
+    suspend fun reloadMedia() { listError = bs.reload(vm, config) }
     fun applyWatched(itemId: String, name: String, want: Boolean) {
         scope.launch {
             runCatching { vm.jellyfinSetWatched(config, itemId, want) }
                 .onSuccess {
                     actionMsg = if (want) "$name marked watched" else "$name marked unwatched"
-                    if (mediaDetail?.id == itemId) {
-                        mediaDetail = runCatching { vm.jellyfinMediaDetail(config, itemId) }.getOrNull() ?: mediaDetail
+                    if (ds.detail?.id == itemId) {
+                        runCatching { vm.jellyfinMediaDetail(config, itemId) }.getOrNull()?.let { ds.replaceTop(it) }
                     }
                     reloadMedia()
                 }
@@ -334,9 +288,9 @@ internal fun JellyfinScreen(
         }
     }
     /** Badge tap: returns whether the change was applied now (false = a confirmation is pending). */
-    val setWatched: (org.phioster.sanctumd.model.JellyMediaItem, Boolean) -> Boolean = { m, want ->
+    val setWatched: (JellyMediaItem, Boolean) -> Boolean = { m, want ->
         if (m.isFolder) {
-            confirmWatched = Triple(m.id, m.name, want)
+            ds.confirmWatched = Triple(m.id, m.name, want)
             false
         } else {
             applyWatched(m.id, m.name, want)
@@ -344,17 +298,26 @@ internal fun JellyfinScreen(
         }
     }
     // Play a completed download offline: audio via the background music player, video via the overlay.
-    fun playDownload(e: org.phioster.sanctumd.model.DownloadEntry) {
+    fun playDownload(e: DownloadEntry) {
         if (e.filePath.isBlank()) return
         val fileUri = android.net.Uri.fromFile(java.io.File(e.filePath)).toString()
         if (e.mediaType == "Audio") {
             val art = if (e.posterFile.startsWith("/")) android.net.Uri.fromFile(java.io.File(e.posterFile)).toString() else ""
-            val track = org.phioster.sanctumd.net.MusicTrack(e.itemId, e.name, e.subtitle, "", fileUri, art)
-            org.phioster.sanctumd.ui.player.MusicController.play(context, listOf(track), 0, emptyMap())
+            val track = MusicTrack(e.itemId, e.name, e.subtitle, "", fileUri, art)
+            MusicController.play(context, listOf(track), 0, emptyMap())
         } else {
-            playRequest = org.phioster.sanctumd.ui.player.PlayRequest(e.itemId, e.name, localFileUri = fileUri)
+            playRequest = PlayRequest(e.itemId, e.name, localFileUri = fileUri)
         }
     }
+    val mediaActions = JellyfinMediaActions(
+        open = ::openMedia,
+        setWatched = setWatched,
+        play = { m -> playRequest = PlayRequest(m.id, m.name) },
+        playDownload = ::playDownload,
+        toggleFolder = ::toggleFolder,
+        manageDownloads = { downloadsManagerOpen = true },
+        message = { actionMsg = it },
+    )
     fun act(action: suspend () -> String) {
         scope.launch { actionMsg = action(); loadSessions() }
     }
@@ -377,17 +340,19 @@ internal fun JellyfinScreen(
                     // Live download indicator — visible from any Jellyfin tab while something downloads.
                     val activeDl = downloads.values.filter {
                         it.serverId == config.id &&
-                            (it.state == org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING ||
-                                it.state == org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED)
+                            (it.state == DownloadEntry.STATE_RUNNING ||
+                                it.state == DownloadEntry.STATE_QUEUED)
                     }
                     if (activeDl.isNotEmpty()) {
-                        val label = if (activeDl.size == 1) "⬇ ${(activeDl.first().progress * 100).toInt()}%" else "⬇ ${activeDl.size}"
-                        Text(
-                            label, fontFamily = Mono, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                            modifier = Modifier
-                                .clickable { mode = 3; browseStack = emptyList() }
-                                .padding(horizontal = 8.dp),
-                        )
+                        val label = if (activeDl.size == 1) "${(activeDl.first().progress * 100).toInt()}%" else "${activeDl.size}"
+                        Row(
+                            Modifier.clickable { mode = 3; bs.stack = emptyList() }.padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(AppIcons.Download, contentDescription = "Downloads", tint = accent, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(label, fontFamily = Mono, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                     Box {
                         IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
@@ -397,7 +362,7 @@ internal fun JellyfinScreen(
                             }
                             DropdownMenuItem(text = { Text("Open in Jellyfin", fontFamily = Mono) }, onClick = { barMenu = false; openExternal(context, jellyfinAppPackages, "${config.normalizedBaseUrl}web/") })
                             DropdownMenuItem(text = { Text("Scan library", fontFamily = Mono) }, onClick = { barMenu = false; scope.launch { actionMsg = vm.jellyfinScan(config) } })
-                            DropdownMenuItem(text = { Text("Restart server", fontFamily = Mono) }, onClick = { barMenu = false; confirmRestart = true })
+                            DropdownMenuItem(text = { Text("Restart server", fontFamily = Mono) }, onClick = { barMenu = false; ad.confirmRestart = true })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
                         }
@@ -407,7 +372,7 @@ internal fun JellyfinScreen(
             )
         },
         bottomBar = {
-            if (musicState.hasMedia) MusicBar(musicState, accent, onToggle = { org.phioster.sanctumd.ui.player.MusicController.playPause() }, onNext = { org.phioster.sanctumd.ui.player.MusicController.next() }, onOpen = { nowPlayingOpen = true })
+            if (musicState.hasMedia) MusicBar(musicState, accent, onToggle = { MusicController.playPause() }, onNext = { MusicController.next() }, onOpen = { nowPlayingOpen = true })
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
@@ -445,7 +410,7 @@ internal fun JellyfinScreen(
                                 refreshing = true
                                 when (mode) {
                                     0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv()
-                                    else -> if (browseStack.isEmpty()) loadMediaHome() else loadMediaFolder(browseStack.last())
+                                    else -> loadMedia()
                                 }
                                 refreshing = false
                             }
@@ -454,7 +419,7 @@ internal fun JellyfinScreen(
                         if (refreshing) {
                             CircularProgressIndicator(Modifier.size(20.dp), color = MatrixGreen, strokeWidth = 2.dp)
                         } else {
-                            Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
+                            Icon(AppIcons.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                         }
                     }
                 }
@@ -472,7 +437,7 @@ internal fun JellyfinScreen(
                 count = jfOrder.size,
                 onChange = { mode = jfOrder[it] },
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                enabled = browseStack.isEmpty() && dashSection == null,
+                enabled = bs.stack.isEmpty() && ad.section == null,
             ) { jfPage ->
                 val pageMode = jfOrder[jfPage]
                 // The media tab still renders when offline — downloads are local and must stay reachable.
@@ -481,545 +446,19 @@ internal fun JellyfinScreen(
                 } else {
                     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
                         when (pageMode) {
-                            0 -> {
-                                val s = sessions
-                                when {
-                                    s == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    s.isEmpty() -> item { Text("no active sessions", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(s) { sess ->
-                                        JellySessionRow(
-                                            item = sess,
-                                            accent = accent,
-                                            onPlayPause = { act { vm.jellyfinControl(config, sess.id, if (sess.paused) "Unpause" else "Pause") } },
-                                            onStop = { act { vm.jellyfinControl(config, sess.id, "Stop") } },
-                                            onMessage = { messageFor = sess.id; messageText = "" },
-                                        )
-                                    }
-                                }
+                            0 -> jellyfinSessionsTab(ps, vm, config, accent, ::act)
+                            1 -> jellyfinUsersTab(ps, accent)
+                            3 -> if (bs.stack.isEmpty()) {
+                                jellyfinMediaHome(bs, config, accent, context, downloads, hiddenSet, mediaStyles, listError, mediaActions)
+                            } else {
+                                jellyfinFolderLevel(bs, vm, config, accent, context, scope, downloads, mediaActions, musicState.currentMediaId)
                             }
-                            1 -> {
-                                val u = users
-                                item {
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(
-                                        "+ new user",
-                                        fontFamily = Mono, color = accent, fontSize = 13.sp,
-                                        modifier = Modifier.fillMaxWidth().clickable { newUserName = ""; newUserPass = ""; showCreateUser = true }.padding(vertical = 6.dp),
-                                    )
-                                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
-                                }
-                                when {
-                                    u == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    u.isEmpty() -> item { Text("no users", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(u) { usr -> JellyUserRow(usr, accent) { editUser = usr } }
-                                }
-                            }
-                            3 -> {
-                                if (browseStack.isEmpty()) {
-                                    val myDownloads = downloads.values
-                                        .filter { it.serverId == config.id }
-                                        .sortedByDescending { it.addedAt }
-                                    if (myDownloads.isNotEmpty()) {
-                                        item {
-                                            Spacer(Modifier.height(8.dp))
-                                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                                Text("DOWNLOADS  ·  offline", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                                                Spacer(Modifier.weight(1f))
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(6.dp))
-                                                        .background(accent.copy(alpha = 0.18f))
-                                                        .border(1.dp, accent.copy(alpha = 0.7f), RoundedCornerShape(6.dp))
-                                                        .clickable { downloadsManagerOpen = true }
-                                                        .padding(horizontal = 10.dp, vertical = 5.dp),
-                                                ) {
-                                                    Icon(Icons.Filled.Settings, contentDescription = null, tint = accent, modifier = Modifier.size(14.dp))
-                                                    Spacer(Modifier.width(5.dp))
-                                                    Text("manage", fontFamily = Mono, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                                }
-                                            }
-                                            Spacer(Modifier.height(6.dp))
-                                            Row(Modifier.horizontalScroll(rememberScrollState())) {
-                                                myDownloads.forEach { e ->
-                                                    DownloadCard(
-                                                        entry = e, accent = accent,
-                                                        onPlay = { if (e.done) playDownload(e) },
-                                                        onDelete = { org.phioster.sanctumd.service.DownloadService.delete(context, e.itemId) },
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                    if (listError != null) {
-                                        // Offline / server unreachable: downloads above still play; the rest needs the server.
-                                        if (myDownloads.isEmpty()) {
-                                            item {
-                                                Spacer(Modifier.height(24.dp))
-                                                Text("nothing downloaded for offline use", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                                            }
-                                        }
-                                        item {
-                                            Spacer(Modifier.height(16.dp))
-                                            Text("server unreachable — showing downloads only", fontFamily = Mono, color = ErrRed.copy(alpha = 0.8f), fontSize = 11.sp)
-                                        }
-                                    } else {
-                                        val res = resumeItems
-                                        val lat = latestItems
-                                        // Hero: the top continue-watching item, else the newest addition.
-                                        val hero = res?.firstOrNull() ?: lat?.firstOrNull()
-                                        if (hero != null) {
-                                            item {
-                                                Spacer(Modifier.height(10.dp))
-                                                MediaHero(
-                                                    hero, config, accent,
-                                                    onSetWatched = { want -> setWatched(hero, want) },
-                                                    onPlay = {
-                                                        if (hero.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
-                                                            playRequest = org.phioster.sanctumd.ui.player.PlayRequest(hero.id, hero.name)
-                                                        } else {
-                                                            openMedia(hero)
-                                                        }
-                                                    },
-                                                    onOpen = { openMedia(hero) },
-                                                )
-                                            }
-                                        }
-                                        val sResume = mediaStyles["resume"] ?: org.phioster.sanctumd.model.MediaRowStyle()
-                                        val sRecent = mediaStyles["recent"] ?: org.phioster.sanctumd.model.MediaRowStyle()
-                                        val sLibs = mediaStyles["libraries"] ?: org.phioster.sanctumd.model.MediaRowStyle()
-                                        fun styleAccent(argb: Long) = if (argb != 0L) Color(argb) else accent
-                                        if (!res.isNullOrEmpty() && !sResume.hidden) {
-                                            item {
-                                                Spacer(Modifier.height(16.dp))
-                                                MediaSectionHeader("CONTINUE WATCHING", styleAccent(sResume.accent))
-                                                Spacer(Modifier.height(8.dp))
-                                                MediaPosterRow(res, config, styleAccent(sResume.accent), sResume, setWatched) { openMedia(it) }
-                                            }
-                                        }
-                                        val favs = favorites
-                                        if (!favs.isNullOrEmpty()) {
-                                            item {
-                                                Spacer(Modifier.height(16.dp))
-                                                MediaSectionHeader("FAVORITES", accent)
-                                                Spacer(Modifier.height(8.dp))
-                                                MediaPosterRow(favs, config, accent, org.phioster.sanctumd.model.MediaRowStyle(), setWatched) { openMedia(it) }
-                                            }
-                                        }
-                                        if (!lat.isNullOrEmpty() && !sRecent.hidden) {
-                                            item {
-                                                Spacer(Modifier.height(16.dp))
-                                                MediaSectionHeader("RECENTLY ADDED", styleAccent(sRecent.accent))
-                                                Spacer(Modifier.height(8.dp))
-                                                MediaPosterRow(lat, config, styleAccent(sRecent.accent), sRecent, setWatched) { openMedia(it) }
-                                            }
-                                        }
-                                        if (!sLibs.hidden) {
-                                            item {
-                                                Spacer(Modifier.height(16.dp))
-                                                MediaSectionHeader("LIBRARIES", styleAccent(sLibs.accent))
-                                                Spacer(Modifier.height(8.dp))
-                                            }
-                                        }
-                                        if (!sLibs.hidden) {
-                                            val v = mediaViews?.filterNot { it.id in hiddenSet }
-                                            when {
-                                                mediaViews == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                v.isNullOrEmpty() -> item { Text(if (hiddenSet.isEmpty()) "no libraries" else "all libraries hidden", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                else -> {
-                                                    // Libraries as a 2-per-row grid of landscape tiles.
-                                                    v.chunked(2).forEachIndexed { idx, pair ->
-                                                        item(key = "librow-$idx") {
-                                                            Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                                                pair.forEach { lib -> MediaLibraryTile(lib, config, Modifier.weight(1f)) { openMedia(lib) } }
-                                                                if (pair.size == 1) Spacer(Modifier.weight(1f))
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        item { Spacer(Modifier.height(16.dp)) }
-                                    }
-                                } else {
-                                    val here = browseStack.last()
-                                    item {
-                                        Spacer(Modifier.height(8.dp))
-                                        BrowseChip("‹ back", accent) { browseStack = browseStack.dropLast(1) }
-                                        Spacer(Modifier.height(10.dp))
-                                        Text(here.name, fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                                        Spacer(Modifier.height(10.dp))
-                                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            if (here.kind == "MusicAlbum") {
-                                                BrowseChip("▶ play album", MatrixGreen) {
-                                                    scope.launch {
-                                                        val tracks = runCatching { vm.jellyfinAlbumTracks(config, here.id, here.name) }.getOrDefault(emptyList())
-                                                        if (tracks.isNotEmpty()) org.phioster.sanctumd.ui.player.MusicController.play(context, tracks, 0, config.customHeaders)
-                                                    }
-                                                }
-                                                val toGetAudio = mediaContents.orEmpty().filter { !it.isFolder && it.kind == "Audio" && downloads[it.id]?.done != true }
-                                                if (toGetAudio.isNotEmpty()) {
-                                                    BrowseChip("⬇ album (${toGetAudio.size})", MatrixGreen) {
-                                                        toGetAudio.forEach { t -> org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, t.id, t.name, t.subtitle, t.posterUrl, 0L, "Audio") }
-                                                        actionMsg = "queued ${toGetAudio.size} downloads"
-                                                    }
-                                                }
-                                            }
-                                            val nextUnwatched = mediaContents.orEmpty().filter {
-                                                !it.isFolder && !it.played && it.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS && downloads[it.id]?.done != true
-                                            }.take(3)
-                                            if (nextUnwatched.size > 1) {
-                                                BrowseChip("⬇ next ${nextUnwatched.size} unwatched", MatrixGreen) {
-                                                    nextUnwatched.forEach { ep -> org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, ep.id, ep.name, ep.subtitle, ep.posterUrl, 0L) }
-                                                    actionMsg = "queued ${nextUnwatched.size} downloads"
-                                                }
-                                            }
-                                            val toGet = mediaContents.orEmpty().filter { !it.isFolder && it.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS && downloads[it.id]?.done != true }
-                                            if (toGet.isNotEmpty()) {
-                                                BrowseChip("⬇ all (${toGet.size})", MatrixGreen) {
-                                                    toGet.forEach { ep -> org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, ep.id, ep.name, ep.subtitle, ep.posterUrl, 0L) }
-                                                    actionMsg = "queued ${toGet.size} downloads"
-                                                }
-                                            }
-                                            BrowseChip("⟳ scan", MatrixGreen.copy(alpha = 0.85f)) { scope.launch { actionMsg = vm.jellyfinScanLibrary(config, here.id) } }
-                                        }
-                                        Spacer(Modifier.height(8.dp))
-                                        // Sort + filter. Sorting and "unwatched only" are server-side
-                                        // (the folder may hold more than one page); the text box just
-                                        // narrows what's already loaded.
-                                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            listOf(
-                                                "IsFolder,SortName" to "name",
-                                                "DateCreated" to "added",
-                                                "PremiereDate" to "released",
-                                                "CommunityRating" to "rating",
-                                            ).forEach { (key, label) ->
-                                                val on = browseSort == key
-                                                Text(
-                                                    if (on) "$label ${if (browseDesc) "↓" else "↑"}" else label,
-                                                    fontFamily = Mono, fontSize = 12.sp,
-                                                    color = if (on) Black else MatrixGreen,
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(6.dp))
-                                                        .background(if (on) MatrixGreen else Color.Transparent)
-                                                        .border(1.dp, MatrixGreen.copy(alpha = if (on) 0f else 0.3f), RoundedCornerShape(6.dp))
-                                                        .clickable {
-                                                            if (on) browseDesc = !browseDesc
-                                                            else { browseSort = key; browseDesc = key != "IsFolder,SortName" }
-                                                        }
-                                                        .padding(horizontal = 10.dp, vertical = 5.dp),
-                                                )
-                                            }
-                                            Text(
-                                                "unwatched",
-                                                fontFamily = Mono, fontSize = 12.sp,
-                                                color = if (browseUnwatched) Black else MatrixGreen,
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(6.dp))
-                                                    .background(if (browseUnwatched) MatrixGreen else Color.Transparent)
-                                                    .border(1.dp, MatrixGreen.copy(alpha = if (browseUnwatched) 0f else 0.3f), RoundedCornerShape(6.dp))
-                                                    .clickable { browseUnwatched = !browseUnwatched }
-                                                    .padding(horizontal = 10.dp, vertical = 5.dp),
-                                            )
-                                        }
-                                        Spacer(Modifier.height(8.dp))
-                                        OutlinedTextField(
-                                            value = browseFilter,
-                                            onValueChange = { browseFilter = it },
-                                            placeholder = { Text("filter…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.4f), fontSize = 13.sp) },
-                                            singleLine = true,
-                                            textStyle = androidx.compose.ui.text.TextStyle(fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp),
-                                            colors = OutlinedTextFieldDefaults.colors(
-                                                focusedBorderColor = MatrixGreen.copy(alpha = 0.6f),
-                                                unfocusedBorderColor = MatrixGreen.copy(alpha = 0.25f),
-                                                cursorColor = MatrixGreen,
-                                            ),
-                                            modifier = Modifier.fillMaxWidth().height(52.dp),
-                                        )
-                                        Spacer(Modifier.height(6.dp))
-                                        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
-                                    }
-                                    val m = mediaContents?.let { list ->
-                                        if (browseFilter.isBlank()) list
-                                        else list.filter { it.name.contains(browseFilter, ignoreCase = true) }
-                                    }
-                                    when {
-                                        m == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
-                                        m.isEmpty() -> item { Text("empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
-                                        // Audio tracks read better as a list; everything else as a 3-column poster grid.
-                                        m.any { it.kind == "Audio" } -> items(m) { it2 -> JellyMediaRow(it2, config, accent, { want -> setWatched(it2, want) }) { openMedia(it2) } }
-                                        // Seasons and albums expand in place instead of forcing a drill-in.
-                                        m.all { it.isFolder && (it.kind == "Season" || it.kind == "MusicAlbum") } ->
-                                            items(m, key = { "acc-${it.id}" }) { f ->
-                                                ExpandableFolderRow(
-                                                    folder = f,
-                                                    children = folderChildren[f.id],
-                                                    config = config,
-                                                    accent = accent,
-                                                    expanded = f.id in expandedFolders,
-                                                    onToggle = { toggleFolder(f) },
-                                                    onOpenFolder = { openMedia(f) },
-                                                    onOpenChild = { openMedia(it) },
-                                                    onSetWatched = setWatched,
-                                                )
-                                            }
-                                        else -> {
-                                            m.chunked(3).forEachIndexed { idx, rowItems ->
-                                                item(key = "browserow-$idx") {
-                                                    Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                        rowItems.forEach { it2 -> MediaGridCard(it2, config, accent, Modifier.weight(1f), { want -> setWatched(it2, want) }) { openMedia(it2) } }
-                                                        repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
-                                                    }
-                                                }
-                                            }
-                                            item { Spacer(Modifier.height(16.dp)) }
-                                        }
-                                    }
-                                }
-                            }
-                            2 -> {
-                                if (dashSection == null) {
-                                    // ── Overview: server card + clickable category tiles ──
-                                    item {
-                                        val si = dashInfo
-                                        Spacer(Modifier.height(8.dp))
-                                        Row(
-                                            Modifier.fillMaxWidth()
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .background(MatrixGreen.copy(alpha = 0.06f))
-                                                .border(1.dp, MatrixGreen.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
-                                                .padding(14.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            Icon(Icons.Filled.Dns, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
-                                            Spacer(Modifier.width(10.dp))
-                                            Column {
-                                                Text(si?.serverName ?: "…", fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                                Text("v${si?.version ?: "…"}${if (!si?.os.isNullOrBlank()) " · ${si!!.os}" else ""}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
-                                            }
-                                        }
-                                        Spacer(Modifier.height(12.dp))
-                                        val cats = listOf(
-                                            DashCat("tasks", "Tasks", tasks?.size, Icons.Filled.Schedule),
-                                            DashCat("activity", "Activity", activity?.size, Icons.Filled.History),
-                                            DashCat("libraries", "Libraries", libraries?.size, Icons.Filled.VideoLibrary),
-                                            DashCat("plugins", "Plugins", plugins?.size, Icons.Filled.Extension),
-                                            DashCat("logs", "Logs", logFiles?.size, Icons.Filled.Description),
-                                            DashCat("devices", "Devices", devices?.size, Icons.Filled.Devices),
-                                        )
-                                        cats.chunked(2).forEach { rowCats ->
-                                            Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                                rowCats.forEach { c ->
-                                                    DashTile(c.label, c.count, c.icon, accent, Modifier.weight(1f)) { dashSection = c.key }
-                                                }
-                                                if (rowCats.size == 1) Spacer(Modifier.weight(1f))
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    // ── One category, opened from a tile ──
-                                    item {
-                                        Spacer(Modifier.height(8.dp))
-                                        Row(
-                                            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { dashSection = null }.padding(vertical = 8.dp, horizontal = 4.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = accent, modifier = Modifier.size(18.dp))
-                                            Spacer(Modifier.width(6.dp))
-                                            Text(dashSection!!.uppercase(), fontFamily = Mono, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                        }
-                                        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
-                                    }
-                                    when (dashSection) {
-                                        "tasks" -> {
-                                            val tk = tasks
-                                            when {
-                                                tk == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                else -> items(tk) { t -> JellyTaskRow(t, accent) { scope.launch { actionMsg = vm.jellyfinRunTaskById(config, t.id); loadDashboard() } } }
-                                            }
-                                        }
-                                        "activity" -> {
-                                            val ac = activity
-                                            when {
-                                                ac == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                ac.isEmpty() -> item { Text("no activity", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                else -> items(ac) { e -> JellyActivityRow(e, accent) }
-                                            }
-                                        }
-                                        "libraries" -> {
-                                            item {
-                                                Text(
-                                                    "+ add library",
-                                                    fontFamily = Mono, color = accent, fontSize = 13.sp,
-                                                    modifier = Modifier.fillMaxWidth().clickable { showAddLibrary = true }.padding(vertical = 8.dp),
-                                                )
-                                                HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
-                                            }
-                                            val lb = libraries
-                                            when {
-                                                lb == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                lb.isEmpty() -> item { Text("no libraries", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                else -> items(lb) { l -> JellyLibraryRow(l, accent) { editLibrary = l } }
-                                            }
-                                        }
-                                        "plugins" -> {
-                                            item {
-                                                Text(
-                                                    "+ plugin catalog",
-                                                    fontFamily = Mono, color = accent, fontSize = 13.sp,
-                                                    modifier = Modifier.fillMaxWidth().clickable {
-                                                        catalog = null; showCatalog = true
-                                                        scope.launch { catalog = runCatching { vm.jellyfinCatalog(config) }.getOrDefault(emptyList()) }
-                                                    }.padding(vertical = 8.dp),
-                                                )
-                                                HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
-                                            }
-                                            val pl = plugins
-                                            when {
-                                                pl == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                pl.isEmpty() -> item { Text("no plugins", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                else -> items(pl) { p -> JellyPluginRow(p, accent) { pluginDetail = p } }
-                                            }
-                                        }
-                                        "logs" -> {
-                                            val lg = logFiles
-                                            when {
-                                                lg == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                lg.isEmpty() -> item { Text("no logs", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                else -> items(lg) { f ->
-                                                    JellyLogRow(f, accent) {
-                                                        logView = f.name; logText = null
-                                                        scope.launch { logText = vm.jellyfinLogText(config, f.name) }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        "devices" -> {
-                                            val dv = devices
-                                            when {
-                                                dv == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                dv.isEmpty() -> item { Text("no devices", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                                else -> items(dv) { d -> JellyDeviceRow(d, accent) }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            4 -> {
-                                val tv = liveTv
-                                item {
-                                    Spacer(Modifier.height(8.dp))
-                                    when {
-                                        tv == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f))
-                                        !tv.enabled -> Text("Live TV is not enabled on this server", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                                        else -> tv.services.forEach { s ->
-                                            Text(s, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
-                                        }
-                                    }
-                                    Spacer(Modifier.height(12.dp))
-                                    Text("TUNERS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                                    Text(
-                                        "+ add tuner",
-                                        fontFamily = Mono, color = accent, fontSize = 13.sp,
-                                        modifier = Modifier.fillMaxWidth().clickable { showAddTuner = true }.padding(vertical = 6.dp),
-                                    )
-                                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
-                                }
-                                val tuners = tv?.tuners
-                                when {
-                                    tuners == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                    tuners.isEmpty() -> item { Text("no tuners", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                    else -> items(tuners) { t ->
-                                        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                                Column(Modifier.weight(1f)) {
-                                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                        Text(t.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                                                        Text(t.type, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp)
-                                                    }
-                                                    Spacer(Modifier.height(2.dp))
-                                                    Text(t.url, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                }
-                                                Text(
-                                                    if (confirmDeleteTuner == t.id) "remove?" else "✕",
-                                                    fontFamily = Mono, color = ErrRed, fontSize = 12.sp,
-                                                    modifier = Modifier.clickable {
-                                                        if (confirmDeleteTuner == t.id) scope.launch { actionMsg = vm.jellyfinTunerDelete(config, t.id); loadLiveTv() }
-                                                        else confirmDeleteTuner = t.id
-                                                    }.padding(start = 12.dp),
-                                                )
-                                            }
-                                            Spacer(Modifier.height(6.dp))
-                                            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
-                                        }
-                                    }
-                                }
-                                item {
-                                    Spacer(Modifier.height(12.dp))
-                                    Text("GUIDE PROVIDERS", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                                    Text(
-                                        "+ add xmltv guide",
-                                        fontFamily = Mono, color = accent, fontSize = 13.sp,
-                                        modifier = Modifier.fillMaxWidth().clickable { showAddProvider = true }.padding(vertical = 6.dp),
-                                    )
-                                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
-                                }
-                                val providers = tv?.providers
-                                when {
-                                    providers == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                    providers.isEmpty() -> item { Text("no guide providers", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                    else -> items(providers) { p ->
-                                        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                                Column(Modifier.weight(1f)) {
-                                                    Text(p.type, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
-                                                    if (p.path.isNotBlank()) {
-                                                        Spacer(Modifier.height(2.dp))
-                                                        Text(p.path, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                    }
-                                                }
-                                                Text(
-                                                    if (confirmDeleteProvider == p.id) "remove?" else "✕",
-                                                    fontFamily = Mono, color = ErrRed, fontSize = 12.sp,
-                                                    modifier = Modifier.clickable {
-                                                        if (confirmDeleteProvider == p.id) scope.launch { actionMsg = vm.jellyfinProviderDelete(config, p.id); loadLiveTv() }
-                                                        else confirmDeleteProvider = p.id
-                                                    }.padding(start = 12.dp),
-                                                )
-                                            }
-                                            Spacer(Modifier.height(6.dp))
-                                            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
-                                        }
-                                    }
-                                }
-                                val ch = channels
-                                item {
-                                    Spacer(Modifier.height(12.dp))
-                                    Text("CHANNELS${if (!ch.isNullOrEmpty()) " (${ch.size})" else ""}", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                                }
-                                // Guide data expires daily — if no channel knows its current
-                                // program, offer to run the server's "Refresh Guide" task.
-                                if (!ch.isNullOrEmpty() && ch.none { it.nowPlaying.isNotBlank() }) {
-                                    item {
-                                        Text(
-                                            "no program data — guide may be stale · ⟳ refresh guide",
-                                            fontFamily = Mono, color = accent, fontSize = 12.sp,
-                                            modifier = Modifier.fillMaxWidth().clickable {
-                                                scope.launch {
-                                                    val task = runCatching { vm.jellyfinTaskList(config) }.getOrNull()
-                                                        ?.firstOrNull { it.name.contains("Guide", ignoreCase = true) }
-                                                    actionMsg = if (task == null) "guide task not found" else vm.jellyfinRunTaskById(config, task.id)
-                                                }
-                                            }.padding(vertical = 8.dp),
-                                        )
-                                    }
-                                }
-                                when {
-                                    ch == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                    ch.isEmpty() -> item { Text("no channels", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                                    else -> items(ch) { c -> JellyChannelRow(c, accent) }
-                                }
-                            }
+                            2 -> jellyfinDashboardTab(ad, vm, config, accent, scope, { actionMsg = it }) { loadDashboard() }
+                            4 -> jellyfinLiveTvTab(
+                                tvState, vm, config, accent, scope,
+                                onMessage = { actionMsg = it },
+                                onReload = { scope.launch { listError = tvState.reload(vm, config) } },
+                            )
                         }
                     }
                 }
@@ -1027,27 +466,12 @@ internal fun JellyfinScreen(
         }
     }
 
-    messageFor?.let { sid ->
-        AlertDialog(
-            onDismissRequest = { messageFor = null },
-            containerColor = Surface,
-            title = { Text("Send message", fontFamily = Mono, color = MatrixGreen) },
-            text = { Field("Message", messageText) { messageText = it } },
-            confirmButton = {
-                TextButton(enabled = messageText.isNotBlank(), onClick = {
-                    val txt = messageText; messageFor = null
-                    scope.launch { actionMsg = vm.jellyfinMessage(config, sid, txt) }
-                }) { Text("Send", fontFamily = Mono, color = MatrixGreen) }
-            },
-            dismissButton = { TextButton(onClick = { messageFor = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
 
-    downloadQuality?.let { d ->
+    ds.downloadQuality?.let { d ->
         // Original file vs. a transcoded, smaller copy. The server re-encodes on the fly for the
         // capped options, so the size shown on the card is an estimate until it finishes.
         AlertDialog(
-            onDismissRequest = { downloadQuality = null },
+            onDismissRequest = { ds.downloadQuality = null },
             containerColor = Surface,
             title = { Text("download quality", fontFamily = Mono, color = MatrixGreen) },
             text = {
@@ -1062,8 +486,8 @@ internal fun JellyfinScreen(
                             label,
                             fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp,
                             modifier = Modifier.fillMaxWidth().clickable {
-                                downloadQuality = null
-                                org.phioster.sanctumd.service.DownloadService.enqueue(
+                                ds.downloadQuality = null
+                                DownloadService.enqueue(
                                     context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L, "Video", bitrate,
                                 )
                                 actionMsg = "download queued"
@@ -1072,21 +496,21 @@ internal fun JellyfinScreen(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { downloadQuality = null }) { Text("cancel", fontFamily = Mono, color = MatrixGreen) } },
+            confirmButton = { TextButton(onClick = { ds.downloadQuality = null }) { Text("cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
 
-    castTarget?.let { d ->
+    ds.cast?.let { d ->
         // Hand the item to another Jellyfin client. Only sessions that accept remote control and
         // aren't this phone are useful here.
-        val targets = sessions.orEmpty().filter { it.canControl }
+        val targets = ps.sessions.orEmpty().filter { it.canControl }
         AlertDialog(
-            onDismissRequest = { castTarget = null },
+            onDismissRequest = { ds.cast = null },
             containerColor = Surface,
             title = { Text("play on…", fontFamily = Mono, color = MatrixGreen) },
             text = {
                 Column {
-                    if (sessions == null) {
+                    if (ps.sessions == null) {
                         Text("loading devices…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 13.sp)
                     } else if (targets.isEmpty()) {
                         Text(
@@ -1097,7 +521,7 @@ internal fun JellyfinScreen(
                         targets.forEach { t ->
                             Column(
                                 Modifier.fillMaxWidth().clickable {
-                                    castTarget = null
+                                    ds.cast = null
                                     scope.launch { actionMsg = vm.jellyfinPlayOn(config, t.id, d.id) }
                                 }.padding(vertical = 8.dp),
                             ) {
@@ -1111,13 +535,13 @@ internal fun JellyfinScreen(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { castTarget = null }) { Text("close", fontFamily = Mono, color = MatrixGreen) } },
+            confirmButton = { TextButton(onClick = { ds.cast = null }) { Text("close", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
 
-    confirmWatched?.let { (wid, wname, want) ->
+    ds.confirmWatched?.let { (wid, wname, want) ->
         AlertDialog(
-            onDismissRequest = { confirmWatched = null },
+            onDismissRequest = { ds.confirmWatched = null },
             containerColor = Surface,
             title = { Text(if (want) "Mark everything watched?" else "Mark everything unwatched?", fontFamily = Mono, color = MatrixGreen) },
             text = {
@@ -1127,406 +551,42 @@ internal fun JellyfinScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = { confirmWatched = null; applyWatched(wid, wname, want) }) {
+                TextButton(onClick = { ds.confirmWatched = null; applyWatched(wid, wname, want) }) {
                     Text(if (want) "mark watched" else "mark unwatched", fontFamily = Mono, color = MatrixGreen)
                 }
             },
-            dismissButton = { TextButton(onClick = { confirmWatched = null }) { Text("cancel", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f)) } },
+            dismissButton = { TextButton(onClick = { ds.confirmWatched = null }) { Text("cancel", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f)) } },
         )
     }
 
-    if (confirmRestart) {
-        AlertDialog(
-            onDismissRequest = { confirmRestart = false },
-            containerColor = Surface,
-            title = { Text("Restart server?", fontFamily = Mono, color = MatrixGreen) },
-            text = { Text("This restarts the Jellyfin server for everyone.", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 13.sp) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmRestart = false
-                    scope.launch {
-                        restartInProgress = true
-                        actionMsg = "restarting…"
-                        val r = vm.jellyfinRestartServer(config)
-                        if (r.startsWith("error")) {
-                            restartInProgress = false
-                            actionMsg = r
-                            return@launch
-                        }
-                        // Give the server a moment to actually go down, then poll until it answers again.
-                        kotlinx.coroutines.delay(3000)
-                        actionMsg = "restarting… waiting for server to come back"
-                        var back = false
-                        val deadline = System.currentTimeMillis() + 120_000
-                        while (System.currentTimeMillis() < deadline) {
-                            if (runCatching { vm.jellyfinInfo(config) }.getOrNull() != null) { back = true; break }
-                            kotlinx.coroutines.delay(3000)
-                        }
-                        restartInProgress = false
-                        if (back) {
-                            actionMsg = "✓ server back online"
-                            loadDashboard()
-                        } else {
-                            actionMsg = "restart sent — server hasn't responded yet"
-                        }
-                    }
-                }) {
-                    Text("Restart", fontFamily = Mono, color = ErrRed)
-                }
-            },
-            dismissButton = { TextButton(onClick = { confirmRestart = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
 
-    if (showCreateUser) {
-        AlertDialog(
-            onDismissRequest = { showCreateUser = false },
-            containerColor = Surface,
-            title = { Text("New user", fontFamily = Mono, color = MatrixGreen) },
-            text = {
-                Column {
-                    Field("Username", newUserName) { newUserName = it }
-                    Field("Password (optional)", newUserPass, isPassword = true) { newUserPass = it }
-                }
-            },
-            confirmButton = {
-                TextButton(enabled = newUserName.isNotBlank(), onClick = {
-                    val n = newUserName; val p = newUserPass; showCreateUser = false
-                    scope.launch { actionMsg = vm.jellyfinAddUser(config, n, p); loadUsers() }
-                }) { Text("Create", fontFamily = Mono, color = MatrixGreen) }
-            },
-            dismissButton = { TextButton(onClick = { showCreateUser = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
 
-    editUser?.let { usr ->
-        JellyUserDialog(
-            user = usr,
-            libraries = libraries,
-            onDismiss = { editUser = null },
-            onSave = { admin, disabled, allowDownloads, enableAll, folders ->
-                editUser = null
-                scope.launch {
-                    actionMsg = vm.jellyfinUpdatePolicy(config, usr.id, admin, disabled, allowDownloads, enableAll, folders)
-                    loadUsers()
-                }
-            },
-            onResetPassword = { newPw ->
-                scope.launch { actionMsg = vm.jellyfinResetPassword(config, usr.id, newPw) }
-            },
-            onDelete = {
-                editUser = null
-                scope.launch { actionMsg = vm.jellyfinRemoveUser(config, usr.id); loadUsers() }
-            },
-        )
-    }
 
-    if (showAddLibrary) {
-        JellyAddLibraryDialog(
-            accent = accent,
-            onDismiss = { showAddLibrary = false },
-            onCreate = { name, type, path ->
-                showAddLibrary = false
-                scope.launch { actionMsg = vm.jellyfinCreateLibrary(config, name, type, path); loadDashboard() }
-            },
-        )
-    }
 
-    editLibrary?.let { lib ->
-        JellyLibraryDialog(
-            library = lib,
-            accent = accent,
-            onDismiss = { editLibrary = null },
-            onRename = { newName ->
-                editLibrary = null
-                scope.launch { actionMsg = vm.jellyfinRenameLibraryTo(config, lib.name, newName); loadDashboard() }
-            },
-            onAddPath = { path ->
-                editLibrary = null
-                scope.launch { actionMsg = vm.jellyfinLibraryAddPath(config, lib.name, path); loadDashboard() }
-            },
-            onRemovePath = { path ->
-                editLibrary = null
-                scope.launch { actionMsg = vm.jellyfinLibraryRemovePath(config, lib.name, path); loadDashboard() }
-            },
-            onDelete = {
-                editLibrary = null
-                scope.launch { actionMsg = vm.jellyfinRemoveLibrary(config, lib.name); loadDashboard() }
-            },
-        )
-    }
 
-    pluginDetail?.let { p ->
-        JellyPluginDialog(
-            plugin = p,
-            accent = accent,
-            onDismiss = { pluginDetail = null },
-            onToggle = {
-                pluginDetail = null
-                scope.launch { actionMsg = vm.jellyfinPluginEnable(config, p.id, p.version, p.status.equals("Disabled", true)); loadDashboard() }
-            },
-            onUninstall = {
-                pluginDetail = null
-                scope.launch { actionMsg = vm.jellyfinPluginUninstall(config, p.id, p.version); loadDashboard() }
-            },
-        )
-    }
 
-    if (showCatalog) {
-        JellyCatalogDialog(
-            catalog = catalog,
-            accent = accent,
-            onDismiss = { showCatalog = false },
-            onInstall = { pkg ->
-                showCatalog = false
-                scope.launch { actionMsg = vm.jellyfinCatalogInstall(config, pkg.name, pkg.guid); loadDashboard() }
-            },
-        )
-    }
 
-    if (showAddTuner) {
-        var tunerType by remember { mutableStateOf("m3u") }
-        var tunerUrl by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showAddTuner = false },
-            containerColor = Surface,
-            title = { Text("New tuner", fontFamily = Mono, color = MatrixGreen) },
-            text = {
-                Column {
-                    Text("TYPE", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                    Row {
-                        listOf("m3u" to "M3U playlist", "hdhomerun" to "HDHomeRun").forEach { (key, label) ->
-                            FilterChip(
-                                selected = tunerType == key,
-                                onClick = { tunerType = key },
-                                label = { Text(label, fontFamily = Mono, fontSize = 11.sp) },
-                                modifier = Modifier.padding(end = 6.dp),
-                            )
-                        }
-                    }
-                    Field(if (tunerType == "m3u") "Playlist URL or file path" else "Device address", tunerUrl) { tunerUrl = it }
-                }
-            },
-            confirmButton = {
-                TextButton(enabled = tunerUrl.isNotBlank(), onClick = {
-                    val ty = tunerType; val u = tunerUrl.trim(); showAddTuner = false
-                    scope.launch { actionMsg = vm.jellyfinTunerAdd(config, ty, u); loadLiveTv() }
-                }) { Text("Add", fontFamily = Mono, color = MatrixGreen) }
-            },
-            dismissButton = { TextButton(onClick = { showAddTuner = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
+    JellyfinLiveTvDialogs(tvState, vm, config, scope, { actionMsg = it }) { scope.launch { listError = tvState.reload(vm, config) } }
 
-    if (showAddProvider) {
-        var providerPath by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showAddProvider = false },
-            containerColor = Surface,
-            title = { Text("New XMLTV guide", fontFamily = Mono, color = MatrixGreen) },
-            text = { Field("XMLTV URL or file path", providerPath) { providerPath = it } },
-            confirmButton = {
-                TextButton(enabled = providerPath.isNotBlank(), onClick = {
-                    val p = providerPath.trim(); showAddProvider = false
-                    scope.launch { actionMsg = vm.jellyfinProviderAdd(config, p); loadLiveTv() }
-                }) { Text("Add", fontFamily = Mono, color = MatrixGreen) }
-            },
-            dismissButton = { TextButton(onClick = { showAddProvider = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
+    JellyfinPeopleDialogs(ps, vm, config, ad.libraries, scope, { actionMsg = it }) { loadUsers() }
 
-    logView?.let { name ->
-        AlertDialog(
-            onDismissRequest = { logView = null },
-            containerColor = Surface,
-            title = { Text(name, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            text = {
-                Box(Modifier.fillMaxWidth().heightIn(min = 200.dp, max = 480.dp).verticalScroll(rememberScrollState())) {
-                    Text(
-                        logText ?: "loading…",
-                        fontFamily = Mono,
-                        color = if (logText?.startsWith("error") == true) ErrRed else MatrixGreen.copy(alpha = 0.85f),
-                        fontSize = 9.sp,
-                        lineHeight = 12.sp,
-                    )
-                }
-            },
-            confirmButton = { TextButton(onClick = { logView = null }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
+    JellyfinAdminDialogs(ad, vm, config, accent, scope, { actionMsg = it }) { loadDashboard() }
 
-    mediaDetail?.let { d ->
-        val dl = downloads[d.id]
-        Box(Modifier.fillMaxSize().background(Black)) {
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                // ── Banner: a blurred poster backdrop with the sharp poster + title on top ──
-                Box(Modifier.fillMaxWidth().height(320.dp)) {
-                    if (d.posterUrl.isNotBlank()) {
-                        JellyPoster(d.posterUrl, config, Modifier.matchParentSize().blur(28.dp), RectangleShape, ContentScale.Crop)
-                    } else {
-                        Box(Modifier.matchParentSize().background(Surface))
-                    }
-                    Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Black.copy(alpha = 0.35f), Black.copy(alpha = 0.65f), Black))))
-                    Row(Modifier.align(Alignment.BottomStart).padding(16.dp), verticalAlignment = Alignment.Bottom) {
-                        if (d.posterUrl.isNotBlank()) {
-                            Box {
-                                JellyPoster(d.posterUrl, config, Modifier.width(120.dp).height(180.dp), RoundedCornerShape(8.dp), ContentScale.Crop)
-                                if (d.played) WatchedBadge(accent, Modifier.align(Alignment.TopEnd), size = 22.dp)
-                            }
-                            Spacer(Modifier.width(14.dp))
-                        }
-                        Column(Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (d.played && d.posterUrl.isBlank()) {
-                                    WatchedBadge(accent, size = 18.dp)
-                                    Spacer(Modifier.width(6.dp))
-                                }
-                                Text(d.name, fontFamily = Mono, color = MatrixGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                            }
-                            if (d.subtitle.isNotBlank()) {
-                                Spacer(Modifier.height(4.dp))
-                                Text(d.subtitle, fontFamily = Mono, color = accent.copy(alpha = 0.85f), fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            }
-                            val quick = d.facts.take(3).joinToString("  ·  ") { it.second }
-                            if (quick.isNotBlank()) {
-                                Spacer(Modifier.height(6.dp))
-                                Text(quick, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                    }
-                }
-                // ── Body ──
-                Column(Modifier.padding(horizontal = 16.dp)) {
-                    Spacer(Modifier.height(14.dp))
-                    if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
-                        PrimaryButton("play", Modifier.fillMaxWidth(), icon = Icons.Filled.PlayArrow) {
-                            mediaDetail = null; playRequest = org.phioster.sanctumd.ui.player.PlayRequest(d.id, d.name)
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        val startDownload = { downloadQuality = d }
-                        when (dl?.state) {
-                            org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
-                                Hint("✓  downloaded — play it from the DOWNLOADS row", Modifier.padding(vertical = 8.dp))
-                            org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING, org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED ->
-                                SecondaryButton("⬇  ${(dl.progress * 100).toInt()}%  ·  cancel", Modifier.fillMaxWidth()) { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) }
-                            org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED ->
-                                SecondaryButton("⚠  download failed — retry", Modifier.fillMaxWidth(), accent = ErrRed) { startDownload() }
-                            else ->
-                                SecondaryButton("⬇  download", Modifier.fillMaxWidth()) { startDownload() }
-                        }
-                        Spacer(Modifier.height(12.dp))
-                    }
-                    if (d.kind == "Audio") {
-                        PrimaryButton("play", Modifier.fillMaxWidth(), icon = Icons.Filled.PlayArrow) {
-                            mediaDetail = null
-                            scope.launch {
-                                val track = runCatching { vm.jellyfinTrack(config, d.id) }.getOrNull()
-                                if (track != null) org.phioster.sanctumd.ui.player.MusicController.play(context, listOf(track), 0, config.customHeaders)
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        when (dl?.state) {
-                            org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
-                                Hint("✓  downloaded", Modifier.padding(vertical = 8.dp))
-                            org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING, org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED ->
-                                SecondaryButton("⬇  ${(dl.progress * 100).toInt()}%  ·  cancel", Modifier.fillMaxWidth()) { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) }
-                            else ->
-                                SecondaryButton("⬇  download", Modifier.fillMaxWidth()) { org.phioster.sanctumd.service.DownloadService.enqueue(context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L, "Audio") }
-                        }
-                        Spacer(Modifier.height(12.dp))
-                    }
-                    // Favourite + cast, side by side above the watched toggle.
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SecondaryButton(
-                            if (d.favorite) "♥  favorite" else "♡  favorite",
-                            Modifier.weight(1f),
-                        ) {
-                            scope.launch {
-                                runCatching { vm.jellyfinSetFavorite(config, d.id, !d.favorite) }
-                                    .onSuccess {
-                                        actionMsg = if (d.favorite) "removed from favorites" else "added to favorites"
-                                        mediaDetail = runCatching { vm.jellyfinMediaDetail(config, d.id) }.getOrNull() ?: mediaDetail
-                                        favorites = runCatching { vm.jellyfinFavoriteList(config) }.getOrNull() ?: favorites
-                                    }
-                                    .onFailure { actionMsg = "could not update: ${it.message ?: "failed"}" }
-                            }
-                        }
-                        if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
-                            SecondaryButton("▶  play on…", Modifier.weight(1f)) {
-                                castTarget = d
-                                scope.launch { sessions = runCatching { vm.jellyfinSessionList(config) }.getOrNull() ?: sessions }
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    // Watched toggle — the explicit counterpart to the poster badge (and the only way
-                    // to mark something watched that has no badge yet).
-                    if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS || d.kind in setOf("Series", "Season")) {
-                        val folder = d.kind in setOf("Series", "Season")
-                        SecondaryButton(
-                            if (d.played) "✓  watched  ·  mark unwatched" else "mark as watched",
-                            Modifier.fillMaxWidth(),
-                        ) {
-                            if (folder) confirmWatched = Triple(d.id, d.name, !d.played)
-                            else applyWatched(d.id, d.name, !d.played)
-                        }
-                        Spacer(Modifier.height(12.dp))
-                    }
-                    if (d.facts.isNotEmpty()) {
-                        d.facts.chunked(2).forEach { pair ->
-                            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                                pair.forEach { (k, v) ->
-                                    Column(Modifier.weight(1f)) {
-                                        Text(v, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text(k.uppercase(), fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 9.sp)
-                                    }
-                                }
-                                if (pair.size == 1) Spacer(Modifier.weight(1f))
-                            }
-                        }
-                    }
-                    if (d.genres.isNotBlank()) {
-                        Spacer(Modifier.height(2.dp))
-                        Text(d.genres, fontFamily = Mono, color = accent.copy(alpha = 0.85f), fontSize = 11.sp)
-                    }
-                    if (d.overview.isNotBlank()) {
-                        Spacer(Modifier.height(12.dp))
-                        Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp, lineHeight = 17.sp)
-                    }
-                    if (d.cast.isNotEmpty()) {
-                        Spacer(Modifier.height(16.dp))
-                        MediaSectionHeader("CAST", accent)
-                        Spacer(Modifier.height(8.dp))
-                        Row(Modifier.horizontalScroll(rememberScrollState())) {
-                            d.cast.forEach { member ->
-                                Column(Modifier.width(84.dp).padding(end = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    if (member.profileUrl.isNotBlank()) {
-                                        JellyPoster(member.profileUrl, config, Modifier.size(72.dp).clip(RoundedCornerShape(36.dp)), RoundedCornerShape(36.dp), ContentScale.Crop)
-                                    } else {
-                                        Box(Modifier.size(72.dp).clip(RoundedCornerShape(36.dp)).background(Surface))
-                                    }
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(member.name, fontFamily = Mono, color = MatrixGreen, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-                                    if (member.character.isNotBlank()) {
-                                        Text(member.character, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(24.dp))
-                }
-                Spacer(Modifier.navigationBarsPadding())
-            }
-            // ── Top bar overlay: back + open-in-Jellyfin ──
-            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { mediaDetail = null }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = { openExternal(context, jellyfinAppPackages, "${config.normalizedBaseUrl}web/#/details?id=${d.id}") }) {
-                    Icon(Icons.Filled.OpenInNew, contentDescription = "Open in Jellyfin", tint = accent)
-                }
-            }
-        }
-    }
+
+    JellyfinDetailSheet(
+        state = ds,
+        vm = vm,
+        config = config,
+        accent = accent,
+        downloads = downloads,
+        favorites = bs.favorites,
+        sessions = ps.sessions,
+        onFavorites = { bs.favorites = it },
+        onSessions = { ps.sessions = it },
+        onMessage = { actionMsg = it },
+        onPlay = { playRequest = it },
+        onWatched = { id, name, want -> applyWatched(id, name, want) },
+    )
 
     // Full-screen playback overlay, on top of everything in this screen.
     if (libraryFilterOpen) {
@@ -1536,7 +596,7 @@ internal fun JellyfinScreen(
             title = { Text("show libraries", fontFamily = Mono, color = MatrixGreen) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    mediaViews.orEmpty().forEach { view ->
+                    bs.views.orEmpty().forEach { view ->
                         val shown = view.id !in hiddenSet
                         Row(
                             Modifier.fillMaxWidth().clickable {
@@ -1572,7 +632,7 @@ internal fun JellyfinScreen(
                             Spacer(Modifier.width(12.dp))
                             Text(label, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp)
                             Spacer(Modifier.weight(1f))
-                            if ((mediaStyles[key] ?: org.phioster.sanctumd.model.MediaRowStyle()).hidden) {
+                            if ((mediaStyles[key] ?: MediaRowStyle()).hidden) {
                                 Text("hidden", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.4f), fontSize = 10.sp)
                             }
                         }
@@ -1582,7 +642,7 @@ internal fun JellyfinScreen(
                         Modifier.fillMaxWidth().clickable { rowPickerOpen = false; libraryFilterOpen = true }.padding(vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(Icons.Filled.Visibility, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+                        Icon(AppIcons.Watched, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(12.dp))
                         Text("Show / hide libraries", fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp)
                     }
@@ -1596,7 +656,7 @@ internal fun JellyfinScreen(
         val title = when (rowKey) { "resume" -> "Continue Watching"; "recent" -> "Recently Added"; else -> "Libraries" }
         MediaRowConfigDialog(
             title = title,
-            style = mediaStyles[rowKey] ?: org.phioster.sanctumd.model.MediaRowStyle(),
+            style = mediaStyles[rowKey] ?: MediaRowStyle(),
             serviceColor = accent,
             posterOptions = rowKey == "resume" || rowKey == "recent",
             onSave = { vm.setMediaRowStyle(rowKey, it) },
@@ -1613,9 +673,9 @@ internal fun JellyfinScreen(
             deleteWatched = deleteWatched,
             onDeleteWatched = { vm.setDownloadsDeleteWatched(it); if (it) scope.launch { sweepWatchedDownloads() } },
             onPlay = { e -> downloadsManagerOpen = false; playDownload(e) },
-            onDelete = { id -> org.phioster.sanctumd.service.DownloadService.delete(context, id) },
-            onClearCompleted = { org.phioster.sanctumd.service.DownloadService.clearCompleted(context) },
-            onClearAll = { org.phioster.sanctumd.service.DownloadService.clearAll(context); downloadsManagerOpen = false },
+            onDelete = { id -> DownloadService.delete(context, id) },
+            onClearCompleted = { DownloadService.clearCompleted(context) },
+            onClearAll = { DownloadService.clearAll(context); downloadsManagerOpen = false },
             onClose = { downloadsManagerOpen = false },
         )
     }
@@ -1625,7 +685,7 @@ internal fun JellyfinScreen(
     }
 
     playRequest?.let { pr ->
-        org.phioster.sanctumd.ui.player.PlayerScreen(
+        PlayerScreen(
             vm = vm,
             config = config,
             itemId = pr.itemId,
@@ -1637,285 +697,3 @@ internal fun JellyfinScreen(
 }
 
 /** A card in the offline DOWNLOADS row: cached poster, progress/state, tap to play (when done). */
-@Composable
-private fun DownloadCard(
-    entry: org.phioster.sanctumd.model.DownloadEntry,
-    accent: Color,
-    onPlay: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    Column(Modifier.width(120.dp).padding(end = 10.dp)) {
-        Box(
-            Modifier.width(120.dp).height(170.dp).clip(RoundedCornerShape(8.dp)).background(Surface)
-                .clickable { onPlay() },
-        ) {
-            if (entry.posterFile.startsWith("/")) {
-                coil.compose.AsyncImage(
-                    model = java.io.File(entry.posterFile),
-                    contentDescription = entry.name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-            }
-            // Dim + state glyph overlay.
-            val glyph = when (entry.state) {
-                org.phioster.sanctumd.model.DownloadEntry.STATE_DONE -> "▶"
-                org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED -> "⚠"
-                else -> "${(entry.progress * 100).toInt()}%"
-            }
-            Box(Modifier.fillMaxSize().background(Color(0x55000000)), contentAlignment = Alignment.Center) {
-                Text(glyph, fontFamily = Mono, color = MatrixGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            }
-            Text(
-                "✕", fontFamily = Mono, color = ErrRed, fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.align(Alignment.TopEnd).background(Color(0xAA000000), RoundedCornerShape(6.dp))
-                    .clickable { onDelete() }.padding(horizontal = 6.dp, vertical = 2.dp),
-            )
-        }
-        // Thin progress bar while downloading.
-        if (!entry.done && entry.state != org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED) {
-            Spacer(Modifier.height(3.dp))
-            Box(Modifier.fillMaxWidth().height(3.dp).background(MatrixGreen.copy(alpha = 0.2f))) {
-                Box(Modifier.fillMaxWidth(entry.progress.coerceIn(0f, 1f)).height(3.dp).background(accent))
-            }
-        }
-        Spacer(Modifier.height(4.dp))
-        Text(entry.name, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        val status = when (entry.state) {
-            org.phioster.sanctumd.model.DownloadEntry.STATE_DONE -> "downloaded"
-            org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED -> "failed"
-            org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING -> "${(entry.progress * 100).toInt()}% · downloading"
-            else -> if (entry.error.contains("Wi-Fi")) "waiting for Wi-Fi" else "queued"
-        }
-        Text(status, fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-}
-
-private fun fmtSize(bytes: Long): String = when {
-    bytes >= 1_073_741_824 -> "%.2f GB".format(bytes / 1_073_741_824.0)
-    bytes >= 1_048_576 -> "%.0f MB".format(bytes / 1_048_576.0)
-    bytes >= 1024 -> "%.0f KB".format(bytes / 1024.0)
-    else -> "$bytes B"
-}
-
-/** Full-screen manager for offline downloads: storage summary, Wi-Fi-only toggle, bulk clear, and a
- *  list with per-item play/delete. */
-@Composable
-private fun DownloadsManager(
-    entries: List<org.phioster.sanctumd.model.DownloadEntry>,
-    accent: Color,
-    wifiOnly: Boolean,
-    onWifiOnly: (Boolean) -> Unit,
-    deleteWatched: Boolean,
-    onDeleteWatched: (Boolean) -> Unit,
-    onPlay: (org.phioster.sanctumd.model.DownloadEntry) -> Unit,
-    onDelete: (String) -> Unit,
-    onClearCompleted: () -> Unit,
-    onClearAll: () -> Unit,
-    onClose: () -> Unit,
-) {
-    BackHandler { onClose() }
-    val context = LocalContext.current
-    val used = entries.sumOf { if (it.done) it.sizeBytes else it.downloadedBytes }
-    val free = remember { runCatching { android.os.StatFs(context.filesDir.path).availableBytes }.getOrDefault(0L) }
-    val doneCount = entries.count { it.done }
-
-    Box(
-        Modifier.fillMaxSize().background(Black)
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
-    ) {
-        // The app is edge-to-edge (enableEdgeToEdge); this full-screen overlay must pad for the
-        // status/nav bars itself, or the header sits under the status bar.
-        Column(Modifier.fillMaxSize().systemBarsPadding().padding(16.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close", tint = MatrixGreen) }
-                Text("downloads", fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            }
-            Spacer(Modifier.height(8.dp))
-            Text("${entries.size} items · ${fmtSize(used)} used · ${fmtSize(free)} free", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp)
-            Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (wifiOnly) "[x] Wi-Fi only" else "[ ] Wi-Fi only", fontFamily = Mono, color = if (wifiOnly) MatrixGreen else MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.clickable { onWifiOnly(!wifiOnly) })
-                Spacer(Modifier.weight(1f))
-                if (doneCount > 0) Text("clear done", fontFamily = Mono, color = accent, fontSize = 12.sp, modifier = Modifier.clickable { onClearCompleted() }.padding(end = 14.dp))
-                if (entries.isNotEmpty()) Text("clear all", fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.clickable { onClearAll() })
-            }
-            Spacer(Modifier.height(6.dp))
-            Text(
-                if (deleteWatched) "[x] delete when watched" else "[ ] delete when watched",
-                fontFamily = Mono, color = if (deleteWatched) MatrixGreen else MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp,
-                modifier = Modifier.clickable { onDeleteWatched(!deleteWatched) },
-            )
-            Text(
-                "Checked on every visit to the media tab: a finished download whose item counts as watched on the server is removed.",
-                fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 10.sp, modifier = Modifier.padding(top = 2.dp),
-            )
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
-            if (entries.isEmpty()) {
-                Text("no downloads", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
-            } else {
-                LazyColumn(Modifier.fillMaxSize()) {
-                    items(entries) { e ->
-                        Row(
-                            Modifier.fillMaxWidth().clickable { if (e.done) onPlay(e) }.padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Box(Modifier.size(46.dp, 64.dp).clip(RoundedCornerShape(4.dp)).background(Surface)) {
-                                if (e.posterFile.startsWith("/")) {
-                                    coil.compose.AsyncImage(model = java.io.File(e.posterFile), contentDescription = e.name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                                }
-                            }
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(e.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                val sub = when (e.state) {
-                                    org.phioster.sanctumd.model.DownloadEntry.STATE_DONE -> fmtSize(e.sizeBytes)
-                                    org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING -> "${(e.progress * 100).toInt()}% · ${fmtSize(e.downloadedBytes)}"
-                                    org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED -> "failed"
-                                    else -> if (e.error.contains("Wi-Fi")) "waiting for Wi-Fi" else "queued"
-                                }
-                                Text(sub, fontFamily = Mono, color = accent.copy(alpha = 0.75f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                if (e.state == org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING) {
-                                    Spacer(Modifier.height(3.dp))
-                                    Box(Modifier.fillMaxWidth().height(3.dp).background(MatrixGreen.copy(alpha = 0.2f))) {
-                                        Box(Modifier.fillMaxWidth(e.progress.coerceIn(0f, 1f)).height(3.dp).background(accent))
-                                    }
-                                }
-                            }
-                            Spacer(Modifier.width(8.dp))
-                            if (e.done) Text("▶", fontFamily = Mono, color = MatrixGreen, fontSize = 16.sp, modifier = Modifier.clickable { onPlay(e) }.padding(8.dp))
-                            Text("✕", fontFamily = Mono, color = ErrRed, fontSize = 15.sp, modifier = Modifier.clickable { onDelete(e.itemId) }.padding(8.dp))
-                        }
-                        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
-                    }
-                }
-            }
-        }
-    }
-}
-
-private fun fmtTime(ms: Long): String {
-    if (ms <= 0) return "0:00"
-    val total = ms / 1000; val m = total / 60; val s = total % 60
-    return "%d:%02d".format(m, s)
-}
-
-/** Compact now-playing bar (Scaffold bottom): art, title/artist, play-pause, next; tap to expand. */
-@Composable
-private fun MusicBar(
-    state: org.phioster.sanctumd.ui.player.MusicState,
-    accent: Color,
-    onToggle: () -> Unit,
-    onNext: () -> Unit,
-    onOpen: () -> Unit,
-) {
-    Row(
-        Modifier.fillMaxWidth().background(Surface).clickable { onOpen() }.padding(horizontal = 10.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(40.dp).clip(RoundedCornerShape(4.dp)).background(Black)) {
-            if (state.artworkUri.isNotBlank()) {
-                coil.compose.AsyncImage(model = state.artworkUri, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            }
-        }
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Text(state.title.ifBlank { "…" }, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (state.artist.isNotBlank()) Text(state.artist, fontFamily = Mono, color = accent.copy(alpha = 0.75f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        Text(if (state.isPlaying) "❚❚" else "▶", fontFamily = Mono, color = MatrixGreen, fontSize = 17.sp, modifier = Modifier.clickable { onToggle() }.padding(8.dp))
-        if (state.hasNext) Text("⏭", fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, modifier = Modifier.clickable { onNext() }.padding(8.dp))
-    }
-}
-
-/** Full-screen now-playing: big art, seek bar, prev/play-pause/next. */
-@Composable
-private fun NowPlayingScreen(
-    state: org.phioster.sanctumd.ui.player.MusicState,
-    accent: Color,
-    onClose: () -> Unit,
-) {
-    BackHandler { onClose() }
-    var pos by remember { mutableStateOf(0L) }
-    var dur by remember { mutableStateOf(0L) }
-    var scrubbing by remember { mutableStateOf(false) }
-    var scrubPos by remember { mutableStateOf(0f) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            if (!scrubbing) { pos = org.phioster.sanctumd.ui.player.MusicController.positionMs(); dur = org.phioster.sanctumd.ui.player.MusicController.durationMs() }
-            delay(500)
-        }
-    }
-    Box(
-        Modifier.fillMaxSize().background(Black)
-            // Swallow taps so nothing reaches the media list behind this overlay.
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
-            .systemBarsPadding(),
-    ) {
-        Column(Modifier.fillMaxSize().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close", tint = MatrixGreen) }
-                Text("now playing", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp)
-            }
-            Spacer(Modifier.height(24.dp))
-            Box(Modifier.fillMaxWidth(0.82f).aspectRatio(1f).clip(RoundedCornerShape(12.dp)).background(Surface)) {
-                if (state.artworkUri.isNotBlank()) {
-                    coil.compose.AsyncImage(model = state.artworkUri, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                }
-            }
-            Spacer(Modifier.height(24.dp))
-            Text(state.title, fontFamily = Mono, color = MatrixGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-            if (state.artist.isNotBlank()) {
-                Spacer(Modifier.height(4.dp))
-                Text(state.artist, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Spacer(Modifier.height(20.dp))
-            val d = dur.coerceAtLeast(1)
-            val p = if (scrubbing) (scrubPos * d).toLong() else pos
-            Slider(
-                value = p.toFloat().coerceIn(0f, d.toFloat()),
-                onValueChange = { scrubbing = true; scrubPos = it / d.toFloat() },
-                onValueChangeFinished = { org.phioster.sanctumd.ui.player.MusicController.seekTo((scrubPos * d).toLong()); scrubbing = false },
-                valueRange = 0f..d.toFloat(),
-                colors = SliderDefaults.colors(thumbColor = MatrixGreen, activeTrackColor = MatrixGreen, inactiveTrackColor = MatrixGreen.copy(alpha = 0.25f)),
-            )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(fmtTime(p), fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp)
-                Text(fmtTime(dur), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp)
-            }
-            Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.prev() }, enabled = state.hasPrev) {
-                    Icon(Icons.Filled.SkipPrevious, contentDescription = "Prev", tint = if (state.hasPrev) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), modifier = Modifier.size(36.dp))
-                }
-                IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.playPause() }) {
-                    Icon(if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = "Play/Pause", tint = MatrixGreen, modifier = Modifier.size(56.dp))
-                }
-                IconButton(onClick = { org.phioster.sanctumd.ui.player.MusicController.next() }, enabled = state.hasNext) {
-                    Icon(Icons.Filled.SkipNext, contentDescription = "Next", tint = if (state.hasNext) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), modifier = Modifier.size(36.dp))
-                }
-            }
-            // Queue / album track list fills the space below the controls.
-            if (state.queue.size > 1) {
-                Spacer(Modifier.height(18.dp))
-                Text("UP NEXT", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(4.dp))
-                HorizontalDivider(color = MatrixGreen.copy(alpha = 0.12f))
-                LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
-                    itemsIndexed(state.queue) { i, t ->
-                        val current = i == state.currentIndex
-                        Row(
-                            Modifier.fillMaxWidth().clickable { org.phioster.sanctumd.ui.player.MusicController.seekToIndex(i) }.padding(vertical = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text("${i + 1}", fontFamily = Mono, color = if (current) accent else MatrixGreen.copy(alpha = 0.4f), fontSize = 11.sp, modifier = Modifier.width(26.dp))
-                            Text(t.title, fontFamily = Mono, color = if (current) accent else MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                            if (current) Text(if (state.isPlaying) "❚❚" else "▶", fontFamily = Mono, color = accent, fontSize = 12.sp)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}

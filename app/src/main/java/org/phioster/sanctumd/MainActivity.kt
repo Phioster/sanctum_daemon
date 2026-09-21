@@ -66,7 +66,6 @@ import org.phioster.sanctumd.ui.services.*
 import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
-import org.phioster.sanctumd.ui.common.*
 import org.phioster.sanctumd.ui.search.SearchDeepLink
 
 // FragmentActivity (not ComponentActivity) because BiometricPrompt requires it.
@@ -109,8 +108,11 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         routeFromIntent(intent)?.let { vm.setRoute(it) }
     }
 
+    /** The only routes the app navigates to from an intent. It is exported, so any app can send one. */
+    private val knownRoutes = setOf("search", "settings", "service")
+
     private fun routeFromIntent(intent: android.content.Intent?): org.phioster.sanctumd.ui.PendingRoute? {
-        val route = intent?.getStringExtra("route") ?: return null
+        val route = intent?.getStringExtra("route")?.takeIf { it in knownRoutes } ?: return null
         return org.phioster.sanctumd.ui.PendingRoute(route, intent.getStringExtra("serviceId"), intent.getStringExtra("itemId"))
     }
 
@@ -184,7 +186,16 @@ internal fun showUnlockPrompt(activity: androidx.fragment.app.FragmentActivity, 
 internal fun AppLockGate(vm: DashboardViewModel, activity: androidx.fragment.app.FragmentActivity, content: @Composable () -> Unit) {
     val appLock by vm.appLock.collectAsState()
     var unlocked by vm.unlocked
-    if (!appLock || unlocked) {
+    // The lock covers the screen; the task switcher was still holding a picture of it, taken
+    // before the app went to the background. Only the thumbnail is suppressed, not screenshots --
+    // API 33 can separate the two, and below it the choice would be all or nothing.
+    LaunchedEffect(appLock) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            activity.setRecentsScreenshotEnabled(appLock != true)
+        }
+    }
+    // Only an explicit false opens the gate; null means the answer is still being read.
+    if (appLock == false || unlocked) {
         content()
         return
     }
