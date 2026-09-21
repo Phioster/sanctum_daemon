@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,6 +41,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -413,6 +415,9 @@ internal fun TvPlayerScreen(
         Modifier
             .fillMaxSize()
             .background(Color.Black)
+            // A television has no finger, but the phone this gets tested on does -- and once the
+            // overlay has hidden itself there is otherwise no way back to it without a D-pad.
+            .pointerInput(Unit) { detectTapGestures { poke() } }
             .focusRequester(keyFocus)
             .focusable()
             .onPreviewKeyEvent { ev ->
@@ -446,7 +451,7 @@ internal fun TvPlayerScreen(
                 }
 
                 // Overlay hidden: the first press only wakes it. Nothing may move the film by accident.
-                // Zurueck is the exception. Swallowed here it woke the overlay, the BackHandler then
+                // Back is the exception. Swallowed here it woke the overlay, the BackHandler then
                 // hid it again, and the two took turns: a running film could not be left at all.
                 if (!controlsVisible && ev.key != Key.Back) {
                     poke()
@@ -496,7 +501,7 @@ internal fun TvPlayerScreen(
             }
         } else if (state.durationMs <= 0 && state.positionMs <= 0) {
             Box(Modifier.fillMaxSize(), Alignment.Center) {
-                Text("puffere…", color = MatrixGreen, fontFamily = Mono, fontSize = 18.sp)
+                Text("buffering…", color = MatrixGreen, fontFamily = Mono, fontSize = 18.sp)
             }
         }
 
