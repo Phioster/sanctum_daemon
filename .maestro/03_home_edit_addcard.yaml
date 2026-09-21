@@ -2,7 +2,7 @@
 # after 02_onboarding.yaml; on your own device it just works. No backend required:
 # toggling Edit mode reveals the "Add card" FAB purely from local UI state.
 appId: org.phioster.nexarr
-name: Home edit mode -> Add card
+name: Home edit mode and Add card
 ---
 - launchApp
 # Edit action in the top bar (contentDescription "Edit").

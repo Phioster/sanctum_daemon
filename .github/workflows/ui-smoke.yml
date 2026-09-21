@@ -8,6 +8,9 @@ on:
   workflow_dispatch:
   push:
     paths:
+      # app/** gehoert dazu, sonst laeuft der Test nur, wenn man ihn selbst anfasst,
+      # und faengt genau die Regression nicht, fuer die er da ist.
+      - 'app/**'
       - '.maestro/**'
       - '.github/workflows/ui-smoke.yml'
 
