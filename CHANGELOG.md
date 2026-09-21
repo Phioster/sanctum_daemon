@@ -3,6 +3,30 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## The player taken apart, and the TV client on a real television (v2.1.2)
+- **The television client ran on a television.** 2.1.1 shipped it untested on real
+  hardware. It has now been driven with a remote on an Android TV box: the D-pad moves
+  focus and playback works. That last part is the point, because libmpv and its codecs
+  are the whole reason the TV flavour exists, and no emulator here could answer whether
+  it loads on a 32-bit stick.
+- **Settings subpages open at the top.** Opening "about" showed the page already scrolled
+  down, with the name and version above the fold. The list and an opened subpage shared
+  one scroll position; they keep separate ones now.
+- **Arrows and dots come from the theme.** Expand arrows, the calendar's month arrows,
+  the bullets in the dashboard and the shortcuts, the folder marker in the \*arr browser,
+  the player's seek indicator and the selection dots in the television menu were plain
+  characters inside labels. They are icons now. The D-pad help stays as characters on
+  purpose: it describes keys on a remote.
+- **The player screen taken apart.** Its five overlays moved into their own file. The
+  `PlayerScreen` composable went from 689 lines to 565 and the television player from 414
+  to 397. Those count the function; the file itself only went from 1099 to 1063, since the
+  code moved next door.
+- **Small print.** The \*arr import dialog says "unmatched" instead of a bare dash. The
+  last German strings in the television client were translated. The launch smoke test runs
+  again after installing from a path that stopped existing when the flavours arrived.
+
+---
+
 ## A new signing key, and four screens taken apart (v2.1.1)
 - **Signed with a new key.** The password to the old one was only in the build secrets,
   where nobody can read it back. If those were ever lost, the app could never be updated
@@ -20,7 +44,7 @@ Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
 ## A second app for the television (v2.1)
 - **Films play again.** 2.0 handed libmpv all its HTTP headers as one string, and the option
-  that takes them splits on commas -- a Jellyfin `Authorization` header is made of commas, so
+  that takes them splits on commas. A Jellyfin `Authorization` header is made of commas, so
   the server received a torn-up request and answered 400. Each header now goes in on its own.
   Nothing plays on 2.0; anyone on it needs this build.
 - **An Android TV client**, built from the same source as a second APK. It is a Jellyfin
