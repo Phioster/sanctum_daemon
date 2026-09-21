@@ -82,6 +82,7 @@ import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.media3.common.util.UnstableApi::class)
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 internal fun JellyfinScreen(
     vm: DashboardViewModel,

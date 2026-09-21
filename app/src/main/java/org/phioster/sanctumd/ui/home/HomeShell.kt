@@ -168,11 +168,15 @@ internal fun HomeShell(
     // Custom full-width Services drawer, driven directly by the finger. progress: 0 = closed, 1 = open.
     // Either we're coming back from a screen opened out of the drawer, or this is a cold start and
     // the user wants the app to open on the services list.
-    val startOnServices = vm.startScreenPending && vm.startScreen.value == "services"
-    val startOpen = vm.reopenDrawer || startOnServices
     LaunchedEffect(Unit) { vm.reopenDrawer = false; vm.startScreenPending = false }
     var drawerWidthPx by remember { mutableFloatStateOf(1f) }
-    val drawerProgress = remember { androidx.compose.animation.core.Animatable(if (startOpen) 1f else 0f) }
+    // Read inside remember on purpose. This picks the starting position once; a later change must
+    // not slide the drawer out from under the finger. It also keeps StateFlow.value out of the
+    // composition, where reading it would silently miss updates.
+    val drawerProgress = remember {
+        val startOnServices = vm.startScreenPending && vm.startScreen.value == "services"
+        androidx.compose.animation.core.Animatable(if (vm.reopenDrawer || startOnServices) 1f else 0f)
+    }
     val drawerOpen = drawerProgress.value > 0.001f
     val fullyOpen = drawerProgress.value > 0.99f
     fun openDrawer() = scope.launch { drawerProgress.animateTo(1f, androidx.compose.animation.core.tween(260)) }
