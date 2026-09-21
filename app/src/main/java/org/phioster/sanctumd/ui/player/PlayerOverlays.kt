@@ -66,7 +66,8 @@ internal fun BoxScope.SeekHud(direction: Int) {
         ) {
             Icon(
                 if (direction > 0) AppIcons.Forward else AppIcons.Back,
-                contentDescription = null, tint = MatrixGreen, modifier = Modifier.size(18.dp),
+                contentDescription = if (direction > 0) "forward" else "back",
+                tint = MatrixGreen, modifier = Modifier.size(18.dp),
             )
             Spacer(Modifier.width(6.dp))
             Text(

@@ -787,7 +787,7 @@ private fun TvPlayerMenu(
                         ) {
                             Icon(
                                 if (entry.selected) AppIcons.Selected else AppIcons.NotSelected,
-                                contentDescription = null,
+                                contentDescription = if (entry.selected) "selected" else null,
                                 tint = if (active) Black else MatrixGreen,
                                 modifier = Modifier.size(15.dp),
                             )

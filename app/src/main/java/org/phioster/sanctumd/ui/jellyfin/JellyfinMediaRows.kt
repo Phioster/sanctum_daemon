@@ -383,7 +383,7 @@ private fun MediaCheckRow(text: String, checked: Boolean, onToggle: (Boolean) ->
                 .background(if (checked) MatrixGreen else Surface)
                 .border(1.dp, if (checked) MatrixGreen else MatrixGreen.copy(alpha = 0.4f), RoundedCornerShape(5.dp)),
             contentAlignment = Alignment.Center,
-        ) { if (checked) Icon(AppIcons.Done, contentDescription = null, tint = Black, modifier = Modifier.size(14.dp)) }
+        ) { if (checked) Icon(AppIcons.Done, contentDescription = "checked", tint = Black, modifier = Modifier.size(14.dp)) }
         Spacer(Modifier.width(10.dp))
         Text(text, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
     }
