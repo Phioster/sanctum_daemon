@@ -4,6 +4,10 @@ All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
 ## A second app for the television (v2.1)
+- **Films play again.** 2.0 handed libmpv all its HTTP headers as one string, and the option
+  that takes them splits on commas -- a Jellyfin `Authorization` header is made of commas, so
+  the server received a torn-up request and answered 400. Each header now goes in on its own.
+  Nothing plays on 2.0; anyone on it needs this build.
 - **An Android TV client**, built from the same source as a second APK. It is a Jellyfin
   streaming client and nothing else: the dashboard, the service list, the widgets and the
   background services are *removed* in the TV manifest rather than merely hidden, so the
