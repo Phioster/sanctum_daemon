@@ -2,39 +2,25 @@ package org.phioster.sanctumd.ui.jellyfin
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -43,13 +29,8 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -63,16 +44,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -106,7 +80,6 @@ import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
-import org.phioster.sanctumd.ui.theme.Surface
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.media3.common.util.UnstableApi::class)
 @Composable
@@ -157,7 +130,6 @@ internal fun JellyfinScreen(
         }
     }
     val tvState = rememberJellyfinLiveTvState()
-
 
     /** Drop finished downloads whose item is watched on the server, when the user asked for that. */
     suspend fun sweepWatchedDownloads() {
@@ -466,112 +438,15 @@ internal fun JellyfinScreen(
         }
     }
 
-
-    ds.downloadQuality?.let { d ->
-        // Original file vs. a transcoded, smaller copy. The server re-encodes on the fly for the
-        // capped options, so the size shown on the card is an estimate until it finishes.
-        AlertDialog(
-            onDismissRequest = { ds.downloadQuality = null },
-            containerColor = Surface,
-            title = { Text("download quality", fontFamily = Mono, color = MatrixGreen) },
-            text = {
-                Column {
-                    listOf(
-                        0 to "original file",
-                        8_000_000 to "1080p  ·  smaller",
-                        4_000_000 to "720p  ·  much smaller",
-                        1_500_000 to "480p  ·  smallest",
-                    ).forEach { (bitrate, label) ->
-                        Text(
-                            label,
-                            fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp,
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                ds.downloadQuality = null
-                                DownloadService.enqueue(
-                                    context, config.id, d.id, d.name, d.subtitle, d.posterUrl, 0L, "Video", bitrate,
-                                )
-                                actionMsg = "download queued"
-                            }.padding(vertical = 10.dp),
-                        )
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { ds.downloadQuality = null }) { Text("cancel", fontFamily = Mono, color = MatrixGreen) } },
-        )
+    JellyfinItemDialogs(ds, ps, vm, config, accent, scope, { actionMsg = it }) { id, name, want ->
+        applyWatched(id, name, want)
     }
-
-    ds.cast?.let { d ->
-        // Hand the item to another Jellyfin client. Only sessions that accept remote control and
-        // aren't this phone are useful here.
-        val targets = ps.sessions.orEmpty().filter { it.canControl }
-        AlertDialog(
-            onDismissRequest = { ds.cast = null },
-            containerColor = Surface,
-            title = { Text("play on…", fontFamily = Mono, color = MatrixGreen) },
-            text = {
-                Column {
-                    if (ps.sessions == null) {
-                        Text("loading devices…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 13.sp)
-                    } else if (targets.isEmpty()) {
-                        Text(
-                            "No other device is available. A client has to be open and allow remote control.",
-                            fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 13.sp,
-                        )
-                    } else {
-                        targets.forEach { t ->
-                            Column(
-                                Modifier.fillMaxWidth().clickable {
-                                    ds.cast = null
-                                    scope.launch { actionMsg = vm.jellyfinPlayOn(config, t.id, d.id) }
-                                }.padding(vertical = 8.dp),
-                            ) {
-                                Text(t.device.ifBlank { t.client }, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp)
-                                Text(
-                                    listOfNotNull(t.user.takeIf { it.isNotBlank() }, t.client.takeIf { it.isNotBlank() }).joinToString(" · "),
-                                    fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp,
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { ds.cast = null }) { Text("close", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
-
-    ds.confirmWatched?.let { (wid, wname, want) ->
-        AlertDialog(
-            onDismissRequest = { ds.confirmWatched = null },
-            containerColor = Surface,
-            title = { Text(if (want) "Mark everything watched?" else "Mark everything unwatched?", fontFamily = Mono, color = MatrixGreen) },
-            text = {
-                Text(
-                    "This applies to every episode in \"$wname\".",
-                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 13.sp,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { ds.confirmWatched = null; applyWatched(wid, wname, want) }) {
-                    Text(if (want) "mark watched" else "mark unwatched", fontFamily = Mono, color = MatrixGreen)
-                }
-            },
-            dismissButton = { TextButton(onClick = { ds.confirmWatched = null }) { Text("cancel", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f)) } },
-        )
-    }
-
-
-
-
-
-
-
 
     JellyfinLiveTvDialogs(tvState, vm, config, scope, { actionMsg = it }) { scope.launch { listError = tvState.reload(vm, config) } }
 
     JellyfinPeopleDialogs(ps, vm, config, ad.libraries, scope, { actionMsg = it }) { loadUsers() }
 
     JellyfinAdminDialogs(ad, vm, config, accent, scope, { actionMsg = it }) { loadDashboard() }
-
 
     JellyfinDetailSheet(
         state = ds,
@@ -589,68 +464,14 @@ internal fun JellyfinScreen(
     )
 
     // Full-screen playback overlay, on top of everything in this screen.
-    if (libraryFilterOpen) {
-        AlertDialog(
-            onDismissRequest = { libraryFilterOpen = false },
-            containerColor = Surface,
-            title = { Text("show libraries", fontFamily = Mono, color = MatrixGreen) },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
-                    bs.views.orEmpty().forEach { view ->
-                        val shown = view.id !in hiddenSet
-                        Row(
-                            Modifier.fillMaxWidth().clickable {
-                                val next = if (shown) hiddenSet + view.id else hiddenSet - view.id
-                                vm.setHiddenLibraries(config.id, next.toList())
-                            }.padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(if (shown) "[x]" else "[ ]", fontFamily = Mono, color = if (shown) MatrixGreen else MatrixGreen.copy(alpha = 0.5f), fontSize = 14.sp)
-                            Spacer(Modifier.width(10.dp))
-                            Text(view.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { libraryFilterOpen = false }) { Text("done", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
-
-    if (rowPickerOpen) {
-        AlertDialog(
-            onDismissRequest = { rowPickerOpen = false },
-            containerColor = Surface,
-            title = { Text("customize rows", fontFamily = Mono, color = MatrixGreen) },
-            text = {
-                Column {
-                    listOf("resume" to "Continue Watching", "recent" to "Recently Added", "libraries" to "Libraries").forEach { (key, label) ->
-                        Row(
-                            Modifier.fillMaxWidth().clickable { rowPickerOpen = false; configRow = key }.padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(Icons.Filled.Settings, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(12.dp))
-                            Text(label, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp)
-                            Spacer(Modifier.weight(1f))
-                            if ((mediaStyles[key] ?: MediaRowStyle()).hidden) {
-                                Text("hidden", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.4f), fontSize = 10.sp)
-                            }
-                        }
-                    }
-                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.12f))
-                    Row(
-                        Modifier.fillMaxWidth().clickable { rowPickerOpen = false; libraryFilterOpen = true }.padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(AppIcons.Watched, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(12.dp))
-                        Text("Show / hide libraries", fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp)
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { rowPickerOpen = false }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
+    JellyfinRowDialogs(
+        bs, vm, config, accent, hiddenSet, mediaStyles,
+        libraryFilterOpen = libraryFilterOpen,
+        rowPickerOpen = rowPickerOpen,
+        onLibraryFilter = { libraryFilterOpen = it },
+        onRowPicker = { rowPickerOpen = it },
+        onConfigRow = { configRow = it },
+    )
 
     configRow?.let { rowKey ->
         val title = when (rowKey) { "resume" -> "Continue Watching"; "recent" -> "Recently Added"; else -> "Libraries" }
