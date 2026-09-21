@@ -1,6 +1,9 @@
 package org.phioster.sanctumd.ui.arr
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -56,7 +59,16 @@ internal fun ArrSystemDialog(
     onDismiss: () -> Unit,
 ) {
     var arrSys by remember { mutableStateOf<org.phioster.sanctumd.model.ArrSystemInfo?>(null) }
+    // Two loads, not one. /diskspace has to stat every mount and can take a minute on a server
+    // that is not a tidy Docker host, and it used to hold up the version, which is there in
+    // milliseconds. Now the dialog fills in as the answers arrive.
+    var disks by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
+    var disksDone by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { arrSys = runCatching { vm.arrSystemInfo(config) }.getOrNull() }
+    LaunchedEffect(Unit) {
+        disks = runCatching { vm.arrDiskUsage(config) }.getOrNull()
+        disksDone = true
+    }
         AlertDialog(
             onDismissRequest = onDismiss,
             containerColor = Surface,
@@ -67,10 +79,11 @@ internal fun ArrSystemDialog(
                     Text("version ${si?.version ?: "…"}", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
                     Spacer(Modifier.height(10.dp))
                     Text("DISK", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    val d = disks
                     when {
-                        si == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                        si.disks.isEmpty() -> Text("—", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                        else -> si.disks.forEach { (path, info) ->
+                        !disksDone -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        d.isNullOrEmpty() -> Text("not reported", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        else -> d.forEach { (path, info) ->
                             Column(Modifier.padding(vertical = 3.dp)) {
                                 Text(path, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(info, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp)
@@ -87,6 +100,24 @@ internal fun ArrSystemDialog(
                             Text("• $msg", fontFamily = Mono, color = c, fontSize = 11.sp)
                         }
                     }
+                    if (si != null && si.about.isNotEmpty()) {
+                        Spacer(Modifier.height(12.dp))
+                        Text("ABOUT", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                        si.about.forEach { (label, value) ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                                Text(
+                                    label,
+                                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp,
+                                    modifier = Modifier.width(74.dp),
+                                )
+                                Text(
+                                    value,
+                                    fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = { TextButton(onClick = onDismiss) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
@@ -95,7 +126,7 @@ internal fun ArrSystemDialog(
 
 /**
  * The interactive release list for one wanted item: what the indexers have, and a confirmation
- * before grabbing. Closing it throws the list away -- it is a live search, not a cached one.
+ * before grabbing. Closing it throws the list away, it is a live search, not a cached one.
  */
 @Composable
 internal fun ArrReleasePicker(
