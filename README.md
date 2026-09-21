@@ -8,7 +8,7 @@
 ![Kotlin](https://img.shields.io/badge/Kotlin-Compose-238636?style=flat-square&labelColor=0d1117&logo=kotlin&logoColor=3fb950)
 ![SDK](https://img.shields.io/badge/SDK-35-238636?style=flat-square&labelColor=0d1117)
 ![License](https://img.shields.io/badge/License-GPL--3.0-238636?style=flat-square&labelColor=0d1117)
-![Status](https://img.shields.io/badge/status-2.0-238636?style=flat-square&labelColor=0d1117)
+![Status](https://img.shields.io/badge/status-2.1.3-238636?style=flat-square&labelColor=0d1117)
 
 **Jellyfin admin + the \*arr / download stack. One native Android app, one matrix-terminal theme.**
 
@@ -219,13 +219,40 @@ min SDK 26 (Android 8.0)
 target SDK 35 (Android 15)
 ```
 
+## ▚▚ `./tested`
+
+Sanctumd is built and used against one homelab, by one person. That is worth
+knowing before you file a bug: the combinations below are the ones that see
+daily use, anything else has never been tried.
+
+```text
+Jellyfin    12.1.0
+Radarr      6.4.4.10685
+Sonarr      4.0.20.3014
+Lidarr      3.1.6.5078
+Prowlarr    2.6.5.5623
+Seerr       3.3.0
+NZBGet      26.3
+ntfy        self-hosted, version not recorded
+
+Android     17 on the phone
+```
+
+The television build has been run on one Android TV box, with a remote: the
+D-pad moves focus and playback works. One box is not a survey, and TV hardware
+varies a lot, so treat that as "it has been seen to work", not as coverage.
+
+Older major versions of any of these may work or may not. If yours does not, an
+issue with your version numbers in it is genuinely useful, that is how this list
+grows.
+
 ## ▚▚ `./install`
 
 Grab the signed APK from the
 [latest release](https://github.com/Phioster/sanctum_daemon/releases/latest):
 
 ```console
-$ adb install -r sanctumd-v2.1.0.apk
+$ adb install -r sanctumd-v2.1.3.apk
 ```
 
 Android 8.0+ on **arm64**. The APK carries `arm64-v8a` libraries only,
@@ -241,31 +268,29 @@ it is the larger download: plenty of TV sticks run a 32-bit userspace on a
 64-bit chip, and without those libraries libmpv cannot load at all.
 
 ```console
-$ adb install -r sanctumd-tv-v2.1.0.apk
+$ adb install -r sanctumd-tv-v2.1.3.apk
 ```
 
 ## ▚▚ `./build`
 
-Every push triggers the **Build APK** workflow.
-Grab the `sanctumd-debug-apk` artifact and install:
+Every push runs the **Build APK** workflow: unit tests, detekt, Android Lint
+and a compile of both flavours. It does not publish an APK, installable builds
+come from the releases. To get one yourself:
 
 ```console
-$ adb install -r sanctumd-debug.apk
+$ gradle assemblePhoneDebug
+  → app/build/outputs/apk/phone/debug/
+    app-phone-debug.apk
 ```
 
-Or build locally:
-
-```console
-$ gradle assembleDebug
-  → app/build/outputs/apk/debug/
-    app-debug.apk
-```
+Swap `Phone` for `Tv` to build the television flavour, or use plain
+`assembleDebug` for both at once.
 
 ## ▚▚ `./status`
 
 ```text
 feature-complete · in daily use
-1.0 shipped 2026-07-20, now at 2.1
+1.0 shipped 2026-07-20, now at 2.1.3
 security audit passed, every finding fixed
 ```
 
@@ -280,8 +305,8 @@ fiddling and you feel like it:
 - [Ko-fi](https://ko-fi.com/phioster)
 
 The same two sit behind the **Sponsor** button at the top of this page, but
-GitHub hides that on a phone -- in the app and in the mobile browser alike --
-so they are written out here.
+GitHub hides that on a phone, in the app and in the mobile browser alike, so
+they are written out here.
 
 ---
 
