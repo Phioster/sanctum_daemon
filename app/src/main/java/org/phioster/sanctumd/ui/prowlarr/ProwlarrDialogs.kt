@@ -285,41 +285,39 @@ internal fun ProwlarrSystemDialog(
         systemInfo = runCatching { vm.prowlarrSystemInfo(config) }.getOrNull()
         tasks = runCatching { vm.prowlarrTaskList(config) }.getOrDefault(emptyList())
     }
-    if (showSystem) {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            containerColor = Surface,
-            title = { Text("System & tasks", fontFamily = Mono, color = MatrixGreen) },
-            text = {
-                Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
-                    val si = systemInfo
-                    Text("version ${si?.version ?: "…"}", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
-                    Spacer(Modifier.height(8.dp))
-                    SectionHeader("HEALTH")
-                    when {
-                        si == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                        si.health.isEmpty() -> Text("all healthy", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
-                        else -> si.health.forEach { (type, msg) ->
-                            val c = if (type.equals("error", true)) ErrRed else WarnAmber
-                            Text("• $msg", fontFamily = Mono, color = c, fontSize = 12.sp)
-                        }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surface,
+        title = { Text("System & tasks", fontFamily = Mono, color = MatrixGreen) },
+        text = {
+            Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                val si = systemInfo
+                Text("version ${si?.version ?: "…"}", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
+                Spacer(Modifier.height(8.dp))
+                SectionHeader("HEALTH")
+                when {
+                    si == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                    si.health.isEmpty() -> Text("all healthy", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
+                    else -> si.health.forEach { (type, msg) ->
+                        val c = if (type.equals("error", true)) ErrRed else WarnAmber
+                        Text("• $msg", fontFamily = Mono, color = c, fontSize = 12.sp)
                     }
-                    Spacer(Modifier.height(12.dp))
-                    SectionHeader("TASKS")
-                    val tk = tasks
-                    when {
-                        tk == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                        tk.isEmpty() -> Text("no tasks", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                        else -> tk.forEach { t ->
-                            Column(Modifier.padding(vertical = 4.dp)) {
-                                Text(t.name, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
-                                Text("last ${t.lastExecution.ifBlank { "—" }} · next ${t.nextExecution.ifBlank { "—" }}", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp)
-                            }
+                }
+                Spacer(Modifier.height(12.dp))
+                SectionHeader("TASKS")
+                val tk = tasks
+                when {
+                    tk == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                    tk.isEmpty() -> Text("no tasks", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                    else -> tk.forEach { t ->
+                        Column(Modifier.padding(vertical = 4.dp)) {
+                            Text(t.name, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
+                            Text("last ${t.lastExecution.ifBlank { "—" }} · next ${t.nextExecution.ifBlank { "—" }}", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp)
                         }
                     }
                 }
-            },
-            confirmButton = { TextButton(onClick = onDismiss) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
-        )
-    }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+    )
 }
