@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sanctumd — Jellyfin + the *arr stack, one Android app</title>
+<meta name="description" content="A native Android dashboard for Jellyfin and the *arr / download stack. One Compose app, one matrix-terminal theme. No backend, no account, GPL-3.0.">
+<meta name="theme-color" content="#0a0e0c">
+<link rel="icon" href="assets/icon.webp" type="image/webp">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Sanctumd">
+<meta property="og:description" content="Jellyfin admin + the *arr / download stack. One native Android app, one matrix-terminal theme.">
+<meta property="og:url" content="https://sanctumd.dpdns.org/">
+<meta property="og:image" content="https://sanctumd.dpdns.org/assets/social-preview.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body id="top">
+<canvas id="rain" aria-hidden="true"></canvas>
+
+<div class="wrap">
+
+  <header>
+    <pre id="gate" aria-label="ASCII rendering of the Sanctumd gate">                    ─s╲╱s─
+                 ,s25A││A52s,
+               ,X2ssXh──hXss2X,
+              s2XsA3╲:;;:23AsX2r
+             XAs255╲  ..  ╱352sAX
+            XAsA2hs,:,  ,:,sh2AXAX
+           ╲2XA532;:      :;235AX2╱
+           AA;2hi;,        ,;ih2iAA
+          ;5523│::          ::│3255;
+          AAXXA2;, ..,::,.. ,;2AXXAA
+          ,3A53:;..rA3hh3Ar,.;;35X3,
+          .5;A2,;,XX5i││i5XX,;,2A;5.
+          .2rA2,;.,rA3hh3Ar,.;,2s;5.
+          .3rA2,;. ..,::,.. .;,22i5.
+          .5A22,;.          .;,A2X5.
+          .5;X2.:            ;,AA;2
+           5;X2.:            :.AA;2
+           5;A2.:            :.AA;5
+          ,3X55::            ::55X3,
+          ╲2A223riiiiiiiiiiiir352A22
+         │╲  i3ssrrrrrrrrrrrrrs3i  ╱│
+         ││ :5rrrrrrrrrrrrrrrrrs5: ││
+          rr5srrrrrrrrrrrrrrrrrrs5rr</pre>
+
+    <h1>sanctumd</h1>
+    <p class="tag">the daemon that guards your homelab</p>
+
+    <div class="tiles">
+      <div class="tile"><span class="k">version</span><span class="v" id="t-version">…</span></div>
+      <div class="tile"><span class="k">released</span><span class="v" id="t-released">…</span></div>
+      <div class="tile"><span class="k">android</span><span class="v">8.0+</span></div>
+      <div class="tile"><span class="k">local time</span><span class="v" id="t-clock">…</span></div>
+    </div>
+
+    <div class="cmdbar">
+      <label class="visually-hidden" for="cmd">jump to a section</label>
+      <input id="cmd" autocomplete="off" spellcheck="false"
+             placeholder="search_query…   (/dl  /faq  /shots  /features  /git)">
+    </div>
+  </header>
+
+  <section id="whoami">
+    <h2>whoami</h2>
+    <pre class="console" id="typed" data-text="visitor@homelab:~$ ./sanctumd --whoami
+
+  > one Compose app for your whole
+    self-hosted stack. add services
+    once: status, queues, media,
+    requests, users, logs, all in
+    one terminal-styled UI. every
+    action hits each service's own
+    API directly. no backend. no
+    account. the daemon that guards
+    your homelab."></pre>
+  </section>
+
+  <section id="works">
+    <h2>works with</h2>
+    <div class="logos">
+      <div class="logo"><img src="assets/logos/jellyfin.webp" alt="" loading="lazy"><span class="n">jellyfin</span><span class="ok">[ok]</span></div>
+      <div class="logo"><img src="assets/logos/radarr.webp"   alt="" loading="lazy"><span class="n">radarr</span><span class="ok">[ok]</span></div>
+      <div class="logo"><img src="assets/logos/sonarr.webp"   alt="" loading="lazy"><span class="n">sonarr</span><span class="ok">[ok]</span></div>
+      <div class="logo"><img src="assets/logos/lidarr.webp"   alt="" loading="lazy"><span class="n">lidarr</span><span class="ok">[ok]</span></div>
+      <div class="logo"><img src="assets/logos/prowlarr.webp" alt="" loading="lazy"><span class="n">prowlarr</span><span class="ok">[ok]</span></div>
+      <div class="logo"><img src="assets/logos/seerr.webp"    alt="" loading="lazy"><span class="n">seerr</span><span class="ok">[ok]</span></div>
+      <div class="logo"><img src="assets/logos/nzbget.webp"   alt="" loading="lazy"><span class="n">nzbget</span><span class="ok">[ok]</span></div>
+      <div class="logo"><img src="assets/logos/ntfy.webp"     alt="" loading="lazy"><span class="n">ntfy</span><span class="ok">[ok]</span></div>
+    </div>
+    <p class="note">…and any HTTP endpoint, as a shortcut.</p>
+  </section>
+
+  <section id="screenshots">
+    <h2>screenshots</h2>
+    <div class="shots">
+      <figure class="shot"><img src="assets/shots/services.webp" alt="Services overview" loading="lazy" width="560"><figcaption>services overview</figcaption></figure>
+      <figure class="shot"><img src="assets/shots/dashboard-series.webp" alt="Series dashboard" loading="lazy" width="560"><figcaption>series dashboard</figcaption></figure>
+      <figure class="shot"><img src="assets/shots/home-calendar.webp" alt="Home with calendar and leaderboard" loading="lazy" width="560"><figcaption>home · calendar &amp; leaderboard</figcaption></figure>
+      <figure class="shot"><img src="assets/shots/jellyfin-admin.webp" alt="Jellyfin admin" loading="lazy" width="560"><figcaption>jellyfin admin</figcaption></figure>
+      <figure class="shot"><img src="assets/shots/media-detail.webp" alt="Media detail with cast" loading="lazy" width="560"><figcaption>media detail with cast</figcaption></figure>
+      <figure class="shot"><img src="assets/shots/live-push.webp" alt="Live push notifications via ntfy" loading="lazy" width="560"><figcaption>live push (ntfy)</figcaption></figure>
+      <figure class="shot"><img src="assets/shots/onboarding.webp" alt="Onboarding" loading="lazy" width="560"><figcaption>onboarding</figcaption></figure>
+    </div>
+  </section>
+
+  <section id="features">
+    <h2>features</h2>
+
+    <details><summary><b>media &amp; requests</b></summary><div class="body"><pre class="console">[jellyfin]
+  dashboard · tasks · activity
+  users · per-library access
+  media browse · cast · now playing
+  plugins · libraries · logs
+
+[radarr / sonarr / lidarr]
+  library · missing · cutoff
+  queue · history · add
+  interactive search → grab
+  manual import · per-ep monitoring
+  cast · where-to-stream (via Seerr)
+  system &amp; health
+
+[seerr]
+  requests · issues · discover
+  watchlist · per-season requests
+  approve/decline · media detail
+  where-to-stream, per region
+  users &amp; stats
+
+[prowlarr]
+  indexers · search · history
+  tasks · send-to-arr
+
+[nzbget]
+  queue · history · pause/resume
+  edit · add-url · server details</pre></div></details>
+
+    <details><summary><b>the dashboard</b></summary><div class="body"><pre class="console">[home]
+  editable tabs + services drawer
+[cards]
+  queues · missing · coming-soon
+  recently-added · poster rows
+  statistics · watch leaderboard
+  sections · quick-buttons
+[style]
+  accent · header icon · poster size
+  fan-art Ken-Burns background
+  flat / solid / glass themes
+[search]
+  global, across all services
+[widgets]
+  Glance home-screen: shortcuts ·
+  status · quick actions · agenda</pre></div></details>
+
+    <details><summary><b>notifications</b></summary><div class="body"><pre class="console">[ntfy]
+  add it like any other service
+  browse a topic's messages
+  (the server keeps ~12 h)
+  several topics per server
+[live-push]
+  direct ntfy topic subscription
+  → instant local notifications
+  reuses your webhook topic
+  per-server merge · catch-up
+  masked topic in the title
+  tap one → the title it is
+  about, in the app it lives in
+[fallback]
+  on-device polling worker for
+  new media / imports / requests</pre></div></details>
+
+    <details><summary><b>http shortcuts</b></summary><div class="body"><pre class="console">[shortcuts]
+  any URL you want to hit from
+  the phone, as a named button
+  GET or POST · JSON body
+  two taps to fire, never one
+  no accidental reboots
+  grouped under one service
+[where]
+  its own screen · a dashboard
+  card · a home-screen widget
+  · a quick-action button</pre></div></details>
+
+    <details><summary><b>android tv</b></summary><div class="body"><pre class="console">[the tv flavour]
+  a second APK from the same
+  source: a Jellyfin streaming
+  client, nothing else
+  no dashboard, no services,
+  no widgets, removed in the
+  manifest, not just hidden
+[sign-in]
+  finds servers by broadcast
+  Quick Connect: a code on the
+  screen, approved on a phone
+  username + password as
+  fallback · https tried first
+[playback]
+  libmpv, so the codec gaps of
+  cheap sticks stop mattering
+  matches the panel's refresh
+  rate before playback starts
+  direct output by default
+  remote-friendly throughout</pre></div></details>
+
+    <details><summary><b>privacy &amp; portability</b></summary><div class="body"><pre class="console">[crypto]
+  credentials AES-256-GCM encrypted
+  (Android Keystore)
+[lock]
+  optional biometric app-lock
+[export]
+  password-protected portable config
+  (PBKDF2 → AES-GCM)
+[network]
+  secrets kept out of cloud backup
+  Cloudflare Access headers</pre></div></details>
+
+    <details><summary><b>tested against</b></summary><div class="body"><pre class="console">Sanctumd is built and used against one
+homelab, by one person. The combinations
+below are the ones that see daily use;
+anything else has never been tried.
+
+Jellyfin    12.1.0
+Radarr      6.4.4.10685
+Sonarr      4.0.20.3014
+Lidarr      3.1.6.5078
+Prowlarr    2.6.5.5623
+Seerr       3.3.0
+NZBGet      26.3
+ntfy        self-hosted, version not recorded
+
+Android     17 on the phone</pre></div></details>
+  </section>
+
+  <section id="download">
+    <h2>download</h2>
+    <div class="dl">
+      <div class="dlcard" id="dl-phone">
+        <h3>phone</h3>
+        <p class="sub">the full app · arm64-v8a</p>
+        <div class="meta">
+          <div>size<b class="size">…</b></div>
+          <div>downloads<b class="count">…</b></div>
+        </div>
+        <a class="btn" href="#">[ loading… ]</a>
+      </div>
+      <div class="dlcard" id="dl-tv">
+        <h3>android tv</h3>
+        <p class="sub">Jellyfin client · arm64 + armeabi-v7a</p>
+        <div class="meta">
+          <div>size<b class="size">…</b></div>
+          <div>downloads<b class="count">…</b></div>
+        </div>
+        <a class="btn" href="#">[ loading… ]</a>
+      </div>
+    </div>
+    <p class="note">Sideload the APK. There is no Play Store listing. Every release is
+      built from this source by GitHub Actions — see
+      <a href="https://github.com/Phioster/sanctum_daemon/releases">all releases</a>.</p>
+  </section>
+
+  <section id="faq" class="faq">
+    <h2>faq</h2>
+
+    <details open><summary><b>./is-this-for-me</b></summary><div class="body">
+      <h3>What is this?</h3>
+      <p>One Android app for a self-hosted media stack. Jellyfin, Radarr, Sonarr, Lidarr,
+        Prowlarr, NZBGet, Seerr and ntfy, each talked to directly over its own API. No backend
+        of its own, no account, no sign-up.</p>
+      <h3>Why not just use the official apps?</h3>
+      <p>You can, and for Jellyfin alone the official client is fine. This exists for the case
+        where one app is not enough: you want to see the download queue, fix a stuck import,
+        approve a request and then actually watch the film, without leaving one app for another
+        four times.</p>
+      <h3>Does it work with Plex or Emby?</h3>
+      <p>No. It speaks the Jellyfin API. Emby is close enough that parts might respond, but
+        nothing is tested against it and nothing is built for it.</p>
+      <h3>Is there an iOS version?</h3>
+      <p>No, and there is no plan for one. It is Kotlin and Jetpack Compose, Android only.</p>
+      <h3>Which server versions does it work with?</h3>
+      <p>The <code>tested against</code> block above lists the exact versions it is used against
+        every day. Older major versions may work or may not. If yours does not, an issue with
+        your version numbers in it is genuinely useful.</p>
+    </div></details>
+
+    <details><summary><b>./can-i-trust-it</b></summary><div class="body">
+      <p>You are about to hand an app the keys to your whole media stack. Fair questions.</p>
+      <h3>Where are my API keys and passwords stored?</h3>
+      <p>On the device, in the app's private storage, encrypted with AES-256-GCM. The key lives
+        in the Android Keystore, so it cannot be read out of a backup or off a rooted-but-locked
+        device without the hardware. They are never sent anywhere except to the servers you
+        configured, as the header that server expects.</p>
+      <h3>Does the app phone home?</h3>
+      <p>There is no backend, no account, no analytics and no crash reporting. Nothing is
+        collected and there is nowhere for it to be collected to.</p>
+      <p>One honest caveat: if you use the Seerr screens, posters, cast pictures and
+        watch-provider logos are loaded straight from <code>image.tmdb.org</code>, because that is
+        where Seerr points at them. So TMDB's CDN sees those image requests from your device.
+        Nothing else leaves your network, and no other screen is affected.</p>
+      <h3>How is it tested and reviewed?</h3>
+      <p>Every change goes through review before it lands, and then through CI: a test suite of
+        339 cases, detekt, Android Lint, and a launch test that installs the app on an emulator
+        and drives it. The app runs on one real homelab every day before anything is tagged as a
+        release.</p>
+      <p>What that does not cover: one person's setup is not a survey. Everything that works,
+        works there.</p>
+      <h3>Was this written by AI?</h3>
+      <p>In large part, yes, and the README says so under <code>./built-with</code>. See the
+        question above for what keeps it honest. The practical consequence for you: there is no
+        crash reporting in here, so a bug reaches me only if you open an issue. That costs you
+        five minutes and is worth more than usual.</p>
+      <h3>Can I check any of this myself?</h3>
+      <p>Yes, that is what the licence is for. The parts worth reading first are small:
+        <code>Crypto.kt</code> and <code>data/ServiceStore.kt</code> for how credentials are
+        stored, and <code>net/Http.kt</code> for what gets sent with each request. A few hundred
+        lines in total. Security reports go through GitHub's private advisories, not a public
+        issue — see <code>SECURITY.md</code>.</p>
+      <h3>Does it need root?</h3>
+      <p>No.</p>
+    </div></details>
+
+    <details><summary><b>./setting-it-up</b></summary><div class="body">
+      <h3>How does each service authenticate?</h3>
+      <table>
+        <tr><th>Service</th><th>What it wants</th><th>Where to find it</th></tr>
+        <tr><td>Radarr, Sonarr, Lidarr, Prowlarr</td><td>API key</td><td>Settings → General → API Key</td></tr>
+        <tr><td>Seerr</td><td>API key</td><td>Settings → General → API Key</td></tr>
+        <tr><td>NZBGet</td><td>username and password</td><td>its own settings, the control username and password</td></tr>
+        <tr><td>Jellyfin</td><td>username and password, or Quick Connect</td><td>no key needed</td></tr>
+        <tr><td>ntfy</td><td>an access token, if your server requires one</td><td>otherwise leave it empty</td></tr>
+      </table>
+      <h3>What does the base URL look like?</h3>
+      <p>Whatever you type into a browser to reach the service, including the port:
+        <code>http://192.168.1.50:7878</code>. https is tried first when you leave the scheme off.
+        No trailing path unless your reverse proxy puts the service under one.</p>
+      <h3>Can I use it from outside my network?</h3>
+      <p>Yes, the same way you reach your services from outside: a VPN back into your network, a
+        reverse proxy, or a Cloudflare tunnel. The app only ever talks to the address you give it,
+        so whatever works in a browser works here. There are fields for extra headers and for
+        Cloudflare Access (service token id and secret) in the service editor.</p>
+      <h3>Self-signed certificates?</h3>
+      <p>No. The app uses Android's normal certificate validation and offers no way around it. If
+        your certificate is trusted by the device, because you installed the CA in the system
+        store, it works. Otherwise use a real certificate, or plain http inside your own
+        network.</p>
+    </div></details>
+
+    <details><summary><b>./android-tv</b></summary><div class="body">
+      <h3>Is there a version for Android TV?</h3>
+      <p>Yes, a separate APK. It installs beside the phone app rather than over it, because it has
+        its own application id. It is a plain Jellyfin streaming client: browse, detail, play. No
+        dashboard, no services, no widgets, on purpose. It uses libmpv, which is the whole reason
+        it exists: the codecs ExoPlayer does not cover.</p>
+      <h3>Why is the TV download so much bigger?</h3>
+      <p>It carries <code>armeabi-v7a</code> as well as <code>arm64-v8a</code>. Plenty of TV
+        sticks run a 32-bit userspace on a 64-bit chip, and without those libraries libmpv cannot
+        load at all, which would leave you back at the codec gaps the TV build exists to close.</p>
+    </div></details>
+
+    <details><summary><b>./the-rest</b></summary><div class="body">
+      <h3>Which devices are supported?</h3>
+      <p>Android 8.0 and newer, 64-bit ARM. The phone APK carries <code>arm64-v8a</code> only,
+        because libmpv's libraries are large and bundling every architecture would multiply the
+        download for hardware almost nobody runs. 32-bit phones and x86 are not supported. Build
+        from source with the <code>abiFilters</code> line dropped if you need one.</p>
+      <h3>How do I move my setup to another device, or back it up?</h3>
+      <p>Settings → "backup / data" → export. You choose a password and the file is encrypted with
+        it. Import it on the other device with the same password. Do this before uninstalling,
+        always.</p>
+      <h3>Is it free? What is the catch?</h3>
+      <p>GPL-3.0, no catch. There are donation links in the README if it saved you an evening, and
+        nothing in the app depends on them. No paid tier, no features held back.</p>
+      <h3>Who is behind it?</h3>
+      <p>One person and one homelab.</p>
+    </div></details>
+  </section>
+
+  <footer>
+    <span>GPL-3.0 · no tracking, no analytics, no cookies</span>
+    <span><a href="https://github.com/Phioster/sanctum_daemon">source on github</a></span>
+  </footer>
+
+</div>
+
+<button id="fx" type="button" title="effects">[fx]</button>
+<script src="assets/app.js"></script>
+</body>
+</html>
