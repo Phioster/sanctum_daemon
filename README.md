@@ -246,6 +246,16 @@ Older major versions of any of these may work or may not. If yours does not, an
 issue with your version numbers in it is genuinely useful, that is how this list
 grows.
 
+## ▚▚ `./built-with`
+
+A large part of this code was written with an AI assistant.
+
+That does not mean nobody stands behind it. Every change goes through review, a test
+suite of 339 cases, detekt and Android Lint, and a launch test on an emulator. The app
+runs on one real homelab every day before anything is tagged. Bugs are mine to fix, and
+the issue tracker is the only way they reach me: there is no crash reporting in here, on
+purpose.
+
 ## ▚▚ `./install`
 
 Grab the signed APK from the
