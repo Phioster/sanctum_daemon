@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
@@ -71,6 +72,7 @@ internal object AppIcons {
     val Quality: ImageVector = Icons.Filled.HighQuality
 
     // ── Library actions ──
+    val Copy: ImageVector = Icons.Filled.ContentCopy
     val Download: ImageVector = Icons.Filled.Download
     val Add: ImageVector = Icons.Filled.Add
     val Search: ImageVector = Icons.Filled.Search
