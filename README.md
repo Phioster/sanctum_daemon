@@ -225,7 +225,7 @@ Grab the signed APK from the
 [latest release](https://github.com/Phioster/sanctum_daemon/releases/latest):
 
 ```console
-$ adb install -r sanctumd-v2.0.0.apk
+$ adb install -r sanctumd-v2.1.0.apk
 ```
 
 Android 8.0+ on **arm64**. The APK carries `arm64-v8a` libraries only —
@@ -236,9 +236,13 @@ need one.
 
 **Android TV** gets its own APK — the `tv` flavour, application id
 `org.phioster.nexarr.tv`, so it installs next to the phone app rather than
-over it. It builds `armeabi-v7a` instead: plenty of TV sticks run a 32-bit
-userspace on a 64-bit chip, and without those libraries libmpv cannot load
-at all.
+over it. That APK carries `armeabi-v7a` as well as `arm64-v8a`, which is why
+it is the larger download: plenty of TV sticks run a 32-bit userspace on a
+64-bit chip, and without those libraries libmpv cannot load at all.
+
+```console
+$ adb install -r sanctumd-tv-v2.1.0.apk
+```
 
 ## ▚▚ `./build`
 
@@ -261,11 +265,23 @@ $ gradle assembleDebug
 
 ```text
 feature-complete · in daily use
-1.0 shipped 2026-07-20, now at 2.0
+1.0 shipped 2026-07-20, now at 2.1
 security audit passed — every finding fixed
 ```
 
 See [CHANGELOG.md](CHANGELOG.md) for the milestone history.
+
+## ▚▚ `./support`
+
+Sanctumd is free software and stays that way. If it saved you an evening of
+fiddling and you feel like it:
+
+- [Buy Me a Coffee](https://buymeacoffee.com/phioster)
+- [Ko-fi](https://ko-fi.com/phioster)
+
+The same two sit behind the **Sponsor** button at the top of this page, but
+GitHub hides that on a phone -- in the app and in the mobile browser alike --
+so they are written out here.
 
 ---
 
