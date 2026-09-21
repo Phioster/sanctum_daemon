@@ -15,13 +15,13 @@ import org.phioster.sanctumd.model.WatchProviderKind
 import java.util.Locale
 
 /**
- * "Where does this stream?", the way werstreamt.es answers it — read out of the `watchProviders`
+ * "Where does this stream?", the way werstreamt.es answers it. Read out of the `watchProviders`
  * block Jellyseerr/Overseerr already return with a movie/tv detail, so the app needs no TMDB key
  * of its own.
  *
  * The payload below is the shape Seerr maps TMDB into: one entry per country, each with
  * `flatrate` / `rent` / `buy` lists. Availability is per country, so reading the wrong entry
- * would be worse than reading none — the "nowhere here" case is a result, not a failure.
+ * would be worse than reading none. The "nowhere here" case is a result, not a failure.
  */
 class SeerrWatchProvidersTest {
 
@@ -81,7 +81,7 @@ class SeerrWatchProvidersTest {
         assertEquals(WatchProviderKind.BUY, parse("DE").providers.single { it.id == 2 }.kind)
     }
 
-    /** Nothing in this country is an answer of its own — and never an excuse to show another's. */
+    /** Nothing in this country is an answer of its own. And never an excuse to show another's. */
     @Test
     fun `a region TMDB has no entry for streams nowhere`() {
         val at = parse("AT")
@@ -131,7 +131,7 @@ class SeerrWatchProvidersTest {
         assertEquals("/api/v1/tv/1399", server.takeRequest().path)
     }
 
-    /** No tmdbId means nothing to ask about — and nothing must go out over the network for it. */
+    /** No tmdbId means nothing to ask about. And nothing must go out over the network for it. */
     @Test
     fun `an unknown tmdb id never reaches the server`() = runBlocking {
         assertTrue(seerrWatchProviders(config(), 0, isTv = false, region = "DE").isEmpty)

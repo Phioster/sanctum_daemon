@@ -36,7 +36,7 @@ import org.phioster.sanctumd.ui.theme.Surface
 /**
  * Who is watching and who is allowed to: the Now Playing and Users tabs.
  *
- * They share a file because they are two views of the same thing — a session belongs to a user,
+ * They share a file because they are two views of the same thing, a session belongs to a user,
  * and both are managed from the same place on the server.
  */
 internal class JellyfinPeopleState {

@@ -109,7 +109,7 @@ internal interface LidarrApi {
     // "importBlocked" after a download the app refuses to import by itself. Absent on older
     // versions, which must read as "not blocked" rather than as a cleanup prompt.
     val trackedDownloadState: String? = null,
-    // Where the download actually landed — what a manual import needs to be pointed at.
+    // Where the download actually landed. What a manual import needs to be pointed at.
     val outputPath: String? = null,
 )
 @Serializable internal data class ArrQueuePage(val records: List<ArrQueueRecord> = emptyList())
@@ -251,7 +251,7 @@ internal fun arrItemPath(type: ServiceType) = when (type) {
     else -> "movie"
 }
 
-/** The first image of [coverType], preferring the remote copy — a lookup hit has no local one yet. */
+/** The first image of [coverType], preferring the remote copy. A lookup hit has no local one yet. */
 internal fun arrImageUrl(o: JsonObject, coverType: String = "poster"): String =
     (o["images"] as? JsonArray)?.mapNotNull { it as? JsonObject }
         ?.firstOrNull { jsStr(it, "coverType") == coverType }
@@ -297,8 +297,8 @@ internal fun arrStatusLabel(status: String): String =
 /**
  * Everything the add screen shows about a title that is not in the library yet.
  *
- * The fields differ per service — a movie has a studio, a series a network, an artist a type —
- * so each one contributes its own facts and the rest stays shared.
+ * The fields differ per service. A movie has a studio, a series a network, an artist a type.
+ * So each one contributes its own facts and the rest stays shared.
  */
 private fun lookupItem(config: ServiceConfig, obj: JsonObject): ArrLookupItem {
     val facts = buildList {
@@ -370,7 +370,7 @@ suspend fun arrProfiles(config: ServiceConfig): List<ArrProfile> = withContext(D
 }
 
 /**
- * An unrestricted copy of an existing quality profile — the fallback for releases that exist in
+ * An unrestricted copy of an existing quality profile, the fallback for releases that exist in
  * one language only and never reach a custom-format profile's score floor.
  *
  * Cloned rather than hand-assembled, so the schema comes from a profile the server already
@@ -416,7 +416,7 @@ suspend fun arrCloneProfileUnrestricted(
 }
 
 /**
- * The id of the lowest-ranked allowed entry — Servarr lists qualities worst first, so that is
+ * The id of the lowest-ranked allowed entry. Servarr lists qualities worst first, so that is
  * simply the first one. Groups carry their own id and are referenced by it.
  */
 private fun lowestAllowedQualityId(items: JsonElement): Int? {
@@ -556,7 +556,7 @@ suspend fun arrCalendarRange(config: ServiceConfig, start: java.time.Instant, en
 }
 
 /**
- * Queue entries stuck on `importBlocked` — what a hand-assigned manual import leaves behind.
+ * Queue entries stuck on `importBlocked`. What a hand-assigned manual import leaves behind.
  *
  * The import itself succeeds, but the queue entry stays and the source file remains on disk a
  * second time (download folder and library are different filesystems here, so no hardlink).
@@ -605,7 +605,7 @@ suspend fun arrSearchItem(config: ServiceConfig, id: Int): String = destructive(
 
 /**
  * Removes a queue item. [blocklist] additionally tells the app never to grab that release
- * again — the way out of the loop where a flaky indexer keeps serving the same broken file.
+ * again. The way out of the loop where a flaky indexer keeps serving the same broken file.
  */
 @Serializable internal data class ArrBlocklistRecord(
     val id: Int = 0,
@@ -627,7 +627,7 @@ suspend fun arrBlocklist(config: ServiceConfig): List<ArrBlocklistItem> = withCo
  *
  * The queue-based route only works while a download is running. When an indexer serves several
  * wrongly-tagged releases for one title, that would mean waiting for each to be grabbed before it
- * could be blocked — one download at a time.
+ * could be blocked, one download at a time.
  */
 suspend fun arrBlocklistFromHistory(config: ServiceConfig, id: Int): String =
     destructive("blocklist history entry $id on ${config.label}") {
@@ -641,7 +641,7 @@ suspend fun arrBlocklistFromHistory(config: ServiceConfig, id: Int): String =
         }
     }
 
-/** Lifts a blocklist entry — without this a release blocked by mistake stays blocked forever. */
+/** Lifts a blocklist entry. Without this a release blocked by mistake stays blocked forever. */
 suspend fun arrBlocklistRemove(config: ServiceConfig, id: Int): String =
     destructive("unblock release $id on ${config.label}") {
         withContext(Dispatchers.IO) {
@@ -696,8 +696,8 @@ suspend fun arrLibrary(config: ServiceConfig): List<ArrLibraryItem> = withContex
 /**
  * The library entry matching a Jellyfin item, found by provider id rather than by title.
  *
- * Title matching is exactly what fails on this setup — a German release name rarely equals the
- * *arr title — so an id match or nothing. Returning null means "offer no paired deletion",
+ * Title matching is exactly what fails on this setup, a German release name rarely equals the
+ * *arr title, so an id match or nothing. Returning null means "offer no paired deletion",
  * never "offer the closest thing".
  */
 suspend fun arrFindByProviderId(config: ServiceConfig, tmdbId: String?, tvdbId: String?): ArrLibraryItem? =
@@ -715,7 +715,7 @@ suspend fun arrFindByProviderId(config: ServiceConfig, tmdbId: String?, tvdbId: 
 /**
  * Moves an item to another root folder, taking its files along.
  *
- * Each service names the route and the id field after its own kind — and getting either wrong
+ * Each service names the route and the id field after its own kind, and getting either wrong
  * fails **quietly**: the editor endpoint answers `202` for an empty selection, so a body with the
  * wrong field name is indistinguishable from a move that worked. Hence the per-type mapping here
  * rather than a shared "ids" guess.
@@ -1006,7 +1006,7 @@ suspend fun arrBrowse(config: ServiceConfig, path: String): ArrFsListing = withC
 }
 
 /**
- * Asks the service what it makes of a release name — quality, custom formats and their score.
+ * Asks the service what it makes of a release name, quality, custom formats and their score.
  *
  * Prowlarr can only report what the indexer said; whether a release is worth taking is the
  * *arr app's judgement, and it is not visible in the name. Returns null when the service cannot
@@ -1095,7 +1095,7 @@ fun arrImportAssignMovie(rawJson: String, movieId: Int, title: String): String {
  *
  * A series alone is not enough: [arrManualImportExecute] sends `seriesId` **and** `episodeIds`,
  * and Sonarr refuses a file it cannot pin to concrete episodes. Assigning through the movie
- * helper on Sonarr therefore produced a command carrying neither — an import the user could
+ * helper on Sonarr therefore produced a command carrying neither. An import the user could
  * trigger and that silently did nothing.
  */
 fun arrImportAssignEpisodes(
@@ -1212,7 +1212,7 @@ suspend fun runSearchMissing(config: ServiceConfig): String = destructive("searc
  * release/push only grabs when the target already tracks the movie/series: the arr parses
  * the release title and, if it maps to a monitored item, hands it to the download client.
  * For an item that isn't in the library yet it returns HTTP 200 with a *rejected* result and
- * grabs nothing — so we must inspect the response body, not just the status code, or we'd
+ * grabs nothing. So we must inspect the response body, not just the status code, or we'd
  * report a false "sent". See [reportArrPush].
  */
 suspend fun arrPushRelease(arrConfig: ServiceConfig, release: ProwlarrRelease): String = destructive("push a release to ${arrConfig.type.label}") {
@@ -1242,7 +1242,7 @@ suspend fun arrPushRelease(arrConfig: ServiceConfig, release: ProwlarrRelease): 
 /**
  * Turns a release/push response into an honest message. The arr answers with a release
  * resource (object, or a single-element array); `approved:false` / a non-empty `rejections`
- * list means it did NOT grab — most often because the movie/series isn't in the library.
+ * list means it did NOT grab, most often because the movie/series isn't in the library.
  * If the body can't be parsed we fall back to the plain status code.
  */
 internal fun reportArrPush(resp: Response<ResponseBody>, label: String): String {
@@ -1261,7 +1261,7 @@ internal fun reportArrPush(resp: Response<ResponseBody>, label: String): String 
         .orEmpty()
     return when {
         rejected == true || approved == false || rejections.isNotEmpty() ->
-            "not added: ${rejections.firstOrNull() ?: "$label doesn't track this — add it there first"}"
+            "not added: ${rejections.firstOrNull() ?: "$label doesn't track this, add it there first"}"
         approved == true -> "grabbed by $label"
         else -> "sent to $label"
     }
@@ -1271,7 +1271,7 @@ internal fun reportArrPush(resp: Response<ResponseBody>, label: String): String 
 //
 // Prowlarr owns the indexer definitions, so this deliberately offers no add/edit/delete: the
 // next Prowlarr sync would overwrite it anyway. What it offers is the one thing Prowlarr
-// cannot do for you — clearing the *arr app's own failure lockout.
+// cannot do for you, clearing the *arr app's own failure lockout.
 
 /**
  * The service's own indexers, with whether each is locked out.
@@ -1279,7 +1279,7 @@ internal fun reportArrPush(resp: Response<ResponseBody>, label: String): String 
  * The state comes from the health check, not from `indexerstatus`: that endpoint 404s on Radarr
  * 6.3 and Sonarr 4.0. `IndexerStatusCheck` names the affected indexers, without an expiry.
  *
- * Unreadable health gives [ArrIndexerItem.statusUnknown], not "healthy" — the list still loads,
+ * Unreadable health gives [ArrIndexerItem.statusUnknown], not "healthy", the list still loads,
  * but it must not claim they are fine.
  */
 suspend fun arrIndexers(config: ServiceConfig): List<ArrIndexerItem> = withContext(Dispatchers.IO) {
@@ -1312,7 +1312,7 @@ private const val INDEXERS_UNAVAILABLE = "Indexers unavailable due to failures"
 
 /**
  * Tests every indexer of one service. A successful test makes the app record a success, which
- * is what clears the failure lockout — the same thing a Test on its settings page does.
+ * is what clears the failure lockout. The same thing a Test on its settings page does.
  */
 suspend fun arrTestAllIndexers(config: ServiceConfig): String = withContext(Dispatchers.IO) {
     try {
@@ -1327,7 +1327,7 @@ suspend fun arrTestAllIndexers(config: ServiceConfig): String = withContext(Disp
 
 /**
  * The cross-service repair: tests the indexers of every given service in turn and reports one
- * outcome per service. Sequential on purpose — these all end up querying the same indexer, and
+ * outcome per service. Sequential on purpose. These all end up querying the same indexer, and
  * hammering it in parallel is what triggers the lockout in the first place.
  */
 suspend fun arrRepairIndexers(configs: List<ServiceConfig>): List<Pair<String, String>> =

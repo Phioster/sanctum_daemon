@@ -34,7 +34,7 @@ class DownloadStore(private val context: Context) {
         }
     }
 
-    /** Atomically transform one entry (no-op if it's gone — e.g. deleted mid-download). */
+    /** Atomically transform one entry (no-op if it's gone, e.g. deleted mid-download). */
     suspend fun update(itemId: String, transform: (DownloadEntry) -> DownloadEntry) {
         context.downloadDataStore.edit { prefs ->
             val map = prefs[ENTRIES_KEY]?.let { runCatching { downloadJson.decodeFromString<Map<String, DownloadEntry>>(it) }.getOrNull() } ?: emptyMap()

@@ -22,7 +22,7 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           # Without this the action installs its default 'tools' package, which Google removed
-          # from the SDK repository — sdkmanager then exits 1 and the whole job dies.
+          # from the SDK repository, sdkmanager then exits 1 and the whole job dies.
           packages: 'platform-tools'
 
       - name: Setup Gradle
@@ -71,7 +71,7 @@ jobs:
             app/build/reports/lint-results-*.*
           if-no-files-found: warn
 
-      # Compiles the debug variant as a build-health check. The APK itself is NOT uploaded — we never
+      # Compiles the debug variant as a build-health check. The APK itself is NOT uploaded, we never
       # install it (debug key ≠ release key; installs come from release.yml), so keeping it only ate
       # into the 0.5 GB free Actions-storage quota.
       - name: Build debug APKs (phone + tv)

@@ -3,7 +3,7 @@ package org.phioster.sanctumd.ui.player
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** The shape the surface takes — the one number that decides whether a film is stretched. */
+/** The shape the surface takes. The one number that decides whether a film is stretched. */
 class VideoAspectTest {
 
     @Test

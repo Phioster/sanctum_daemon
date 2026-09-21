@@ -7,7 +7,7 @@ import org.junit.Test
 /**
  * The rule the rest of the app already followed and the music path did not: no credential in a
  * URL. A token here ended up in `MediaMetadata.artworkUri`, which media3 bundles to every
- * connected controller — readable by any app on the device.
+ * connected controller, readable by any app on the device.
  */
 class JellyfinMusicUrlTest {
 

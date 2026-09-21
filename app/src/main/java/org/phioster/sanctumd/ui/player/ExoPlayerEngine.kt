@@ -200,7 +200,7 @@ class ExoPlayerEngine(private val context: Context) : MediaPlayerEngine {
     }
 
     /** ExoPlayer here renders into a bare SurfaceView (no PlayerView/SubtitleView), so there is no
-     *  subtitle styling surface to talk to — mpv, the primary engine, handles both. */
+     *  subtitle styling surface to talk to. mpv, the primary engine, handles both. */
     override fun setSubtitleScale(scale: Float) = Unit
     override fun setSubtitleDelay(delayMs: Long) = Unit
 

@@ -67,7 +67,7 @@ internal fun ArrBlocklistDialog(
                     null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                     else -> if (list.isEmpty()) {
                         Text(
-                            "nothing blocked — releases removed from the queue can still be grabbed again",
+                            "nothing blocked. Releases removed from the queue can still be grabbed again",
                             fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp,
                         )
                     } else list.forEach { e ->

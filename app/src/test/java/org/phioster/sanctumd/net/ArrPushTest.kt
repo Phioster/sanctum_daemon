@@ -17,7 +17,7 @@ import org.phioster.sanctumd.model.ServiceType
 import retrofit2.Response
 
 /**
- * Guards the "send a Prowlarr release to an arr" path — the class of bug where a bare HTTP
+ * Guards the "send a Prowlarr release to an arr" path, the class of bug where a bare HTTP
  * 200 from release/push was reported as "sent" even though the arr grabbed nothing. Also
  * covers the Sonarr season query and the manual-import movie assignment added alongside it.
  */
@@ -61,7 +61,7 @@ class ArrPushTest {
 
     @Test fun `rejected flag without a reason falls back to the add-first hint`() {
         assertEquals(
-            "not added: Radarr doesn't track this — add it there first",
+            "not added: Radarr doesn't track this. Add it there first",
             reportArrPush(ok("""{"rejected":true}"""), "Radarr"),
         )
     }

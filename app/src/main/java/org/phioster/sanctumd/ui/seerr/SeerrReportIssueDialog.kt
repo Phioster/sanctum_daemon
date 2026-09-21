@@ -29,7 +29,7 @@ import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
 
-/** Seerr's own numbering — the picker must not offer a type the server does not know. */
+/** Seerr's own numbering. The picker must not offer a type the server does not know. */
 private val ISSUE_TYPES = listOf(1 to "video", 2 to "audio", 3 to "subtitle", 4 to "other")
 
 /**

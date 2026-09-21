@@ -39,7 +39,7 @@ import org.phioster.sanctumd.net.jellyfinTrickplayTile
  * Jellyfin's trickplay thumbnails instead. No trickplay means plain black bars.
  *
  * The thumbnail is decoded small, averaged to a handful of pixels and stretched over the player.
- * That downscale is the blur — a few dozen pixels would still show the scene, which is the
+ * That downscale is the blur. A few dozen pixels would still show the scene, which is the
  * opposite of ambient.
  */
 /** One frame of glow: the picture plus how strongly it may be painted (see [ambientAlpha]). */
@@ -72,7 +72,7 @@ fun AmbientGlow(
             return@LaunchedEffect
         }
         // No trickplay: fall back to the item's own artwork. One colour for the whole film rather
-        // than one per scene, and painted fainter — a white poster would otherwise light up the room.
+        // than one per scene, and painted fainter. A white poster would otherwise light up the room.
         val art = withContext(Dispatchers.IO) {
             jellyfinAmbientArtwork(config, itemId)?.let { bytes ->
                 runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }.getOrNull()

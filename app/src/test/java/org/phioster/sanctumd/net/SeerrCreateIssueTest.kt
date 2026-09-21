@@ -12,7 +12,7 @@ import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
 
 /**
- * The app could list issues, comment on them and change their status — but not open one, which
+ * The app could list issues, comment on them and change their status, but not open one, which
  * is the half that actually starts the conversation. Reporting "the German audio track is
  * missing" is the point; the rest is follow-up.
  */
@@ -61,7 +61,7 @@ class SeerrCreateIssueTest {
     /**
      * The issue endpoint wants Seerr's **internal** media id, not the TMDB id. They are
      * different numbers, and posting the TMDB one would open issues against unrelated titles
-     * or fail outright — so the detail has to carry it.
+     * or fail outright. So the detail has to carry it.
      */
     @Test
     fun `the media detail carries Seerr's own media id`() = runBlocking {

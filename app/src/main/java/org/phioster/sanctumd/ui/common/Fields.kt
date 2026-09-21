@@ -150,12 +150,12 @@ internal fun SectionHeader(label: String, accent: Color = MatrixGreen, modifier:
 }
 
 /**
- * The title of a single chart or table *inside* a section — one level below [SectionHeader].
+ * The title of a single chart or table *inside* a section, one level below [SectionHeader].
  *
  * They used to share [SectionHeader], which made every chart look like a new top-level section:
  * under "TRENDS" the first thing you saw was "prowlarr · grabs per day" in the identical style,
  * so TRENDS itself read as empty. No accent tick, not bold, and indented to the same depth as the
- * content it labels — so a chart visibly belongs to the section above it.
+ * content it labels, so a chart visibly belongs to the section above it.
  */
 @Composable
 internal fun ChartTitle(label: String, accent: Color = MatrixGreen, modifier: Modifier = Modifier) {
@@ -174,7 +174,7 @@ internal fun Hint(text: String, modifier: Modifier = Modifier) {
     Text(text, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 12.sp, modifier = modifier)
 }
 
-/** Filled accent button (dark ink) — the primary in-content action everywhere. */
+/** Filled accent button (dark ink), the primary in-content action everywhere. */
 @Composable
 internal fun PrimaryButton(label: String, modifier: Modifier = Modifier, icon: ImageVector? = null, accent: Color = MatrixGreen, enabled: Boolean = true, onClick: () -> Unit) {
     Row(
@@ -192,7 +192,7 @@ internal fun PrimaryButton(label: String, modifier: Modifier = Modifier, icon: I
     }
 }
 
-/** Outlined accent button (accent text on a slightly-raised surface) — the secondary action. */
+/** Outlined accent button (accent text on a slightly-raised surface), the secondary action. */
 @Composable
 internal fun SecondaryButton(label: String, modifier: Modifier = Modifier, icon: ImageVector? = null, accent: Color = MatrixGreen, enabled: Boolean = true, onClick: () -> Unit) {
     Row(
@@ -213,7 +213,7 @@ internal fun SecondaryButton(label: String, modifier: Modifier = Modifier, icon:
 }
 
 /**
- * A compact bordered action chip — the standard chip for inline actions (back / scan / filters).
+ * A compact bordered action chip, the standard chip for inline actions (back / scan / filters).
  *
  * [icon] is a vector, not a character in the label, on purpose. Symbols written as text depend on
  * what the mono font happens to cover: ▶ came out solid, ⬇ and ⟳ thin from some fallback font, and

@@ -19,7 +19,7 @@ object Notifications {
     const val CH_LIVE = "live"
     const val CH_SERVICE = "live_service"
     const val CH_DOWNLOADS = "downloads"
-    // Historic name — renaming it would leave the old periodic work scheduled.
+    // Historic name. Renaming it would leave the old periodic work scheduled.
     private const val WORK = "nexarr_notify_poll"
 
     fun ensureChannels(ctx: Context) {

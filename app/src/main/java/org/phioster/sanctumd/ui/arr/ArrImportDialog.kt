@@ -145,7 +145,7 @@ internal fun ArrImportDialog(
                                             fontFamily = Mono, color = accent, fontSize = 11.sp,
                                             modifier = Modifier
                                                 .clickable {
-                                                    // Sonarr needs episode ids, not just a series — its own two-step picker.
+                                                    // Sonarr needs episode ids, not just a series. Its own two-step picker.
                                                     if (config.type == ServiceType.SONARR) {
                                                         assignEpisodeRow = i
                                                     } else {

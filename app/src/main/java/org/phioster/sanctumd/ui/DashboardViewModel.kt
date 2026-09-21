@@ -146,7 +146,7 @@ data class PendingRoute(val kind: String, val serviceId: String? = null, val ite
 class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     // Home navigation state lives here (not in composables) so it survives when HomeShell
-    // leaves composition — otherwise back from a service always lands on the first tab.
+    // leaves composition. Otherwise back from a service always lands on the first tab.
     val homeTab = androidx.compose.runtime.mutableIntStateOf(0)
 
     /** Bumped by pull-to-refresh on a dashboard tab; dashboard cards key their data
@@ -469,7 +469,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
             val idx = list.indexOfFirst { it.id == config.id }
             val updated = if (idx >= 0) list.toMutableList().apply { this[idx] = config } else list + config
             store.save(updated)
-            // The ntfy stream snapshots its subscriptions on start — re-read them.
+            // The ntfy stream snapshots its subscriptions on start. Re-read them.
             if (config.type == org.phioster.sanctumd.model.ServiceType.NTFY) {
                 org.phioster.sanctumd.notify.NtfyStreamService.restart(getApplication())
             }
@@ -502,7 +502,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Move [id] so it lands directly where [targetId] sits — the primitive behind drag & drop.
+    /** Move [id] so it lands directly where [targetId] sits. The primitive behind drag & drop.
      *  Reordering works on the global list, so a drag inside a group leaves other groups alone. */
     fun moveServiceTo(id: String, targetId: String) {
         viewModelScope.launch {
@@ -629,7 +629,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * Fetching a track and handing it to the player belongs here, not in a screen. The detail sheet
      * closes itself before it asks to play, and a rememberCoroutineScope() dies with its composable
-     * — so the fetch was cancelled before it ever reached the network, and 1.59.0 had no way to say
+     *. So the fetch was cancelled before it ever reached the network, and 1.59.0 had no way to say
      * so. viewModelScope outlives the composition.
      */
     fun playJellyfinTrack(config: ServiceConfig, itemId: String) = viewModelScope.launch {
@@ -646,7 +646,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Same for a whole album — see [playJellyfinTrack] for why it is not left to the screen.
+     * Same for a whole album. See [playJellyfinTrack] for why it is not left to the screen.
      * [startIndex] is which track the tap landed on; the rest of the album follows as the queue,
      * which is what a music player does and what a list of "play just this one" would not.
      */
@@ -680,8 +680,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
             .map { svc -> async(kotlinx.coroutines.Dispatchers.IO) { runCatching { statsForService(svc) }.getOrNull() } }
             .awaitAll()
             .filterNotNull()
-        // Opportunistic once/day snapshot, built from the metrics we already fetched — no second
-        // network pass — so a trend point exists even before the daily worker fires.
+        // Opportunistic once/day snapshot, built from the metrics we already fetched, no second
+        // network pass. So a trend point exists even before the daily worker fires.
         val today = java.time.LocalDate.now().toEpochDay()
         val metrics = parts.fold(emptyMap<String, Long>()) { acc, p -> acc + p.third }
         if (metrics.isNotEmpty() && statsHistoryStore.read().none { it.epochDay == today }) {
@@ -829,12 +829,12 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.net.jellyfinReportProgress(config, src, positionMs, isPaused)
     suspend fun jellyfinReportStopped(config: ServiceConfig, src: org.phioster.sanctumd.net.PlaybackSource, positionMs: Long) =
         org.phioster.sanctumd.net.jellyfinReportStopped(config, src, positionMs)
-    /** Fire-and-forget progress report — used when the app goes to the background, where a swipe-kill
+    /** Fire-and-forget progress report. Used when the app goes to the background, where a swipe-kill
      *  can follow immediately and the player's own 10s loop would never get another turn. */
     fun jellyfinReportProgressAsync(config: ServiceConfig, src: org.phioster.sanctumd.net.PlaybackSource, positionMs: Long, isPaused: Boolean) {
         viewModelScope.launch { runCatching { org.phioster.sanctumd.net.jellyfinReportProgress(config, src, positionMs, isPaused) } }
     }
-    /** Fire-and-forget stop report — survives the player screen leaving composition. */
+    /** Fire-and-forget stop report, survives the player screen leaving composition. */
     fun jellyfinReportStoppedAsync(config: ServiceConfig, src: org.phioster.sanctumd.net.PlaybackSource, positionMs: Long) {
         viewModelScope.launch { runCatching { org.phioster.sanctumd.net.jellyfinReportStopped(config, src, positionMs) } }
     }
@@ -924,14 +924,14 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrTestIndexers(config: ServiceConfig): String =
         org.phioster.sanctumd.net.arrTestAllIndexers(config)
 
-    /** Every Servarr app that owns indexers — a lockout normally hits all of them at once. */
+    /** Every Servarr app that owns indexers, a lockout normally hits all of them at once. */
     fun indexerServices(): List<ServiceConfig> = _services.value.filter {
         it.type == ServiceType.RADARR || it.type == ServiceType.SONARR || it.type == ServiceType.LIDARR
     }
     suspend fun arrRepairAllIndexers(): List<Pair<String, String>> =
         org.phioster.sanctumd.net.arrRepairIndexers(indexerServices())
 
-    /** The configured Prowlarr, if there is one — the text-search counterpart to [arrTargets]. */
+    /** The configured Prowlarr, if there is one, the text-search counterpart to [arrTargets]. */
     fun prowlarrService(): ServiceConfig? = _services.value.firstOrNull { it.type == ServiceType.PROWLARR }
 
     fun arrTargets(): List<ServiceConfig> =
@@ -1084,7 +1084,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * Cast and streaming availability for a Radarr/Sonarr title, resolved through Seerr.
      *
-     * Empty without a configured Seerr — it is the only TMDB source the app has.
+     * Empty without a configured Seerr. It is the only TMDB source the app has.
      */
     suspend fun arrTitleExtras(tmdbId: Int, isTv: Boolean): org.phioster.sanctumd.model.SeerrTitleExtras {
         val seerr = _services.value.firstOrNull { it.type == ServiceType.SEERR }

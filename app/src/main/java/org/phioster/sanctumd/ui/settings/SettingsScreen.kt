@@ -195,7 +195,7 @@ internal fun LivePushSection(vm: DashboardViewModel) {
     val s by vm.notifySettings.collectAsState()
     val requestPermIfNeeded = rememberNotifPermissionRequester()
     Text(
-        "Instant — no 15-minute wait. Sanctumd subscribes directly to a topic on your ntfy server and shows every message posted to it (your existing service webhooks already do this). Keeps a small background connection open. Topics of configured ntfy services are subscribed too.",
+        "Instant, no 15-minute wait. Sanctumd subscribes directly to a topic on your ntfy server and shows every message posted to it (your existing service webhooks already do this). Keeps a small background connection open. Topics of configured ntfy services are subscribed too.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 12.dp),
     )
     Spacer(Modifier.height(10.dp))
@@ -219,7 +219,7 @@ internal fun ContentSection(vm: DashboardViewModel) {
     val hide by vm.hideAdult.collectAsState()
     NotifyToggleRow("Hide adult content (XXX)", "Hides pornographic titles from Jellyfin browsing and Seerr discovery", hide) { vm.setHideAdult(it) }
     Text(
-        "Only real porn is hidden — XXX / X / X18+ / Adult ratings on Jellyfin and the TMDB adult flag on Seerr. Mainstream 18-rated films (horror, NC-17, R, FSK 18, R18+) stay visible. Doesn't touch Radarr/Sonarr or global search.",
+        "Only real porn is hidden, XXX / X / X18+ / Adult ratings on Jellyfin and the TMDB adult flag on Seerr. Mainstream 18-rated films (horror, NC-17, R, FSK 18, R18+) stay visible. Doesn't touch Radarr/Sonarr or global search.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
     )
 
@@ -231,15 +231,15 @@ internal fun ContentSection(vm: DashboardViewModel) {
         region,
     ) { vm.setWatchRegion(it) }
     Text(
-        "Which country the \"streaming\" row on Seerr, Radarr and Sonarr detail screens is read for — " +
-            "a title is on different services one border over. The data is TMDB's, fetched through your " +
+        "Which country the \"streaming\" row on Seerr, Radarr and Sonarr detail screens is read for. " +
+            "A title is on different services one border over. The data is TMDB's, fetched through your " +
             "configured Seerr, so the row only appears when Seerr is set up, and it stays hidden for titles " +
             "that stream nowhere in that country.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
     )
 }
 
-/** Accent presets plus the independent background choice. Applies instantly — the whole UI reads
+/** Accent presets plus the independent background choice. Applies instantly. The whole UI reads
  *  its colours from [org.phioster.sanctumd.ui.theme.ThemeState]. */
 @Composable
 internal fun ThemeSection() {
@@ -300,7 +300,7 @@ internal fun ThemeSection() {
         modifier = Modifier.padding(top = 4.dp),
     )
     Text(
-        "The accent colours everything you see — text, numbers, buttons. The preset's own colour " +
+        "The accent colours everything you see, text, numbers, buttons. The preset's own colour " +
             "tints the background and the cards behind it.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp,
         modifier = Modifier.padding(top = 8.dp),
@@ -365,7 +365,7 @@ internal fun PlaybackSection(vm: DashboardViewModel) {
         subMode,
     ) { vm.setSubtitleMode(it) }
     Text(
-        "\"Forced only\" shows the signs-and-songs track when the file has one and otherwise leaves subtitles off — a file whose default track is a full translation stays quiet.",
+        "\"Forced only\" shows the signs-and-songs track when the file has one and otherwise leaves subtitles off. A file whose default track is a full translation stays quiet.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(bottom = 12.dp),
     )
 
@@ -389,7 +389,7 @@ internal fun PlaybackSection(vm: DashboardViewModel) {
     )
 
     NotifyToggleRow("Autoplay next episode", "Shows a countdown card near the end and rolls on", autoplay) { vm.setAutoplayNext(it) }
-    NotifyToggleRow("Auto-skip intro & outro", "Skips without asking — the skip button appears either way", autoSkip) { vm.setAutoSkipSegments(it) }
+    NotifyToggleRow("Auto-skip intro & outro", "Skips without asking, the skip button appears either way", autoSkip) { vm.setAutoSkipSegments(it) }
     val nextLead by vm.nextEpisodeLead.collectAsState()
     SettingsPickerRow(
         "Next-episode card",
@@ -397,7 +397,7 @@ internal fun PlaybackSection(vm: DashboardViewModel) {
         nextLead.toString(),
     ) { vm.setNextEpisodeLead(it.toIntOrNull() ?: 45) }
     Text(
-        "How long before the end the card appears when the server reports no outro segment. With a real outro segment the card follows that instead — the info panel in the player shows which one you got.",
+        "How long before the end the card appears when the server reports no outro segment. With a real outro segment the card follows that instead. The info panel in the player shows which one you got.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
     )
 
@@ -413,12 +413,12 @@ internal fun PlaybackSection(vm: DashboardViewModel) {
         ambientGlow,
     ) { vm.setAmbientGlow(it) }
     Text(
-        "The colours come from the server's trickplay previews — the same images you see when scrubbing. Items the server has no trickplay for keep plain black bars, as do downloads played offline.",
+        "The colours come from the server's trickplay previews, the same images you see when scrubbing. Items the server has no trickplay for keep plain black bars, as do downloads played offline.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
     )
 }
 
-/** A labelled row of choice chips — used where a toggle isn't enough but a dialog is too much. */
+/** A labelled row of choice chips. Used where a toggle isn't enough but a dialog is too much. */
 @Composable
 internal fun SettingsPickerRow(
     label: String,
@@ -534,7 +534,7 @@ internal fun SecuritySection(vm: DashboardViewModel) {
         }
     }
     Text(
-        "Locks on cold start and after more than 2 minutes in the background. It gates the SCREEN, not the stored data: live push, widgets and downloads keep running while locked — and keep decrypting to do it. That is the trade for notifications that arrive while the phone is in your pocket.",
+        "Locks on cold start and after more than 2 minutes in the background. It gates the SCREEN, not the stored data: live push, widgets and downloads keep running while locked. And keep decrypting to do it. That is the trade for notifications that arrive while the phone is in your pocket.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
     )
 
@@ -547,7 +547,7 @@ internal fun SecuritySection(vm: DashboardViewModel) {
     ) { vm.setSafeMode(it) }
     Text(
         "While on, deletes, grabs, imports, request decisions, restarts and shortcuts are refused " +
-            "before they reach a server — the action reports \"blocked by safe mode\" instead. " +
+            "before they reach a server, the action reports \"blocked by safe mode\" instead. " +
             "Browsing, search and notifications are unaffected.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
     )
@@ -601,7 +601,7 @@ internal fun BackupSection(vm: DashboardViewModel) {
         Icon(AppIcons.Failed, contentDescription = null, tint = WarnAmberDim, modifier = Modifier.size(12.dp))
         Spacer(Modifier.width(6.dp))
         Text(
-            "the file holds your API keys and tokens — only the password protects them. keep it somewhere safe.",
+            "the file holds your API keys and tokens, only the password protects them. keep it somewhere safe.",
             fontFamily = Mono, color = WarnAmberDim, fontSize = 10.sp,
         )
     }
@@ -665,7 +665,7 @@ internal fun BackupSection(vm: DashboardViewModel) {
                             val res = vm.importConfig(bytes, pw)
                             importBytes = null
                             res.onSuccess { n -> android.widget.Toast.makeText(context, "config imported · $n services", android.widget.Toast.LENGTH_LONG).show() }
-                                .onFailure { android.widget.Toast.makeText(context, "import failed — wrong password or bad file", android.widget.Toast.LENGTH_LONG).show() }
+                                .onFailure { android.widget.Toast.makeText(context, "import failed, wrong password or bad file", android.widget.Toast.LENGTH_LONG).show() }
                         }
                     },
                     enabled = pw.isNotEmpty(),

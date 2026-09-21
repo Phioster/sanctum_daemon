@@ -108,7 +108,7 @@ internal fun ShortcutsScreen(
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
             if (config.shortcuts.isEmpty()) {
-                item { Text("no shortcuts yet — edit the service to add some", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp)) }
+                item { Text("no shortcuts yet. Edit the service to add some", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp)) }
             }
             items(config.shortcuts, key = { it.name + it.url }) { sc ->
                 Column(

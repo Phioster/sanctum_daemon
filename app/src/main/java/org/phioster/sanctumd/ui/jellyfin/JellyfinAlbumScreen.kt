@@ -51,7 +51,7 @@ import androidx.compose.material3.Icon
  * An album, shown as a record sleeve rather than a folder: square cover, running order, and a tap
  * that plays instead of asking first.
  *
- * The generic browse level treats an album like a season — expand it, drill in, open a detail sheet,
+ * The generic browse level treats an album like a season, expand it, drill in, open a detail sheet,
  * press play. That is four steps to hear a song, and it reads as a file manager. Here the list is
  * the running order, tapping a track starts it with the rest of the album queued behind it, and the
  * details are still one long press away for the things nobody needs mid-listen (download, identify).
@@ -150,7 +150,7 @@ internal fun LazyListScope.jellyfinAlbumLevel(
     item { Spacer(Modifier.height(16.dp)) }
 }
 
-/** One line of the running order: number, title, length — and a caret on the one that is playing. */
+/** One line of the running order: number, title, length. And a caret on the one that is playing. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AlbumTrackRow(
@@ -198,7 +198,7 @@ private fun AlbumTrackRow(
 }
 
 /**
- * An album in a list of albums — square cover, because that is the shape a sleeve has. The generic
+ * An album in a list of albums. Square cover, because that is the shape a sleeve has. The generic
  * row's 46x68 poster box belongs to films and letterboxes every cover it is given.
  */
 @Composable

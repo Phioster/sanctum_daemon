@@ -47,7 +47,7 @@ internal fun ArrDetailDialogs(
     itemId: Int,
     accent: Color,
     onBack: () -> Unit,
-    /** Opens the release picker for an album — the only thing here the screen has to do itself. */
+    /** Opens the release picker for an album. The only thing here the screen has to do itself. */
     onSearchAlbum: (albumId: Int, title: String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()

@@ -121,7 +121,7 @@ class DashboardStore(private val context: Context) {
     // ── Playback preferences ──────────────────────────────────────────────────────────────────
     // Language codes are ISO-639 ("de"/"en"/…); [subtitleMode] is "forced" (only a forced track for
     // the chosen language, else nothing), "any" (forced first, then a normal track) or "off".
-    /** Where the last manual import was scanned — the browser starts there instead of at "/". */
+    /** Where the last manual import was scanned. The browser starts there instead of at "/". */
     val lastImportPath: Flow<String> = context.dashboardDataStore.data.map { it[IMPORT_LAST_PATH_KEY] ?: "" }
     val audioLanguage: Flow<String> = context.dashboardDataStore.data.map { it[AUDIO_LANG_KEY] ?: "de" }
     val subtitleLanguage: Flow<String> = context.dashboardDataStore.data.map { it[SUB_LANG_KEY] ?: "de" }
@@ -143,7 +143,7 @@ class DashboardStore(private val context: Context) {
     suspend fun setAmbientGlow(v: Boolean) { context.dashboardDataStore.edit { it[AMBIENT_GLOW_KEY] = v } }
 
     /** TV: ask the panel for a refresh rate that is a whole multiple of the film's frame rate.
-     *  Applied before playback starts — switching mid-stream tears the surface out from under
+     *  Applied before playback starts, switching mid-stream tears the surface out from under
      *  the decoder and corrupts the picture. */
     val tvMatchRefresh: Flow<Boolean> = context.dashboardDataStore.data.map { it[TV_MATCH_REFRESH_KEY] ?: true }
     suspend fun setTvMatchRefresh(v: Boolean) { context.dashboardDataStore.edit { it[TV_MATCH_REFRESH_KEY] = v } }
@@ -154,7 +154,7 @@ class DashboardStore(private val context: Context) {
      *
      * **On by default**, on the evidence of the device itself: with the copy path a 1 Mbit/s H.264
      * file still dropped 69 frames while reporting zero late ones, and HEVC came out as coloured
-     * noise — the copy is both too slow and mis-formatted on this class of hardware. The cost is
+     * noise. The copy is both too slow and mis-formatted on this class of hardware. The cost is
      * that mpv no longer composites, so it cannot draw subtitles; turn this off when you need them.
      */
     val tvDirectOutput: Flow<Boolean> = context.dashboardDataStore.data.map { it[TV_DIRECT_OUTPUT_KEY] ?: true }

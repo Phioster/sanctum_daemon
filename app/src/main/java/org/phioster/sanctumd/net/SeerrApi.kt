@@ -236,7 +236,7 @@ suspend fun seerrIssues(config: ServiceConfig, filter: String): List<SeerrIssueI
 /**
  * Seerr's `/search`, kept whole.
  *
- * The answer is a page of full TMDB records — poster, year, request status — and the same reader
+ * The answer is a page of full TMDB records (poster, year, request status) and the same reader
  * the discover rows use turns it into browse items. A hit can then open the detail sheet instead
  * of being a title and a year on the way to a request dialog.
  */
@@ -351,7 +351,7 @@ suspend fun seerrDiscoverGenre(
 /**
  * The signed-in user's watchlist. Items carry tmdbId + mediaType.
  *
- * Jellyseerr keeps its own watchlist — a Plex link is not required (verified against a live
+ * Jellyseerr keeps its own watchlist. A Plex link is not required (verified against a live
  * instance 2026-08-20). Note the asymmetry, which is Jellyseerr's design and not a mistake here:
  * reading goes through `discover/watchlist`, while adding and removing go to `/watchlist`
  * (a plain GET on that path answers 405).
@@ -429,7 +429,7 @@ suspend fun seerrUsers(config: ServiceConfig): List<SeerrUserInfo> = withContext
  * What Seerr offers for [mediaType] ("movie" → Radarr, anything else → Sonarr): its root
  * folders and quality profiles, plus which of each is the default.
  *
- * Read from Seerr's own service config rather than from Radarr/Sonarr directly — the values
+ * Read from Seerr's own service config rather than from Radarr/Sonarr directly, the values
  * travel back to Seerr, so they have to be ones Seerr knows, and this works even when the *arr
  * service is not configured in Sanctumd at all.
  *
@@ -457,7 +457,7 @@ suspend fun seerrServiceOptions(config: ServiceConfig, mediaType: String): Seerr
 /**
  * The settings one request was made with, for the detail view behind a row.
  *
- * Resolves the quality profile to its name only when one was actually chosen — an unsteered
+ * Resolves the quality profile to its name only when one was actually chosen, an unsteered
  * request needs no service lookup, so the common case stays at two calls instead of four.
  */
 suspend fun seerrRequestDetail(config: ServiceConfig, id: Int): SeerrRequestDetail =
@@ -494,7 +494,7 @@ suspend fun seerrRequestDetail(config: ServiceConfig, id: Int): SeerrRequestDeta
         )
     }
 
-/** Removes a request entirely — the only way back once it has been approved. */
+/** Removes a request entirely. The only way back once it has been approved. */
 suspend fun seerrDeleteRequest(config: ServiceConfig, id: Int): String =
     destructive("delete Seerr request $id") {
         withContext(Dispatchers.IO) {
@@ -510,7 +510,7 @@ suspend fun seerrDeleteRequest(config: ServiceConfig, id: Int): String =
  * Create a request; [seasons] null = movie or all seasons, else the chosen season numbers.
  *
  * [rootFolder] steers the media into a specific library folder. It is only sent when the user
- * picked one — otherwise the body stays exactly as Seerr's own default handling expects it.
+ * picked one. Otherwise the body stays exactly as Seerr's own default handling expects it.
  */
 suspend fun seerrRequest(
     config: ServiceConfig,
@@ -545,7 +545,7 @@ suspend fun seerrRequest(
 }
 
 /**
- * Opens an issue on a title. [issueType] is Seerr's own numbering — see [seerrIssueType]:
+ * Opens an issue on a title. [issueType] is Seerr's own numbering, see [seerrIssueType]:
  * 1 video, 2 audio, 3 subtitle, 4 other.
  */
 suspend fun seerrCreateIssue(
@@ -660,7 +660,7 @@ private val LANGUAGE_NAMES = mapOf(
  * The film's original language, for an audio track that carries no language of its own.
  *
  * An inference about the title rather than a fact about the file, so the caller labels it. Empty
- * when Seerr does not report one — nothing is invented to fill the gap.
+ * when Seerr does not report one. Nothing is invented to fill the gap.
  */
 suspend fun seerrOriginalLanguage(seerrConfig: ServiceConfig, tmdbId: Int, isTv: Boolean): String =
     withContext(Dispatchers.IO) {
@@ -688,7 +688,7 @@ internal fun parseCast(detail: JsonObject): List<ArrCastMember> {
 /**
  * Cast plus streaming availability for a tmdbId, via a Seerr/Overseerr TMDB proxy.
  *
- * Radarr/Sonarr know neither, and Seerr answers both from the same detail payload — fetching
+ * Radarr/Sonarr know neither, and Seerr answers both from the same detail payload, fetching
  * them separately would double the round trip for no gain. [region] is the country availability
  * is read for ("" follows the device).
  */
@@ -739,7 +739,7 @@ suspend fun seerrMediaDetail(
         status = seerrMediaStatusText(statusInt),
         cast = cast,
         onWatchlist = jsBool(o, "onUserWatchlist") ?: false,
-        // Seerr's own id, not the TMDB one — issues are filed against this. Absent until the
+        // Seerr's own id, not the TMDB one. Issues are filed against this. Absent until the
         // title exists in Seerr's library, which is also when an issue would make no sense.
         mediaId = (o["mediaInfo"] as? JsonObject)?.let { jsInt(it, "id") } ?: 0,
         availability = parseWatchProviders(o, region),

@@ -161,7 +161,7 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                     // Whole-item monitor toggle. For Lidarr this is essential: albums are only searched
                     // when the artist itself is monitored.
                     SecondaryButton(
-                        if (d.monitored) "monitored" else "not monitored — tap to monitor",
+                        if (d.monitored) "monitored" else "not monitored, tap to monitor",
                         Modifier.fillMaxWidth(),
                         icon = if (d.monitored) AppIcons.Monitored else AppIcons.NotMonitored,
                         accent = if (d.monitored) WarnAmber else accent,

@@ -27,7 +27,7 @@ import org.phioster.sanctumd.ui.DashboardViewModel
 /**
  * What one dashboard card knows.
  *
- * A card shows one kind of thing, so exactly one of these is ever filled — which one is decided
+ * A card shows one kind of thing, so exactly one of these is ever filled. Which one is decided
  * by the card's type, in [load]. They sit together because the cache keys follow the same names
  * and a card is saved and restored as a whole.
  */

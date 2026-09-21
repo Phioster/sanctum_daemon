@@ -13,7 +13,7 @@ import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
 
 /**
- * Requests can be steered into a specific root folder — that is how a movie ends up in a
+ * Requests can be steered into a specific root folder. That is how a movie ends up in a
  * private library instead of the shared one. The folder must come from Seerr's own service
  * config (the value has to match what Seerr knows), and it must only appear in the request
  * body when the user actually picked one.
@@ -68,7 +68,7 @@ class SeerrRootFolderTest {
     }
 
     /**
-     * A request that cannot choose its quality profile always lands on the default one — which
+     * A request that cannot choose its quality profile always lands on the default one, which
      * here demands a German custom-format score, so an English-only film is rejected outright.
      */
     @Test

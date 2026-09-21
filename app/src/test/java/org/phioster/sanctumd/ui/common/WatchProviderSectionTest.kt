@@ -19,7 +19,7 @@ import org.robolectric.annotation.Config
 
 /**
  * The one rule the streaming row has to keep: it is there when the title streams somewhere, and
- * gone — heading and all — when it does not. A lone "STREAMING" header over an empty row reads
+ * gone (heading and all) when it does not. A lone "STREAMING" header over an empty row reads
  * as a failed lookup rather than as "nowhere".
  *
  * Logos are left blank on purpose: Robolectric loads no images, so the tiles under test are the

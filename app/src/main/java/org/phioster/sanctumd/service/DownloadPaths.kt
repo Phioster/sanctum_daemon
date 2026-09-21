@@ -3,8 +3,8 @@ package org.phioster.sanctumd.service
 /**
  * The name a downloaded file is written under.
  *
- * Both parts used to come from the server unfiltered — the item id from the library listing, the
- * extension from the media source's `Container` — and `File(dir, "$id.$container")` does not
+ * Both parts used to come from the server unfiltered, the item id from the library listing, the
+ * extension from the media source's `Container`. And `File(dir, "$id.$container")` does not
  * normalise. A container of `../cacert.pem` therefore wrote *outside* `downloads/`, one level up
  * into the app's private directory, where mpv's trusted CA bundle and the credential store live.
  * A hostile or compromised media server had an arbitrary file write on one tap.
@@ -18,6 +18,6 @@ internal fun downloadFileName(itemId: String, container: String): String {
     return "$id.$ext"
 }
 
-/** The prefix [downloadFileName] writes for [itemId] — used to find that item's files again. */
+/** The prefix [downloadFileName] writes for [itemId], used to find that item's files again. */
 internal fun downloadFilePrefix(itemId: String): String =
     downloadFileName(itemId, "").substringBeforeLast('.') + "."

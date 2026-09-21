@@ -6,7 +6,7 @@ import org.phioster.sanctumd.model.ServiceType
 
 /**
  * Searching the wrong newznab category returns nothing and looks exactly like "the indexer does
- * not have it" — the failure mode that already cost two days once. Pinned so a Sonarr search can
+ * not have it". The failure mode that already cost two days once. Pinned so a Sonarr search can
  * never quietly go looking through the movie categories.
  */
 class ProwlarrCategoryTest {

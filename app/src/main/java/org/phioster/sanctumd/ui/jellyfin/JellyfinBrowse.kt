@@ -100,7 +100,7 @@ internal class JellyfinBrowseState {
         album = null
         return guard {
             // An album is fetched twice on purpose: once as playable tracks (what the screen shows
-            // and what the queue plays — they must not disagree) and once as generic items, because
+            // and what the queue plays. They must not disagree) and once as generic items, because
             // the download chips need the fields only those carry.
             if (parent.kind == "MusicAlbum") album = vm.jellyfinAlbum(config, parent.id)
             contents = vm.jellyfinItemList(
@@ -111,7 +111,7 @@ internal class JellyfinBrowseState {
         }
     }
 
-    /** Reloads the current level, plus any open accordion sections — their episodes carry
+    /** Reloads the current level, plus any open accordion sections, their episodes carry
      *  watched state too. */
     suspend fun reload(vm: DashboardViewModel, config: ServiceConfig): String? {
         val err = if (stack.isEmpty()) loadHome(vm, config) else loadFolder(vm, config, stack.last())
@@ -211,7 +211,7 @@ internal fun LazyListScope.jellyfinMediaHome(
         }
         item {
             Spacer(Modifier.height(16.dp))
-            Text("server unreachable — showing downloads only", fontFamily = Mono, color = ErrRed.copy(alpha = 0.8f), fontSize = 11.sp)
+            Text("server unreachable, showing downloads only", fontFamily = Mono, color = ErrRed.copy(alpha = 0.8f), fontSize = 11.sp)
         }
     } else {
         val res = st.resume

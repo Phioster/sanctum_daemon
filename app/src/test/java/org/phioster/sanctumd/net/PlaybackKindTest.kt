@@ -29,7 +29,7 @@ class PlaybackKindTest {
         assertEquals(PlaybackKind.DIRECT, playbackKind(""))
     }
 
-    /** What was re-encoded is the actionable half — it says whether the video or only the audio. */
+    /** What was re-encoded is the actionable half. It says whether the video or only the audio. */
     @Test fun `the detail of a transcode is kept`() {
         assertEquals("v:h264 a:direct", transcodeDetail("Transcode (v:h264 a:direct)"))
         assertEquals("", transcodeDetail("DirectPlay"))
@@ -38,7 +38,7 @@ class PlaybackKindTest {
 
     /**
      * Live TV has no original file to hand through, so it is transcoded every single time.
-     * Counting it made the tile report work nobody can avoid — 3 of 12 on the live server.
+     * Counting it made the tile report work nobody can avoid. 3 of 12 on the live server.
      */
     @Test fun `live tv does not count against the server`() {
         assertFalse(countsAsTranscode("Transcode (v:h264 a:direct)", "TvChannel"))
@@ -59,7 +59,7 @@ class PlaybackKindTest {
  * What a transcode actually cost the server, split out of the same label.
  *
  * Measured on the live server 2026-08-21: `Transcode (v:direct a:direct)` means **nothing** was
- * re-encoded — only the container changed, which a phone does for free. Counting that next to a
+ * re-encoded. Only the container changed, which a phone does for free. Counting that next to a
  * full h264+aac re-encode made the tile alarm about work that never happened.
  */
 class TranscodeCostTest {
@@ -93,7 +93,7 @@ class TranscodeCostTest {
     }
 }
 
-/** The tile's two numbers, counted apart — live TV stays out of both. */
+/** The tile's two numbers, counted apart. Live TV stays out of both. */
 class TranscodeTallyTest {
 
     private fun rows() = listOf(

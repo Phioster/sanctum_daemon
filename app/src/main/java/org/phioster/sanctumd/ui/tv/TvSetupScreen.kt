@@ -64,7 +64,7 @@ private sealed interface SetupStep {
     data object Pick : SetupStep
     /** Type a server address by hand. */
     data object Manual : SetupStep
-    /** Server known and reachable — now authenticate against it. */
+    /** Server known and reachable, now authenticate against it. */
     data class Auth(val baseUrl: String, val serverName: String) : SetupStep
 }
 
@@ -77,7 +77,7 @@ private sealed interface SetupStep {
  *
  * **https is tried first.** The sign-in that follows carries a password or a Quick Connect secret,
  * and a server that speaks both would otherwise be reached over plain http purely because that
- * spelling came first in the list. A server that only speaks http still works — it simply answers
+ * spelling came first in the list. A server that only speaks http still works, it simply answers
  * one probe later, and [isPlainHttp] then says so on screen.
  */
 internal fun candidateUrls(input: String): List<String> {
@@ -101,8 +101,8 @@ internal fun isPlainHttp(url: String) = url.trim().startsWith("http://", ignoreC
  *
  * Two ways in, in the order a living room actually wants them: pick a server the app found on the
  * local network by UDP broadcast, or type an address for anything outside it (a reverse proxy, a
- * VPN). Authentication then prefers **Quick Connect** — the TV shows a code and the user approves it
- * on a phone — because entering a password with a remote control is miserable.
+ * VPN). Authentication then prefers **Quick Connect**. The TV shows a code and the user approves it
+ * on a phone. Because entering a password with a remote control is miserable.
  */
 @Composable
 internal fun TvSetupScreen(onConfigured: (ServiceConfig) -> Unit) {
@@ -169,7 +169,7 @@ private fun ServerPickStep(onManual: () -> Unit, onPicked: (String, String) -> U
         title = "pick a server",
         subtitle = when {
             scanning -> "looking for Jellyfin on this network…"
-            servers.isEmpty() -> "nothing found on this network — type an address"
+            servers.isEmpty() -> "nothing found on this network, type an address"
             else -> "${servers.size} found on this network"
         },
     ) {
@@ -270,7 +270,7 @@ private fun ManualServerStep(onBack: () -> Unit, onResolved: (String, String) ->
 
     SetupFrame(
         title = "add a server",
-        subtitle = "IP or address — \"192.168.1.20\" is enough, https is tried first and port 8096 added",
+        subtitle = "IP or address. \"192.168.1.20\" is enough, https is tried first and port 8096 added",
     ) {
         Box(Modifier.width(560.dp)) {
             TvTextField(
@@ -294,7 +294,7 @@ private fun ManualServerStep(onBack: () -> Unit, onResolved: (String, String) ->
     }
 }
 
-/** Step 2: authenticate — Quick Connect by default, username/password on request. */
+/** Step 2: authenticate, Quick Connect by default, username/password on request. */
 @Composable
 private fun AuthStep(
     baseUrl: String,
@@ -352,7 +352,7 @@ private fun AuthStep(
             }
         }
         quickCode = null
-        error = "code expired — ask for a new one"
+        error = "code expired, ask for a new one"
     }
 
     LaunchedEffect(usePassword) {
@@ -368,7 +368,7 @@ private fun AuthStep(
                 .onSuccess { busy = false; finish(it.accessToken, it.userId, it.userName) }
                 .onFailure {
                     busy = false
-                    error = "sign-in failed — wrong username or password"
+                    error = "sign-in failed, wrong username or password"
                 }
         }
     }
@@ -378,7 +378,7 @@ private fun AuthStep(
         // plainly when that address is not encrypted -- on a TV nobody inspects the URL bar.
         if (isPlainHttp(baseUrl)) {
             Text(
-                "not https — what you type next travels unencrypted across this network",
+                "not https, what you type next travels unencrypted across this network",
                 color = WarnAmberDim, fontFamily = Mono, fontSize = 13.sp,
                 modifier = Modifier.padding(bottom = 10.dp),
             )
@@ -388,7 +388,7 @@ private fun AuthStep(
                 null -> TvMessage("checking how to sign in…", Modifier.padding(vertical = 20.dp))
                 true -> QuickConnectPanel(quickCode)
                 false -> Text(
-                    "Quick Connect is switched off on this server — sign in with a username.",
+                    "Quick Connect is switched off on this server, sign in with a username.",
                     color = MatrixGreen.copy(alpha = 0.7f), fontFamily = Mono, fontSize = 14.sp,
                 )
             }

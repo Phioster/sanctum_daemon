@@ -166,7 +166,7 @@ internal fun SeerrMediaDetailView(
                     Spacer(Modifier.height(16.dp))
                     WatchProviderSection(d.availability, accent)
                 }
-                // Only for titles Seerr already knows — an issue is filed against its own id.
+                // Only for titles Seerr already knows. An issue is filed against its own id.
                 if (d.mediaId > 0) {
                     Spacer(Modifier.height(12.dp))
                     Text(

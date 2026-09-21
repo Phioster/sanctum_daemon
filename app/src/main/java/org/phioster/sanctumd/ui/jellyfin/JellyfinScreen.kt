@@ -154,7 +154,7 @@ internal fun JellyfinScreen(
     LaunchedEffect(mode) { ad.section = null; when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv(); else -> {} } }
     // System back from an open dashboard category returns to the tile overview.
     BackHandler(enabled = mode == 2 && ad.section != null) { ad.section = null }
-    // Action results (e.g. "restarting") shouldn't linger — clear them after a few seconds,
+    // Action results (e.g. "restarting") shouldn't linger, clear them after a few seconds,
     // except while a restart is polling for the server to come back.
     LaunchedEffect(actionMsg, ad.restartInProgress) {
         if (actionMsg != null && !ad.restartInProgress) { kotlinx.coroutines.delay(4000); actionMsg = null }
@@ -239,7 +239,7 @@ internal fun JellyfinScreen(
             if (bs.children[f.id] == null) scope.launch { bs.loadChildren(vm, config, f) }
         }
     }
-    // Leaving a folder level closes everything — the state belongs to the level you were on.
+    // Leaving a folder level closes everything. The state belongs to the level you were on.
     LaunchedEffect(bs.stack) { bs.expanded = emptySet(); bs.children = emptyMap() }
 
     // ── Watched toggle ────────────────────────────────────────────────────────────────────────────
@@ -309,7 +309,7 @@ internal fun JellyfinScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
                 },
                 actions = {
-                    // Live download indicator — visible from any Jellyfin tab while something downloads.
+                    // Live download indicator, visible from any Jellyfin tab while something downloads.
                     val activeDl = downloads.values.filter {
                         it.serverId == config.id &&
                             (it.state == DownloadEntry.STATE_RUNNING ||
@@ -412,7 +412,7 @@ internal fun JellyfinScreen(
                 enabled = bs.stack.isEmpty() && ad.section == null,
             ) { jfPage ->
                 val pageMode = jfOrder[jfPage]
-                // The media tab still renders when offline — downloads are local and must stay reachable.
+                // The media tab still renders when offline. Downloads are local and must stay reachable.
                 if (listError != null && pageMode != 3) {
                     Text(org.phioster.sanctumd.ui.services.friendlyStatusError(listError), fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
                 } else {

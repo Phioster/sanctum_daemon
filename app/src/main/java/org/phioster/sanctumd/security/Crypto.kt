@@ -20,7 +20,7 @@ import javax.crypto.spec.GCMParameterSpec
  */
 object Crypto {
     private const val KEYSTORE = "AndroidKeyStore"
-    // Historic alias — renaming it makes every stored secret undecryptable.
+    // Historic alias. Renaming it makes every stored secret undecryptable.
     private const val ALIAS = "nexarr_secret_key"
     private const val PREFIX = "enc:"
     private const val IV_LEN = 12

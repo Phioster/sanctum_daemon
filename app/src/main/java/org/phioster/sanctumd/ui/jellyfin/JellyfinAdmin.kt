@@ -69,7 +69,7 @@ import org.phioster.sanctumd.ui.theme.Surface
  * The server-administration side of the Jellyfin screen: what the Dashboard tab shows and which
  * of its categories is open.
  *
- * [libraries] is loaded here but read by the Users tab too — editing a user's access needs the
+ * [libraries] is loaded here but read by the Users tab too. Editing a user's access needs the
  * library list, and loading it twice would be the only alternative.
  */
 internal class JellyfinAdminState {
@@ -92,7 +92,7 @@ internal class JellyfinAdminState {
     var showCatalog by mutableStateOf(false)
     var catalog by mutableStateOf<List<JellyPackage>?>(null)
     var confirmRestart by mutableStateOf(false)
-    /** True while a restart is polling for the server to come back — keeps its status message
+    /** True while a restart is polling for the server to come back. Keeps its status message
      *  from being auto-cleared. */
     var restartInProgress by mutableStateOf(false)
 
@@ -302,7 +302,7 @@ internal fun JellyfinAdminDialogs(
                             onMessage("server back online")
                             onReload()
                         } else {
-                            onMessage("restart sent — server hasn't responded yet")
+                            onMessage("restart sent, server hasn't responded yet")
                         }
                     }
                 }) {

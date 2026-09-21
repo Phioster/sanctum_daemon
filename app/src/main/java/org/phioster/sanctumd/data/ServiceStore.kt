@@ -23,12 +23,12 @@ private val json = Json { ignoreUnknownKeys = true }
 
 /**
  * Persists the list of configured services as JSON in DataStore, encrypted with
- * AES-256-GCM via [Crypto] (key in the Android Keystore) — the blob holds API
+ * AES-256-GCM via [Crypto] (key in the Android Keystore). The blob holds API
  * keys, CF tokens and passwords.
  */
 class ServiceStore(private val context: Context) {
 
-    /** True when a stored blob is encrypted but can't be decrypted — the data
+    /** True when a stored blob is encrypted but can't be decrypted, the data
      *  was restored from another device's backup and its Keystore key is gone. */
     private val _decryptFailed = MutableStateFlow(false)
     val decryptFailed: StateFlow<Boolean> = _decryptFailed.asStateFlow()

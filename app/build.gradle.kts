@@ -10,7 +10,7 @@ plugins {
 }
 
 // Release signing is read from a gitignored `keystore.properties` (local builds) or
-// from env vars (CI secrets) — the keystore and its passwords never live in the repo.
+// from env vars (CI secrets). The keystore and its passwords never live in the repo.
 val keystorePropsFile = rootProject.file("keystore.properties")
 val keystoreProps = Properties().apply {
     if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
@@ -41,7 +41,7 @@ android {
     // Two products out of one source tree.
     //
     // `phone` is the homelab console: services, dashboard, widgets, MainActivity. `tv` is a plain
-    // Jellyfin streaming client — TvActivity is its *only* launchable component, everything else is
+    // Jellyfin streaming client. TvActivity is its *only* launchable component, everything else is
     // stripped from its manifest. They carry different application ids, so a television gets the
     // streaming app and nothing else, and both can be installed side by side.
     flavorDimensions += "device"
@@ -54,7 +54,7 @@ android {
             applicationIdSuffix = ".tv"
             versionNameSuffix = "-tv"
             // Plenty of TV sticks run a 32-bit userspace on a 64-bit chip. Without this libmpv can't
-            // load at all and playback falls back to ExoPlayer — i.e. back to the codec gaps that are
+            // load at all and playback falls back to ExoPlayer, i.e. back to the codec gaps that are
             // the entire reason this flavour exists.
             ndk { abiFilters += "armeabi-v7a" }
         }
@@ -62,7 +62,7 @@ android {
 
     signingConfigs {
         // Committed debug keystore so every build (local + CI) signs with the
-        // same key — lets the app update in place instead of forcing a reinstall.
+        // same key. Lets the app update in place instead of forcing a reinstall.
         getByName("debug") {
             storeFile = file("debug.keystore")
             storePassword = "android"
@@ -85,14 +85,14 @@ android {
             // `assembleRelease` still works for anyone building without the signing secrets.
             //
             // That fallback key is committed and its password is Android's public one, so anyone
-            // can build an update that Android accepts in place of such a build — inheriting its
+            // can build an update that Android accepts in place of such a build. Inheriting its
             // data directory and its Keystore alias. It stays buildable, but it is marked: a
             // release nobody can tell apart from a signed one is the dangerous version.
             signingConfig = if (hasReleaseKeystore) signingConfigs.getByName("release")
                             else signingConfigs.getByName("debug")
             if (!hasReleaseKeystore) {
                 versionNameSuffix = "-UNSIGNED-debugkey"
-                logger.warn("sanctumd: no release keystore — signing with the PUBLIC debug key. Not for distribution.")
+                logger.warn("sanctumd: no release keystore, signing with the PUBLIC debug key. Not for distribution.")
             }
         }
     }
@@ -115,7 +115,7 @@ android {
         // stub should get a default rather than the usual "not mocked" exception.
         unitTests.isReturnDefaultValues = true
         // Compose layout tests run on Robolectric in the normal (fast, emulator-free) unit
-        // test job rather than as instrumented tests — they need real resources for that.
+        // test job rather than as instrumented tests. They need real resources for that.
         unitTests.isIncludeAndroidResources = true
     }
 
@@ -185,7 +185,7 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.5.1")
     implementation("androidx.media3:media3-session:1.5.1") // background music: MediaSession + notification
 
-    // libmpv — "plays everything" video engine (PGS/ASS subs, any codec, no server transcode).
+    // libmpv, "plays everything" video engine (PGS/ASS subs, any codec, no server transcode).
     // Prebuilt AAR (native .so + MPVLib wrapper); sits behind MediaPlayerEngine with ExoPlayer fallback.
     implementation("dev.jdtech.mpv:libmpv:1.0.0")
 
@@ -199,7 +199,7 @@ dependencies {
 
     // Compose layout tests. A pure unit test cannot see that a composable measures to the
     // wrong size, which is how a section once grew into a screen-high empty block while every
-    // test stayed green. Robolectric keeps these in the fast job — no emulator involved.
+    // test stayed green. Robolectric keeps these in the fast job, no emulator involved.
     testImplementation("org.robolectric:robolectric:4.14.1")
     testImplementation(platform("androidx.compose:compose-bom:2024.12.01"))
     testImplementation("androidx.compose.ui:ui-test-junit4")

@@ -54,9 +54,9 @@ import org.phioster.sanctumd.ui.theme.*
 @Composable
 internal fun OnboardingScreen(onDismiss: (openAdd: Boolean) -> Unit) {
     val pages = listOf(
-        OnboardPage(AppIcons.Dashboard, "WELCOME TO SANCTUMD", "One dark, matrix-green cockpit for your whole homelab — run Jellyfin and steer your *arr and download stack without app-hopping."),
-        OnboardPage(AppIcons.Server, "CONNECT YOUR STACK", "Point it at Jellyfin, Radarr / Sonarr / Lidarr, Prowlarr, NZBGet, Jellyseerr and ntfy — just a URL and API key each. Your keys stay encrypted on this phone and go nowhere else."),
-        OnboardPage(AppIcons.Edit, "MAKE IT YOUR OWN", "Spin up tabs and drop in cards — download queues, release calendars, live stats, even a watch leaderboard. Tap the pencil to rearrange, and pin widgets to your home screen."),
+        OnboardPage(AppIcons.Dashboard, "WELCOME TO SANCTUMD", "One dark, matrix-green cockpit for your whole homelab. Run Jellyfin and steer your *arr and download stack without app-hopping."),
+        OnboardPage(AppIcons.Server, "CONNECT YOUR STACK", "Point it at Jellyfin, Radarr / Sonarr / Lidarr, Prowlarr, NZBGet, Jellyseerr and ntfy, just a URL and API key each. Your keys stay encrypted on this phone and go nowhere else."),
+        OnboardPage(AppIcons.Edit, "MAKE IT YOUR OWN", "Spin up tabs and drop in cards. Download queues, release calendars, live stats, even a watch leaderboard. Tap the pencil to rearrange, and pin widgets to your home screen."),
         OnboardPage(AppIcons.Notify, "NEVER MISS A BEAT", "Instant push comes straight from your own ntfy topic, backed by quiet background checks for fresh media, finished downloads and new requests."),
         OnboardPage(AppIcons.Locked, "PRIVATE BY DESIGN", "Secrets are encrypted, the app can lock behind your fingerprint or face, and an encrypted export carries your whole setup to a new phone."),
     )

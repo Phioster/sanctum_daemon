@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
  * Where the chosen theme lives.
  *
  * SharedPreferences rather than DataStore on purpose: the palette has to be readable *synchronously*
- * in three places — in `onCreate` before the first frame (otherwise the app flashes green and then
+ * in three places, in `onCreate` before the first frame (otherwise the app flashes green and then
  * repaints), inside the Glance widgets, and in the notification builders of workers and services.
  * One string does not justify a second asynchronous store.
  */
@@ -33,7 +33,7 @@ object ThemeStore {
     fun backgroundMode(context: Context): BackgroundMode =
         BackgroundMode.from(prefs(context).getString(KEY_BACKGROUND, null))
 
-    /** The preset with the background choice already applied — what the UI should render. */
+    /** The preset with the background choice already applied. What the UI should render. */
     fun read(context: Context): Palette =
         paletteById(paletteId(context)).withBackground(backgroundMode(context))
 

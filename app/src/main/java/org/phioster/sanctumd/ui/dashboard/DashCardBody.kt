@@ -66,7 +66,7 @@ internal fun DashCardDataBody(
         card.type == CardType.JELLYFIN_TOP -> {
             val tw = data.topWatchers
             when {
-                data.error != null -> empty("no playback data — install the Jellyfin “Playback Reporting” plugin")
+                data.error != null -> empty("no playback data, install the Jellyfin “Playback Reporting” plugin")
                 tw == null -> loading()
                 tw.isEmpty() -> empty("no playback data yet")
                 else -> JellyPodium(tw, accent, card.theme == "solid")

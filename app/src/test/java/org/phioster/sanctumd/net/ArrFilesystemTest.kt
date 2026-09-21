@@ -15,7 +15,7 @@ import org.phioster.sanctumd.model.ServiceType
 /**
  * The manual import used to require typing a server-side path by hand, which on a phone means
  * typing something like /opt/nzbget/dst/Some.Release.Name.German.1080p by thumb. Browsing needs
- * the folders and the files — a folder listing alone would not tell you whether you are in the
+ * the folders and the files. A folder listing alone would not tell you whether you are in the
  * right place.
  */
 class ArrFilesystemTest {

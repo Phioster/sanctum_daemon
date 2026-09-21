@@ -5,7 +5,7 @@ import org.junit.Test
 import org.phioster.sanctumd.model.ArrParsedRelease
 
 /**
- * "Unknown" is what a Servarr app returns when it could not tell — printing it as a language
+ * "Unknown" is what a Servarr app returns when it could not tell, printing it as a language
  * fills the line with a word that says nothing, on a line that has to fit on a phone.
  */
 class VerdictTextTest {

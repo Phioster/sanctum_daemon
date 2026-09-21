@@ -32,7 +32,7 @@ import org.phioster.sanctumd.ui.theme.WarnAmber
 /**
  * Taps its way to a folder on the server instead of making the user type an absolute path.
  *
- * Files are listed but not selectable — they are here so you can see that this is the folder
+ * Files are listed but not selectable. They are here so you can see that this is the folder
  * holding the release, which is the only way to be sure before scanning it.
  */
 @Composable

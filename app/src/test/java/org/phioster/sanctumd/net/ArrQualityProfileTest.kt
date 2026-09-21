@@ -15,7 +15,7 @@ import org.phioster.sanctumd.model.ServiceType
 /**
  * A German custom-format profile blocks anything that only exists in English: the release never
  * reaches the required format score, whatever its quality. The fix is a second, unrestricted
- * profile — never loosening the existing one, which may be managed by Recyclarr and would be
+ * profile, never loosening the existing one, which may be managed by Recyclarr and would be
  * silently reverted on its next sync.
  *
  * The new profile is a **clone** of a working one rather than hand-assembled, so the schema
@@ -89,7 +89,7 @@ class ArrQualityProfileTest {
         assertEquals("created", result)
     }
 
-    /** The existing profile must come back untouched — no PUT, only a read and a create. */
+    /** The existing profile must come back untouched. No PUT, only a read and a create. */
     @Test fun `the source profile is only read, never written`() {
         val (_, get, post) = cloneWith("Any")
         assertEquals("GET", get.method)

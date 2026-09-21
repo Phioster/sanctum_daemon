@@ -70,7 +70,7 @@ import org.phioster.sanctumd.ui.theme.Surface
  * Searching a Servarr service for a title that is not in the library yet.
  *
  * The service's own web UI shows a poster, a plot and a runtime before anything is added, and the
- * lookup answer carries all of it — this screen is where that arrives. Adding is one button on the
+ * lookup answer carries all of it. This screen is where that arrives. Adding is one button on the
  * info screen rather than the only thing the list can do, so a title can simply be looked up.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -184,7 +184,7 @@ internal fun ArrLookupScreen(
                         fontFamily = Mono, color = ErrRed, fontSize = 12.sp,
                     )
                     res == null -> Text(
-                        "look a title up — the plot, the runtime and the rating come with it",
+                        "look a title up. The plot, the runtime and the rating come with it",
                         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp,
                     )
                     res.isEmpty() -> Text("no results", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
@@ -278,7 +278,7 @@ internal fun ArrLookupRow(item: ArrLookupItem, accent: Color, onOpen: () -> Unit
 /**
  * The info screen behind a hit: what the title is, before anything is downloaded for it.
  *
- * Laid out like the Seerr detail sheet — blurred backdrop, poster, facts, plot — because it
+ * Laid out like the Seerr detail sheet (blurred backdrop, poster, facts, plot) because it
  * answers the same question and should not look like a different app.
  */
 @Composable

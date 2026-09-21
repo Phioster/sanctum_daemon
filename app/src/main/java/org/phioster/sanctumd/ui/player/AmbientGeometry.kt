@@ -7,7 +7,7 @@ data class VideoRect(val left: Float, val top: Float, val right: Float, val bott
 
 /**
  * The on-screen rect of an aspect-fit video inside a [boxW] × [boxH] player, scaled by [zoom]
- * around the centre — or null when the video covers the whole player, i.e. there are no bars for
+ * around the centre, or null when the video covers the whole player, i.e. there are no bars for
  * the ambient glow to fill.
  *
  * Pure maths, kept out of [AmbientGlow] so it can be unit tested without Compose.

@@ -16,8 +16,8 @@ private const val PROVIDER_LOGO_BASE = "https://image.tmdb.org/t/p/w92"
 /**
  * The country whose availability to show: the user's choice, else the device's own region.
  *
- * Availability is worthless in the wrong country — a title on Netflix in the US may be nowhere
- * here — so a blank device region falls back to "US" only because TMDB always has that one, and
+ * Availability is worthless in the wrong country, a title on Netflix in the US may be nowhere
+ * here, so a blank device region falls back to "US" only because TMDB always has that one, and
  * the region is written next to the logos so it is never a silent assumption.
  */
 internal fun watchRegionOf(preferred: String): String =
@@ -31,7 +31,7 @@ internal fun watchRegionOf(preferred: String): String =
  * Seerr hands out TMDB's watch providers as a list of per-country entries
  * (`[{iso_3166_1, link, flatrate, rent, buy}]`); an older/raw TMDB payload keys the same entries
  * by country instead, and both are accepted. A region TMDB has no entry for means the title
- * streams nowhere **here**, which is a real answer and not an error — the caller hides the
+ * streams nowhere **here**, which is a real answer and not an error, the caller hides the
  * section for it. Providers are never borrowed from another country to fill the gap.
  */
 internal fun parseWatchProviders(detail: JsonObject, preferredRegion: String): WatchAvailability {

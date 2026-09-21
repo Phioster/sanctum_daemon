@@ -120,7 +120,7 @@ internal fun SwipeTabs(
 ) {
     val pager = rememberPagerState(initialPage = tab.coerceIn(0, (count - 1).coerceAtLeast(0))) { count }
     LaunchedEffect(tab) { if (pager.currentPage != tab) pager.animateScrollToPage(tab) }
-    // Read the latest tab inside the long-running collector — capturing the param directly would
+    // Read the latest tab inside the long-running collector. Capturing the param directly would
     // freeze it at its initial value, so returning to page 0 (the initial value) never notified and
     // the tab bar stuck on the previous tab.
     val latestTab = rememberUpdatedState(tab)
@@ -146,7 +146,7 @@ internal fun HomeShell(
 ) {
     val tabs by vm.tabs.collectAsState()
     val services by vm.services.collectAsState()
-    var selected by vm.homeTab // survives leaving composition — back returns to the same tab
+    var selected by vm.homeTab // survives leaving composition, back returns to the same tab
     var editMode by remember { mutableStateOf(false) }
     var showAddCard by remember { mutableStateOf(false) }
     var showAddTab by remember { mutableStateOf(false) }
@@ -199,7 +199,7 @@ internal fun HomeShell(
                     IconButton(onClick = { openDrawer() }) { Icon(Icons.Filled.Menu, contentDescription = "Services", tint = MatrixGreen) }
                 },
                 actions = {
-                    // No search icon here — the tabs already carry the inline search bar.
+                    // No search icon here, the tabs already carry the inline search bar.
                     IconButton(onClick = { editMode = !editMode }) {
                         Icon(if (editMode) Icons.Filled.Check else Icons.Filled.Edit, contentDescription = "Edit", tint = if (editMode) MatrixGreen else MatrixGreen.copy(alpha = 0.8f))
                     }
@@ -254,7 +254,7 @@ internal fun HomeShell(
                 }
             }
             // Bottom band: drag right to pull the Services drawer out (follows the finger, snaps on release).
-            // Not composed at all in edit mode — otherwise this overlay covers the bottom of the screen
+            // Not composed at all in edit mode, otherwise this overlay covers the bottom of the screen
             // and swallows taps/scrolls on the lowest card's reorder controls (disabling the drag alone
             // isn't enough; the Box still wins the hit-test in the overlap zone).
             if (swipeDrawer && drawerBand > 0f && !editMode) {
@@ -391,7 +391,7 @@ internal fun ServicesDrawer(
                     IconButton(onClick = { onSearch("") }) { Icon(Icons.Filled.Search, contentDescription = "Search", tint = MatrixGreen) }
                     IconButton(onClick = onStats) { Icon(Icons.Filled.BarChart, contentDescription = "Stats", tint = MatrixGreen) }
                     IconButton(onClick = onNotifications) { Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MatrixGreen) }
-                    // Refresh removed — pull-to-refresh on the list covers it now.
+                    // Refresh removed, pull-to-refresh on the list covers it now.
                 },
             )
         },
@@ -453,7 +453,7 @@ internal fun ServicesContent(
                 Spacer(Modifier.height(48.dp))
                 Text("no services yet\n\ntap + to add a service", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 14.sp)
             } else {
-                // View switcher — one chip showing the current mode, the rest behind a menu.
+                // View switcher, one chip showing the current mode, the rest behind a menu.
                 Box(Modifier.padding(bottom = 10.dp)) {
                     var viewMenu by remember { mutableStateOf(false) }
                     Text(
@@ -513,7 +513,7 @@ internal fun ServicesContent(
                 }
                 if (isCollapsed) return@forEach
 
-                // "mixed": the pinned section keeps full-width cards, everything else is tiles — so a
+                // "mixed": the pinned section keeps full-width cards, everything else is tiles, so a
                 // service you care about stays readable at a glance while the rest stays compact.
                 val effectiveMode = when {
                     viewMode != "mixed" -> viewMode

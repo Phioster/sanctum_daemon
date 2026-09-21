@@ -7,7 +7,7 @@ import org.junit.Test
 
 /**
  * The lookup answer is what the info screen shows about a title nobody has added yet, and the
- * three services word the same facts differently — a flat rating here, a nested one there.
+ * three services word the same facts differently, a flat rating here, a nested one there.
  * These are the readings that turn either shape into one line of text.
  */
 class ArrLookupFactsTest {

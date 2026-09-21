@@ -32,7 +32,7 @@ class PlaybackToChartsTest {
         assertEquals(listOf("Hours", "Plays", "Transcoded", "Remuxed"), t.map { it.label })
     }
 
-    /** A remux costs the server nothing, so it never wears the warning colour — and never a zero. */
+    /** A remux costs the server nothing, so it never wears the warning colour, and never a zero. */
     @Test fun `the remux tile stays calm and disappears when there is nothing to say`() {
         assertEquals(GREEN, playbackTiles(stats, GREEN, AMBER)[3].accentArgb)
         val none = stats.copy(remuxes = 0)
@@ -61,7 +61,7 @@ class PlaybackToChartsTest {
         assertEquals("", c[1].bars[0].id)
     }
 
-    /** The transcode chart counts plays, not hours — and says what had to be re-encoded. */
+    /** The transcode chart counts plays, not hours. And says what had to be re-encoded. */
     @Test fun `the transcode chart counts plays and keeps the detail`() {
         val c = playbackCharts(stats, GREEN, AMBER)[2]
         assertEquals(AMBER, c.accentArgb)

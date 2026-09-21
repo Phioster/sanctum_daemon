@@ -23,11 +23,11 @@ data class ArrQueueItem(
     val title: String,
     val status: String,
     val progress: Float,
-    /** Downloaded but the app refuses to import it — needs a hand, and leaves the file lying twice. */
+    /** Downloaded but the app refuses to import it. Needs a hand, and leaves the file lying twice. */
     val blocked: Boolean = false,
     /**
      * The folder the download landed in. Empty when the service did not report one, and then
-     * there is nothing to open — the manual-import shortcut must not be offered.
+     * there is nothing to open. The manual-import shortcut must not be offered.
      */
     val outputPath: String = "",
 )
@@ -47,7 +47,7 @@ data class ArrLibraryItem(
  *
  * Everything below [raw] exists so a title can be looked at before it is added. The lookup
  * answer is the same record the service's own web UI renders, so none of it costs a second
- * request — the list simply used to throw it away and show a year.
+ * request. The list simply used to throw it away and show a year.
  */
 data class ArrLookupItem(
     val title: String,
@@ -98,7 +98,7 @@ data class ArrImportItem(
 )
 
 /**
- * A TMDB collection as Radarr knows it — the whole film run, not only the parts you own.
+ * A TMDB collection as Radarr knows it. The whole film run, not only the parts you own.
  *
  * [qualityProfileId] and [rootFolderPath] come from the collection itself: Radarr already says
  * where films of this run belong, so adding a missing one needs no further questions.
@@ -180,7 +180,7 @@ data class ArrSystemInfo(
 
 /** A history event in a Servarr app. */
 data class ArrHistoryItem(
-    /** The history entry's own id — what blocking a past release is addressed to. */
+    /** The history entry's own id. What blocking a past release is addressed to. */
     val id: Int,
     val title: String,
     val eventType: String,
@@ -189,7 +189,7 @@ data class ArrHistoryItem(
 )
 
 /**
- * An indexer as Sonarr/Radarr/Lidarr sees it — which is not the same view Prowlarr has.
+ * An indexer as Sonarr/Radarr/Lidarr sees it. Which is not the same view Prowlarr has.
  *
  * Each *arr app keeps its own failure counter: when Prowlarr answers a query with
  * "429 Indexer is disabled till …", the app records that as a failure and locks the indexer
@@ -241,7 +241,7 @@ data class ArrBlocklistItem(
  * formats score it at.
  *
  * The indexer's listing says none of this. A name can look like a clean 1080p Bluray and still be
- * scored far below zero because a marker in it — "MD" for mic-dubbed, say — is one the profile
+ * scored far below zero because a marker in it ("MD" for mic-dubbed, say) is one the profile
  * penalises. That is exactly the judgement worth seeing before picking a file.
  */
 data class ArrParsedRelease(

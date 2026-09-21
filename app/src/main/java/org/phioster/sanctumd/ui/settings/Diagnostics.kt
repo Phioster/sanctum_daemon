@@ -6,7 +6,7 @@ import org.phioster.sanctumd.model.ServiceConfig
  * The block of text the about screen hands to the clipboard for a bug report.
  *
  * It is written to be pasted into a PUBLIC issue, which decides what may be in it. The services
- * appear as kinds and a count — never a label, an address or a key. Those are exactly what a
+ * appear as kinds and a count, never a label, an address or a key. Those are exactly what a
  * helpful user would publish without thinking, so the function is not given them in the first
  * place: [serviceKinds] is the only way configured services reach this string.
  */

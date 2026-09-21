@@ -19,7 +19,7 @@ import org.phioster.sanctumd.ui.theme.MatrixGreen
 /**
  * The player's seek bar: a thin line and a small dot, nothing else.
  *
- * Material3's Slider is deliberately not used here — its thumb is a tall bar, its track carries a
+ * Material3's Slider is deliberately not used here. Its thumb is a tall bar, its track carries a
  * stop indicator and gaps, and all of that sits on top of the film. A tap anywhere on the bar seeks
  * there, same as dragging.
  */

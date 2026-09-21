@@ -29,10 +29,10 @@ import org.robolectric.annotation.Config
  * **These do NOT guard against the layout bug that prompted them**, and that was measured, not
  * assumed: with the original defect restored, the collapsed section still measured 43dp here
  * instead of the screen-high block it produced on a device. Robolectric does not do real text
- * shaping, so the "one character per line" wrap that inflated the row never happens — the whole
+ * shaping, so the "one character per line" wrap that inflated the row never happens, the whole
  * defect class is invisible to it. A size guard needs an instrumented test on a real emulator.
  *
- * Keeping them anyway: they catch crashes, missing content and broken expand/collapse — for
+ * Keeping them anyway: they catch crashes, missing content and broken expand/collapse, for
  * free, in the fast job.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -53,7 +53,7 @@ class FileInfoSectionLayoutTest {
     )
 
     // Measured on a tagged wrapper, not on onRoot(): the root reports the host window's
-    // bounds, which stay constant however tall the content grows — a measurement that cannot
+    // bounds, which stay constant however tall the content grows. A measurement that cannot
     // fail is worse than none.
     private fun show() = compose.setContent {
         Column(Modifier.width(400.dp).testTag("section")) { FileInfoSection(info, MatrixGreen) }

@@ -572,7 +572,7 @@ internal fun ArrQueueRow(
 @Composable
 internal fun ArrHistoryRow(item: ArrHistoryItem, accent: Color, onBlocklist: () -> Unit = {}) {
     var menu by remember { mutableStateOf(false) }
-    // Only a grab can be blocked — an import or a deletion is not a release.
+    // Only a grab can be blocked. An import or a deletion is not a release.
     val blockable = item.eventType.equals("grabbed", true) || item.eventType.equals("downloadFailed", true)
     val evColor = when (item.eventType) {
         "grabbed" -> MatrixGreen

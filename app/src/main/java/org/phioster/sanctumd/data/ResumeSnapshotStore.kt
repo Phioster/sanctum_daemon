@@ -20,7 +20,7 @@ data class ResumeSnap(
     val serviceId: String,
 )
 
-// Same historic `nexarr_` prefix as the other snapshot stores — renaming orphans existing data.
+// Same historic `nexarr_` prefix as the other snapshot stores, renaming orphans existing data.
 private val Context.resumeDataStore by preferencesDataStore(name = "nexarr_resume")
 private val SNAP_KEY = stringPreferencesKey("resume_json")
 private val json = Json { ignoreUnknownKeys = true }

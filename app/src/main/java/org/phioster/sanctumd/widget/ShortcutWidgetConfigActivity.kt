@@ -69,7 +69,7 @@ class ShortcutWidgetConfigActivity : ComponentActivity() {
             AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID,
         ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) { finish(); return }
-        // Exported by necessity — so make sure the id is one of ours before showing anything.
+        // Exported by necessity. So make sure the id is one of ours before showing anything.
         if (!ownsAppWidget(this, ShortcutIconWidgetReceiver::class.java, appWidgetId)) { finish(); return }
 
         setContent { ConfigScreen(appWidgetId) }
@@ -116,7 +116,7 @@ class ShortcutWidgetConfigActivity : ComponentActivity() {
                 when {
                     list == null -> Text("loading…", fontFamily = FontFamily.Monospace, color = Dim, fontSize = 13.sp)
                     list.isEmpty() -> Text(
-                        "no shortcuts — add a Shortcuts service in the app first",
+                        "no shortcuts. Add a Shortcuts service in the app first",
                         fontFamily = FontFamily.Monospace, color = Dim, fontSize = 13.sp,
                     )
                     else -> list.forEach { pair ->

@@ -20,7 +20,7 @@ import retrofit2.http.Query
  * Quick Connect switched off.
  */
 
-/** The TV identifies as its own device — sharing a DeviceId with the phone would collide sessions. */
+/** The TV identifies as its own device. Sharing a DeviceId with the phone would collide sessions. */
 internal const val TV_MB_AUTH =
     "MediaBrowser Client=\"Sanctumd TV\", Device=\"Android TV\", DeviceId=\"sanctumd-tv\", Version=\"1.0.0\""
 
@@ -97,7 +97,7 @@ suspend fun jellyfinTvLogin(baseUrl: String, username: String, password: String)
 }
 
 /**
- * "Next up" — the next unwatched episode of every series in progress. Distinct from Continue
+ * "Next up", the next unwatched episode of every series in progress. Distinct from Continue
  * Watching (which is a *partially played* item): on a TV this is the row people actually use.
  */
 suspend fun jellyfinNextUp(config: ServiceConfig, limit: Int = 20): List<JellyMediaItem> = withContext(Dispatchers.IO) {

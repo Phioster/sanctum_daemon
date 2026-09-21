@@ -11,7 +11,7 @@ import org.phioster.sanctumd.model.StatTile
  *
  * Written as a conversion rather than as its own drawing code on purpose: the first version drew
  * its own bars and tiles, which looked almost-but-not-quite like the Radarr and Sonarr charts
- * above it. Going through [StatTile] and [StatChart] makes it consistent by construction — if
+ * above it. Going through [StatTile] and [StatChart] makes it consistent by construction, if
  * the house style changes, this changes with it.
  */
 internal fun playbackTiles(
@@ -23,7 +23,7 @@ internal fun playbackTiles(
     val tiles = mutableListOf(
         StatTile("Hours", "%.0f".format(stats.hours), accentArgb),
         StatTile("Plays", stats.plays.toString(), accentArgb),
-        // The only number here worth being unhappy about — coloured only when there is something
+        // The only number here worth being unhappy about. Coloured only when there is something
         // to be unhappy about, so a clean library doesn't wear a warning.
         StatTile(
             "Transcoded",

@@ -9,7 +9,7 @@ import org.phioster.sanctumd.model.NtfyMessage
 private val json = Json { ignoreUnknownKeys = true }
 
 /**
- * Parses one line of a ntfy `/json` stream into a message — null for
+ * Parses one line of a ntfy `/json` stream into a message, null for
  * open/keepalive/poll_request events or unparseable lines. The message body may
  * itself be JSON that a service (Radarr/Overseerr/…) posted via webhook, in which
  * case title/text are pulled out of the payload.
@@ -46,7 +46,7 @@ fun parseNtfyLine(line: String): NtfyMessage? {
  * The Jellyfin item id a notification points at, or null when it points at nothing useful.
  *
  * ntfy carries an optional `click` address per message. The Jellyfin webhook templates put
- * `sanctumd://item/<ItemId>` there, which is the only exact link available — the visible text of
+ * `sanctumd://item/<ItemId>` there, which is the only exact link available, the visible text of
  * those messages is prose ("Jiggi schaut … · Android TV") with no id in it, and guessing the
  * title back out of that sentence is the title-matching that fails on German release names.
  */

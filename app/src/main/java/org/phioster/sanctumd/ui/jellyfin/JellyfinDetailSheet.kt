@@ -77,7 +77,7 @@ import org.phioster.sanctumd.ui.DashboardViewModel
  * The full-screen sheet for one media item.
  *
  * Lifted out of JellyfinScreen, which had grown past 1700 lines with 63 loose state variables in
- * a single composable — the reason an earlier attempt at this produced a function with fifteen
+ * a single composable, the reason an earlier attempt at this produced a function with fifteen
  * parameters and was abandoned. [JellyfinDetailState] collapses the sheet's own state into one
  * object; what remains as parameters is the coupling that is genuinely there, stated openly
  * rather than reached for through shared locals.
@@ -150,11 +150,11 @@ internal fun JellyfinDetailSheet(
                     val startDownload = { state.downloadQuality = d }
                     when (dl?.state) {
                         org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
-                            Hint("downloaded — play it from the DOWNLOADS row", Modifier.padding(vertical = 8.dp))
+                            Hint("downloaded, play it from the DOWNLOADS row", Modifier.padding(vertical = 8.dp))
                         org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING, org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED ->
                             SecondaryButton("${(dl.progress * 100).toInt()}%  ·  cancel", Modifier.fillMaxWidth(), icon = AppIcons.Download) { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) }
                         org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED ->
-                            SecondaryButton("download failed — retry", Modifier.fillMaxWidth(), icon = AppIcons.Failed, accent = ErrRed) { startDownload() }
+                            SecondaryButton("download failed, retry", Modifier.fillMaxWidth(), icon = AppIcons.Failed, accent = ErrRed) { startDownload() }
                         else ->
                             SecondaryButton("download", Modifier.fillMaxWidth(), icon = AppIcons.Download) { startDownload() }
                     }
@@ -164,7 +164,7 @@ internal fun JellyfinDetailSheet(
                     PrimaryButton("play", Modifier.fillMaxWidth(), icon = AppIcons.Play) {
                         state.closeAll()
                         // Deliberately not scope.launch: closeAll() has just taken this sheet out
-                        // of the composition, and rememberCoroutineScope() dies with it — the fetch
+                        // of the composition, and rememberCoroutineScope() dies with it, the fetch
                         // was cancelled before it reached the network. The view model outlives both.
                         vm.playJellyfinTrack(config, d.id)
                     }
@@ -204,7 +204,7 @@ internal fun JellyfinDetailSheet(
                     }
                 }
                 Spacer(Modifier.height(8.dp))
-                // Watched toggle — the explicit counterpart to the poster badge (and the only way
+                // Watched toggle, the explicit counterpart to the poster badge (and the only way
                 // to mark something watched that has no badge yet).
                 if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS || d.kind in setOf("Series", "Season")) {
                     val folder = d.kind in setOf("Series", "Season")
@@ -294,8 +294,8 @@ internal fun JellyfinDetailSheet(
                             onClick = { state.menuOpen = false; state.manage = d },
                         )
                     }
-                    // A collection joins to Radarr by its TMDB *collection* id, not a film id —
-                    // a different lookup than the one above, so it gets its own entry.
+                    // A collection joins to Radarr by its TMDB *collection* id, not a film id.
+                    // A different lookup than the one above, so it gets its own entry.
                     if (d.kind == "BoxSet" && d.providerIds["Tmdb"] != null) {
                         DropdownMenuItem(
                             text = { Text("Missing films in Radarr", fontFamily = Mono) },

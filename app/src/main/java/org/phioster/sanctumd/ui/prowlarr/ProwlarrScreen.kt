@@ -447,7 +447,7 @@ internal fun ProwlarrReleaseRow(
     arrTargets: List<ServiceConfig>,
     onGrab: () -> Unit,
     onSendTo: (ServiceConfig) -> Unit,
-    /** Extra line for this release, drawn **inside** the row — after the divider it would read
+    /** Extra line for this release, drawn **inside** the row. After the divider it would read
      *  as a heading for the next one. */
     detail: (@Composable () -> Unit)? = null,
 ) {

@@ -14,7 +14,7 @@ import org.phioster.sanctumd.model.ServiceType
 /**
  * Blocklisting used to require the release to be sitting in the queue, so it only worked while a
  * download was running. When an indexer serves several wrongly-tagged releases for the same title,
- * that means waiting for each to be grabbed before it can be blocked — one download at a time.
+ * that means waiting for each to be grabbed before it can be blocked, one download at a time.
  *
  * Marking a history entry as failed blocks it after the fact. Verified on the live instance
  * first: the route answers with a domain error for an unknown id, where an invented route

@@ -5,7 +5,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** The bar geometry the ambient glow paints into — and, just as important, when it paints nothing. */
+/** The bar geometry the ambient glow paints into, and, just as important, when it paints nothing. */
 class AmbientGeometryTest {
 
     @Test fun `16 by 9 video on a tall phone gets side bars`() {

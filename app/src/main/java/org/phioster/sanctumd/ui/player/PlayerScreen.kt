@@ -173,7 +173,7 @@ internal fun PlayerScreen(
     var qualityLabel by remember { mutableStateOf("Auto") }
     // Last position the engine actually reported (> 0 = something is really decoding). Every report to
     // Jellyfin is made from this: a PositionTicks of 0 makes the server store PlaybackPositionTicks=0,
-    // which silently drops the item out of "Continue Watching" — so a player that never started (or a
+    // which silently drops the item out of "Continue Watching", so a player that never started (or a
     // stream still loading) must never report.
     var lastGoodPos by remember { mutableStateOf(0L) }
     // Resume position we asked the engine to start at, and whether we've verified it took effect.
@@ -252,7 +252,7 @@ internal fun PlayerScreen(
                 lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
                 window.attributes = lp
             }
-            // NB: don't touch decorFitsSystemWindows — the app runs edge-to-edge (enableEdgeToEdge),
+            // NB: don't touch decorFitsSystemWindows. The app runs edge-to-edge (enableEdgeToEdge),
             // so the Scaffolds pad for the status bar themselves. Flipping it here (and back to true
             // on dispose) made the decor consume the insets → 0 status-bar inset → the top bar slid
             // up under the status bar after leaving the player. Only hide/show the bars.
@@ -289,7 +289,7 @@ internal fun PlayerScreen(
             } else {
                 val src = vm.jellyfinPlaybackSource(config, curItem)
                 source = src
-                // Asking about the resume point means starting at 0 and offering the jump — starting
+                // Asking about the resume point means starting at 0 and offering the jump, starting
                 // mid-file and then rewinding would waste a seek and look broken.
                 val ask = askResume && src.startPositionMs > 5_000
                 val start = if (ask) 0L else src.startPositionMs
@@ -358,7 +358,7 @@ internal fun PlayerScreen(
             // "Next episode" countdown once the outro starts (or the file ends).
             val outro = segments.firstOrNull { it.kind.equals("Outro", true) }
             // With a real outro segment the card follows the server's timing; without one it falls
-            // back to a fixed lead before the end (the server may report no outro at all — the older
+            // back to a fixed lead before the end (the server may report no outro at all, the older
             // Intro Skipper route only ever returns intros).
             val nearEnd = snap.durationMs > 0 && snap.positionMs > 0 &&
                 snap.positionMs >= (outro?.startMs ?: (snap.durationMs - nextLeadSec * 1000L))
@@ -389,7 +389,7 @@ internal fun PlayerScreen(
     }
 
     // Swiping the app away from recents kills the process with no dispose and no back press, so push
-    // the current position when the app goes to the background — otherwise everything since the last
+    // the current position when the app goes to the background, otherwise everything since the last
     // 10s ping is lost and the server is left with a session that never stopped.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, source) {
@@ -466,7 +466,7 @@ internal fun PlayerScreen(
     val leave = {
         val src = source
         if (src != null) {
-            // Fall back to the last seen position, then to where we started — never report a 0 we
+            // Fall back to the last seen position, then to where we started, never report a 0 we
             // don't mean, or Jellyfin drops the item from Continue Watching.
             val snapPos = engine.snapshot().positionMs
             val pos = when {
@@ -485,7 +485,7 @@ internal fun PlayerScreen(
 
     // Pinch-to-zoom: snaps to steps on release, stays centered (no free panning). Double-tap resets.
     var zoomScale by remember { mutableStateOf(1f) }
-    // Steps: fit (1x) → "fill" (scales the video to cover the whole screen, cropping the overflow —
+    // Steps: fit (1x) → "fill" (scales the video to cover the whole screen, cropping the overflow,
     // YouTube-style, for content whose aspect doesn't match the phone) → one bigger step. When the
     // video aspect isn't known yet, fall back to plain multiples.
     val zoomStops = remember(videoAspect, boxSize) {
@@ -907,7 +907,7 @@ private fun InfoPanel(
         if (stats.hwDecode.isNotBlank()) InfoStat("decode", "hw · ${stats.hwDecode}")
         InfoStat("ambient", ambient)
 
-        // What the server reported for intro/outro — the honest answer to "why did the skip button
+        // What the server reported for intro/outro. The honest answer to "why did the skip button
         // (or the next-episode card) show up when it did".
         if (!isLocal) {
             Spacer(Modifier.height(16.dp))
@@ -915,7 +915,7 @@ private fun InfoPanel(
             Spacer(Modifier.height(6.dp))
             if (segments.isEmpty()) {
                 Text(
-                    "none reported — no media segments and no Intro Skipper data for this episode",
+                    "none reported, no media segments and no Intro Skipper data for this episode",
                     fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, lineHeight = 15.sp,
                 )
             } else {
@@ -971,7 +971,7 @@ private fun SettingsPanel(
             .padding(horizontal = 16.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        // Speed — chips scroll horizontally so none get clipped.
+        // Speed. Chips scroll horizontally so none get clipped.
         SettingsSection(Icons.Filled.Speed, "speed") {
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -1020,7 +1020,7 @@ private fun SettingsPanel(
             if (subtitleTracks.isEmpty()) SettingsPlaceholder()
         }
 
-        // Subtitle look & sync — live for this playback (the default size lives in settings).
+        // Subtitle look & sync. Live for this playback (the default size lives in settings).
         SettingsSection(Icons.Filled.Translate, "subtitle size") {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(0.75f, 1f, 1.25f, 1.5f, 2f).forEach { sc ->

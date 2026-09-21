@@ -31,7 +31,7 @@ internal fun jellyImageUrl(config: ServiceConfig, id: String, tag: String?, toke
     if (id.isBlank()) return ""
     var url = "${config.normalizedBaseUrl}Items/$id/Images/Primary?maxHeight=450&quality=90"
     if (!tag.isNullOrBlank()) url += "&tag=$tag"
-    // No api_key in the URL — it would end up in Coil's disk cache. Loaders send
+    // No api_key in the URL. It would end up in Coil's disk cache. Loaders send
     // the token via jellyfinImageHeaders() instead.
     return url
 }
@@ -75,7 +75,7 @@ suspend fun jellyfinLibraryViews(config: ServiceConfig): List<JellyMediaItem> = 
     api.views(uid).Items.map { it.toMediaItem(config, token) }
 }
 
-/** "Continue watching" — partially played items. */
+/** "Continue watching", partially played items. */
 suspend fun jellyfinResume(config: ServiceConfig): List<JellyMediaItem> = withContext(Dispatchers.IO) {
     val token = jellyfinAccessToken(config)
     val api = jfApi(config, token)
@@ -83,7 +83,7 @@ suspend fun jellyfinResume(config: ServiceConfig): List<JellyMediaItem> = withCo
     api.resume(uid).Items.map { it.toMediaItem(config, token) }
 }
 
-/** "Recently added" — newest items, optionally within one library. */
+/** "Recently added", newest items, optionally within one library. */
 suspend fun jellyfinLatest(config: ServiceConfig, parentId: String? = null): List<JellyMediaItem> = withContext(Dispatchers.IO) {
     val token = jellyfinAccessToken(config)
     val api = jfApi(config, token)
@@ -95,7 +95,7 @@ suspend fun jellyfinLatest(config: ServiceConfig, parentId: String? = null): Lis
  * Contents of a library or folder.
  *
  * Virtual items (metadata placeholders with no actual media file) are dropped, matching what
- * Jellyfin itself shows — this hides "missing" episodes and specials that aren't really present.
+ * Jellyfin itself shows, this hides "missing" episodes and specials that aren't really present.
  * When [seasonNumber] is given (parent is a season), episodes are also filtered to that exact
  * season, since Jellyfin otherwise merges Specials (season 0) into the season they aired within.
  */
@@ -173,7 +173,7 @@ suspend fun jellyfinItemDetail(config: ServiceConfig, itemId: String): JellyMedi
  *
  * On its own this is only half a deletion in an *arr setup: Radarr/Sonarr still hold the entry,
  * notice the missing file on their next scan and re-download it while it stays monitored. The
- * caller is expected to offer the paired removal — see [arrFindByProviderId].
+ * caller is expected to offer the paired removal, see [arrFindByProviderId].
  */
 suspend fun jellyfinDeleteItem(config: ServiceConfig, itemId: String): String =
     destructive("delete Jellyfin item $itemId (removes the file)") {
@@ -227,7 +227,7 @@ suspend fun jellyfinFavorites(config: ServiceConfig): List<JellyMediaItem> = wit
         .Items.map { it.toMediaItem(config, token) }
 }
 
-/** Ids among [ids] that the user has already watched — used to clean up finished downloads. */
+/** Ids among [ids] that the user has already watched, used to clean up finished downloads. */
 suspend fun jellyfinPlayedIds(config: ServiceConfig, ids: List<String>): Set<String> = withContext(Dispatchers.IO) {
     if (ids.isEmpty()) return@withContext emptySet()
     runCatching {
@@ -262,7 +262,7 @@ suspend fun jellyfinPlayOnSession(config: ServiceConfig, sessionId: String, item
 
 /**
  * Mark [itemId] watched or unwatched for the current user. On a Series or Season the server cascades
- * the change to every episode underneath — which is why the UI confirms before doing it to a folder.
+ * the change to every episode underneath. Which is why the UI confirms before doing it to a folder.
  * Not gated by safe mode: it's user data, reversible with one tap, same class as a progress report.
  */
 suspend fun jellyfinSetPlayed(config: ServiceConfig, itemId: String, played: Boolean): Unit = withContext(Dispatchers.IO) {
@@ -309,7 +309,7 @@ suspend fun jellyfinSendMessage(config: ServiceConfig, sessionId: String, text: 
 }
 
 /** Top watchers by total playback time (seconds). Needs the Playback Reporting plugin;
- *  throws if it isn't installed (endpoint 404) — the caller shows a hint. */
+ *  throws if it isn't installed (endpoint 404). The caller shows a hint. */
 suspend fun jellyfinTopWatchers(config: ServiceConfig, limit: Int = 3): List<JellyWatchStat> = withContext(Dispatchers.IO) {
     val token = jellyfinAccessToken(config)
     val q = "SELECT UserId, SUM(PlayDuration) FROM PlaybackActivity GROUP BY UserId ORDER BY SUM(PlayDuration) DESC LIMIT $limit"
@@ -330,7 +330,7 @@ suspend fun jellyfinTopWatchers(config: ServiceConfig, limit: Int = 3): List<Jel
 data class JellyIdentifyCandidateRaw(val json: String)
 
 /**
- * Metadata candidates for [itemId]. [kind] is the Jellyfin item type — a series must not be
+ * Metadata candidates for [itemId]. [kind] is the Jellyfin item type. A series must not be
  * looked up against the movie database, so it decides the endpoint.
  */
 suspend fun jellyfinIdentifyCandidates(

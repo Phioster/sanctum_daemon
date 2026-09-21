@@ -60,7 +60,7 @@ class ShortcutsWidget : GlanceAppWidget() {
         ) {
             if (entries.isEmpty()) {
                 Text(
-                    "no shortcuts — add a Shortcuts service in the app",
+                    "no shortcuts. Add a Shortcuts service in the app",
                     style = TextStyle(color = ColorProvider(Dim), fontSize = 12.sp, textAlign = TextAlign.Center),
                 )
             } else {

@@ -121,7 +121,7 @@ internal interface ProwlarrApi {
     @GET("api/v1/indexer/schema") suspend fun indexerSchema(): List<JsonObject>
     @POST("api/v1/indexer") suspend fun addIndexer(@Body body: JsonObject): Response<ResponseBody>
     @GET("api/v1/appprofile") suspend fun appProfiles(): List<JsonObject>
-    // Servarr has no /indexer/{id}/test route (405) — testing an existing indexer means POSTing its
+    // Servarr has no /indexer/{id}/test route (405). Testing an existing indexer means POSTing its
     // definition to /indexer/test.
     @POST("api/v1/indexer/test") suspend fun testIndexerBody(@Body body: JsonObject): Response<ResponseBody>
     @GET("api/v1/search") suspend fun search(
@@ -222,7 +222,7 @@ private fun parseIndexerFields(raw: JsonObject): List<org.phioster.sanctumd.mode
         val type = jsStr(f, "type") ?: "textbox"
         if (type == "info") return@mapNotNull null
         val vEl = f["value"]
-        if (vEl is JsonArray) return@mapNotNull null // multi-value (e.g. categories) — don't expose
+        if (vEl is JsonArray) return@mapNotNull null // multi-value (e.g. categories), don't expose
         val value = (vEl as? JsonPrimitive)?.content ?: ""
         val options = (f["selectOptions"] as? JsonArray)?.mapNotNull { o ->
             (o as? JsonObject)?.let { so ->

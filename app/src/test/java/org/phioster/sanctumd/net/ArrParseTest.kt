@@ -13,11 +13,11 @@ import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
 
 /**
- * Prowlarr returns what the indexer said — title, size, age. Whether a release is *worth taking*
+ * Prowlarr returns what the indexer said, title, size, age. Whether a release is *worth taking*
  * is a Radarr judgement: it parses the name against the profile's custom formats and scores it.
  *
  * The difference is not cosmetic. Measured on the live instance, this release scores −23300
- * because "MD" marks it as mic-dubbed — something the file name does not advertise and the size
+ * because "MD" marks it as mic-dubbed. Something the file name does not advertise and the size
  * does not reveal:
  *
  *     Exit.8.2025.German.5.1.MD.DL.1080p.Bluray.x264-LiNEUP → Bluray-1080p, −23300

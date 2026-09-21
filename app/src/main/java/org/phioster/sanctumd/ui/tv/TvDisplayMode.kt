@@ -10,7 +10,7 @@ import kotlin.math.roundToInt
  * Matching the panel's refresh rate to the film's frame rate.
  *
  * A TV stick outputs a fixed 60 Hz for its user interface. Film is 23.976 fps and European
- * television is 25 fps, and neither divides into 60 — so frames get held for uneven numbers of
+ * television is 25 fps, and neither divides into 60. So frames get held for uneven numbers of
  * refreshes (3, then 2, then 3…). The result is a steady, regular hitch in motion while the audio
  * stays perfectly smooth, which is exactly the shape of the problem reported here. No decoder
  * setting fixes it; the output has to change.
@@ -46,7 +46,7 @@ private fun cadenceError(refresh: Float, fps: Float): Float {
  * Asks the window for the refresh rate that suits [fps], keeping the current resolution.
  *
  * Returns what happened, for display in the diagnostics panel. Does nothing when the panel offers
- * no better cadence than it is already running — switching modes blanks the screen for a moment, so
+ * no better cadence than it is already running, switching modes blanks the screen for a moment, so
  * it is only worth it for a real improvement.
  */
 fun applyRefreshRateFor(activity: Activity, fps: Float): DisplayModeInfo {
@@ -74,7 +74,7 @@ fun applyRefreshRateFor(activity: Activity, fps: Float): DisplayModeInfo {
     return info.copy(requestedHz = best.refreshRate, switched = true)
 }
 
-/** What the panel is actually running at right now — read back after a switch to confirm it took. */
+/** What the panel is actually running at right now. Read back after a switch to confirm it took. */
 fun currentRefreshRate(activity: Activity): Float =
     activity.activeDisplay()?.mode?.refreshRate ?: 0f
 

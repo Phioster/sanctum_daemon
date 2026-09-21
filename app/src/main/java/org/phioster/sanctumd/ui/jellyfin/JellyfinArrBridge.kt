@@ -39,8 +39,8 @@ import org.phioster.sanctumd.ui.theme.Surface
 /**
  * Which service owns a Jellyfin item of this kind.
  *
- * An episode and a season reach Sonarr through their series. Excluding them — the first version
- * did — left the bridge working on films and quietly missing everywhere else, which is worse than
+ * An episode and a season reach Sonarr through their series. Excluding them, the first version
+ * did, left the bridge working on films and quietly missing everywhere else, which is worse than
  * the risk it was avoiding. The risk is handled by [counterpartScopeNote] instead: say what the
  * actions reach rather than hide them.
  */
@@ -60,7 +60,7 @@ internal fun counterpartScopeNote(kind: String): String = when (kind) {
  * Whether tapping a folder should open a detail sheet rather than descend the browse list.
  *
  * Jellyfin's own apps treat a series and a season as *things* with artwork, a synopsis and
- * actions — you tap the series, read about it, and its seasons sit inside that page. A collection
+ * actions. You tap the series, read about it, and its seasons sit inside that page. A collection
  * (`BoxSet`) is the same shape one level up: its own artwork, and the films of the run inside it.
  * Only the library roots ("movies"/"tvshows"/"music"/"boxsets") are plain containers with nothing
  * to say about themselves, so those stay in the browse list. Music albums keep their list too:

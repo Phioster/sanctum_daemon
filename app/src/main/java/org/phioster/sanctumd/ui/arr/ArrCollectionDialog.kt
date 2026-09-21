@@ -44,7 +44,7 @@ import org.phioster.sanctumd.ui.theme.AppIcons
  * A film run as Radarr knows it, opened from the Jellyfin collection you are looking at.
  *
  * Jellyfin shows what you own; Radarr knows the whole run. Joined on the TMDB collection id both
- * sides already store, so the match is exact rather than by title — the failure mode a German
+ * sides already store, so the match is exact rather than by title, the failure mode a German
  * release name would otherwise produce.
  *
  * Adding uses the collection's own quality profile and root folder: Radarr has already decided

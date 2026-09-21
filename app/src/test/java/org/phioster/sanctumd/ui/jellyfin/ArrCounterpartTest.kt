@@ -9,7 +9,7 @@ import org.phioster.sanctumd.model.ServiceType
 /**
  * Which service owns a Jellyfin item, and which id identifies it there.
  *
- * Radarr keys movies by TMDB, Sonarr keys series by TVDB — using the wrong one finds nothing and
+ * Radarr keys movies by TMDB, Sonarr keys series by TVDB, using the wrong one finds nothing and
  * looks exactly like "not in the library", which is the failure the delete pairing already had to
  * avoid. Episodes and seasons deliberately have no counterpart: the entry on the other side is
  * the whole series, and acting on it would reach far past what the user is looking at.
@@ -25,7 +25,7 @@ class ArrCounterpartTest {
     }
 
     /**
-     * An episode and a season reach Sonarr through their series — the bridge was first written to
+     * An episode and a season reach Sonarr through their series. The bridge was first written to
      * exclude them, which left the feature working on films and silently absent on everything
      * else. They are included now, and the scope note below is what keeps that honest.
      */

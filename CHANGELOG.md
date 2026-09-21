@@ -21,17 +21,17 @@ Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
   secret travel over that address moments later, and nobody inspects a URL bar on a TV.
 - **libmpv does the decoding**, which is the whole point on a cheap stick: the codec gaps
   that make other clients stutter stop mattering. The panel's refresh rate is matched
-  before playback begins, never during it — switching mid-stream tears the picture.
+  before playback begins, never during it. Switching mid-stream tears the picture.
 
 ## Small print (v2.0.1)
 - **The task switcher no longer shows what the lock hides.** With the app lock on, the
-  screen was covered on open — but Android had already taken its thumbnail for the
+  screen was covered on open, but Android had already taken its thumbnail for the
   recents list, and that one anybody could see. On Android 13 and up the thumbnail is
   suppressed while the lock is on. Screenshots keep working; only the preview goes.
 
 ## Everything the audit found, and a number to point at (v2.0)
 - **A tagged release at last.** Until now the only way to get Sanctumd was the
-  rolling dev build — whatever master happened to be that hour. 2.0 is the first
+  rolling dev build, whatever master happened to be that hour. 2.0 is the first
   version with a tag behind it and a signed APK built by the release workflow.
 - **A full security audit of the repository**, and every real finding fixed.
   That is why the number jumps rather than creeps.
@@ -42,7 +42,7 @@ Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 - **The media session answers only to this app.** Any installed app could
   connect to the player's MediaSession and read what it published.
 - **Download filenames are built, not borrowed.** The server's `container`
-  string went into a path unchecked — `../` in it wrote outside the download
+  string went into a path unchecked. A `../` in it wrote outside the download
   directory. Names are assembled from sanitised characters now, and the finished
   path is verified against its directory before a byte is written.
 - **TLS verification is never off.** With the bundled CA file missing, mpv fell
@@ -50,7 +50,7 @@ Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
   adds the bundle only when it is really there.
 - **The lock no longer flashes the dashboard** before it covers it: an unset
   preference read as "off" for one frame.
-- **Smaller edges closed** — widget configuration screens check the widget is
+- **Smaller edges closed.** Widget configuration screens check the widget is
   theirs before writing to it, notification ids are allocated here instead of
   taken from whatever the ntfy server sends, only http and https open in the
   browser, and destructive-action prompts name the host rather than a whole URL
@@ -59,42 +59,42 @@ Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
   be mistaken for one.
 - **The stats screen speaks English again.** Its section headings, playback tiles
   and the trends hint had drifted into German. The app is English-only for now, so
-  they are back in line — as are the last few German code comments. The language
+  they are back in line, as are the last few German code comments. The language
   names in the player stay as they are: a track labelled "Deutsch" is found by
   matching that word, and a language is written in its own language.
 - **Music plays again.** Tapping a track did nothing at all: the detail sheet closed
   itself and *then* launched the fetch, but `rememberCoroutineScope()` dies with its
-  composable — the coroutine was cancelled before it ever reached the network. Fetching
+  composable: the coroutine was cancelled before it ever reached the network. Fetching
   a track and handing it to the player now runs in the view model's scope, which
   outlives the screen, as playback that continues in the background should.
 - **And it says so when it cannot.** Three layers of the music path each swallowed
-  their own error, so a failure produced no message, no log line and no clue — the
+  their own error, so a failure produced no message, no log line and no clue. The
   reason the bug above hid as long as it did. All three speak now, on screen and in
   the log.
 - **The lock screen gets its controls back.** The audit's session callback admitted
   only this package, but media3 routes the lock screen, Bluetooth and car head units
   through the platform session under a fixed sentinel package name, so the callback
-  shut them all out. It is withdrawn — the credential it was guarding left the metadata
+  shut them all out. It is withdrawn: the credential it was guarding left the metadata
   in the same round, which was always the real protection.
 - **No cover means no cover URL.** An album without artwork still handed every one of
   its tracks the album's image address, so each one pointed at a 404 and the session's
   bitmap loader ran into it once per track.
-- **The Jellyfin tile counts music too** — it showed films, series and what is playing,
+- **The Jellyfin tile counts music too.** It showed films, series and what is playing,
   and passed over the song count the server had been sending all along.
 - **An album is an album now.** Music used to open the same expanding folder rows a
   series does: a tap drilled one level deeper and a track needed the detail sheet before
-  it played. A Jellyfin album opens its own screen instead — the cover, the artist and
+  it played. A Jellyfin album opens its own screen instead: the cover, the artist and
   year, the running time, and a numbered track list where a tap plays and a long press
   still opens the details. Play and shuffle sit on the album itself, and Now Playing has
   the shuffle and repeat controls a player is expected to have (all, one, off).
 - **Looking a title up before adding it.** Radarr, Sonarr and Lidarr answered a search
-  with a list of titles and years, and the first tap went straight to the add dialog —
-  the plot, the poster, the runtime and the rating were in the answer and thrown away.
+  with a list of titles and years, and the first tap went straight to the add dialog,
+  even though the plot, the poster, the runtime and the rating were in the answer and thrown away.
   A search now has its own screen with posters, and a hit opens an info screen: cover,
   rating, runtime, genres, plot, and whether the service already holds it. Adding is one
   button there rather than the only thing the list can do. Seerr's search does the same,
   through the detail sheet it already had. Both are reached from a menu entry that now
-  says **Search** instead of "Add new" / "New request" — it was findable only if you
+  says **Search** instead of "Add new" / "New request". It was findable only if you
   already knew it was there.
 - **One place for the app's symbols.** The same action wore two different icons two
   screens apart: some buttons drew a vector icon, others carried the character in their
@@ -103,40 +103,40 @@ Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
   one registry, named for what it means rather than what it looks like, the way colours
   come from the theme. The mini player, the download tiles, the card editor, the Live TV
   rows and the session controls draw icons now instead of characters; what stays text is
-  what was always text — a tick in a table, a chevron, the star on a pinned service. The
+  what was always text: a tick in a table, a chevron, the star on a pinned service. The
   home screen widgets keep their character: a widget renders through RemoteViews, where
   an icon has to be a drawable rather than the vector the app uses.
 - **And the warning colours come from the theme too.** Amber marked pending downloads,
   blocked imports and "tap again to confirm" in 32 places, each one writing the colour
-  out by hand — two slightly different ambers, as it turned out, plus a third copy of
+  out by hand: two slightly different ambers, as it turned out, plus a third copy of
   the error red. They are three named tokens now. Like the error red they deliberately
   do not follow the palette: a warning tinted to match the accent stops reading as one.
 - **The app lock promises only what it keeps.** The switch read "Require
   fingerprint/face or device PIN on open", which sounds like the data is sealed
   behind it. It is not, on purpose: the Keystore key is not bound to user
   authentication, because live push, widgets and downloads have to decrypt while
-  the phone is in your pocket — that is the whole reason they exist. The lock
+  the phone is in your pocket, that is the whole reason they exist. The lock
   gates the screen, and the switch, the hint beneath it and SECURITY.md now all
   say so.
 
 ## The about screen answers for itself (v1.58)
 - **What the app is**, on the page people open first: the services it speaks to, and
-  tappable links to the source, this changelog, the issue tracker and the licence — the
+  tappable links to the source, this changelog, the issue tracker and the licence. The
   repository address used to be text you could not even tap.
-- **A diagnostics block built for a bug report** — version, Android, device and the kinds
+- **A diagnostics block built for a bug report.** Version, Android, device and the kinds
   of services configured, with one tap to copy it. Kinds and a count only: no labels, no
   addresses, no keys, so it is safe to paste into a public issue.
 - **The bundled work of others**, with their licences.
 
 ## Where a title streams, and Jellyfin 12 (v1.55 – v1.56)
-- **Streaming availability** in the Seerr, Radarr and Sonarr detail screens —
+- **Streaming availability** in the Seerr, Radarr and Sonarr detail screens:
   the services a film or series runs on, as a row of provider logos. The data
   comes from TMDB through the Seerr you already configured; the app carries no
   TMDB key of its own. Availability is always per country, so the region is
   shown and selectable, and a region TMDB knows nothing about drops the row
   entirely rather than showing an empty one. Cast and availability now arrive in
   a single Seerr call instead of two.
-- **Media segments** — intro and outro markers are queried the way Jellyfin 12
+- **Media segments.** Intro and outro markers are queried the way Jellyfin 12
   expects, with the repeated-parameter form, and the remaining Jellyfin calls
   were moved to the procedures valid from server 12 on.
 
@@ -152,22 +152,22 @@ Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
   back to match.
 - The wash is **averaged down to ten pixels** before it is stretched out, so it
   reads as fields of colour rather than a recognisable picture. That downscale
-  is the whole blur — there is no blur pass to pay for on old hardware.
+  is the whole blur. There is no blur pass to pay for on old hardware.
 
 ## Playback statistics (v1.50 – v1.52)
-- **A statistics screen for playback** — what was watched, by whom, and what it
+- **A statistics screen for playback.** What was watched, by whom, and what it
   cost the server, in the house style, with readable labels and bar fills that
   are actually visible.
 - Sections and chart titles were given **distinct levels** so a page reads as a
   hierarchy instead of a list of equals.
 - **Transcoding is counted honestly**: live TV no longer counts as avoidable
-  transcoding, and a remux is counted apart from a real re-encode — they cost
+  transcoding, and a remux is counted apart from a real re-encode, because they cost
   the server entirely different things.
 
 ## Deeper service coverage (v1.44 – v1.49)
 - **Series and seasons get pages of their own**, and the Jellyfin screen was
   split into one file per tab behind them.
-- **Seerr requests reach Radarr and Sonarr** — a request made here lands in the
+- **Seerr requests reach Radarr and Sonarr.** A request made here lands in the
   service that has to act on it.
 - **Collections**, with the films still missing from them and their download
   status.
@@ -180,13 +180,13 @@ Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
   Synthwave reworked, Tron and Toxic in place of Nord and Gruvbox, Japan Neon
   flipped to pink on blue. Every two-tone theme tints its surfaces; the accent
   carries everything visible, the base colour only the surfaces underneath.
-- **The services list became arrangeable** — groups, view modes, pinning with a
+- **The services list became arrangeable.** Groups, view modes, pinning with a
   star, long-press actions, and a mixed view that keeps pinned services as cards
   while the rest become tiles with their stat numbers in them.
 - **Choose which screen the app opens on.**
 
 ## Watching, not just browsing (v1.25 – v1.33)
-- **Watched state you can see and change** — a check badge on finished items,
+- **Watched state you can see and change.** A check badge on finished items,
   tap to toggle, and unwatched-episode counts on folders.
 - **Seasons and albums expand in place** instead of drilling into a new screen.
 - **The player runs a whole evening on its own**: autoplay next with a
@@ -204,11 +204,11 @@ Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 - **Brightness and volume swipes** got sensitivity and edge-margin settings.
 - **The camera cutout is respected by default**, and fit uses the full width of
   the phone; zoom fills into the cutout when you ask it to.
-- **Resume was broken and is fixed** — mpv was never given a start position, so
+- **Resume was broken and is fixed.** Mpv was never given a start position, so
   every resumed item wiped its own progress.
 
 ## Prowlarr, Seerr and the Jellyfin media tab (v1.11 – v1.19)
-- **Prowlarr indexers can be added and edited in the app** — a dynamic field
+- **Prowlarr indexers can be added and edited in the app.** A dynamic field
   form built from the schema catalogue, a Test button in the add dialog, and the
   server's real validation message instead of a bare 400.
 - **Seerr** gained genre and category rows in Discover, category screens with
@@ -224,7 +224,7 @@ Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 ## Playback, downloads and music (v1.2 – v1.10)
 - **In-app Jellyfin video playback** with streaming and progress reporting,
   gradient scrims, a settings panel and swipe gestures.
-- **libmpv as the video engine** — it plays everything, including PGS and ASS
+- **libmpv as the video engine.** It plays everything, including PGS and ASS
   subtitles, and verifies TLS against a bundled CA bundle rather than trusting
   everything.
 - **Offline downloads**: a download manager, Wi-Fi-only, whole seasons at once,
@@ -232,16 +232,16 @@ Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
   media tab while offline.
 - **A background music player** (media3 MediaSession) with a now-playing queue
   and music downloads.
-- **Statistics across services** — a cross-service overview with bar charts,
-  per-service metrics and time-series trends — and a **player info panel** with
+- **Statistics across services.** A cross-service overview with bar charts,
+  per-service metrics and time-series trends, plus a **player info panel** with
   media details and live playback metrics.
 - Individual Jellyfin libraries can be hidden or shown.
 
-## 1.1.0 — 2026-07-21
+## 1.1.0 (2026-07-21)
 A structural round: no new features, but the codebase is now one you can change
 safely.
 
-- **Renamed to Sanctumd throughout** — code, package and theme moved to
+- **Renamed to Sanctumd throughout.** Code, package and theme moved to
   `org.phioster.sanctumd`. The installed package id, the DataStore names and the
   Keystore alias deliberately keep their historic name; changing those would
   orphan existing installs' data. Placed home-screen widgets have to be added
@@ -254,8 +254,8 @@ safely.
   (round trip, wrong password, legacy format), the ntfy stream parser, the API
   response mapping and auth headers against recorded responses, and the dashboard
   edit rules. A red test now blocks the APK.
-- **Safe mode.** Every call that changes something on a server — deletes, grabs,
-  imports, request decisions, restarts, shortcuts — runs through one guard. Turn
+- **Safe mode.** Every call that changes something on a server (deletes, grabs,
+  imports, request decisions, restarts, shortcuts) runs through one guard. Turn
   safe mode on (settings → security) and those calls are refused before they
   reach the network, which makes testing against a live homelab a mechanism
   rather than a matter of care.
@@ -263,25 +263,25 @@ safely.
   service instead of in five places, with a test that fails when a new service
   type is left undescribed. See `docs/adding-a-service.md`.
 
-## 1.0.0 — 2026-07-20
+## 1.0.0 (2026-07-20)
 First release. Sanctumd was in daily use throughout the 0.x line; 1.0 marks the
 reviewed, release-signed milestone. There is no `v1.0.0` tag: the git history was
-cleaned at this point (below), and the tag did not survive it — `backup-pre-scrub`
+cleaned at this point (below), and the tag did not survive it. `backup-pre-scrub`
 still sits on the commit before.
 
-- **Security & correctness review** — no critical findings. Applied hardening:
+- **Security & correctness review.** No critical findings. Applied hardening:
   atomic service-status updates; PBKDF2 raised to 210k iterations with a
   **versioned** portable-export format (older backups still import); the
   config store now surfaces a recovery banner for unreadable/corrupt data
   instead of a silently-empty list; per-card dashboard cache eviction.
-- **Release signing** — reproducible signed APKs built in CI (keystore from
+- **Release signing.** Reproducible signed APKs built in CI (keystore from
   encrypted secrets, never in the repo).
 - Repo prepared for release: accurate README, hardened `.gitignore`
   (release-keystore & secret patterns), this changelog, cleaned git history,
   `SECURITY.md` + issue templates.
 
 ## Notifications & live push (v0.47 – v0.83)
-- **Live push** via a direct **ntfy** topic subscription — a special-use
+- **Live push** via a direct **ntfy** topic subscription, a special-use
   foreground service streams messages into local notifications instantly,
   reusing the topic your services already webhook to. Per-server connection
   merging, offline catch-up, and a masked topic in the notification title.
@@ -291,13 +291,13 @@ still sits on the commit before.
   is the refresh trigger.
 
 ## Customizable dashboard & widgets (v0.36 – v0.71)
-- **Widget home** — editable category tabs + a full-page Services drawer, with a
+- **Widget home.** Editable category tabs + a full-page Services drawer, with a
   broad set of per-service cards (queues, missing, coming-soon, recently-added,
   poster rows, statistics, watch leaderboard).
-- **Per-card styling** — title, entry count, accent colour, header icon, poster
+- **Per-card styling.** Title, entry count, accent colour, header icon, poster
   size, fan-art Ken-Burns backgrounds, and flat / solid / glass themes; plus
   Section and Quick-Button cards and a Universal Calendar.
-- **Home-screen widgets** (Glance) — shortcuts, status, quick actions, an
+- **Home-screen widgets** (Glance): shortcuts, status, quick actions, an
   upcoming-calendar agenda, and 1×1 stat tiles.
 - Global search across all services; dashboard auto-refresh & reorder;
   finger-following swipe navigation.
@@ -306,19 +306,19 @@ still sits on the commit before.
 - Service credentials **AES-256-GCM encrypted** (Android Keystore); secrets
   excluded from cloud backup.
 - **Biometric app-lock** (device-credential fallback).
-- **Config export / import** — password-protected (PBKDF2 → AES-GCM) portable file.
+- **Config export / import.** Password-protected (PBKDF2 → AES-GCM) portable file.
 - First-run onboarding flow; optional 18+ content filter; open-in-app buttons.
 
 ## Service integrations (v0.18 – v0.52)
-- **Jellyfin admin** — dashboard, scheduled tasks, activity log, restart, user
+- **Jellyfin admin.** Dashboard, scheduled tasks, activity log, restart, user
   management with per-library access, media browsing with cast, Now Playing
   controls, plugins, libraries, server logs.
-- **Radarr / Sonarr / Lidarr** — full list tabs, add, interactive search &
+- **Radarr / Sonarr / Lidarr.** Full list tabs, add, interactive search &
   release picker, grab, manual import, per-episode monitoring, System & health.
-- **Seerr** (Jellyseerr) — requests, issues, discover, watchlist, per-season requests,
+- **Seerr** (Jellyseerr): requests, issues, discover, watchlist, per-season requests,
   media detail, users & stats.
-- **Prowlarr** — indexers, search, history, tasks, send-to-arr.
-- **NZBGet** — queue, history, pause/resume, edit, add-URL.
+- **Prowlarr.** Indexers, search, history, tasks, send-to-arr.
+- **NZBGet.** Queue, history, pause/resume, edit, add-URL.
 
 ## Foundation (v0.1 – v0.17)
 - Project scaffold, CI (GitHub Actions debug APK), service config model with

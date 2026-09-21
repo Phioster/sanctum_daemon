@@ -57,7 +57,7 @@ internal fun formatFrameRate(fps: Double): String = when {
 }
 
 /**
- * The headline for one track — what you read before deciding whether to expand further.
+ * The headline for one track. What you read before deciding whether to expand further.
  * Language first, because "is there a German audio track" is the question this answers.
  */
 internal fun streamHeadline(s: JellyStream): String = buildList {
@@ -101,7 +101,7 @@ internal fun streamDetails(s: JellyStream, assumedLanguage: String = ""): List<P
 
 /**
  * The FILE section of the detail sheet: collapsed to a single tappable header, expanded to
- * everything the server knows about the file. Collapsed by default — this is reference
+ * everything the server knows about the file. Collapsed by default. This is reference
  * information, not something you read on every visit.
  */
 @Composable

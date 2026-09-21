@@ -131,14 +131,14 @@ private data class TvMenuEntry(
 /**
  * Full-screen playback for the TV.
  *
- * Uses the same [MpvPlayerEngine] as the phone — which is the entire point of this client: libmpv
+ * Uses the same [MpvPlayerEngine] as the phone. Which is the entire point of this client: libmpv
  * decodes in software whatever the TV stick's own codecs refuse (DTS/TrueHD audio, VC-1, 10-bit
  * HEVC, PGS/ASS subtitles), so the server never has to transcode. It is created with the low-power
  * tuning profile, because a stick's GPU cannot afford mpv's default rendering quality.
  * [ExoPlayerEngine] remains the fallback if the native library can't load on this ABI.
  *
  * **Input model.** With the overlay hidden, a key press does one thing: it brings the overlay up.
- * Nothing seeks, nothing toggles — a stray press on a remote should never move the film. With the
+ * Nothing seeks, nothing toggles. A stray press on a remote should never move the film. With the
  * overlay up there are two strips: the progress bar, where left/right seek, and a row of buttons,
  * where left/right move between them. Up and down switch strips. That is the whole grammar, and it
  * keeps seeking somewhere you have deliberately navigated to.
@@ -156,13 +156,13 @@ internal fun TvPlayerScreen(
     val store = remember { DashboardStore(context) }
 
     // The output mode is fixed when the engine is constructed, so it has to be known before the
-    // first frame — hence the blocking read, which also serves as the collect's initial value. Given
+    // first frame. Hence the blocking read, which also serves as the collect's initial value. Given
     // a plain `false` initial, the engine would be built once wrongly and then immediately rebuilt,
     // restarting playback in front of the user. Toggling it later *does* rebuild, deliberately.
     val storedDirectOutput = remember { runBlocking { store.tvDirectOutput.first() } }
     val directOutput by store.tvDirectOutput.collectAsState(storedDirectOutput)
 
-    // libmpv first — that is the whole reason this client exists. ExoPlayer only steps in when the
+    // libmpv first. That is the whole reason this client exists. ExoPlayer only steps in when the
     // native library refuses to load on this device's ABI.
     val engine: MediaPlayerEngine = remember(directOutput) {
         runCatching { MpvPlayerEngine(context, tvTuning = true, directOutput = directOutput) }
@@ -235,7 +235,7 @@ internal fun TvPlayerScreen(
             source = src
 
             // Switch the panel *before* the decoder gets a surface. Doing this mid-stream tears the
-            // surface out from under MediaCodec — which corrupts the picture outright — and the
+            // surface out from under MediaCodec (which corrupts the picture outright) and the
             // resulting configuration change restarts the activity, so playback begins all over
             // again. The frame rate comes from the server precisely so it is known this early.
             val activity = findActivity(context)
@@ -286,7 +286,7 @@ internal fun TvPlayerScreen(
         }
     }
 
-    // The box being switched off or the app backgrounded gives no dispose — push the position now.
+    // The box being switched off or the app backgrounded gives no dispose, push the position now.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, source) {
         val observer = LifecycleEventObserver { _, event ->
@@ -370,7 +370,7 @@ internal fun TvPlayerScreen(
     }
     val safeButtonIndex = buttonIndex.coerceIn(0, buttons.lastIndex)
 
-    // Track lists are read when the menu is opened, not on every recomposition — hence the nonce: a
+    // Track lists are read when the menu is opened, not on every recomposition, hence the nonce: a
     // list that reshuffled under the selection would be unusable.
     val menuEntries: List<TvMenuEntry> = remember(menuNonce, matchRefresh, directOutput) {
         buildList {
@@ -391,7 +391,7 @@ internal fun TvPlayerScreen(
             add(TvMenuEntry("  Bildrate an Film anpassen", selected = matchRefresh) {
                 scope.launch { store.setTvMatchRefresh(!matchRefresh) }
             })
-            add(TvMenuEntry("  direct output (recommended) — no subtitles", selected = directOutput) {
+            add(TvMenuEntry("  direct output (recommended), no subtitles", selected = directOutput) {
                 scope.launch { store.setTvDirectOutput(!directOutput) }
             })
         }
@@ -433,7 +433,7 @@ internal fun TvPlayerScreen(
             .onPreviewKeyEvent { ev ->
                 if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
 
-                // Dedicated media keys act immediately, overlay or not — that is what they are for.
+                // Dedicated media keys act immediately, overlay or not. That is what they are for.
                 when (ev.key) {
                     Key.MediaPlayPause -> { engine.togglePlay(); poke(); return@onPreviewKeyEvent true }
                     Key.MediaPlay -> { engine.play(); poke(); return@onPreviewKeyEvent true }
@@ -666,7 +666,7 @@ private fun TvPlayerControls(
 /**
  * Technical readout, so a report of "it stutters" can be answered with numbers rather than another
  * guess. The two lines that matter: **hwdec** (blank means it is decoding in software and the device
- * probably cannot keep up) and **Bild/Panel** — a frame rate that is not a whole fraction of the
+ * probably cannot keep up) and **Bild/Panel**. A frame rate that is not a whole fraction of the
  * panel's refresh rate judders however fast the decoder is, and dropped frames stay at zero while it
  * does, which is exactly how you tell the two apart.
  */
@@ -735,7 +735,7 @@ private fun TvPlayerInfo(
 private fun TvPlayerMenu(
     entries: List<TvMenuEntry>,
     selectedIndex: Int,
-    /** A tap does what OK on that line does — same reason as the button strip. */
+    /** A tap does what OK on that line does, same reason as the button strip. */
     onEntryTap: (Int) -> Unit,
 ) {
     Box(Modifier.fillMaxSize().background(Black.copy(alpha = 0.75f)), Alignment.CenterEnd) {

@@ -15,7 +15,7 @@ import org.phioster.sanctumd.model.TranscodeCost
  * transcoding is by far the most expensive thing it can be asked to do. Knowing *which* titles
  * force it is what lets a file be replaced on purpose instead of the server being blamed.
  *
- * The values are not a tidy enum — a transcode reports what it had to touch, e.g.
+ * The values are not a tidy enum. A transcode reports what it had to touch, e.g.
  * `Transcode (v:h264 a:direct)` means the video was re-encoded while the audio was passed
  * through. Measured against the live server on 2026-08-21.
  */
@@ -32,7 +32,7 @@ internal fun playbackKind(method: String?): PlaybackKind = when {
  * Whether a transcode is worth counting against the server.
  *
  * Live TV is excluded, and that is not a detail: a `TvChannel` is transcoded **every single
- * time** by design — there is no original file to hand through. Counting those made the tile
+ * time** by design. There is no original file to hand through. Counting those made the tile
  * report work nobody can avoid or act on. Measured on the live server: of 12 transcodes, 3 were
  * live TV, and the remaining 9 all came from third-party clients (JellyWatch TV, the official
  * Jellyfin apps) while Sanctumd itself caused none in 48 playbacks.
@@ -43,7 +43,7 @@ internal fun countsAsTranscode(method: String?, itemType: String?): Boolean =
 /**
  * What the transcode actually cost, read out of the `v:`/`a:` halves of the label.
  *
- * `Transcode (v:direct a:direct)` re-encoded nothing — only the container changed, which is what
+ * `Transcode (v:direct a:direct)` re-encoded nothing. Only the container changed, which is what
  * a browser gets handed when it cannot read mkv. Lumping that in with a full h264+aac re-encode
  * made the tile alarm about work the server never did. A label whose detail cannot be read counts
  * as the worst case: guessing "cheap" would hide a real cost.
@@ -73,7 +73,7 @@ internal data class TranscodeTally(val reencoded: Int, val remuxed: Int)
  * Adds up grouped `(method, count, itemType)` rows into [TranscodeTally].
  *
  * Kept pure and separate from the query so both halves of the split can be tested without a
- * server — the counting is where a wrong bucket would go unnoticed.
+ * server. The counting is where a wrong bucket would go unnoticed.
  */
 internal fun tallyTranscodes(rows: List<Triple<String?, Int, String?>>): TranscodeTally {
     var reencoded = 0
@@ -98,7 +98,7 @@ private fun hours(secs: String?): Double = (secs?.toDoubleOrNull() ?: 0.0) / 360
  * Everything the stats section shows, in four queries against the plugin's own table.
  *
  * The plugin exposes raw SQL through `submit_custom_query`, which is what makes this possible at
- * all — Jellyfin's normal API has no endpoint for "what did we actually watch". Needs the
+ * all. Jellyfin's normal API has no endpoint for "what did we actually watch". Needs the
  * Playback Reporting plugin; without it the endpoint 404s and the caller shows a hint.
  */
 suspend fun jellyfinPlaybackStats(config: ServiceConfig): JellyPlaybackStats =
@@ -153,7 +153,7 @@ suspend fun jellyfinPlaybackStats(config: ServiceConfig): JellyPlaybackStats =
                 "WHERE PlaybackMethod LIKE 'Transcode%' GROUP BY ItemId ORDER BY count(*) DESC LIMIT 12",
         ).filter {
             // A remux forces nothing worth replacing a file over, so it does not belong on a list
-            // headed "forces transcoding" — it is counted in its own tile instead.
+            // headed "forces transcoding". It is counted in its own tile instead.
             countsAsTranscode(it.getOrNull(2), it.getOrNull(4)) &&
                 transcodeCost(it.getOrNull(2)) != TranscodeCost.REMUX
         }.take(6).map {
