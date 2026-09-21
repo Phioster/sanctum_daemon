@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -521,10 +522,23 @@ internal fun TvPlayerScreen(
                 buttons = buttons,
                 strip = strip,
                 buttonIndex = safeButtonIndex,
+                onButtonTap = { i ->
+                    strip = STRIP_BUTTONS
+                    buttonIndex = i
+                    poke()
+                    buttons.getOrNull(i)?.onClick?.invoke()
+                },
             )
         }
 
-        if (menuOpen) TvPlayerMenu(entries = menuEntries, selectedIndex = menuIndex)
+        if (menuOpen) {
+            TvPlayerMenu(entries = menuEntries, selectedIndex = menuIndex) { i ->
+                menuIndex = i
+                menuEntries.getOrNull(i)?.onSelect?.invoke()
+                menuOpen = false
+                poke()
+            }
+        }
 
         if (infoOpen) {
             TvPlayerInfo(
@@ -554,6 +568,8 @@ private fun TvPlayerControls(
     buttons: List<BarButton>,
     strip: Int,
     buttonIndex: Int,
+    /** A tap does what OK on that button does. A television never calls this; a phone does. */
+    onButtonTap: (Int) -> Unit,
 ) {
     val progress = if (state.durationMs > 0) {
         (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
@@ -614,6 +630,7 @@ private fun TvPlayerControls(
                 Box(
                     Modifier
                         .clip(RoundedCornerShape(6.dp))
+                        .clickable { onButtonTap(index) }
                         .background(if (active) MatrixGreen else Color.Transparent)
                         .border(
                             1.dp,
@@ -715,7 +732,12 @@ private fun TvPlayerInfo(
 
 /** Track chooser, driven entirely by up/down/OK. */
 @Composable
-private fun TvPlayerMenu(entries: List<TvMenuEntry>, selectedIndex: Int) {
+private fun TvPlayerMenu(
+    entries: List<TvMenuEntry>,
+    selectedIndex: Int,
+    /** A tap does what OK on that line does — same reason as the button strip. */
+    onEntryTap: (Int) -> Unit,
+) {
     Box(Modifier.fillMaxSize().background(Black.copy(alpha = 0.75f)), Alignment.CenterEnd) {
         Column(
             Modifier
@@ -742,6 +764,7 @@ private fun TvPlayerMenu(entries: List<TvMenuEntry>, selectedIndex: Int) {
                         Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(5.dp))
+                            .clickable { onEntryTap(index) }
                             .background(if (active) MatrixGreen else Color.Transparent)
                             .padding(horizontal = 10.dp, vertical = 8.dp),
                     ) {
