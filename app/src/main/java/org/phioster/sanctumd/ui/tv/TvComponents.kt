@@ -50,6 +50,8 @@ import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
 import org.phioster.sanctumd.ui.theme.SurfaceHi
+import androidx.compose.material3.Icon
+import org.phioster.sanctumd.ui.theme.AppIcons
 
 /**
  * Shared TV widgets.
@@ -257,7 +259,7 @@ internal fun TvPosterCard(
                     Modifier.align(Alignment.TopEnd).padding(6.dp).size(18.dp)
                         .clip(RoundedCornerShape(9.dp)).background(MatrixGreen),
                     Alignment.Center,
-                ) { Text("✓", color = Black, fontFamily = Mono, fontSize = 11.sp) }
+                ) { Icon(AppIcons.Done, contentDescription = "watched", tint = Black, modifier = Modifier.size(12.dp)) }
             } else if (item.unplayedCount > 0) {
                 Box(
                     Modifier.align(Alignment.TopEnd).padding(6.dp)

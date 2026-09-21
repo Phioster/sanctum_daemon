@@ -70,6 +70,7 @@ import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
 import org.phioster.sanctumd.ServiceLogo
+import org.phioster.sanctumd.ui.theme.AppIcons
 
 @Composable
 internal fun DashCardView(
@@ -329,7 +330,7 @@ internal fun DashCardView(
                                     .background(if (cfgBg) MatrixGreen else Surface)
                                     .border(1.dp, if (cfgBg) MatrixGreen else MatrixGreen.copy(alpha = 0.4f), RoundedCornerShape(5.dp)),
                                 contentAlignment = Alignment.Center,
-                            ) { if (cfgBg) Text("✓", fontFamily = Mono, color = Black, fontSize = 13.sp) }
+                            ) { if (cfgBg) Icon(AppIcons.Done, contentDescription = null, tint = Black, modifier = Modifier.size(14.dp)) }
                             Spacer(Modifier.width(10.dp))
                             Text("Fanart background (Ken Burns)", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
                         }

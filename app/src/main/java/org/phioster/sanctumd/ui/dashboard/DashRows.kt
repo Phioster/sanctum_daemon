@@ -67,6 +67,9 @@ import org.phioster.sanctumd.ui.services.*
 import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
+import androidx.compose.material3.Icon
+import org.phioster.sanctumd.ui.theme.AppIcons
+import androidx.compose.ui.graphics.vector.ImageVector
 
 @Composable
 internal fun DashSessionRow(item: org.phioster.sanctumd.model.JellySession, accent: Color, density: String = "") {
@@ -83,11 +86,17 @@ internal fun DashSessionRow(item: org.phioster.sanctumd.model.JellySession, acce
 }
 
 @Composable
-internal fun DashLineRow(title: String, subtitle: String, accent: Color, density: String = "", titleColor: Color = MatrixGreen, onClick: (() -> Unit)? = null) {
+internal fun DashLineRow(title: String, subtitle: String, accent: Color, density: String = "", titleColor: Color = MatrixGreen, onClick: (() -> Unit)? = null, leading: ImageVector? = null) {
     val vpad = when (density) { "compact" -> 2.dp; "detail" -> 9.dp; else -> 5.dp }
     val showSub = density != "compact" && subtitle.isNotBlank()
     Column(Modifier.fillMaxWidth().let { if (onClick != null) it.clickable { onClick() } else it }.padding(vertical = vpad)) {
-        Text(title, fontFamily = Mono, color = titleColor, fontSize = 13.sp, maxLines = if (density == "detail") 2 else 1, overflow = TextOverflow.Ellipsis)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (leading != null) {
+                Icon(leading, contentDescription = null, tint = titleColor, modifier = Modifier.size(11.dp))
+                Spacer(Modifier.width(4.dp))
+            }
+            Text(title, fontFamily = Mono, color = titleColor, fontSize = 13.sp, maxLines = if (density == "detail") 2 else 1, overflow = TextOverflow.Ellipsis)
+        }
         if (showSub) Text(subtitle, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

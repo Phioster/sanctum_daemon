@@ -131,7 +131,7 @@ internal fun TvHomeScreen(
                     TvPosterRow("recently added", data.latest, config, firstItemFocus = firstCardFocus.takeIf { focusOwner == "latest" }, onClick = onOpen)
                 }
                 item {
-                    TvPosterRow("favoriten", data.favorites, config, firstItemFocus = firstCardFocus.takeIf { focusOwner == "favorites" }, onClick = onOpen)
+                    TvPosterRow("favorites", data.favorites, config, firstItemFocus = firstCardFocus.takeIf { focusOwner == "favorites" }, onClick = onOpen)
                 }
             }
         }

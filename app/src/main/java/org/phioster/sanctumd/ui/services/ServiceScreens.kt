@@ -81,6 +81,7 @@ import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
 import org.phioster.sanctumd.ServiceLogo
+import org.phioster.sanctumd.ui.theme.AppIcons
 
 /** Compact, tidy status error for the service cards — the raw DNS/connection exception is verbose and
  *  ugly (and the [err] badge already flags the failure), so collapse the common ones to a one-liner. */
@@ -129,10 +130,16 @@ internal fun ServiceCard(
                 ServiceLogo(config.type, 30.dp)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(
-                        if (config.pinned) "★ ${config.label}" else config.label,
-                        fontFamily = Mono, fontWeight = FontWeight.Bold, color = accent, fontSize = 18.sp,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (config.pinned) {
+                            Icon(AppIcons.Pinned, contentDescription = "pinned", tint = accent, modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.width(5.dp))
+                        }
+                        Text(
+                            config.label,
+                            fontFamily = Mono, fontWeight = FontWeight.Bold, color = accent, fontSize = 18.sp,
+                        )
+                    }
                     // The type line is noise when the service is simply called after its type
                     // (the common case) — only show it when the label says something else.
                     if (!config.label.equals(config.type.label, ignoreCase = true)) {
@@ -204,10 +211,16 @@ internal fun ServiceRowCompact(
         ServiceLogo(config.type, 22.dp)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(
-                if (config.pinned) "★ ${config.label}" else config.label,
-                fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (config.pinned) {
+                    Icon(AppIcons.Pinned, contentDescription = "pinned", tint = MatrixGreen, modifier = Modifier.size(12.dp))
+                    Spacer(Modifier.width(4.dp))
+                }
+                Text(
+                    config.label, modifier = Modifier.weight(1f, fill = false),
+                    fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
             val sub = when {
                 status == null || status.isLoading -> "connecting…"
                 status.ok -> status.stats.joinToString("  ") { "${it.second} ${it.first.lowercase()}" }
@@ -255,10 +268,16 @@ internal fun ServiceTile(
         ) {
             ServiceLogo(config.type, 30.dp)
             Spacer(Modifier.height(8.dp))
-            Text(
-                if (config.pinned) "★ ${config.label}" else config.label,
-                fontFamily = Mono, color = accent, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (config.pinned) {
+                    Icon(AppIcons.Pinned, contentDescription = "pinned", tint = accent, modifier = Modifier.size(11.dp))
+                    Spacer(Modifier.width(4.dp))
+                }
+                Text(
+                    config.label, modifier = Modifier.weight(1f, fill = false),
+                    fontFamily = Mono, color = accent, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
             Spacer(Modifier.height(8.dp))
             // The same key numbers the card view shows, scaled down to fit a tile.
             when {
