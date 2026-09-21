@@ -1,6 +1,5 @@
 package org.phioster.sanctumd.ui.dashboard
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
@@ -48,14 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
-import org.phioster.sanctumd.model.ArrMissingItem
-import org.phioster.sanctumd.model.ArrQueueItem
-import org.phioster.sanctumd.model.NzbHistoryEntry
-import org.phioster.sanctumd.model.NzbQueueItem
-import org.phioster.sanctumd.model.ArrHistoryItem
-import org.phioster.sanctumd.model.SeerrRequestItem
 import org.phioster.sanctumd.model.ServiceConfig
-import org.phioster.sanctumd.model.ServiceStatus
 import org.phioster.sanctumd.model.CardType
 import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.theme.Black
@@ -101,102 +93,20 @@ internal fun DashCardView(
     val accent = if (card.theme == "solid") Black else accentColor
     val posterWidth = when (card.posterSize) { "small" -> 84.dp; "large" -> 150.dp; else -> 120.dp }
     var showConfig by remember { mutableStateOf(false) }
-    // Initialise from the per-card cache so a tab switch shows the last-loaded data instantly
-    // (no refetch/flicker); the LaunchedEffect below only refetches when the refresh tick changed.
-    @Suppress("UNCHECKED_CAST")
-    var items by remember { mutableStateOf(vm.cardDataCache["${card.id}#items"] as? List<org.phioster.sanctumd.model.JellyMediaItem>) }
-    @Suppress("UNCHECKED_CAST")
-    var sessions by remember { mutableStateOf(vm.cardDataCache["${card.id}#sessions"] as? List<org.phioster.sanctumd.model.JellySession>) }
-    @Suppress("UNCHECKED_CAST")
-    var requests by remember { mutableStateOf(vm.cardDataCache["${card.id}#requests"] as? List<org.phioster.sanctumd.model.SeerrRequestItem>) }
-    @Suppress("UNCHECKED_CAST")
-    var queue by remember { mutableStateOf(vm.cardDataCache["${card.id}#queue"] as? List<org.phioster.sanctumd.model.ArrQueueItem>) }
-    @Suppress("UNCHECKED_CAST")
-    var missing by remember { mutableStateOf(vm.cardDataCache["${card.id}#missing"] as? List<org.phioster.sanctumd.model.ArrMissingItem>) }
-    @Suppress("UNCHECKED_CAST")
-    var calendar by remember { mutableStateOf(vm.cardDataCache["${card.id}#calendar"] as? List<org.phioster.sanctumd.model.ArrCalendarItem>) }
-    @Suppress("UNCHECKED_CAST")
-    var history by remember { mutableStateOf(vm.cardDataCache["${card.id}#history"] as? List<org.phioster.sanctumd.model.ArrHistoryItem>) }
-    @Suppress("UNCHECKED_CAST")
-    var nzbQueue by remember { mutableStateOf(vm.cardDataCache["${card.id}#nzbQueue"] as? List<org.phioster.sanctumd.model.NzbQueueItem>) }
-    @Suppress("UNCHECKED_CAST")
-    var nzbHistory by remember { mutableStateOf(vm.cardDataCache["${card.id}#nzbHistory"] as? List<org.phioster.sanctumd.model.NzbHistoryEntry>) }
-    @Suppress("UNCHECKED_CAST")
-    var discover by remember { mutableStateOf(vm.cardDataCache["${card.id}#discover"] as? List<org.phioster.sanctumd.model.SeerrDiscoverItem>) }
-    @Suppress("UNCHECKED_CAST")
-    var sysHealth by remember { mutableStateOf(vm.cardDataCache["${card.id}#sysHealth"] as? List<Pair<String, String>>) }
-    var stat by remember { mutableStateOf(vm.cardDataCache["${card.id}#stat"] as? org.phioster.sanctumd.model.ServiceStatus) }
-    @Suppress("UNCHECKED_CAST")
-    var topWatchers by remember { mutableStateOf(vm.cardDataCache["${card.id}#topWatchers"] as? List<org.phioster.sanctumd.model.JellyWatchStat>) }
+    val data = rememberDashCardData(vm, card.id)
     var detail by remember { mutableStateOf<MediaDetail?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(card.id, config?.id, vm.dashRefreshTick.intValue) {
-        if (serviceless) return@LaunchedEffect // Section / Quick Buttons / calendar self-load
-        if (config == null) { error = "service not found"; return@LaunchedEffect }
-        // Already loaded this refresh cycle? Keep the cached data (fields are init'd from it) — no refetch.
-        val tick = vm.dashRefreshTick.intValue
-        if (vm.cardDataTick[card.id] == tick) return@LaunchedEffect
-        // Retry a couple of times: on a cold start the Jellyfin token may not be ready yet.
-        var attempt = 0
-        while (attempt < 3) {
-            error = null
-            try {
-                when (card.type) {
-                    CardType.SECTION, CardType.QUICKBUTTONS, CardType.SHORTCUTS, CardType.UNIFIED_CALENDAR -> {}
-                    CardType.JELLYFIN_SESSIONS -> sessions = vm.jellyfinSessionList(config)
-                    CardType.JELLYFIN_RECENT -> items = vm.jellyfinRecent(config, null)
-                    CardType.JELLYFIN_RESUME -> items = vm.jellyfinContinue(config)
-                    CardType.SEERR_REQUESTS -> requests = vm.seerrList(config, "all")
-                    CardType.RADARR_QUEUE, CardType.SONARR_QUEUE, CardType.LIDARR_QUEUE -> queue = vm.arrQueueList(config)
-                    CardType.RADARR_MISSING, CardType.SONARR_MISSING, CardType.LIDARR_MISSING -> missing = vm.arrMissingList(config)
-                    CardType.RADARR_CALENDAR, CardType.SONARR_CALENDAR, CardType.LIDARR_CALENDAR -> calendar = vm.arrCalendarList(config)
-                    CardType.RADARR_HISTORY, CardType.SONARR_HISTORY, CardType.LIDARR_HISTORY -> history = vm.arrHistoryList(config)
-                    CardType.NZBGET_QUEUE -> nzbQueue = vm.queue(config)
-                    CardType.NZBGET_HISTORY -> nzbHistory = vm.history(config, false)
-                    CardType.SEERR_TRENDING -> discover = vm.seerrDiscoverList(config, "trending")
-                    CardType.SEERR_POPULAR_MOVIES -> discover = vm.seerrDiscoverList(config, "movies")
-                    CardType.SEERR_POPULAR_TV -> discover = vm.seerrDiscoverList(config, "tv")
-                    CardType.RADARR_HEALTH, CardType.SONARR_HEALTH, CardType.LIDARR_HEALTH -> sysHealth = vm.arrSystemInfo(config).health
-                    CardType.JELLYFIN_STATS, CardType.RADARR_STATS, CardType.SONARR_STATS, CardType.LIDARR_STATS,
-                    CardType.PROWLARR_STATS, CardType.NZBGET_STATS, CardType.SEERR_STATS -> stat = vm.serviceStats(config)
-                    CardType.JELLYFIN_TOP -> topWatchers = vm.jellyfinTopWatchers(config)
-                }
-                // Cache this card's freshly-loaded data (one field is non-null) so a tab switch reuses it.
-                vm.cardDataCache["${card.id}#items"] = items
-                vm.cardDataCache["${card.id}#sessions"] = sessions
-                vm.cardDataCache["${card.id}#requests"] = requests
-                vm.cardDataCache["${card.id}#queue"] = queue
-                vm.cardDataCache["${card.id}#missing"] = missing
-                vm.cardDataCache["${card.id}#calendar"] = calendar
-                vm.cardDataCache["${card.id}#history"] = history
-                vm.cardDataCache["${card.id}#nzbQueue"] = nzbQueue
-                vm.cardDataCache["${card.id}#nzbHistory"] = nzbHistory
-                vm.cardDataCache["${card.id}#discover"] = discover
-                vm.cardDataCache["${card.id}#sysHealth"] = sysHealth
-                vm.cardDataCache["${card.id}#stat"] = stat
-                vm.cardDataCache["${card.id}#topWatchers"] = topWatchers
-                vm.cardDataTick[card.id] = tick
-                break
-            } catch (c: kotlinx.coroutines.CancellationException) {
-                throw c
-            } catch (t: Throwable) {
-                error = t.message
-                attempt++
-                if (attempt < 3) kotlinx.coroutines.delay(1200)
-            }
-        }
-    }
+    LaunchedEffect(card.id, config?.id, vm.dashRefreshTick.intValue) { data.load(vm, card, config) }
 
     val bgPool = when (card.type) {
-        CardType.JELLYFIN_RECENT, CardType.JELLYFIN_RESUME -> items?.take(card.count)?.map { it.posterUrl }?.filter { it.isNotBlank() }
-        CardType.SEERR_TRENDING, CardType.SEERR_POPULAR_MOVIES, CardType.SEERR_POPULAR_TV -> discover?.take(card.count)?.map { it.posterUrl }?.filter { it.isNotBlank() }
+        CardType.JELLYFIN_RECENT, CardType.JELLYFIN_RESUME -> data.items?.take(card.count)?.map { it.posterUrl }?.filter { it.isNotBlank() }
+        CardType.SEERR_TRENDING, CardType.SEERR_POPULAR_MOVIES, CardType.SEERR_POPULAR_TV -> data.discover?.take(card.count)?.map { it.posterUrl }?.filter { it.isNotBlank() }
         else -> null
     }
     // Pick one poster at random per open; re-picks only when the data reloads (or the tab is reopened / app restarts).
-    val bgUrl = remember(items, discover) { bgPool?.randomOrNull() }
+    val bgUrl = remember(data.items, data.discover) { bgPool?.randomOrNull() }
     val hasBg = card.background && bgUrl != null && config != null
     val boxed = hasBg || card.theme == "solid" || card.theme == "glass"
 
@@ -272,199 +182,31 @@ internal fun DashCardView(
             }
         }
         Spacer(Modifier.height(8.dp))
-        val loading = @Composable { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp) }
-        val empty = @Composable { msg: String -> Text(msg, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp) }
-        when {
-            card.type == CardType.JELLYFIN_TOP -> {
-                val tw = topWatchers
-                when {
-                    error != null -> empty("no playback data — install the Jellyfin “Playback Reporting” plugin")
-                    tw == null -> loading()
-                    tw.isEmpty() -> empty("no playback data yet")
-                    else -> JellyPodium(tw, accent, card.theme == "solid")
-                }
-            }
-            error != null -> Text(org.phioster.sanctumd.ui.services.friendlyStatusError(error), fontFamily = Mono, color = ErrRed, fontSize = 11.sp)
-            card.type == CardType.SECTION -> HorizontalDivider(color = accentColor.copy(alpha = 0.6f), thickness = 2.dp)
-            card.type == CardType.SHORTCUTS -> {
-                val scs = config?.shortcuts.orEmpty()
-                var pendingSc by remember { mutableStateOf<String?>(null) }
-                if (scs.isEmpty()) empty("no shortcuts configured")
-                else Column {
-                    scs.forEach { sc ->
-                        Row(
-                            Modifier.fillMaxWidth()
-                                .clickable {
-                                    if (pendingSc == sc.name) {
-                                        pendingSc = null
-                                        scope.launch {
-                                            val res = runCatching { vm.runShortcut(config!!, sc) }.getOrElse { it.message ?: "failed" }
-                                            android.widget.Toast.makeText(ctx, res, android.widget.Toast.LENGTH_SHORT).show()
-                                        }
-                                    } else {
-                                        pendingSc = sc.name
-                                    }
-                                }
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text("▸ ${sc.name}", fontFamily = Mono, color = accentColor, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                            if (pendingSc == sc.name) Text("tap again", fontFamily = Mono, color = WarnAmber, fontSize = 10.sp)
-                        }
+        // The three types that do more than show what they loaded; everything else is a
+        // function of the card's data and lives in DashCardDataBody, where a test can reach it.
+        when (card.type) {
+            CardType.SHORTCUTS -> ShortcutsCardBody(vm, config, accentColor, scope, ctx)
+            CardType.QUICKBUTTONS -> QuickActionsCardBody(vm, config, allServices, accentColor, scope, ctx)
+            CardType.UNIFIED_CALENDAR -> UnifiedCalendarCard(vm, accent, onOpenAny)
+            else -> DashCardDataBody(
+                card = card,
+                config = config,
+                data = data,
+                accent = accent,
+                accentColor = accentColor,
+                posterWidth = posterWidth,
+                onOpenService = onOpenService,
+                onOpenItem = { m ->
+                    if (config != null) {
+                        scope.launch { detail = runCatching { vm.jellyfinMediaDetail(config, m.id).toMediaDetail() }.getOrNull() }
                     }
-                }
-            }
-            card.type == CardType.QUICKBUTTONS -> {
-                // Bound to one service when the card has a serviceId; legacy cards
-                // (serviceId "") keep the old all-services list.
-                val actions =
-                    if (config != null) quickActionsFor(config).map { config to it }
-                    else allServices.flatMap { svc -> quickActionsFor(svc).map { svc to it } }
-                if (actions.isEmpty()) empty("no actions available")
-                else Column {
-                    actions.forEach { (svc, qa) ->
-                        Text(
-                            "▸ ${qa.label}",
-                            fontFamily = Mono, color = accentColor, fontSize = 13.sp,
-                            modifier = Modifier.fillMaxWidth()
-                                .clickable {
-                                    scope.launch {
-                                        val res = runCatching { qa.run(vm, svc) }.getOrElse { it.message ?: "failed" }
-                                        android.widget.Toast.makeText(ctx, res, android.widget.Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                                .padding(vertical = 8.dp),
-                        )
+                },
+                onOpenDiscover = { di ->
+                    config?.let { c ->
+                        scope.launch { detail = runCatching { vm.seerrMediaDetailById(c, di.tmdbId, di.mediaType).toMediaDetail() }.getOrNull() }
                     }
-                }
-            }
-            card.type == CardType.RADARR_HEALTH || card.type == CardType.SONARR_HEALTH || card.type == CardType.LIDARR_HEALTH -> {
-                val h = sysHealth
-                when {
-                    h == null -> loading()
-                    h.isEmpty() -> Text("✓ all healthy", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
-                    else -> Column {
-                        h.take(card.count).forEach { (type, msg) ->
-                            val col = when (type.lowercase()) { "error" -> ErrRed; "warning" -> WarnAmberDim; else -> MatrixGreen.copy(alpha = 0.8f) }
-                            Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-                                Text(msg, fontFamily = Mono, color = col, fontSize = 12.sp)
-                                Text(type.uppercase(), fontFamily = Mono, color = col.copy(alpha = 0.6f), fontSize = 9.sp)
-                            }
-                        }
-                    }
-                }
-            }
-            card.type == CardType.JELLYFIN_STATS || card.type == CardType.RADARR_STATS || card.type == CardType.SONARR_STATS ||
-                card.type == CardType.LIDARR_STATS || card.type == CardType.PROWLARR_STATS || card.type == CardType.NZBGET_STATS ||
-                card.type == CardType.SEERR_STATS -> {
-                val st = stat
-                when {
-                    st == null || st.isLoading -> loading()
-                    !st.ok -> Text(st.error?.let { org.phioster.sanctumd.ui.services.friendlyStatusError(it) } ?: "offline", fontFamily = Mono, color = ErrRed, fontSize = 12.sp)
-                    st.stats.isEmpty() -> empty("no stats")
-                    else -> Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        st.stats.forEach { (k, v) ->
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(v, fontFamily = Mono, fontWeight = FontWeight.Bold, color = if (card.theme == "solid") Black else MatrixGreen, fontSize = 22.sp)
-                                Text(k.uppercase(), fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 10.sp)
-                            }
-                        }
-                    }
-                }
-            }
-            card.type == CardType.JELLYFIN_SESSIONS -> {
-                val s = sessions
-                when {
-                    s == null -> loading()
-                    s.isEmpty() -> empty("no active sessions")
-                    else -> Column { s.forEach { DashSessionRow(it, accent, card.density) } }
-                }
-            }
-            card.type == CardType.SEERR_REQUESTS -> {
-                val r = requests
-                when {
-                    r == null -> loading()
-                    r.isEmpty() -> empty("no requests")
-                    else -> Column { r.take(card.count).forEach { DashLineRow(it.title, it.subtitle.ifBlank { it.status }, accent, card.density) { onOpenService() } } }
-                }
-            }
-            card.type == CardType.RADARR_QUEUE || card.type == CardType.SONARR_QUEUE || card.type == CardType.LIDARR_QUEUE -> {
-                val q = queue
-                when {
-                    q == null -> loading()
-                    q.isEmpty() -> empty("queue empty")
-                    else -> Column { q.take(card.count).forEach { DashQueueRow(it, accent, card.density) } }
-                }
-            }
-            card.type == CardType.RADARR_MISSING || card.type == CardType.SONARR_MISSING || card.type == CardType.LIDARR_MISSING -> {
-                val m = missing
-                when {
-                    m == null -> loading()
-                    m.isEmpty() -> empty("nothing missing")
-                    else -> Column { m.take(card.count).forEach { DashLineRow(it.title, it.subtitle, accent, card.density) { onOpenService() } } }
-                }
-            }
-            card.type == CardType.RADARR_CALENDAR || card.type == CardType.SONARR_CALENDAR || card.type == CardType.LIDARR_CALENDAR -> {
-                val c = calendar
-                when {
-                    c == null -> loading()
-                    c.isEmpty() -> empty("nothing upcoming")
-                    else -> Column { c.take(card.count).forEach { DashLineRow("${if (it.hasFile) "✓ " else ""}${it.title}", "${it.date}${if (it.subtitle.isNotBlank()) " · ${it.subtitle}" else ""}", accent, card.density) { onOpenService() } } }
-                }
-            }
-            card.type == CardType.UNIFIED_CALENDAR -> UnifiedCalendarCard(vm, accent, onOpenAny)
-            card.type == CardType.RADARR_HISTORY || card.type == CardType.SONARR_HISTORY || card.type == CardType.LIDARR_HISTORY -> {
-                val h = history
-                when {
-                    h == null -> loading()
-                    h.isEmpty() -> empty("no history")
-                    else -> Column { h.take(card.count).forEach { DashLineRow(it.title, "${it.eventType} · ${it.date}", accent, card.density) { onOpenService() } } }
-                }
-            }
-            card.type == CardType.NZBGET_QUEUE -> {
-                val q = nzbQueue
-                when {
-                    q == null -> loading()
-                    q.isEmpty() -> empty("queue empty")
-                    else -> Column { q.take(card.count).forEach { DashNzbRow(it.name, it.status, it.progress, accent, card.density) } }
-                }
-            }
-            card.type == CardType.NZBGET_HISTORY -> {
-                val h = nzbHistory
-                when {
-                    h == null -> loading()
-                    h.isEmpty() -> empty("no history")
-                    else -> Column { h.take(card.count).forEach { DashLineRow(it.name, it.status, accent, card.density) { onOpenService() } } }
-                }
-            }
-            card.type == CardType.SEERR_TRENDING || card.type == CardType.SEERR_POPULAR_MOVIES || card.type == CardType.SEERR_POPULAR_TV -> {
-                val d = discover
-                when {
-                    d == null -> loading()
-                    d.isEmpty() -> empty("nothing here")
-                    else -> Row(Modifier.horizontalScroll(rememberScrollState())) {
-                        d.take(card.count).forEach { di ->
-                            DashDiscoverPoster(di, posterWidth, card.density != "compact") {
-                                config?.let { c -> scope.launch { detail = runCatching { vm.seerrMediaDetailById(c, di.tmdbId, di.mediaType).toMediaDetail() }.getOrNull() } }
-                            }
-                        }
-                    }
-                }
-            }
-            else -> {
-                val it2 = items
-                when {
-                    it2 == null -> loading()
-                    it2.isEmpty() -> empty("nothing here")
-                    else -> Row(Modifier.horizontalScroll(rememberScrollState())) {
-                        it2.take(card.count).forEach { m ->
-                            if (config != null) JellyPosterCard(m, config, accent, posterWidth, card.density != "compact") {
-                                scope.launch { detail = runCatching { vm.jellyfinMediaDetail(config, m.id).toMediaDetail() }.getOrNull() }
-                            }
-                        }
-                    }
-                }
-            }
+                },
+            )
         }
         if (!boxed) {
             Spacer(Modifier.height(10.dp))
