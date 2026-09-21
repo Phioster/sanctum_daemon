@@ -3,6 +3,30 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Onboarding unblocked, and a dialog that stopped waiting (v2.1.3)
+- **The first screen after installing was half-hidden.** With three-button navigation the
+  `next` button of the intro sat under the system bar: label cut off, a tap in the middle
+  went to Android. Gesture navigation hid the problem. A new automated walk through the
+  intro found it on its first run. Two more screens had the same gap in a milder form.
+- **"System & health" stopped waiting for the slowest answer.** It asked for version,
+  health and disk usage and waited for all three. Disk usage is not broken, it is slow:
+  on a server that is not a tidy Docker host it walks every mount point, which can pass a
+  minute, and the shared 20 s read timeout cut it off every time. Version and health now
+  appear at once and the disks fill in when they arrive, so the numbers show up at all.
+- **The same dialog now shows the About block:** .NET, database and version, migration
+  level, mode, uptime, data and startup directory. All of it was already in the answer;
+  only the version was being read out of it.
+- **Picture-in-picture engages by itself** from Android 12 when you leave during
+  playback, and shrinks out of the video instead of the whole black screen. Android 9 and
+  10 now reach into the camera cutout too; they had been handed a value they do not know.
+- **Small print.** Five icons that carried the only information in their place said
+  nothing to a screen reader. Fourteen German strings were still in the television
+  client. Six Lint errors are gone, including a `StateFlow.value` read inside composition.
+  The Lint report is no longer discarded after every build, and the launch smoke test
+  runs when the app changes, not only when the test does.
+
+---
+
 ## The player taken apart, and the TV client on a real television (v2.1.2)
 - **The television client ran on a television.** 2.1.1 shipped it untested on real
   hardware. It has now been driven with a remote on an Android TV box: the D-pad moves
