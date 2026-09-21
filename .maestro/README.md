@@ -24,12 +24,14 @@ Screenshots land next to where you run it (or under `~/.maestro`).
 | File | Needs | What it checks |
 |------|-------|----------------|
 | `01_launch_smoke.yaml` | nothing (fresh or configured) | app boots, first frame renders, no launch crash |
-| `02_home_edit_addcard.yaml` | past onboarding | Edit mode reveals the Add-card FAB; drawer opens |
+| `02_onboarding.yaml` | nothing (clears state itself) | all five intro pages, and that "get started" opens the first-service editor |
+| `03_home_edit_addcard.yaml` | past onboarding, so after `02` | Edit mode reveals the Add-card FAB; drawer opens |
 | `10_radarr_custom_search.yaml` | a Radarr service with a missing movie | the new **Custom search** entry shows in the Missing menu |
 
-`01` is the CI gate (see `.github/workflows/ui-smoke.yml`). It runs on a clean
-emulator, so it must not depend on any configured service. `02`/`10` are meant for a
-real, configured device; they carry the labels/data assumptions in their comments.
+`01`, `02` and `03` are the CI gate (see `.github/workflows/ui-smoke.yml`), run in that
+order on a clean emulator, so none of them may depend on a configured service. `02`
+clears app state first, which is also what leaves `03` past onboarding. `10` needs a
+real, configured device and carries its data assumptions in its comments.
 
 ## Extending for the other changes
 
