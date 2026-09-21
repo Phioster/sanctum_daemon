@@ -175,7 +175,6 @@ data class ArrRelease(
 data class ArrSystemInfo(
     val version: String,
     val health: List<Pair<String, String>>, // type -> message
-    val disks: List<Pair<String, String>>, // path -> "free / total"
 )
 
 /** A history event in a Servarr app. */

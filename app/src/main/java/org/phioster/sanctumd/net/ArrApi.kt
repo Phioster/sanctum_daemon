@@ -966,23 +966,37 @@ suspend fun arrReleases(
     }.sortedWith(compareByDescending<ArrRelease> { it.approved }.thenByDescending { it.score })
 }
 
+/** Version and health, the two things the system dialog can show right away. The disks used to
+ *  ride along here, which made the whole dialog as slow as the slowest of the three. They have
+ *  their own call now, see [arrDisks]. */
 suspend fun arrSystem(config: ServiceConfig): ArrSystemInfo = withContext(Dispatchers.IO) {
     val base = arrBase(config.type)
     val api = apiFor<ArrApi>(config, apiKeyHeader(config))
     coroutineScope {
         val versionD = async { runCatching { api.systemStatus("$base/system/status").version }.getOrDefault("?") }
         val healthD = async { runCatching { api.healthChecks("$base/health").map { it.type to it.message } }.getOrDefault(emptyList()) }
-        val disksD = async {
-            runCatching {
-                api.diskspace("$base/diskspace").map { d ->
-                    val freeGb = d.freeSpace / (1024.0 * 1024 * 1024)
-                    val totalGb = d.totalSpace / (1024.0 * 1024 * 1024)
-                    d.path to "%.0f / %.0f GB free".format(freeGb, totalGb)
-                }
-            }.getOrDefault(emptyList())
-        }
-        ArrSystemInfo(version = versionD.await(), health = healthD.await(), disks = disksD.await())
+        ArrSystemInfo(version = versionD.await(), health = healthD.await())
     }
+}
+
+/** How long /diskspace may take. It stats every mount, and on a server that is not a tidy Docker
+ *  host (a \*arr running under proot, for instance) that can pass a minute. The shared 20 s read
+ *  timeout cut it off every time, so the dialog waited and then showed nothing. This call is not
+ *  in anyone's way any more, so it can afford to be patient. */
+private const val DISK_READ_TIMEOUT_S = 150L
+
+/** Disk usage per root folder, as "path" to "free / total". Null means the server did not answer
+ *  in time or refused; the caller shows that differently from a server that reports no disks. */
+suspend fun arrDisks(config: ServiceConfig): List<Pair<String, String>>? = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    val api = apiFor<ArrApi>(config, apiKeyHeader(config), DISK_READ_TIMEOUT_S)
+    runCatching {
+        api.diskspace("$base/diskspace").map { d ->
+            val freeGb = d.freeSpace / (1024.0 * 1024 * 1024)
+            val totalGb = d.totalSpace / (1024.0 * 1024 * 1024)
+            d.path to "%.0f / %.0f GB free".format(freeGb, totalGb)
+        }
+    }.getOrNull()
 }
 
 /**

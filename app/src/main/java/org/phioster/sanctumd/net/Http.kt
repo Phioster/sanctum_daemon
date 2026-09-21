@@ -50,8 +50,15 @@ internal val baseOkClient = OkHttpClient.Builder()
     .readTimeout(20, TimeUnit.SECONDS)
     .build()
 
-internal fun okClient(config: ServiceConfig, authHeaders: Map<String, String>): OkHttpClient =
+/** [readTimeoutSeconds] overrides the shared 20 s read timeout for one endpoint. Only worth it
+ *  where the server is known to be slow rather than broken, see [org.phioster.sanctumd.net.arrDisks]. */
+internal fun okClient(
+    config: ServiceConfig,
+    authHeaders: Map<String, String>,
+    readTimeoutSeconds: Long = 0,
+): OkHttpClient =
     baseOkClient.newBuilder()
+        .apply { if (readTimeoutSeconds > 0) readTimeout(readTimeoutSeconds, TimeUnit.SECONDS) }
         .addInterceptor { chain ->
             val b = chain.request().newBuilder()
             authHeaders.forEach { (k, v) -> if (v.isNotBlank()) b.header(k, v) }
@@ -60,10 +67,14 @@ internal fun okClient(config: ServiceConfig, authHeaders: Map<String, String>): 
         }
         .build()
 
-internal inline fun <reified T> apiFor(config: ServiceConfig, authHeaders: Map<String, String>): T =
+internal inline fun <reified T> apiFor(
+    config: ServiceConfig,
+    authHeaders: Map<String, String>,
+    readTimeoutSeconds: Long = 0,
+): T =
     Retrofit.Builder()
         .baseUrl(config.normalizedBaseUrl)
-        .client(okClient(config, authHeaders))
+        .client(okClient(config, authHeaders, readTimeoutSeconds))
         .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
         .build()
         .create()
