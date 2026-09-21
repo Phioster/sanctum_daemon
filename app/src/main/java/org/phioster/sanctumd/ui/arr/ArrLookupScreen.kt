@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -188,7 +189,7 @@ internal fun ArrLookupScreen(
                         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp,
                     )
                     res.isEmpty() -> Text("no results", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                    else -> LazyColumn(Modifier.fillMaxSize()) {
+                    else -> LazyColumn(Modifier.fillMaxSize().navigationBarsPadding()) {
                         items(res) { hit -> ArrLookupRow(hit, accent) { picked = hit } }
                     }
                 }
