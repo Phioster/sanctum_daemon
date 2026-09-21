@@ -31,12 +31,14 @@
   const pad = (n) => String(n).padStart(2, '0');
   function tick() {
     const d = new Date();
-    $('#t-clock').textContent =
-      `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${String(d.getFullYear()).slice(2)}` +
-      ` ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    // Der Doppelpunkt blinkt, wie die Uhr-Kachel im Dashboard. Die Klammern
+    // setzt das Stylesheet, damit sie beim Umbruch nicht auf eigene Zeilen rutschen.
+    $('#t-clock').innerHTML =
+      `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${String(d.getFullYear()).slice(2)},` +
+      ` ${pad(d.getHours())}<span class="blink">:</span>${pad(d.getMinutes())}`;
   }
   tick();
-  setInterval(tick, 20000);
+  setInterval(tick, 10000);
 
   /* ---------- whoami tippt sich einmal ---------- */
 
@@ -151,12 +153,12 @@
     raf = requestAnimationFrame(frame);
     if (t - last < 55) return;            // ~18 fps, das reicht und schont den Akku
     last = t;
-    ctx.fillStyle = 'rgba(10,14,12,.22)';
+    ctx.fillStyle = 'rgba(2,8,5,.22)';
     ctx.fillRect(0, 0, innerWidth, innerHeight);
     ctx.font = `${step - 2}px ${getComputedStyle(document.body).fontFamily}`;
     for (let i = 0; i < cols; i++) {
       const y = drops[i] * step;
-      ctx.fillStyle = Math.random() < 0.04 ? '#cdefdd' : '#37ffa4';
+      ctx.fillStyle = Math.random() < 0.04 ? '#ccffcc' : '#00ff41';
       ctx.fillText(GLYPHS[(Math.random() * GLYPHS.length) | 0], i * step, y);
       drops[i] = y > innerHeight && Math.random() > 0.975 ? 0 : drops[i] + 1;
     }

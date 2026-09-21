@@ -13,6 +13,28 @@ assets/logos/       the eight service logos, 96 px
 CNAME               the custom domain, read by Pages
 ```
 
+## Where the look comes from
+
+Not invented here. The tokens, the idioms and the effects are lifted from the homelab
+dashboard's own `config/custom.css` (gethomepage), so the site and the dashboard read as
+one thing:
+
+```text
+#00ff41 / #00cc33      text and muted text
+#000000 on #020805     panels on background
+'Courier New' first    then JetBrains Mono, then ui-monospace
+> heading_             group titles as a shell prompt, blinking underscore
+./name                 names as executables
+# text                 descriptions as shell comments
+[OK] [DOWN] [..]       status as terminal tags, never coloured dots
+[ 21.09.26, 23:23 ]    the clock, with a blinking colon
+-> link                links with an arrow
+vignette, no scanlines scanlines were deliberately removed there on 2026-07-09
+```
+
+Two-layer phosphor glow on headings (`0 0 6px` + `0 0 20px`) and CRT bloom on panels
+(outer `20px` plus `inset 22px`). Prefixes are dropped below 640 px, as they are there.
+
 ## What is real and what is decoration
 
 Everything live on the page comes from the **public GitHub releases API** at load time:
