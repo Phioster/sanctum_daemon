@@ -95,7 +95,7 @@ internal fun TvDetailScreen(
         TvTopBar(detail?.name ?: fallbackTitle)
         val d = detail
         when {
-            error != null && d == null -> TvMessage("konnte nicht geladen werden — $error", Modifier.padding(top = 60.dp), error = true)
+            error != null && d == null -> TvMessage("could not load — $error", Modifier.padding(top = 60.dp), error = true)
             d == null -> TvMessage("lade…", Modifier.padding(top = 60.dp))
             else -> Row(
                 Modifier.fillMaxSize().padding(horizontal = TvSidePad),
@@ -156,7 +156,7 @@ internal fun TvDetailScreen(
                                 when {
                                     next != null -> "▶  ${next.subtitle.ifBlank { next.name }}"
                                     resolvingNext -> "▶  suche Folge…"
-                                    else -> "▶  keine Folge gefunden"
+                                    else -> "no episode found"
                                 },
                                 focusRequester = playFocus,
                                 enabled = next != null,
@@ -170,7 +170,7 @@ internal fun TvDetailScreen(
                                 busyMsg = null
                                 runCatching { jellyfinSetPlayed(config, d.id, !d.played) }
                                     .onSuccess { reload++ }
-                                    .onFailure { busyMsg = "ging nicht: ${it.message}" }
+                                    .onFailure { busyMsg = "did not work: ${it.message}" }
                             }
                         }
                         TvButton(if (d.favorite) "♥ Favorit entfernen" else "♡ Favorit") {
@@ -178,7 +178,7 @@ internal fun TvDetailScreen(
                                 busyMsg = null
                                 runCatching { jellyfinSetFavorite(config, d.id, !d.favorite) }
                                     .onSuccess { reload++ }
-                                    .onFailure { busyMsg = "ging nicht: ${it.message}" }
+                                    .onFailure { busyMsg = "did not work: ${it.message}" }
                             }
                         }
                     }

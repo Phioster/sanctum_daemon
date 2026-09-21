@@ -330,7 +330,7 @@ internal fun TvPlayerScreen(
     LaunchedEffect(state.ended) {
         val next = nextEpisode
         if (state.ended && autoplayNext && next != null) {
-            toast = "nächste Folge: ${next.name}"
+            toast = "next episode: ${next.name}"
             delay(3000)
             if (engine.snapshot().ended) playNext(next)
         }
@@ -344,12 +344,12 @@ internal fun TvPlayerScreen(
         add(BarButton(if (state.isPlaying) "❚❚  Pause" else "▶  Wiedergabe") { engine.togglePlay() })
         add(BarButton("Ton & Untertitel") { menuNonce++; menuOpen = true })
         if (activeSegment >= 0 && activeSegment !in skipped) {
-            add(BarButton("Intro überspringen") {
+            add(BarButton("skip intro") {
                 skipped = skipped + activeSegment
                 engine.seekTo(segments[activeSegment].endMs)
             })
         }
-        nextEpisode?.let { next -> add(BarButton("nächste Folge") { playNext(next) }) }
+        nextEpisode?.let { next -> add(BarButton("next episode") { playNext(next) }) }
         add(BarButton(if (infoOpen) "Technik aus" else "Technik") {
             infoOpen = !infoOpen
             if (infoOpen) stats = engine.stats()
@@ -364,12 +364,12 @@ internal fun TvPlayerScreen(
         buildList {
             add(TvMenuEntry("audio", header = true))
             val audio = engine.tracks(TrackKind.AUDIO)
-            if (audio.isEmpty()) add(TvMenuEntry("  keine Tonspur", header = true))
+            if (audio.isEmpty()) add(TvMenuEntry("  no audio track", header = true))
             audio.forEach { t: TrackOption ->
                 add(TvMenuEntry("  ${t.label}", selected = t.selected) { engine.selectTrack(TrackKind.AUDIO, t.id) })
             }
             add(TvMenuEntry("untertitel", header = true))
-            if (directOutput) add(TvMenuEntry("  (Direktausgabe zeigt keine Untertitel)", header = true))
+            if (directOutput) add(TvMenuEntry("  (direct output draws no subtitles)", header = true))
             val subs = engine.tracks(TrackKind.SUBTITLE)
             add(TvMenuEntry("  aus", selected = subs.none { it.selected }) { engine.selectTrack(TrackKind.SUBTITLE, null) })
             subs.forEach { t: TrackOption ->
@@ -491,7 +491,7 @@ internal fun TvPlayerScreen(
                     Spacer(Modifier.height(10.dp))
                     Text(loadError ?: "", color = MatrixGreen.copy(alpha = 0.7f), fontFamily = Mono, fontSize = 13.sp)
                     Spacer(Modifier.height(20.dp))
-                    Text("zurück mit der Zurück-Taste", color = MatrixGreen.copy(alpha = 0.5f), fontFamily = Mono, fontSize = 12.sp)
+                    Text("back button to leave", color = MatrixGreen.copy(alpha = 0.5f), fontFamily = Mono, fontSize = 12.sp)
                 }
             }
         } else if (state.durationMs <= 0 && state.positionMs <= 0) {
@@ -584,7 +584,7 @@ private fun TvPlayerControls(
                 when {
                     state.isBuffering -> "puffert…"
                     state.ended -> "ende"
-                    state.isPlaying -> "läuft"
+                    state.isPlaying -> "playing"
                     else -> "pausiert"
                 },
                 color = MatrixGreen.copy(alpha = 0.75f), fontFamily = Mono, fontSize = 14.sp,
@@ -621,9 +621,9 @@ private fun TvPlayerControls(
         Spacer(Modifier.height(12.dp))
         Text(
             if (scrubActive) {
-                "◀ ▶ = 10 s spulen   ▼ = zu den Tasten   OK = Play/Pause   Zurück = beenden"
+                "◀ ▶ = seek 10 s   ▼ = to the buttons   OK = play/pause   Back = leave"
             } else {
-                "◀ ▶ = Taste wählen   ▲ = zur Fortschrittsleiste   OK = auswählen   Zurück = beenden"
+                "◀ ▶ = pick a button   ▲ = to the progress bar   OK = select   Back = leave"
             },
             color = MatrixGreen.copy(alpha = 0.45f), fontFamily = Mono, fontSize = 12.sp,
         )
@@ -651,7 +651,7 @@ private fun TvPlayerInfo(
             if (stats.bitrateKbps > 0) append("  ${stats.bitrateKbps} kbit/s")
         },
         "Ton" to stats.audioCodec.ifBlank { "—" },
-        "hwdec" to stats.hwDecode.ifBlank { "SOFTWARE (kein Hardware-Decoder!)" },
+        "hwdec" to stats.hwDecode.ifBlank { "SOFTWARE (no hardware decoder!)" },
         "Bildrate" to buildString {
             append(if (stats.containerFps > 0f) "%.3f fps".format(stats.containerFps) else "—")
             if (stats.fps > 0f) append("  (gerendert %.1f)".format(stats.fps))
@@ -666,7 +666,7 @@ private fun TvPlayerInfo(
             }
         },
         "verworfen (zu langsam)" to stats.droppedFrames.toString(),
-        "verspätet (Kadenz)" to stats.delayedFrames.toString(),
+        "late (cadence)" to stats.delayedFrames.toString(),
         "Ausgabe" to if (directOutput) "direkt (zero-copy)" else "Standard (GPU-Kopie)",
         "Quelle" to if (transcoding) "Transkodierung (HLS)" else "Direktwiedergabe",
     )

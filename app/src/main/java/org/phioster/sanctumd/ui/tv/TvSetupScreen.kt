@@ -56,6 +56,7 @@ import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
+import org.phioster.sanctumd.ui.theme.WarnAmberDim
 
 /** Where the sign-in flow currently is. */
 private sealed interface SetupStep {
@@ -73,19 +74,27 @@ private sealed interface SetupStep {
  * People type "192.168.1.20" or "jellyfin.local:8096", not a URL. Rather than making them find the
  * ":" and "/" keys on an on-screen keyboard, we try the plausible readings in order and keep the
  * first that answers.
+ *
+ * **https is tried first.** The sign-in that follows carries a password or a Quick Connect secret,
+ * and a server that speaks both would otherwise be reached over plain http purely because that
+ * spelling came first in the list. A server that only speaks http still works — it simply answers
+ * one probe later, and [isPlainHttp] then says so on screen.
  */
-private fun candidateUrls(input: String): List<String> {
+internal fun candidateUrls(input: String): List<String> {
     val raw = input.trim().trimEnd('/')
     if (raw.isBlank()) return emptyList()
     if (raw.startsWith("http://") || raw.startsWith("https://")) return listOf(raw)
     val hasPort = raw.substringBefore('/').contains(':')
     return buildList {
-        add("http://$raw")
-        if (!hasPort) add("http://$raw:8096")
         add("https://$raw")
         if (!hasPort) add("https://$raw:8920")
+        add("http://$raw")
+        if (!hasPort) add("http://$raw:8096")
     }
 }
+
+/** True when the address carries the sign-in unencrypted, which the screen has to admit to. */
+internal fun isPlainHttp(url: String) = url.trim().startsWith("http://", ignoreCase = true)
 
 /**
  * Sign-in for the TV.
@@ -157,11 +166,11 @@ private fun ServerPickStep(onManual: () -> Unit, onPicked: (String, String) -> U
     }
 
     SetupFrame(
-        title = "Server wählen",
+        title = "pick a server",
         subtitle = when {
-            scanning -> "suche Jellyfin-Server im Heimnetz…"
-            servers.isEmpty() -> "kein Server im Heimnetz gefunden — Adresse manuell eingeben"
-            else -> "${servers.size} Server im Heimnetz gefunden"
+            scanning -> "looking for Jellyfin on this network…"
+            servers.isEmpty() -> "nothing found on this network — type an address"
+            else -> "${servers.size} found on this network"
         },
     ) {
         LazyColumn(
@@ -181,7 +190,7 @@ private fun ServerPickStep(onManual: () -> Unit, onPicked: (String, String) -> U
         Spacer(Modifier.height(20.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             TvButton(
-                "Server manuell hinzufügen",
+                "type an address",
                 focusRequester = firstFocus.takeIf { servers.isEmpty() && !scanning },
                 onClick = onManual,
             )
@@ -255,13 +264,13 @@ private fun ManualServerStep(onBack: () -> Unit, onResolved: (String, String) ->
                 }
             }
             checking = false
-            error = "kein Jellyfin unter dieser Adresse" + (lastError?.let { " ($it)" } ?: "")
+            error = "no Jellyfin at that address" + (lastError?.let { " ($it)" } ?: "")
         }
     }
 
     SetupFrame(
-        title = "Server hinzufügen",
-        subtitle = "IP oder Adresse — \"192.168.1.20\" reicht, Port 8096 wird ergänzt",
+        title = "add a server",
+        subtitle = "IP or address — \"192.168.1.20\" is enough, https is tried first and port 8096 added",
     ) {
         Box(Modifier.width(560.dp)) {
             TvTextField(
@@ -276,7 +285,7 @@ private fun ManualServerStep(onBack: () -> Unit, onResolved: (String, String) ->
         Spacer(Modifier.height(18.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             TvButton(if (checking) "verbinde…" else "verbinden", enabled = !checking && input.isNotBlank()) { connect() }
-            TvButton("zurück", onClick = onBack)
+            TvButton("back", onClick = onBack)
         }
         error?.let {
             Spacer(Modifier.height(16.dp))
@@ -326,7 +335,7 @@ private fun AuthStep(
         quickAvailable = jellyfinQuickConnectAvailable(baseUrl)
         if (quickAvailable != true) return@LaunchedEffect
         val started = runCatching { jellyfinQuickConnectStart(baseUrl) }.getOrElse {
-            error = "Quick Connect nicht verfügbar: ${it.message ?: it.javaClass.simpleName}"
+            error = "Quick Connect unavailable: ${it.message ?: it.javaClass.simpleName}"
             quickAvailable = false
             return@LaunchedEffect
         }
@@ -343,7 +352,7 @@ private fun AuthStep(
             }
         }
         quickCode = null
-        error = "Code abgelaufen — bitte neuen Code anfordern"
+        error = "code expired — ask for a new one"
     }
 
     LaunchedEffect(usePassword) {
@@ -359,43 +368,52 @@ private fun AuthStep(
                 .onSuccess { busy = false; finish(it.accessToken, it.userId, it.userName) }
                 .onFailure {
                     busy = false
-                    error = "Anmeldung fehlgeschlagen — Benutzername oder Passwort falsch"
+                    error = "sign-in failed — wrong username or password"
                 }
         }
     }
 
-    SetupFrame(title = "Anmelden", subtitle = "$serverName · $baseUrl") {
+    SetupFrame(title = "sign in", subtitle = "$serverName · $baseUrl") {
+        // The password and the Quick Connect secret go over this address in a moment. Say it
+        // plainly when that address is not encrypted -- on a TV nobody inspects the URL bar.
+        if (isPlainHttp(baseUrl)) {
+            Text(
+                "not https — what you type next travels unencrypted across this network",
+                color = WarnAmberDim, fontFamily = Mono, fontSize = 13.sp,
+                modifier = Modifier.padding(bottom = 10.dp),
+            )
+        }
         if (!usePassword) {
             when (quickAvailable) {
-                null -> TvMessage("prüfe Anmeldeverfahren…", Modifier.padding(vertical = 20.dp))
+                null -> TvMessage("checking how to sign in…", Modifier.padding(vertical = 20.dp))
                 true -> QuickConnectPanel(quickCode)
                 false -> Text(
-                    "Quick Connect ist auf diesem Server deaktiviert — bitte mit Benutzername anmelden.",
+                    "Quick Connect is switched off on this server — sign in with a username.",
                     color = MatrixGreen.copy(alpha = 0.7f), fontFamily = Mono, fontSize = 14.sp,
                 )
             }
             Spacer(Modifier.height(24.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 TvButton(
-                    "mit Benutzername anmelden",
+                    "sign in with a username",
                     focusRequester = quickFocus,
                 ) { usePassword = true }
-                if (quickAvailable == true) TvButton("neuer Code") { attempt++ }
-                TvButton("anderer Server", onClick = onBack)
+                if (quickAvailable == true) TvButton("new code") { attempt++ }
+                TvButton("another server", onClick = onBack)
             }
         } else {
             Column(Modifier.width(560.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 TvTextField(
                     value = username,
                     onValueChange = { username = it; error = null },
-                    label = "Benutzername",
+                    label = "username",
                     modifier = Modifier.fillMaxWidth(),
                     focusRequester = userFocus,
                 )
                 TvTextField(
                     value = password,
                     onValueChange = { password = it; error = null },
-                    label = "Passwort",
+                    label = "password",
                     modifier = Modifier.fillMaxWidth(),
                     password = true,
                     imeAction = ImeAction.Done,
@@ -404,8 +422,8 @@ private fun AuthStep(
             Spacer(Modifier.height(20.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 TvButton(if (busy) "melde an…" else "anmelden", enabled = !busy && username.isNotBlank()) { login() }
-                if (quickAvailable == true) TvButton("zurück zu Quick Connect") { usePassword = false }
-                TvButton("anderer Server", onClick = onBack)
+                if (quickAvailable == true) TvButton("back to Quick Connect") { usePassword = false }
+                TvButton("another server", onClick = onBack)
             }
         }
         error?.let {
@@ -420,7 +438,7 @@ private fun AuthStep(
 private fun QuickConnectPanel(code: String?) {
     Column {
         Text(
-            "1. Jellyfin auf Handy oder PC öffnen  →  2. Menü → Quick Connect  →  3. Code eingeben",
+            "1. open Jellyfin on a phone or PC  →  2. menu → Quick Connect  →  3. enter the code",
             color = MatrixGreen.copy(alpha = 0.7f), fontFamily = Mono, fontSize = 14.sp,
         )
         Spacer(Modifier.height(20.dp))
@@ -442,7 +460,7 @@ private fun QuickConnectPanel(code: String?) {
         }
         Spacer(Modifier.height(12.dp))
         Text(
-            if (code == null) "hole Code…" else "warte auf Bestätigung…",
+            if (code == null) "hole Code…" else "waiting for approval…",
             color = MatrixGreen.copy(alpha = 0.5f), fontFamily = Mono, fontSize = 13.sp,
         )
     }

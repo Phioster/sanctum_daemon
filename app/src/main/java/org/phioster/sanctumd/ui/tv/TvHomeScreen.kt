@@ -95,8 +95,8 @@ internal fun TvHomeScreen(
         TvTopBar(config.label, onSwitchServer)
         when {
             loading && data.isEmpty -> TvMessage("lade Bibliothek…", Modifier.padding(top = 60.dp))
-            error != null && data.isEmpty -> TvMessage("Server nicht erreichbar — $error", Modifier.padding(top = 60.dp), error = true)
-            data.isEmpty -> TvMessage("keine Medien gefunden", Modifier.padding(top = 60.dp))
+            error != null && data.isEmpty -> TvMessage("server unreachable — $error", Modifier.padding(top = 60.dp), error = true)
+            data.isEmpty -> TvMessage("no media found", Modifier.padding(top = 60.dp))
             else -> LazyColumn(
                 Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(26.dp),
@@ -122,13 +122,13 @@ internal fun TvHomeScreen(
                     )
                 }
                 item {
-                    TvPosterRow("weiter schauen", data.resume, config, firstItemFocus = firstCardFocus.takeIf { focusOwner == "resume" }, onClick = onOpen)
+                    TvPosterRow("continue watching", data.resume, config, firstItemFocus = firstCardFocus.takeIf { focusOwner == "resume" }, onClick = onOpen)
                 }
                 item {
-                    TvPosterRow("als nächstes", data.nextUp, config, firstItemFocus = firstCardFocus.takeIf { focusOwner == "nextUp" }, onClick = onOpen)
+                    TvPosterRow("next up", data.nextUp, config, firstItemFocus = firstCardFocus.takeIf { focusOwner == "nextUp" }, onClick = onOpen)
                 }
                 item {
-                    TvPosterRow("neu hinzugefügt", data.latest, config, firstItemFocus = firstCardFocus.takeIf { focusOwner == "latest" }, onClick = onOpen)
+                    TvPosterRow("recently added", data.latest, config, firstItemFocus = firstCardFocus.takeIf { focusOwner == "latest" }, onClick = onOpen)
                 }
                 item {
                     TvPosterRow("favoriten", data.favorites, config, firstItemFocus = firstCardFocus.takeIf { focusOwner == "favorites" }, onClick = onOpen)
@@ -150,6 +150,6 @@ internal fun TvTopBar(title: String, onSwitchServer: (() -> Unit)? = null) {
             Spacer(Modifier.height(2.dp))
             Text(title, color = MatrixGreen, fontFamily = Mono, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         }
-        if (onSwitchServer != null) TvButton("Server wechseln", onClick = onSwitchServer)
+        if (onSwitchServer != null) TvButton("switch server", onClick = onSwitchServer)
     }
 }
