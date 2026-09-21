@@ -30,7 +30,7 @@ fun TvApp(vm: TvViewModel, onExit: () -> Unit) {
 
     Box(Modifier.fillMaxSize().background(Black)) {
         when {
-            services == null -> TvMessage("starte…")
+            services == null -> TvMessage("starting…")
 
             config == null -> TvSetupScreen(onConfigured = { vm.saveServer(it) })
 

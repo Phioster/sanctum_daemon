@@ -625,7 +625,7 @@ private fun TvPlayerControls(
             Spacer(Modifier.width(12.dp))
             Text(
                 when {
-                    state.isBuffering -> "puffert…"
+                    state.isBuffering -> "buffering…"
                     state.ended -> "ende"
                     state.isPlaying -> "playing"
                     else -> "pausiert"
@@ -725,7 +725,7 @@ private fun TvPlayerInfo(
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
-                "TECHNIK",
+                "TECHNICAL",
                 color = MatrixGreen.copy(alpha = 0.5f), fontFamily = Mono,
                 fontSize = 12.sp, letterSpacing = 2.sp,
             )

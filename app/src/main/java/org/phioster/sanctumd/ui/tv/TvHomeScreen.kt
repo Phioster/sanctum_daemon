@@ -94,7 +94,7 @@ internal fun TvHomeScreen(
     Column(Modifier.fillMaxSize().background(Black)) {
         TvTopBar(config.label, onSwitchServer)
         when {
-            loading && data.isEmpty -> TvMessage("lade Bibliothek…", Modifier.padding(top = 60.dp))
+            loading && data.isEmpty -> TvMessage("loading the library…", Modifier.padding(top = 60.dp))
             error != null && data.isEmpty -> TvMessage("server unreachable: $error", Modifier.padding(top = 60.dp), error = true)
             data.isEmpty -> TvMessage("no media found", Modifier.padding(top = 60.dp))
             else -> LazyColumn(
