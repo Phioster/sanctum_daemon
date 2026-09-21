@@ -34,6 +34,10 @@ import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.ui.Alignment
 
 /**
  * A film run as Radarr knows it, opened from the Jellyfin collection you are looking at.
@@ -90,13 +94,14 @@ internal fun ArrCollectionDialog(
                         col.movies.forEach { m ->
                             val here = m.existing || m.tmdbId in added
                             Row(Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
-                                Text(
-                                    if (here) "✓" else if (m.excluded) "–" else "+",
-                                    fontFamily = Mono,
-                                    color = if (here) MatrixGreen else accent,
-                                    fontSize = 13.sp,
-                                    modifier = Modifier.width(22.dp),
-                                )
+                                Box(Modifier.width(22.dp), contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        if (here) AppIcons.Done else if (m.excluded) AppIcons.Cancel else AppIcons.Add,
+                                        contentDescription = if (here) "in the library" else if (m.excluded) "excluded" else "not in the library",
+                                        tint = if (here) MatrixGreen else accent,
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                }
                                 Column(Modifier.weight(1f)) {
                                     Text(
                                         m.title + if (m.year > 0) "  (${m.year})" else "",
