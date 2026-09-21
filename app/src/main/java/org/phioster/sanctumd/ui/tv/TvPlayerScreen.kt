@@ -373,28 +373,11 @@ internal fun TvPlayerScreen(
     // Track lists are read when the menu is opened, not on every recomposition, hence the nonce: a
     // list that reshuffled under the selection would be unusable.
     val menuEntries: List<TvMenuEntry> = remember(menuNonce, matchRefresh, directOutput) {
-        buildList {
-            add(TvMenuEntry("audio", header = true))
-            val audio = engine.tracks(TrackKind.AUDIO)
-            if (audio.isEmpty()) add(TvMenuEntry("  no audio track", header = true))
-            audio.forEach { t: TrackOption ->
-                add(TvMenuEntry("  ${t.label}", selected = t.selected) { engine.selectTrack(TrackKind.AUDIO, t.id) })
-            }
-            add(TvMenuEntry("untertitel", header = true))
-            if (directOutput) add(TvMenuEntry("  (direct output draws no subtitles)", header = true))
-            val subs = engine.tracks(TrackKind.SUBTITLE)
-            add(TvMenuEntry("  aus", selected = subs.none { it.selected }) { engine.selectTrack(TrackKind.SUBTITLE, null) })
-            subs.forEach { t: TrackOption ->
-                add(TvMenuEntry("  ${t.label}", selected = t.selected) { engine.selectTrack(TrackKind.SUBTITLE, t.id) })
-            }
-            add(TvMenuEntry("bild", header = true))
-            add(TvMenuEntry("  Bildrate an Film anpassen", selected = matchRefresh) {
-                scope.launch { store.setTvMatchRefresh(!matchRefresh) }
-            })
-            add(TvMenuEntry("  direct output (recommended), no subtitles", selected = directOutput) {
-                scope.launch { store.setTvDirectOutput(!directOutput) }
-            })
-        }
+        tvTrackMenu(
+            engine, directOutput, matchRefresh,
+            onToggleRefresh = { scope.launch { store.setTvMatchRefresh(!matchRefresh) } },
+            onToggleDirect = { scope.launch { store.setTvDirectOutput(!directOutput) } },
+        )
     }
 
     LaunchedEffect(menuOpen, menuEntries) {
@@ -560,6 +543,36 @@ internal fun TvPlayerScreen(
     }
 }
 
+/**
+ * What the track menu offers: the audio and subtitle tracks the engine reports, plus the two
+ * picture settings. Read when the menu opens, not on every recomposition, because a list that
+ * reshuffled under the selection would be unusable.
+ */
+private fun tvTrackMenu(
+    engine: MediaPlayerEngine,
+    directOutput: Boolean,
+    matchRefresh: Boolean,
+    onToggleRefresh: () -> Unit,
+    onToggleDirect: () -> Unit,
+): List<TvMenuEntry> = buildList {
+    add(TvMenuEntry("audio", header = true))
+    val audio = engine.tracks(TrackKind.AUDIO)
+    if (audio.isEmpty()) add(TvMenuEntry("  no audio track", header = true))
+    audio.forEach { t: TrackOption ->
+        add(TvMenuEntry("  ${t.label}", selected = t.selected) { engine.selectTrack(TrackKind.AUDIO, t.id) })
+    }
+    add(TvMenuEntry("subtitles", header = true))
+    if (directOutput) add(TvMenuEntry("  (direct output draws no subtitles)", header = true))
+    val subs = engine.tracks(TrackKind.SUBTITLE)
+    add(TvMenuEntry("  off", selected = subs.none { it.selected }) { engine.selectTrack(TrackKind.SUBTITLE, null) })
+    subs.forEach { t: TrackOption ->
+        add(TvMenuEntry("  ${t.label}", selected = t.selected) { engine.selectTrack(TrackKind.SUBTITLE, t.id) })
+    }
+    add(TvMenuEntry("picture", header = true))
+    add(TvMenuEntry("  match the refresh rate to the film", selected = matchRefresh, onSelect = onToggleRefresh))
+    add(TvMenuEntry("  direct output (recommended), no subtitles", selected = directOutput, onSelect = onToggleDirect))
+}
+
 /** Bottom overlay: title, the seekable progress strip, and the button strip below it. */
 @Composable
 private fun TvPlayerControls(
@@ -678,20 +691,20 @@ private fun TvPlayerInfo(
     directOutput: Boolean,
 ) {
     val rows = listOf(
-        "Bild" to buildString {
+        "picture" to buildString {
             append(if (stats.width > 0) "${stats.width}×${stats.height}" else "—")
             if (stats.videoCodec.isNotBlank()) append("  ${stats.videoCodec}")
             if (stats.bitrateKbps > 0) append("  ${stats.bitrateKbps} kbit/s")
         },
         "audio" to stats.audioCodec.ifBlank { "—" },
         "hwdec" to stats.hwDecode.ifBlank { "SOFTWARE (no hardware decoder!)" },
-        "Bildrate" to buildString {
+        "frame rate" to buildString {
             append(if (stats.containerFps > 0f) "%.3f fps".format(stats.containerFps) else "—")
-            if (stats.fps > 0f) append("  (gerendert %.1f)".format(stats.fps))
+            if (stats.fps > 0f) append("  (rendered %.1f)".format(stats.fps))
         },
-        "Panel" to buildString {
+        "panel" to buildString {
             append(if (display.currentHz > 0f) "%.2f Hz".format(display.currentHz) else "—")
-            if (display.switched) append("  → angefordert %.2f Hz".format(display.requestedHz))
+            if (display.switched) append("  requested %.2f Hz".format(display.requestedHz))
             if (display.available.size > 1) {
                 append("  [")
                 append(display.available.joinToString(", ") { "%.0f".format(it) })
@@ -700,8 +713,8 @@ private fun TvPlayerInfo(
         },
         "dropped (too slow)" to stats.droppedFrames.toString(),
         "late (cadence)" to stats.delayedFrames.toString(),
-        "Ausgabe" to if (directOutput) "direkt (zero-copy)" else "Standard (GPU-Kopie)",
-        "Quelle" to if (transcoding) "Transkodierung (HLS)" else "Direktwiedergabe",
+        "output" to if (directOutput) "direct (zero copy)" else "standard (GPU copy)",
+        "source" to if (transcoding) "transcoding (HLS)" else "direct play",
     )
     Box(Modifier.fillMaxSize().padding(TvSidePad), Alignment.TopStart) {
         Column(
