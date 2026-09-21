@@ -27,6 +27,9 @@ import org.phioster.sanctumd.model.JellyStream
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import kotlin.math.abs
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
+import org.phioster.sanctumd.ui.theme.AppIcons
 
 // ---- Formatting ----
 
@@ -127,9 +130,10 @@ internal fun FileInfoSection(info: JellyFileInfo, accent: Color, assumedLanguage
             )
             Spacer(Modifier.width(8.dp))
         }
-        Text(
-            if (expanded) "▾" else "▸",
-            fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp,
+        Icon(
+            if (expanded) AppIcons.Expanded else AppIcons.Collapsed,
+            contentDescription = if (expanded) "collapse" else "expand",
+            tint = accent.copy(alpha = 0.8f), modifier = Modifier.size(14.dp),
         )
     }
 

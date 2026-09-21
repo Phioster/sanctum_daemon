@@ -213,7 +213,7 @@ internal fun JellyTaskRow(item: org.phioster.sanctumd.model.JellyTask, accent: C
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             Text(
-                if (running) "${item.progress}%" else if (item.state.isNotBlank()) "▶ run" else "",
+                if (running) "${item.progress}%" else if (item.state.isNotBlank()) "running" else "",
                 fontFamily = Mono,
                 color = if (running) WarnAmber else MatrixGreen,
                 fontSize = 11.sp,
@@ -337,7 +337,7 @@ internal fun JellyChannelRow(item: org.phioster.sanctumd.model.JellyChannel, acc
         }
         if (item.nowPlaying.isNotBlank()) {
             Spacer(Modifier.height(2.dp))
-            Text("▶ ${item.nowPlaying}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.nowPlaying, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.height(6.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))

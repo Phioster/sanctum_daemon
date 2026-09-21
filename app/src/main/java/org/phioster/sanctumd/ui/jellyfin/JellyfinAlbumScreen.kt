@@ -168,12 +168,14 @@ private fun AlbumTrackRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
-            Text(
-                if (playing) "▶" else track.number?.toString() ?: "·",
-                fontFamily = Mono,
-                color = if (playing) accent else MatrixGreen.copy(alpha = 0.4f),
-                fontSize = if (playing) 13.sp else 12.sp,
-            )
+            if (playing) {
+                Icon(AppIcons.Play, contentDescription = "playing", tint = accent, modifier = Modifier.size(14.dp))
+            } else {
+                Text(
+                    track.number?.toString() ?: "·",
+                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.4f), fontSize = 12.sp,
+                )
+            }
         }
         Spacer(Modifier.width(10.dp))
         Text(

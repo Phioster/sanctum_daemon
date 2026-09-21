@@ -2,7 +2,6 @@ package org.phioster.sanctumd.ui.dashboard
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -15,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -91,12 +92,12 @@ internal fun AddCardDialog(
                             .padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (svcType != null) ServiceLogo(svcType, 18.dp) else Text("●", fontFamily = Mono, color = accent, fontSize = 12.sp)
+                        if (svcType != null) ServiceLogo(svcType, 18.dp) else Icon(AppIcons.Server, contentDescription = null, tint = accent, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(svcType?.label ?: "Layout", fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         Text("${types.size} cards", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp)
                         Spacer(Modifier.width(8.dp))
-                        Text(if (open) "▾" else "▸", fontFamily = Mono, color = MatrixGreen)
+                        Icon(if (open) AppIcons.Expanded else AppIcons.Collapsed, contentDescription = if (open) "collapse" else "expand", tint = MatrixGreen, modifier = Modifier.size(16.dp))
                     }
                     if (open) {
                         types.forEach { t ->
@@ -117,11 +118,15 @@ internal fun AddCardDialog(
                             // If several services of this type exist, pick which one.
                             if (pendingType == t && svcType != null) {
                                 cfgs.forEach { c ->
-                                    Text(
-                                        "  → ${c.label}",
-                                        fontFamily = Mono, color = accent, fontSize = 12.sp,
-                                        modifier = Modifier.fillMaxWidth().clickable { onAdd(t, c.id) }.padding(start = 40.dp, top = 6.dp, bottom = 6.dp),
-                                    )
+                                    Row(
+                                        Modifier.fillMaxWidth().clickable { onAdd(t, c.id) }
+                                            .padding(start = 40.dp, top = 6.dp, bottom = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Icon(AppIcons.Bullet, contentDescription = null, tint = accent, modifier = Modifier.size(15.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(c.label, fontFamily = Mono, color = accent, fontSize = 12.sp)
+                                    }
                                 }
                             }
                         }

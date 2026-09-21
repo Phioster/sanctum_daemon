@@ -56,22 +56,31 @@ internal fun BoxScope.SwipeHud(isBrightness: Boolean, value: Float) {
 /** The jump marker that a double tap leaves at the left or right edge. */
 @Composable
 internal fun BoxScope.SeekHud(direction: Int) {
-        Text(
-            if (direction > 0) "»  +10s" else "«  −10s",
-            fontFamily = Mono, color = MatrixGreen, fontSize = 16.sp, fontWeight = FontWeight.Bold,
-            modifier = Modifier
+        Row(
+            Modifier
                 .align(if (direction > 0) Alignment.CenterEnd else Alignment.CenterStart)
                 .padding(horizontal = 40.dp)
                 .background(Color(0xB3000000), RoundedCornerShape(10.dp))
                 .padding(horizontal = 16.dp, vertical = 10.dp),
-        )
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                if (direction > 0) AppIcons.Forward else AppIcons.Back,
+                contentDescription = null, tint = MatrixGreen, modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                "10s",
+                fontFamily = Mono, color = MatrixGreen, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+            )
+        }
 }
 
 /** Offered while playback sits inside an intro or outro the server marked. */
 @Composable
 internal fun BoxScope.SkipSegmentButton(isOutro: Boolean, bottomPadding: Dp, onSkip: () -> Unit) {
         Text(
-            if (isOutro) "skip outro  »" else "skip intro  »",
+            if (isOutro) "skip outro" else "skip intro",
             fontFamily = Mono, color = Black, fontSize = 13.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier
                 .align(Alignment.BottomEnd)

@@ -37,6 +37,7 @@ import org.phioster.sanctumd.net.jellyfinPlayableEpisode
 import org.phioster.sanctumd.net.jellyfinSetFavorite
 import org.phioster.sanctumd.net.jellyfinSetPlayed
 import org.phioster.sanctumd.ui.jellyfin.JellyPoster
+import org.phioster.sanctumd.ui.theme.AppIcons
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
@@ -154,12 +155,13 @@ internal fun TvDetailScreen(
                             val next = upNext
                             TvButton(
                                 when {
-                                    next != null -> "▶  ${next.subtitle.ifBlank { next.name }}"
+                                    next != null -> next.subtitle.ifBlank { next.name }
                                     resolvingNext -> "finding the episode…"
                                     else -> "no episode found"
                                 },
                                 focusRequester = playFocus,
                                 enabled = next != null,
+                                leading = if (next != null) AppIcons.Play else null,
                             ) { next?.let { onPlay(it.id, it.name) } }
                             TvButton("Folgen") { onBrowse(d.id, d.name) }
                         } else {
