@@ -2,6 +2,7 @@ package org.phioster.sanctumd.ui.theme
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -22,8 +23,10 @@ import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
@@ -82,6 +85,9 @@ internal object AppIcons {
     val Failed: ImageVector = Icons.Filled.Warning
     val Favorite: ImageVector = Icons.Filled.Favorite
     val NotFavorite: ImageVector = Icons.Filled.FavoriteBorder
+    val Pinned: ImageVector = Icons.Filled.PushPin
+    val Collapsed: ImageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight
+    val Expanded: ImageVector = Icons.Filled.KeyboardArrowDown
     val Monitored: ImageVector = Icons.Filled.Bookmark
     val NotMonitored: ImageVector = Icons.Outlined.BookmarkBorder
     val Watched: ImageVector = Icons.Filled.Visibility

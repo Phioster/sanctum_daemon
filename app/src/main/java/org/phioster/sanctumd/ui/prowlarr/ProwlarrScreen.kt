@@ -467,7 +467,7 @@ internal fun ProwlarrScreen(
                     addMsg?.let { m ->
                         val ok = !m.startsWith("error")
                         Text(
-                            if (ok) "✓ $m" else m,
+                            m,
                             fontFamily = Mono, color = if (ok) MatrixGreen else ErrRed, fontSize = 12.sp,
                             modifier = Modifier.padding(bottom = 8.dp),
                         )

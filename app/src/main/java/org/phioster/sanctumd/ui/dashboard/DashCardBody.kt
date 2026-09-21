@@ -38,6 +38,7 @@ import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.WarnAmber
 import org.phioster.sanctumd.ui.theme.WarnAmberDim
+import org.phioster.sanctumd.ui.theme.AppIcons
 
 /**
  * What a card shows below its heading, for every type whose content is just its data.
@@ -77,7 +78,7 @@ internal fun DashCardDataBody(
             val h = data.sysHealth
             when {
                 h == null -> loading()
-                h.isEmpty() -> Text("✓ all healthy", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
+                h.isEmpty() -> Text("all healthy", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
                 else -> Column {
                     h.take(card.count).forEach { (type, msg) ->
                         val col = when (type.lowercase()) { "error" -> ErrRed; "warning" -> WarnAmberDim; else -> MatrixGreen.copy(alpha = 0.8f) }
@@ -144,7 +145,7 @@ internal fun DashCardDataBody(
             when {
                 c == null -> loading()
                 c.isEmpty() -> empty("nothing upcoming")
-                else -> Column { c.take(card.count).forEach { DashLineRow("${if (it.hasFile) "✓ " else ""}${it.title}", "${it.date}${if (it.subtitle.isNotBlank()) " · ${it.subtitle}" else ""}", accent, card.density) { onOpenService() } } }
+                else -> Column { c.take(card.count).forEach { DashLineRow(it.title, "${it.date}${if (it.subtitle.isNotBlank()) " · ${it.subtitle}" else ""}", accent, card.density, leading = if (it.hasFile) AppIcons.Done else null) { onOpenService() } } }
             }
         }
         card.type == CardType.RADARR_HISTORY || card.type == CardType.SONARR_HISTORY || card.type == CardType.LIDARR_HISTORY -> {

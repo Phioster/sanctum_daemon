@@ -73,6 +73,7 @@ import org.phioster.sanctumd.ui.services.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
 import org.phioster.sanctumd.showUnlockPrompt
+import org.phioster.sanctumd.ui.theme.AppIcons
 
 /** Dedicated settings hub: categories on the first level, one section per screen. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -278,7 +279,7 @@ internal fun ThemeSection() {
             }
             Spacer(Modifier.width(12.dp))
             Text(p.label, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, modifier = Modifier.weight(1f))
-            if (selected) Text("✓", fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp)
+            if (selected) Icon(AppIcons.Done, contentDescription = "selected", tint = MatrixGreen, modifier = Modifier.size(16.dp))
         }
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
     }

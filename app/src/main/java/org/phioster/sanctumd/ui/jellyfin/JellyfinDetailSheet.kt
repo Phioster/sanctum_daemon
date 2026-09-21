@@ -150,7 +150,7 @@ internal fun JellyfinDetailSheet(
                     val startDownload = { state.downloadQuality = d }
                     when (dl?.state) {
                         org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
-                            Hint("✓  downloaded — play it from the DOWNLOADS row", Modifier.padding(vertical = 8.dp))
+                            Hint("downloaded — play it from the DOWNLOADS row", Modifier.padding(vertical = 8.dp))
                         org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING, org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED ->
                             SecondaryButton("${(dl.progress * 100).toInt()}%  ·  cancel", Modifier.fillMaxWidth(), icon = AppIcons.Download) { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) }
                         org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED ->
@@ -171,7 +171,7 @@ internal fun JellyfinDetailSheet(
                     Spacer(Modifier.height(8.dp))
                     when (dl?.state) {
                         org.phioster.sanctumd.model.DownloadEntry.STATE_DONE ->
-                            Hint("✓  downloaded", Modifier.padding(vertical = 8.dp))
+                            Hint("downloaded", Modifier.padding(vertical = 8.dp))
                         org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING, org.phioster.sanctumd.model.DownloadEntry.STATE_QUEUED ->
                             SecondaryButton("${(dl.progress * 100).toInt()}%  ·  cancel", Modifier.fillMaxWidth(), icon = AppIcons.Download) { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) }
                         else ->

@@ -36,6 +36,9 @@ import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
+import org.phioster.sanctumd.ui.theme.AppIcons
 
 /** Three-letter ISO codes, because that is what the endpoint takes. German first. */
 private val SUBTITLE_LANGUAGES = listOf(
@@ -118,7 +121,8 @@ internal fun JellyfinSubtitlesDialog(
                             ) {
                                 Row {
                                     if (s.hashMatch) {
-                                        Text("✓ ", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
+                                        Icon(AppIcons.Done, contentDescription = "exact match", tint = MatrixGreen, modifier = Modifier.size(12.dp))
+                                        Spacer(Modifier.width(4.dp))
                                     }
                                     Text(
                                         s.name.ifBlank { s.provider }, fontFamily = Mono, color = MatrixGreen,

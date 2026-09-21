@@ -64,6 +64,7 @@ import org.phioster.sanctumd.ui.services.*
 import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
+import org.phioster.sanctumd.ui.theme.AppIcons
 
 /** Dashboard card: a month calendar grid of upcoming releases merged across all *arr,
  *  month-switchable, services marked by their accent colour; tap a day for its list. */
@@ -179,7 +180,7 @@ internal fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenSe
             selItems.isEmpty() -> Text("nothing on ${sel.format(java.time.format.DateTimeFormatter.ofPattern("d MMM"))}", fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
             else -> Column {
                 selItems.forEach { (cfg, ci) ->
-                    DashLineRow("${if (ci.hasFile) "✓ " else ""}${ci.title}", "${cfg.type.label}${if (ci.subtitle.isNotBlank()) " · ${ci.subtitle}" else ""}", Color(cfg.type.accent), titleColor = accent) { info = cfg to ci }
+                    DashLineRow(ci.title, "${cfg.type.label}${if (ci.subtitle.isNotBlank()) " · ${ci.subtitle}" else ""}", Color(cfg.type.accent), titleColor = accent, leading = if (ci.hasFile) AppIcons.Done else null) { info = cfg to ci }
                 }
             }
         }
@@ -243,7 +244,7 @@ internal fun CalendarItemInfoDialog(
                             Text(it, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 11.sp)
                         }
                         Text(
-                            if (ci.hasFile) "✓ downloaded" else "◦ not yet available",
+                            if (ci.hasFile) "downloaded" else "not yet available",
                             fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp,
                         )
                         if (!d?.genres.isNullOrBlank()) Text(d!!.genres, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 10.sp)

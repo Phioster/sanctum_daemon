@@ -104,6 +104,7 @@ import org.phioster.sanctumd.ui.services.*
 import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
+import org.phioster.sanctumd.ui.theme.AppIcons
 
 /** Wraps a set of tab pages in a finger-following HorizontalPager (drags with the finger,
  *  snaps on release), kept in sync with the caller's [tab]. Nested horizontally-scrolling
@@ -469,10 +470,13 @@ internal fun ServicesContent(
                             androidx.compose.material3.DropdownMenuItem(
                                 text = {
                                     Text(
-                                        if (key == viewMode) "$key  ✓" else key,
+                                        key,
                                         fontFamily = Mono,
                                         color = if (key == viewMode) MatrixGreen else MatrixGreen.copy(alpha = 0.75f),
                                     )
+                                },
+                                trailingIcon = {
+                                    if (key == viewMode) Icon(AppIcons.Done, contentDescription = "current", tint = MatrixGreen, modifier = Modifier.size(16.dp))
                                 },
                                 onClick = { viewMenu = false; vm.setServiceViewMode(key) },
                             )
@@ -488,12 +492,19 @@ internal fun ServicesContent(
                         Modifier.fillMaxWidth().clickable { vm.toggleGroupCollapsed(section) }.padding(vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(if (isCollapsed) "▸" else "▾", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp)
+                        Icon(
+                            if (isCollapsed) AppIcons.Collapsed else AppIcons.Expanded,
+                            contentDescription = if (isCollapsed) "expand" else "collapse",
+                            tint = MatrixGreen.copy(alpha = 0.7f), modifier = Modifier.size(16.dp),
+                        )
                         Spacer(Modifier.width(6.dp))
-                        Text(
-                            if (section == PINNED_SECTION) "★" else section.uppercase(),
+                        if (section == PINNED_SECTION) Icon(
+                            AppIcons.Pinned, contentDescription = "pinned",
+                            tint = MatrixGreen.copy(alpha = 0.7f), modifier = Modifier.size(14.dp),
+                        ) else Text(
+                            section.uppercase(),
                             fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f),
-                            fontSize = if (section == PINNED_SECTION) 13.sp else 11.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                         )
                         Spacer(Modifier.width(6.dp))

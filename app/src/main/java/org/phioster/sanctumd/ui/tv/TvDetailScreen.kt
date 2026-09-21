@@ -163,7 +163,7 @@ internal fun TvDetailScreen(
                             ) { next?.let { onPlay(it.id, it.name) } }
                             TvButton("Folgen") { onBrowse(d.id, d.name) }
                         } else {
-                            TvButton("▶  abspielen", focusRequester = playFocus) { onPlay(d.id, d.name) }
+                            TvButton("play", focusRequester = playFocus) { onPlay(d.id, d.name) }
                         }
                         TvButton(if (d.played) "als ungesehen markieren" else "als gesehen markieren") {
                             scope.launch {
@@ -173,7 +173,7 @@ internal fun TvDetailScreen(
                                     .onFailure { busyMsg = "did not work: ${it.message}" }
                             }
                         }
-                        TvButton(if (d.favorite) "♥ Favorit entfernen" else "♡ Favorit") {
+                        TvButton(if (d.favorite) "remove from favorites" else "add to favorites") {
                             scope.launch {
                                 busyMsg = null
                                 runCatching { jellyfinSetFavorite(config, d.id, !d.favorite) }

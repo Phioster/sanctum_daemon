@@ -299,7 +299,7 @@ internal fun JellyfinAdminDialogs(
                         }
                         st.restartInProgress = false
                         if (back) {
-                            onMessage("✓ server back online")
+                            onMessage("server back online")
                             onReload()
                         } else {
                             onMessage("restart sent — server hasn't responded yet")

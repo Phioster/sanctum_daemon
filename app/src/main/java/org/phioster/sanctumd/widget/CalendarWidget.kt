@@ -165,7 +165,7 @@ class CalendarWidget : GlanceAppWidget() {
             }
             Column {
                 Text(
-                    "${if (snap.hasFile) "✓ " else ""}${snap.title}",
+                    snap.title,
                     maxLines = 1,
                     style = TextStyle(color = ColorProvider(Green), fontSize = 12.sp),
                 )

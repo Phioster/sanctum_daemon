@@ -70,6 +70,7 @@ import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
+import org.phioster.sanctumd.ui.theme.AppIcons
 
 // Posters, cards and rows for the Media tab — what a viewer browses.
 
@@ -382,7 +383,7 @@ private fun MediaCheckRow(text: String, checked: Boolean, onToggle: (Boolean) ->
                 .background(if (checked) MatrixGreen else Surface)
                 .border(1.dp, if (checked) MatrixGreen else MatrixGreen.copy(alpha = 0.4f), RoundedCornerShape(5.dp)),
             contentAlignment = Alignment.Center,
-        ) { if (checked) Text("✓", fontFamily = Mono, color = Black, fontSize = 13.sp) }
+        ) { if (checked) Icon(AppIcons.Done, contentDescription = null, tint = Black, modifier = Modifier.size(14.dp)) }
         Spacer(Modifier.width(10.dp))
         Text(text, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
     }
