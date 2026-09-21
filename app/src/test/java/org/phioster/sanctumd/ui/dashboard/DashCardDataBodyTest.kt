@@ -86,7 +86,7 @@ class DashCardDataBodyTest {
     @Test
     fun `no health findings reads as healthy, not as missing data`() {
         show(CardType.RADARR_HEALTH, DashCardData().apply { sysHealth = emptyList() })
-        compose.onNodeWithText("✓ all healthy").assertIsDisplayed()
+        compose.onNodeWithText("all healthy").assertIsDisplayed()
     }
 
     @Test
