@@ -2,31 +2,51 @@ package org.phioster.sanctumd.ui.seerr
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import coil.compose.AsyncImage
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.blur
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.activity.compose.BackHandler
-import org.phioster.sanctumd.model.SeerrMediaDetail
 import org.phioster.sanctumd.model.SeerrSearchItem
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.ui.DashboardViewModel
@@ -48,6 +68,7 @@ import org.phioster.sanctumd.ui.services.*
 import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
+import org.phioster.sanctumd.model.SeerrMediaDetail
 
 /**
  * The full-screen look at one title, opened from discover, search or a genre row.
@@ -65,7 +86,7 @@ internal fun SeerrMediaDetailView(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    BackHandler(onBack)
+    BackHandler(onBack = onBack)
     var onWatchlist by remember(d.tmdbId) { mutableStateOf(d.onWatchlist) }
     var watchlistBusy by remember(d.tmdbId) { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().background(Black)) {
