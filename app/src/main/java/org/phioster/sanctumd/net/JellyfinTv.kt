@@ -20,10 +20,6 @@ import retrofit2.http.Query
  * Quick Connect switched off.
  */
 
-/** The TV identifies as its own device. Sharing a DeviceId with the phone would collide sessions. */
-internal const val TV_MB_AUTH =
-    "MediaBrowser Client=\"Sanctumd TV\", Device=\"Android TV\", DeviceId=\"sanctumd-tv\", Version=\"1.0.0\""
-
 @Serializable internal data class JfQuickConnectState(
     val Authenticated: Boolean = false,
     val Secret: String = "",
@@ -50,7 +46,9 @@ internal interface JellyfinTvAuthApi {
 
 private fun tvAuthApi(baseUrl: String): JellyfinTvAuthApi {
     val stub = ServiceConfig(type = ServiceType.JELLYFIN, label = "setup", baseUrl = baseUrl)
-    return apiFor(stub, mapOf("Authorization" to TV_MB_AUTH))
+    // Same header as everywhere else. ClientIdentity already names the TV flavour as its own
+    // device, so the second hardcoded copy that used to live here is gone.
+    return apiFor(stub, mapOf("Authorization" to MB_AUTH))
 }
 
 /** A completed sign-in: the token goes into [ServiceConfig.apiKey], the id into [ServiceConfig.userId]. */

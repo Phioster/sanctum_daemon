@@ -33,15 +33,13 @@ internal val json = Json {
     encodeDefaults = true // JSON-RPC needs the default "method"/"id" fields in the body
 }
 
-private const val MB_CLIENT =
-    "Client=\"Sanctumd\", Device=\"Android\", DeviceId=\"sanctumd\", Version=\"0.3.0\""
-
-/** Login (no token yet). */
-internal const val MB_AUTH = "MediaBrowser $MB_CLIENT"
+/** Login (no token yet). See [ClientIdentity] for what the four fields are and why. */
+internal val MB_AUTH: String get() = "MediaBrowser ${ClientIdentity.mediaBrowserClient}"
 
 /** Auth for an existing Jellyfin token. The X-Emby-Token header is a legacy method that server
  *  12 disables by default; only the MediaBrowser scheme and the ApiKey query parameter survive. */
-internal fun jellyfinAuth(token: String) = mapOf("Authorization" to "MediaBrowser Token=\"$token\", $MB_CLIENT")
+internal fun jellyfinAuth(token: String) =
+    mapOf("Authorization" to "MediaBrowser Token=\"$token\", ${ClientIdentity.mediaBrowserClient}")
 
 // One shared client so every per-call client below reuses the same dispatcher and
 // connection pool (newBuilder() shares them) instead of spawning a pool per request.

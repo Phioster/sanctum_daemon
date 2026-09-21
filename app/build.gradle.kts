@@ -99,6 +99,9 @@ android {
 
     buildFeatures {
         compose = true
+        // For BuildConfig.VERSION_NAME, which the Jellyfin client header reports. Hardcoding it
+        // once meant it said 0.3.0 for the whole 1.x and 2.x life of the app.
+        buildConfig = true
     }
 
     compileOptions {
