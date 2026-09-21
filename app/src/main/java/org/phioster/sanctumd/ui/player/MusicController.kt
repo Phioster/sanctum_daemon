@@ -43,6 +43,7 @@ data class MusicState(
  * of [MusicTrack]s, and publishes a [state] flow the now-playing bar/screen observe. The service keeps
  * playing when the app is gone; this controller is just the remote.
  */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 object MusicController {
     private const val TAG = "sanctumd-music"
 
