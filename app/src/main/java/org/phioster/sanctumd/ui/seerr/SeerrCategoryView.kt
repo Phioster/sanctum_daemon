@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -126,7 +127,7 @@ internal fun SeerrCategoryView(
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(3),
                     state = gridState,
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                    modifier = Modifier.fillMaxSize().navigationBarsPadding().padding(horizontal = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {

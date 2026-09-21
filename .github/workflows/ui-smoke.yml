@@ -8,6 +8,9 @@ on:
   workflow_dispatch:
   push:
     paths:
+      # app/** gehoert dazu, sonst laeuft der Test nur, wenn man ihn selbst anfasst,
+      # und faengt genau die Regression nicht, fuer die er da ist.
+      - 'app/**'
       - '.maestro/**'
       - '.github/workflows/ui-smoke.yml'
 
@@ -84,9 +87,13 @@ jobs:
             adb wait-for-device
             adb install -r app/build/outputs/apk/phone/debug/app-phone-debug.apk
             maestro test .maestro/01_launch_smoke.yaml
+            maestro test .maestro/02_onboarding.yaml
+            maestro test .maestro/03_home_edit_addcard.yaml
 
+      # Always: the screenshots are the only look anyone gets at what the app actually
+      # drew on the emulator, and they are worth having on a green run too.
       - name: Upload maestro output
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: maestro-output

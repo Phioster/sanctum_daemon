@@ -1,0 +1,22 @@
+# The first thing every new install shows. Walks all five intro pages and finishes
+# with "get started", which is the button that also opens the editor for the first
+# service. No backend required, nothing here talks to a server.
+appId: org.phioster.nexarr
+name: Onboarding walkthrough
+---
+- launchApp:
+    clearState: true
+- assertVisible: "WELCOME TO SANCTUMD"
+- tapOn: "next"
+- assertVisible: "CONNECT YOUR STACK"
+- tapOn: "next"
+- assertVisible: "MAKE IT YOUR OWN"
+- tapOn: "next"
+- assertVisible: "NEVER MISS A BEAT"
+- tapOn: "next"
+- assertVisible: "PRIVATE BY DESIGN"
+- takeScreenshot: 02_onboarding_last
+# "get started" marks onboarding done and opens the add-service editor.
+- tapOn: "get started"
+- assertVisible: "Label"
+- takeScreenshot: 02_first_service

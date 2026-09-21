@@ -12,7 +12,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -63,7 +63,7 @@ internal fun OnboardingScreen(onDismiss: (openAdd: Boolean) -> Unit) {
     val pager = rememberPagerState { pages.size }
     val scope = rememberCoroutineScope()
     val last = pager.currentPage == pages.lastIndex
-    Column(Modifier.fillMaxSize().background(Black).statusBarsPadding().padding(24.dp)) {
+    Column(Modifier.fillMaxSize().background(Black).systemBarsPadding().padding(24.dp)) {
         Spacer(Modifier.height(24.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = { onDismiss(false) }) { Text("skip", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f)) }

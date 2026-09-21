@@ -1,8 +1,8 @@
-# Home shell interaction — needs an app that is PAST onboarding (i.e. run on your
-# configured device, or after completing onboarding once). No backend required:
+# Home shell interaction. Needs an app that is past onboarding, so in CI it runs
+# after 02_onboarding.yaml; on your own device it just works. No backend required:
 # toggling Edit mode reveals the "Add card" FAB purely from local UI state.
 appId: org.phioster.nexarr
-name: Home edit mode -> Add card
+name: Home edit mode and Add card
 ---
 - launchApp
 # Edit action in the top bar (contentDescription "Edit").

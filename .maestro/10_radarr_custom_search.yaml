@@ -2,7 +2,7 @@
 # REQUIRES: a configured Radarr service that has at least one missing movie.
 # Adjust "Radarr" below to your service's label if you named it differently.
 appId: org.phioster.nexarr
-name: Radarr Missing -> Custom search
+name: Radarr Missing, Custom search
 ---
 - launchApp
 - tapOn: "Services"          # open the drawer
