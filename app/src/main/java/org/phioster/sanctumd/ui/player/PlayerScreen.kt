@@ -14,7 +14,11 @@ import android.os.Build
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.annotation.RequiresApi
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
@@ -101,17 +105,42 @@ object PipState {
     val inPip = kotlinx.coroutines.flow.MutableStateFlow(false)
 }
 
-/** Shrink the player into a floating window. No-op below Android 8 or if the system refuses. */
-private fun enterPip(activity: Activity?, aspect: Float) {
-    if (activity == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+/**
+ * Where the picture actually sits on screen, in window coordinates, for setSourceRectHint. The
+ * system morphs the shrinking window out of this rect, so without it the animation starts from the
+ * whole black screen instead of from the video. Null while the layout is not measured yet.
+ */
+private fun pipSourceRect(boxSize: IntSize, boxOffset: Offset, aspect: Float, zoom: Float): android.graphics.Rect? {
+    if (boxSize.width <= 0 || boxSize.height <= 0) return null
+    // ambientVideoRect returns null once the video covers the whole player, which is exactly when
+    // the source rect is the whole box.
+    val v = ambientVideoRect(boxSize.width, boxSize.height, aspect, zoom)
+    val l = (boxOffset.x + (v?.left ?: 0f)).roundToInt()
+    val t = (boxOffset.y + (v?.top ?: 0f)).roundToInt()
+    val r = (boxOffset.x + (v?.right ?: boxSize.width.toFloat())).roundToInt()
+    val b = (boxOffset.y + (v?.bottom ?: boxSize.height.toFloat())).roundToInt()
+    return if (r > l && b > t) android.graphics.Rect(l, t, r, b) else null
+}
+
+/**
+ * [autoEnter] is the one that changes how the app feels: from Android 12 the system drops into the
+ * floating window by itself when you leave during playback, instead of stopping the picture. It is
+ * tied to "is something playing", so leaving a paused player just leaves.
+ */
+@RequiresApi(Build.VERSION_CODES.O)
+private fun pipParams(aspect: Float, source: android.graphics.Rect?, autoEnter: Boolean): android.app.PictureInPictureParams {
     val a = if (aspect > 0.4f && aspect < 2.4f) aspect else 16f / 9f
-    runCatching {
-        activity.enterPictureInPictureMode(
-            android.app.PictureInPictureParams.Builder()
-                .setAspectRatio(android.util.Rational((a * 1000).toInt(), 1000))
-                .build(),
-        )
-    }
+    val b = android.app.PictureInPictureParams.Builder()
+        .setAspectRatio(android.util.Rational((a * 1000).toInt(), 1000))
+    source?.let { b.setSourceRectHint(it) }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) b.setAutoEnterEnabled(autoEnter)
+    return b.build()
+}
+
+/** Shrink the player into a floating window. No-op below Android 8 or if the system refuses. */
+private fun enterPip(activity: Activity?, aspect: Float, source: android.graphics.Rect?, autoEnter: Boolean) {
+    if (activity == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+    runCatching { activity.enterPictureInPictureMode(pipParams(aspect, source, autoEnter)) }
 }
 
 private fun findActivity(context: Context): Activity? =
@@ -161,6 +190,7 @@ internal fun PlayerScreen(
     var state by remember { mutableStateOf(PlaybackState()) }
     var videoAspect by remember { mutableStateOf(0f) } // video width/height, for the zoom-to-fill step
     var boxSize by remember { mutableStateOf(IntSize.Zero) }
+    var boxOffset by remember { mutableStateOf(Offset.Zero) } // for the PiP source rect
     var controlsVisible by remember { mutableStateOf(true) }
     var scrubbing by remember { mutableStateOf(false) }
     var scrubPos by remember { mutableStateOf(0f) }
@@ -246,7 +276,15 @@ internal fun PlayerScreen(
             // right to the edge. The base video is padded away from the cutout below (YouTube-like).
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 val lp = window.attributes
-                lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                // ALWAYS exists only from Android 11. On 9 and 10 the field would take a value the
+                // window manager does not know and quietly ignore, so the cutout stayed unused
+                // there. SHORT_EDGES is the same idea for a landscape player: use the strip beside
+                // the notch.
+                lp.layoutInDisplayCutoutMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                } else {
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                }
                 window.attributes = lp
             }
             // NB: don't touch decorFitsSystemWindows. The app runs edge-to-edge (enableEdgeToEdge),
@@ -478,7 +516,20 @@ internal fun PlayerScreen(
     BackHandler {
         if (settingsOpen) settingsOpen = false else leave()
     }
-    DisposableEffect(Unit) { onDispose { engine.release() } }
+    DisposableEffect(Unit) {
+        onDispose {
+            engine.release()
+            // Do not leave auto-enter switched on behind us. Once the player is gone, leaving the
+            // app must not pop up a floating window with nothing in it.
+            if (activity != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                runCatching {
+                    activity.setPictureInPictureParams(
+                        android.app.PictureInPictureParams.Builder().setAutoEnterEnabled(false).build(),
+                    )
+                }
+            }
+        }
+    }
 
     // Pinch-to-zoom: snaps to steps on release, stays centered (no free panning). Double-tap resets.
     var zoomScale by remember { mutableStateOf(1f) }
@@ -499,10 +550,28 @@ internal fun PlayerScreen(
         }
     }
 
+    // The params have to be in place BEFORE the app is left, not at the moment of entering: by
+    // then the system has already decided. So they are pushed whenever the picture, its position
+    // or the playing state changes.
+    LaunchedEffect(videoAspect, boxSize, boxOffset, zoomScale, state.isPlaying) {
+        if (activity != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            runCatching {
+                activity.setPictureInPictureParams(
+                    pipParams(
+                        videoAspect,
+                        pipSourceRect(boxSize, boxOffset, videoAspect, zoomScale),
+                        autoEnter = state.isPlaying,
+                    ),
+                )
+            }
+        }
+    }
+
     Box(
         Modifier
             .fillMaxSize()
             .onSizeChanged { boxSize = it }
+            .onGloballyPositioned { boxOffset = it.positionInWindow() }
             .background(Color.Black) // pure black bars around the video (matches the letterbox)
             .pointerInput(Unit) {
                 detectTapGestures(
@@ -636,7 +705,14 @@ internal fun PlayerScreen(
                 showSettings = localFileUri == null,
                 fmt = ::fmt,
                 onLeave = { leave() },
-                onPip = { enterPip(activity, videoAspect) },
+                onPip = {
+                    enterPip(
+                        activity,
+                        videoAspect,
+                        pipSourceRect(boxSize, boxOffset, videoAspect, zoomScale),
+                        autoEnter = state.isPlaying,
+                    )
+                },
                 onInfo = { infoOpen = true; controlsVisible = true },
                 onSettings = { settingsOpen = true; controlsVisible = true },
                 onTogglePlay = { engine.togglePlay(); state = engine.snapshot() },
