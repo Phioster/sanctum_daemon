@@ -85,9 +85,11 @@ class MpvPlayerEngine(context: Context) : MediaPlayerEngine {
     override fun prepare(url: String, isHls: Boolean, startPositionMs: Long, headers: Map<String, String>) {
         if (released) return
         lastError = null; eof = false; posSec = 0.0; durSec = 0.0
-        if (headers.isNotEmpty()) {
-            mpv.setOptionString("http-header-fields", headers.entries.joinToString(",") { "${it.key}: ${it.value}" })
-        }
+        // Each header goes in on its own, through the list option's `-append` form. The plain
+        // option is a comma-separated list and a Jellyfin Authorization header is made of commas;
+        // appending hands the value over whole. See [headerLines].
+        mpv.setOptionString("http-header-fields-clr", "")
+        headerLines(headers).forEach { mpv.setOptionString("http-header-fields-append", it) }
         // The resume position goes in as the `start` option, NOT as a loadfile argument: since mpv
         // 0.38 the third loadfile parameter is the playlist *index* (an integer), so the old
         // `loadfile <url> replace start=120` failed to parse and the file never loaded at all — i.e.
@@ -234,3 +236,15 @@ class MpvPlayerEngine(context: Context) : MediaPlayerEngine {
         )
     }
 }
+
+/**
+ * One `Name: value` line per header, for mpv's `http-header-fields`.
+ *
+ * Kept separate from the setting because *how* they are set is the whole problem: the option is a
+ * comma-separated list, and a Jellyfin `Authorization` header is made of commas —
+ * `MediaBrowser Token="…", Client="…", Device="…"`. Set in one go it arrived as four broken header
+ * lines, the server answered 400 Bad Request, and the player sat on "buffering…" forever with
+ * nothing on screen to say why. They are appended one at a time instead.
+ */
+internal fun headerLines(headers: Map<String, String>): List<String> =
+    headers.entries.map { (k, v) -> "$k: $v" }
