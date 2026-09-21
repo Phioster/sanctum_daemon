@@ -1,7 +1,23 @@
 # Changelog
 
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
-Versioning is `major.minor.patch`; the app is in daily use, now at 2.0.1.
+Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
+
+## A second app for the television (v2.1)
+- **An Android TV client**, built from the same source as a second APK. It is a Jellyfin
+  streaming client and nothing else: the dashboard, the service list, the widgets and the
+  background services are *removed* in the TV manifest rather than merely hidden, so the
+  build has one launchable screen and no way to reach the rest.
+- **Signing in from the sofa.** Servers are found by broadcast on the local network;
+  Quick Connect shows a code on the television that you approve on your phone, because
+  typing a password with a remote control is miserable. Username and password still work
+  where Quick Connect is switched off.
+- **https is tried before http** when you type a bare address, and the sign-in screen says
+  so when the address it settled on is unencrypted. The password and the Quick Connect
+  secret travel over that address moments later, and nobody inspects a URL bar on a TV.
+- **libmpv does the decoding**, which is the whole point on a cheap stick: the codec gaps
+  that make other clients stutter stop mattering. The panel's refresh rate is matched
+  before playback begins, never during it — switching mid-stream tears the picture.
 
 ## Small print (v2.0.1)
 - **The task switcher no longer shows what the lock hides.** With the app lock on, the
