@@ -58,9 +58,9 @@ internal fun TvBrowseScreen(
     Column(Modifier.fillMaxSize().background(Black)) {
         TvTopBar(title)
         when {
-            loading -> TvMessage("lade…", Modifier.padding(top = 60.dp))
+            loading -> TvMessage("loading…", Modifier.padding(top = 60.dp))
             error != null -> TvMessage("could not load: $error", Modifier.padding(top = 60.dp), error = true)
-            items.isEmpty() -> TvMessage("dieser Ordner ist leer", Modifier.padding(top = 60.dp))
+            items.isEmpty() -> TvMessage("this folder is empty", Modifier.padding(top = 60.dp))
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 170.dp),
                 modifier = Modifier.fillMaxSize(),

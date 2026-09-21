@@ -182,7 +182,7 @@ private fun ServerPickStep(onManual: () -> Unit, onPicked: (String, String) -> U
                     title = server.displayName,
                     subtitle = server.Address,
                     focusRequester = firstFocus.takeIf { index == 0 && !scanning },
-                    trailing = "verbinden ›",
+                    trailing = "connect",
                     onClick = { onPicked(server.Address.trimEnd('/'), server.displayName) },
                 )
             }
@@ -276,7 +276,7 @@ private fun ManualServerStep(onBack: () -> Unit, onResolved: (String, String) ->
             TvTextField(
                 value = input,
                 onValueChange = { input = it; error = null },
-                label = "Serveradresse",
+                label = "server address",
                 modifier = Modifier.fillMaxWidth(),
                 focusRequester = fieldFocus,
                 imeAction = ImeAction.Done,
@@ -284,7 +284,7 @@ private fun ManualServerStep(onBack: () -> Unit, onResolved: (String, String) ->
         }
         Spacer(Modifier.height(18.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            TvButton(if (checking) "verbinde…" else "verbinden", enabled = !checking && input.isNotBlank()) { connect() }
+            TvButton(if (checking) "connecting…" else "connect", enabled = !checking && input.isNotBlank()) { connect() }
             TvButton("back", onClick = onBack)
         }
         error?.let {
@@ -421,7 +421,7 @@ private fun AuthStep(
             }
             Spacer(Modifier.height(20.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                TvButton(if (busy) "melde an…" else "anmelden", enabled = !busy && username.isNotBlank()) { login() }
+                TvButton(if (busy) "signing in…" else "sign in", enabled = !busy && username.isNotBlank()) { login() }
                 if (quickAvailable == true) TvButton("back to Quick Connect") { usePassword = false }
                 TvButton("another server", onClick = onBack)
             }
@@ -460,7 +460,7 @@ private fun QuickConnectPanel(code: String?) {
         }
         Spacer(Modifier.height(12.dp))
         Text(
-            if (code == null) "hole Code…" else "waiting for approval…",
+            if (code == null) "getting a code…" else "waiting for approval…",
             color = MatrixGreen.copy(alpha = 0.5f), fontFamily = Mono, fontSize = 13.sp,
         )
     }

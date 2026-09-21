@@ -97,7 +97,7 @@ internal fun TvDetailScreen(
         val d = detail
         when {
             error != null && d == null -> TvMessage("could not load: $error", Modifier.padding(top = 60.dp), error = true)
-            d == null -> TvMessage("lade…", Modifier.padding(top = 60.dp))
+            d == null -> TvMessage("loading…", Modifier.padding(top = 60.dp))
             else -> Row(
                 Modifier.fillMaxSize().padding(horizontal = TvSidePad),
                 horizontalArrangement = Arrangement.spacedBy(30.dp),
@@ -163,11 +163,11 @@ internal fun TvDetailScreen(
                                 enabled = next != null,
                                 leading = if (next != null) AppIcons.Play else null,
                             ) { next?.let { onPlay(it.id, it.name) } }
-                            TvButton("Folgen") { onBrowse(d.id, d.name) }
+                            TvButton("episodes") { onBrowse(d.id, d.name) }
                         } else {
                             TvButton("play", focusRequester = playFocus) { onPlay(d.id, d.name) }
                         }
-                        TvButton(if (d.played) "als ungesehen markieren" else "als gesehen markieren") {
+                        TvButton(if (d.played) "mark as unwatched" else "mark as watched") {
                             scope.launch {
                                 busyMsg = null
                                 runCatching { jellyfinSetPlayed(config, d.id, !d.played) }
