@@ -60,8 +60,11 @@ jobs:
       - name: Android Lint
         run: gradle lintPhoneDebug --no-daemon --stacktrace
 
+      # Always, not just on failure: Lint is report-only (abortOnError = false in
+      # app/build.gradle.kts), so it never fails the build and the report was being
+      # thrown away every single time. Nobody can act on a report nobody sees.
       - name: Upload analysis reports
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: analysis-reports
