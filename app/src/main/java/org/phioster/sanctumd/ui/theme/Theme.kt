@@ -60,6 +60,15 @@ val PALETTES: List<Palette> = listOf(
         accent = Color(0xFFBE8CFF), background = Color(0xFF10160A),
         surface = Color(0xFF1B2410), surfaceHi = Color(0xFF253116),
     ),
+    // Accent is the phone's own Material You colour, sampled off the lock screen clock, so the app
+    // agrees with the system chrome instead of competing with it. The surfaces are the wallpaper's
+    // own tones: the near-black wet floor, then two steps up towards the glass-block walls. Matrix
+    // green sat on top of that wallpaper like a foreign object, which is what this preset fixes.
+    Palette(
+        "solarpunk", "Solarpunk",
+        accent = Color(0xFFB4CC9C), background = Color(0xFF0A0D08),
+        surface = Color(0xFF141A12), surfaceHi = Color(0xFF1E261B),
+    ),
 )
 
 const val DEFAULT_PALETTE_ID = "matrix"
