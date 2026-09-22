@@ -87,8 +87,12 @@ internal interface LidarrApi {
 
 // ---- Prowlarr (api/v1) ----
 
-@Serializable internal data class ArrRef(val title: String = "")
-@Serializable internal data class ArrArtistRef(val artistName: String = "")
+/** The work a queue/history entry belongs to: exactly one of the three is set per service. */
+internal fun arrParentId(seriesId: Int, movieId: Int, artistId: Int): Int =
+    seriesId.takeIf { it > 0 } ?: movieId.takeIf { it > 0 } ?: artistId
+
+@Serializable internal data class ArrRef(val id: Int = 0, val title: String = "")
+@Serializable internal data class ArrArtistRef(val id: Int = 0, val artistName: String = "")
 @Serializable internal data class ArrMissingRecord(
     val id: Int = 0,
     val title: String = "",
@@ -111,6 +115,11 @@ internal interface LidarrApi {
     val trackedDownloadState: String? = null,
     // Where the download actually landed. What a manual import needs to be pointed at.
     val outputPath: String? = null,
+    // The work this entry belongs to. The record's own id addresses the queue entry, not the
+    // series/movie/artist, so opening a detail needs these. Exactly one is set per service.
+    val seriesId: Int = 0,
+    val movieId: Int = 0,
+    val artistId: Int = 0,
 )
 @Serializable internal data class ArrQueuePage(val records: List<ArrQueueRecord> = emptyList())
 
@@ -195,6 +204,10 @@ internal interface LidarrApi {
     val date: String = "",
     val sourceTitle: String = "",
     val quality: ArrQualityRef = ArrQualityRef(),
+    // As in ArrQueueRecord: id is the history entry, these point at the work.
+    val seriesId: Int = 0,
+    val movieId: Int = 0,
+    val artistId: Int = 0,
 )
 @Serializable internal data class ArrHistoryPage(val records: List<ArrHistoryRec> = emptyList())
 
@@ -520,9 +533,11 @@ suspend fun arrMissing(config: ServiceConfig): List<ArrMissingItem> = withContex
                 r.id,
                 r.series?.title ?: r.title,
                 "S%02dE%02d · %s".format(r.seasonNumber ?: 0, r.episodeNumber ?: 0, r.title),
+                // r.id is the episode; a detail screen wants the series it belongs to.
+                itemId = r.series?.id ?: 0,
             )
-            ServiceType.LIDARR -> ArrMissingItem(r.id, r.title, r.artist?.artistName ?: "")
-            else -> ArrMissingItem(r.id, r.title, if (r.year > 0) r.year.toString() else "")
+            ServiceType.LIDARR -> ArrMissingItem(r.id, r.title, r.artist?.artistName ?: "", itemId = r.artist?.id ?: 0)
+            else -> ArrMissingItem(r.id, r.title, if (r.year > 0) r.year.toString() else "", itemId = r.id)
         }
     }
 }
@@ -590,6 +605,7 @@ suspend fun arrQueue(config: ServiceConfig): List<ArrQueueItem> = withContext(Di
             progress = prog,
             blocked = r.trackedDownloadState == "importBlocked",
             outputPath = r.outputPath.orEmpty(),
+            itemId = arrParentId(r.seriesId, r.movieId, r.artistId),
         )
     }
 }
@@ -790,9 +806,11 @@ suspend fun arrCutoff(config: ServiceConfig): List<ArrMissingItem> = withContext
                 r.id,
                 r.series?.title ?: r.title,
                 "S%02dE%02d · %s".format(r.seasonNumber ?: 0, r.episodeNumber ?: 0, r.title),
+                // r.id is the episode; a detail screen wants the series it belongs to.
+                itemId = r.series?.id ?: 0,
             )
-            ServiceType.LIDARR -> ArrMissingItem(r.id, r.title, r.artist?.artistName ?: "")
-            else -> ArrMissingItem(r.id, r.title, if (r.year > 0) r.year.toString() else "")
+            ServiceType.LIDARR -> ArrMissingItem(r.id, r.title, r.artist?.artistName ?: "", itemId = r.artist?.id ?: 0)
+            else -> ArrMissingItem(r.id, r.title, if (r.year > 0) r.year.toString() else "", itemId = r.id)
         }
     }
 }
@@ -1204,6 +1222,7 @@ suspend fun arrHistory(config: ServiceConfig): List<ArrHistoryItem> = withContex
             eventType = h.eventType,
             date = h.date.take(16).replace('T', ' '),
             quality = h.quality.quality.name,
+            itemId = arrParentId(h.seriesId, h.movieId, h.artistId),
         )
     }
 }

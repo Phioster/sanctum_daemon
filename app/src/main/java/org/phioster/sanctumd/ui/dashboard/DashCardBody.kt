@@ -59,6 +59,8 @@ internal fun DashCardDataBody(
     accentColor: Color,
     posterWidth: Dp,
     onOpenService: () -> Unit,
+    /** The library item behind a row. 0 when the row has none - then the service screen is right. */
+    onOpenArrItem: (Int) -> Unit,
     onOpenItem: (JellyMediaItem) -> Unit,
     onOpenDiscover: (SeerrDiscoverItem) -> Unit,
 ) {
@@ -131,7 +133,7 @@ internal fun DashCardDataBody(
             when {
                 q == null -> loading()
                 q.isEmpty() -> empty("queue empty")
-                else -> Column { q.take(card.count).forEach { DashQueueRow(it, accent, card.density) } }
+                else -> Column { q.take(card.count).forEach { row -> DashQueueRow(row, accent, card.density) { onOpenArrItem(row.itemId) } } }
             }
         }
         card.type == CardType.RADARR_MISSING || card.type == CardType.SONARR_MISSING || card.type == CardType.LIDARR_MISSING -> {
@@ -139,7 +141,7 @@ internal fun DashCardDataBody(
             when {
                 m == null -> loading()
                 m.isEmpty() -> empty("nothing missing")
-                else -> Column { m.take(card.count).forEach { DashLineRow(it.title, it.subtitle, accent, card.density) { onOpenService() } } }
+                else -> Column { m.take(card.count).forEach { DashLineRow(it.title, it.subtitle, accent, card.density) { onOpenArrItem(it.itemId) } } }
             }
         }
         card.type == CardType.RADARR_CALENDAR || card.type == CardType.SONARR_CALENDAR || card.type == CardType.LIDARR_CALENDAR -> {
@@ -147,7 +149,7 @@ internal fun DashCardDataBody(
             when {
                 c == null -> loading()
                 c.isEmpty() -> empty("nothing upcoming")
-                else -> Column { c.take(card.count).forEach { DashLineRow(it.title, "${it.date}${if (it.subtitle.isNotBlank()) " · ${it.subtitle}" else ""}", accent, card.density, leading = if (it.hasFile) AppIcons.Done else null) { onOpenService() } } }
+                else -> Column { c.take(card.count).forEach { DashLineRow(it.title, "${it.date}${if (it.subtitle.isNotBlank()) " · ${it.subtitle}" else ""}", accent, card.density, leading = if (it.hasFile) AppIcons.Done else null) { onOpenArrItem(it.itemId) } } }
             }
         }
         card.type == CardType.RADARR_HISTORY || card.type == CardType.SONARR_HISTORY || card.type == CardType.LIDARR_HISTORY -> {
@@ -155,7 +157,7 @@ internal fun DashCardDataBody(
             when {
                 h == null -> loading()
                 h.isEmpty() -> empty("no history")
-                else -> Column { h.take(card.count).forEach { DashLineRow(it.title, "${it.eventType} · ${it.date}", accent, card.density) { onOpenService() } } }
+                else -> Column { h.take(card.count).forEach { DashLineRow(it.title, "${it.eventType} · ${it.date}", accent, card.density) { onOpenArrItem(it.itemId) } } }
             }
         }
         card.type == CardType.NZBGET_QUEUE -> {

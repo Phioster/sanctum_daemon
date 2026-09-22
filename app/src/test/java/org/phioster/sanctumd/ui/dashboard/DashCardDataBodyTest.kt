@@ -6,10 +6,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.phioster.sanctumd.model.ArrMissingItem
 import org.phioster.sanctumd.model.ArrQueueItem
 import org.phioster.sanctumd.model.CardType
 import org.phioster.sanctumd.model.DashCard
@@ -35,6 +38,9 @@ class DashCardDataBodyTest {
 
     private val radarr = ServiceConfig(type = ServiceType.RADARR, label = "Radarr", baseUrl = "https://example.net/")
 
+    /** What the last tapped row asked to open: -1 = nothing tapped, 0 = the service itself. */
+    private var opened = -1
+
     private fun show(type: CardType, data: DashCardData) = compose.setContent {
         Column(Modifier.width(400.dp)) {
             DashCardDataBody(
@@ -44,11 +50,36 @@ class DashCardDataBodyTest {
                 accent = MatrixGreen,
                 accentColor = MatrixGreen,
                 posterWidth = 120.dp,
-                onOpenService = {},
+                onOpenService = { opened = 0 },
+                onOpenArrItem = { opened = it },
                 onOpenItem = {},
                 onOpenDiscover = {},
             )
         }
+    }
+
+    @Test
+    fun `a queue row opens the movie, not the service`() {
+        show(
+            CardType.RADARR_QUEUE,
+            DashCardData().apply {
+                queue = listOf(ArrQueueItem(id = 7, title = "Oppenheimer", status = "downloading", progress = 0.42f, itemId = 512))
+            },
+        )
+        compose.onNodeWithText("Oppenheimer").performClick()
+        // 7 is the queue entry, 512 the movie. Handing over 7 would open a stranger's detail page.
+        assertEquals(512, opened)
+    }
+
+    @Test
+    fun `a row without a known item reports zero, not a wrong id`() {
+        show(
+            CardType.RADARR_MISSING,
+            DashCardData().apply { missing = listOf(ArrMissingItem(id = 3, title = "Dune", subtitle = "2021")) },
+        )
+        compose.onNodeWithText("Dune").performClick()
+        // Zero here, not r.id: the caller turns that into "just open the service".
+        assertEquals(0, opened)
     }
 
     @Test

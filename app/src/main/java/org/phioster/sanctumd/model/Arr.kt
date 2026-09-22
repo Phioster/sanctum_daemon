@@ -5,6 +5,8 @@ data class ArrMissingItem(
     val id: Int,
     val title: String,
     val subtitle: String,
+    /** The library item this row belongs to (series / movie / artist). 0 when unknown. */
+    val itemId: Int = 0,
 )
 
 /** An upcoming release from a Servarr calendar (movie/episode/album). */
@@ -30,6 +32,8 @@ data class ArrQueueItem(
      * there is nothing to open. The manual-import shortcut must not be offered.
      */
     val outputPath: String = "",
+    /** The library item this row belongs to (series / movie / artist). 0 when unknown. */
+    val itemId: Int = 0,
 )
 
 /** A library entry (movie/series/artist). */
@@ -186,6 +190,8 @@ data class ArrHistoryItem(
     val eventType: String,
     val date: String,
     val quality: String,
+    /** The library item this row belongs to (series / movie / artist). 0 when unknown. */
+    val itemId: Int = 0,
 )
 
 /**

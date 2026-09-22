@@ -102,13 +102,13 @@ internal fun DashLineRow(title: String, subtitle: String, accent: Color, density
 }
 
 @Composable
-internal fun DashQueueRow(item: org.phioster.sanctumd.model.ArrQueueItem, accent: Color, density: String = "") =
-    DashNzbRow(item.title, item.status, item.progress, accent, density)
+internal fun DashQueueRow(item: org.phioster.sanctumd.model.ArrQueueItem, accent: Color, density: String = "", onClick: (() -> Unit)? = null) =
+    DashNzbRow(item.title, item.status, item.progress, accent, density, onClick)
 
 @Composable
-internal fun DashNzbRow(title: String, status: String, progress: Float, accent: Color, density: String = "") {
+internal fun DashNzbRow(title: String, status: String, progress: Float, accent: Color, density: String = "", onClick: (() -> Unit)? = null) {
     val vpad = when (density) { "compact" -> 2.dp; "detail" -> 9.dp; else -> 6.dp }
-    Column(Modifier.fillMaxWidth().padding(vertical = vpad)) {
+    Column(Modifier.fillMaxWidth().let { if (onClick != null) it.clickable { onClick() } else it }.padding(vertical = vpad)) {
         Text(title, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = if (density == "detail") 2 else 1, overflow = TextOverflow.Ellipsis)
         if (density != "compact") Text("$status · ${(progress * 100).toInt()}%", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(4.dp))
@@ -142,16 +142,20 @@ internal class MediaDetail(
     val title: String, val subtitle: String, val posterUrl: String,
     val genres: String, val facts: List<Pair<String, String>>, val overview: String,
     val cast: List<org.phioster.sanctumd.model.ArrCastMember>,
+    /** Where this title lives, so the dialog can hand off to the service screen. */
+    val link: org.phioster.sanctumd.ui.search.SearchDeepLink? = null,
 )
 
 internal fun org.phioster.sanctumd.model.JellyMediaDetail.toMediaDetail() =
-    MediaDetail(name, "", posterUrl, genres, facts, overview, cast)
+    MediaDetail(name, "", posterUrl, genres, facts, overview, cast,
+        org.phioster.sanctumd.ui.search.SearchDeepLink(jellyItemId = id))
 
 internal fun org.phioster.sanctumd.model.SeerrMediaDetail.toMediaDetail() =
-    MediaDetail(title, listOfNotNull(year.ifBlank { null }, if (mediaType == "tv") "series" else "movie").joinToString(" · "), posterUrl, genres, facts, overview, cast)
+    MediaDetail(title, listOfNotNull(year.ifBlank { null }, if (mediaType == "tv") "series" else "movie").joinToString(" · "), posterUrl, genres, facts, overview, cast,
+        org.phioster.sanctumd.ui.search.SearchDeepLink(seerrTmdb = tmdbId, seerrMediaType = mediaType))
 
 @Composable
-internal fun MediaDetailDialog(d: MediaDetail, config: ServiceConfig, onDismiss: () -> Unit) {
+internal fun MediaDetailDialog(d: MediaDetail, config: ServiceConfig, onOpen: (org.phioster.sanctumd.ui.search.SearchDeepLink) -> Unit = {}, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Surface,
@@ -190,7 +194,16 @@ internal fun MediaDetailDialog(d: MediaDetail, config: ServiceConfig, onDismiss:
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+        confirmButton = {
+            // Without this the dialog was a dead end: everything to identify the title is in
+            // d.link, and the service screen already knows how to open it.
+            d.link?.let { link ->
+                TextButton(onClick = { onDismiss(); onOpen(link) }) {
+                    Text("open in ${config.type.label.lowercase()}", fontFamily = Mono, color = MatrixGreen)
+                }
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("close", fontFamily = Mono, color = MatrixGreen) } },
     )
 }
 

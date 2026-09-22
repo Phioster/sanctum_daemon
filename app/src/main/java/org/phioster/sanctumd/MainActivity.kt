@@ -340,7 +340,10 @@ internal fun SanctumdApp(vm: DashboardViewModel = viewModel()) {
             else -> HomeShell(
                 vm = vm,
                 onAdd = { addOpen = true },
-                onOpen = { detail = it },
+                // Clearing the link matters: shownLink latches whatever searchDeepLink holds the
+                // moment detail changes, so a stale one from an earlier search would be reapplied.
+                onOpen = { searchDeepLink = null; detail = it },
+                onOpenLink = { cfg, link -> searchDeepLink = link; detail = cfg },
                 onEdit = { editing = it },
                 onSearch = { term -> searchTerm = term; searchOpen = true },
                 onNotifications = { notifOpen = true },
