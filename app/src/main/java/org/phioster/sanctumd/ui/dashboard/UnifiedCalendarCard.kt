@@ -70,7 +70,13 @@ import androidx.compose.material3.Icon
 /** Dashboard card: a month calendar grid of upcoming releases merged across all *arr,
  *  month-switchable, services marked by their accent colour; tap a day for its list. */
 @Composable
-internal fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenService: (ServiceConfig) -> Unit) {
+internal fun UnifiedCalendarCard(
+    vm: DashboardViewModel,
+    accent: Color,
+    onOpenService: (ServiceConfig) -> Unit,
+    /** The card spans several services, so the item link needs to say which one. */
+    onOpenLink: (ServiceConfig, org.phioster.sanctumd.ui.search.SearchDeepLink) -> Unit = { cfg, _ -> onOpenService(cfg) },
+) {
     var month by remember { mutableStateOf(java.time.YearMonth.now()) }
     // Init from the cache so a tab switch shows the month instantly (no reload flash).
     @Suppress("UNCHECKED_CAST")
@@ -199,7 +205,14 @@ internal fun UnifiedCalendarCard(vm: DashboardViewModel, accent: Color, onOpenSe
     }
 
     info?.let { (cfg, ci) ->
-        CalendarItemInfoDialog(vm, cfg, ci, onOpen = { onOpenService(cfg); info = null }, onDismiss = { info = null })
+        CalendarItemInfoDialog(
+            vm, cfg, ci,
+            onOpen = {
+                if (ci.itemId > 0) onOpenLink(cfg, org.phioster.sanctumd.ui.search.SearchDeepLink(arrDetailId = ci.itemId)) else onOpenService(cfg)
+                info = null
+            },
+            onDismiss = { info = null },
+        )
     }
 }
 

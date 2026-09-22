@@ -81,7 +81,10 @@ internal fun DashCardView(
     isFirst: Boolean,
     isLast: Boolean,
     onOpenService: () -> Unit,
+    /** Open this card's service at a specific item instead of at its front page. */
+    onOpenLink: (org.phioster.sanctumd.ui.search.SearchDeepLink) -> Unit = {},
     onOpenAny: (ServiceConfig) -> Unit = {},
+    onOpenAnyLink: (ServiceConfig, org.phioster.sanctumd.ui.search.SearchDeepLink) -> Unit = { cfg, _ -> onOpenAny(cfg) },
     onRemove: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
@@ -188,7 +191,7 @@ internal fun DashCardView(
         when (card.type) {
             CardType.SHORTCUTS -> ShortcutsCardBody(vm, config, accentColor, scope, ctx)
             CardType.QUICKBUTTONS -> QuickActionsCardBody(vm, config, allServices, accentColor, scope, ctx)
-            CardType.UNIFIED_CALENDAR -> UnifiedCalendarCard(vm, accent, onOpenAny)
+            CardType.UNIFIED_CALENDAR -> UnifiedCalendarCard(vm, accent, onOpenAny, onOpenAnyLink)
             else -> DashCardDataBody(
                 card = card,
                 config = config,
@@ -197,6 +200,9 @@ internal fun DashCardView(
                 accentColor = accentColor,
                 posterWidth = posterWidth,
                 onOpenService = onOpenService,
+                onOpenArrItem = { id ->
+                    if (id > 0) onOpenLink(org.phioster.sanctumd.ui.search.SearchDeepLink(arrDetailId = id)) else onOpenService()
+                },
                 onOpenItem = { m ->
                     if (config != null) {
                         scope.launch { detail = runCatching { vm.jellyfinMediaDetail(config, m.id).toMediaDetail() }.getOrNull() }
@@ -216,7 +222,7 @@ internal fun DashCardView(
     }
     }
 
-    detail?.let { d -> if (config != null) MediaDetailDialog(d, config) { detail = null } }
+    detail?.let { d -> if (config != null) MediaDetailDialog(d, config, onOpen = onOpenLink) { detail = null } }
 
     if (showConfig) {
         var cfgTitle by remember { mutableStateOf(card.title) }
