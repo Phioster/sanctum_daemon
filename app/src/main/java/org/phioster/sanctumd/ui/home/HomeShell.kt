@@ -732,7 +732,7 @@ internal fun WidgetTabContent(
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(AppIcons.Back, contentDescription = "move tab left", tint = MatrixGreen, modifier = Modifier.size(18.dp).clickable { onMoveTab(-1) }.padding(end = 12.dp))
+                        Icon(AppIcons.Back, contentDescription = "move tab left", tint = MatrixGreen, modifier = Modifier.clickable { onMoveTab(-1) }.padding(end = 12.dp).size(18.dp))
                         Icon(AppIcons.Forward, contentDescription = "move tab right", tint = MatrixGreen, modifier = Modifier.size(18.dp).clickable { onMoveTab(1) })
                     }
                     Text("+ new tab", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, modifier = Modifier.clickable { onAddTab() })

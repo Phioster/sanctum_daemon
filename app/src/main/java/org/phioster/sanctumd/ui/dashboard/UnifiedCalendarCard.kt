@@ -114,7 +114,7 @@ internal fun UnifiedCalendarCard(
 
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Icon(AppIcons.Back, contentDescription = "earlier month", tint = accent, modifier = Modifier.size(18.dp).clickable { month = month.minusMonths(1) }.padding(horizontal = 10.dp, vertical = 4.dp))
+            Icon(AppIcons.Back, contentDescription = "earlier month", tint = accent, modifier = Modifier.clickable { month = month.minusMonths(1) }.padding(horizontal = 10.dp, vertical = 4.dp).size(18.dp))
             Text(
                 month.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy")),
                 fontFamily = Mono, color = accent, fontSize = 14.sp, fontWeight = FontWeight.Bold,
@@ -128,7 +128,7 @@ internal fun UnifiedCalendarCard(
                         .padding(horizontal = 6.dp, vertical = 4.dp),
                 )
             }
-            Icon(AppIcons.Forward, contentDescription = "later month", tint = accent, modifier = Modifier.size(18.dp).clickable { month = month.plusMonths(1) }.padding(horizontal = 10.dp, vertical = 4.dp))
+            Icon(AppIcons.Forward, contentDescription = "later month", tint = accent, modifier = Modifier.clickable { month = month.plusMonths(1) }.padding(horizontal = 10.dp, vertical = 4.dp).size(18.dp))
         }
         Spacer(Modifier.height(4.dp))
         Row(Modifier.fillMaxWidth()) {
