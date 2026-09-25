@@ -3,6 +3,35 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Notifications that say when they are blocked, and a calendar that pages again (v2.1.5)
+2.1.4 was set in the build but never published, so its changes ship here as well.
+- **Notifications could stop without a trace.** Android can take the notification
+  permission away again, after a reinstall or a dialog dismissed once. The app only asked
+  for it at the moment a switch went from off to on, so with the switches already on it
+  never asked again: live push stayed connected, the system dropped every message, and
+  nothing on screen said so. Both notification screens now show a warning while Android is
+  blocking them. Tapping it opens the system settings, which still works after Android has
+  stopped offering the permission dialog at all.
+- **Webhook text arrived with HTML entities in it.** Jellyfin's webhook templates escape the
+  values they insert, so a title with a non-breaking space showed up as
+  `Lion Fist -&#160;Kampf der Champions`. Entities are now decoded before a notification is
+  shown. Anything not recognised stays exactly as it came in, so a bare `&` survives.
+- **The month arrows in the universal calendar were gone.** When they became icons, their
+  size was set before their padding, and the padding ate the whole width: zero pixels left
+  to draw in. The jump-to-today button only appears in another month, so it vanished with
+  them. The tab arrow in home edit mode had the same fault.
+- **Dashboard rows open the item, not just the service.** Queue, missing, calendar, history
+  and the universal calendar now jump to the film, series or artist a row is about, and the
+  media dialog links through to it. Seerr requests and the NZBGet history still open the
+  service: the first does not carry the id, the second has no item to open.
+- **Every install is its own device in Jellyfin.** All installs reported the same device id,
+  so phone and TV were one device to the server, and the version shown there was a stale
+  `0.3.0`. The id is now generated once per install and the version comes from the build.
+  After updating, the app appears in Jellyfin as a new device; the old `sanctumd` entry can
+  be deleted there.
+- **New theme preset: Solarpunk.** A sage accent on dark forest-floor surfaces, for
+  wallpapers that are green and muted rather than neon.
+
 ## Onboarding unblocked, and a dialog that stopped waiting (v2.1.3)
 - **The first screen after installing was half-hidden.** With three-button navigation the
   `next` button of the intro sat under the system bar: label cut off, a tap in the middle
