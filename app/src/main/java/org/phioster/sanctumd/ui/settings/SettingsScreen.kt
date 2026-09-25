@@ -45,6 +45,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.DisposableEffect
+import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -165,10 +170,64 @@ internal fun rememberNotifPermissionRequester(): () -> Unit {
     }
 }
 
+/**
+ * Warns when Android is dropping this app's notifications although they are switched on here.
+ *
+ * [rememberNotifPermissionRequester] only fires on a toggle's off -> on edge. A permission that
+ * goes away afterwards, on a reinstall or because the system dialog was dismissed once, is
+ * therefore never asked for again: the switches keep reading "on", the worker returns early at
+ * its `areNotificationsEnabled()` check, and nothing arrives with nothing to see. This row is
+ * that missing signal.
+ *
+ * It opens the system notification settings instead of re-launching the permission dialog,
+ * because Android stops showing that dialog after two refusals while the settings screen works
+ * in every state.
+ */
+@Composable
+private fun NotificationsBlockedWarning() {
+    val context = LocalContext.current
+    val owner = LocalLifecycleOwner.current
+    var blocked by remember {
+        mutableStateOf(!NotificationManagerCompat.from(context).areNotificationsEnabled())
+    }
+    // The fix happens in the system settings, outside our window, so re-check on the way back.
+    DisposableEffect(owner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                blocked = !NotificationManagerCompat.from(context).areNotificationsEnabled()
+            }
+        }
+        owner.lifecycle.addObserver(observer)
+        onDispose { owner.lifecycle.removeObserver(observer) }
+    }
+    if (!blocked) return
+    Row(
+        Modifier
+            .padding(bottom = 10.dp)
+            .clickable {
+                runCatching {
+                    context.startActivity(
+                        Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName),
+                    )
+                }
+            },
+    ) {
+        Icon(AppIcons.Failed, contentDescription = null, tint = WarnAmber, modifier = Modifier.size(12.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(
+            "Android is blocking notifications for sanctumd, so nothing switched on below can " +
+                "reach you. Tap to open the system settings and allow them.",
+            fontFamily = Mono, color = WarnAmber, fontSize = 10.sp,
+        )
+    }
+}
+
 @Composable
 internal fun NotifyPollingSection(vm: DashboardViewModel) {
     val s by vm.notifySettings.collectAsState()
     val requestPermIfNeeded = rememberNotifPermissionRequester()
+    NotificationsBlockedWarning()
     NotifyToggleRow("Enable notifications", "Background check every ${s.intervalMin} min", s.enabled) { on ->
         if (on) requestPermIfNeeded()
         vm.saveNotifySettings(s.copy(enabled = on))
@@ -204,6 +263,7 @@ internal fun NotifyPollingSection(vm: DashboardViewModel) {
 internal fun LivePushSection(vm: DashboardViewModel) {
     val s by vm.notifySettings.collectAsState()
     val requestPermIfNeeded = rememberNotifPermissionRequester()
+    NotificationsBlockedWarning()
     Text(
         "Instant, no 15-minute wait. Sanctumd subscribes directly to a topic on your ntfy server and shows every message posted to it (your existing service webhooks already do this). Keeps a small background connection open. Topics of configured ntfy services are subscribed too.",
         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.padding(top = 12.dp),
