@@ -70,4 +70,37 @@ class NtfyParseTest {
         val m = parseNtfyLine("""{"id":"t","time":5,"event":"message","topic":"homelab","message":"$long"}""")!!
         assertEquals(180, m.text.length)
     }
+
+    @Test
+    fun `HTML entities from a webhook template are decoded`() {
+        val m = parseNtfyLine(
+            """{"id":"e1","time":6,"event":"message","topic":"homelab","message":"{\"title\":\"Neu in der Mediathek\",\"message\":\"Lion Fist -&#160;Kampf der Champions (2026)\"}"}"""
+        )!!
+        assertEquals("Lion Fist - Kampf der Champions (2026)", m.text)
+    }
+
+    @Test
+    fun `named, decimal and hex entities all decode, in the title too`() {
+        val m = parseNtfyLine(
+            """{"id":"e2","time":7,"event":"message","topic":"homelab","title":"Ren&#xE9;e &amp; Co","message":"a &lt;b&gt; &quot;c&quot; &#39;d&#39;"}"""
+        )!!
+        assertEquals("Renée & Co", m.title)
+        assertEquals("a <b> \"c\" 'd'", m.text)
+    }
+
+    @Test
+    fun `a lone ampersand and an unknown entity are left alone`() {
+        val m = parseNtfyLine(
+            """{"id":"e3","time":8,"event":"message","topic":"homelab","message":"Tom & Jerry &nosuch; 100&"}"""
+        )!!
+        assertEquals("Tom & Jerry &nosuch; 100&", m.text)
+    }
+
+    @Test
+    fun `truncation counts decoded characters, not entity source`() {
+        val body = "&amp;".repeat(300)          // 1500 Zeichen Quelle, 300 danach
+        val m = parseNtfyLine("""{"id":"e4","time":9,"event":"message","topic":"homelab","message":"$body"}""")!!
+        assertEquals(180, m.text.length)
+        assertEquals("&".repeat(180), m.text)
+    }
 }
