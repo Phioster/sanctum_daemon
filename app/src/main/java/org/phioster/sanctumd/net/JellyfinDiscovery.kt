@@ -52,7 +52,39 @@ private fun broadcastTargets(): List<InetAddress> {
 }
 
 /**
- * Broadcasts a discovery request and collects answers for [timeoutMs].
+ * Every other host address in [address]'s subnet, for asking each one directly.
+ *
+ * A broadcast only helps if the server's network stack lets it in, and an Android phone running
+ * Jellyfin does not: with its screen off and no multicast lock held, the Wi-Fi firmware drops every
+ * broadcast frame to save power, while unicast still arrives. Asking each address on its own finds
+ * such a server anyway. Limited to /24 and narrower, 254 small packets at most; a wider subnet
+ * returns nothing rather than flooding it.
+ */
+internal fun subnetHosts(address: Inet4Address, prefixLength: Int): List<InetAddress> {
+    if (prefixLength !in 24..30) return emptyList()
+    val bytes = address.address
+    val ip = bytes.fold(0L) { acc, b -> (acc shl 8) or (b.toLong() and 0xFF) }
+    val mask = (0xFFFFFFFFL shl (32 - prefixLength)) and 0xFFFFFFFFL
+    val network = ip and mask
+    val broadcast = network or (mask.inv() and 0xFFFFFFFFL)
+    return ((network + 1) until broadcast)
+        .filter { it != ip }
+        .map { h -> InetAddress.getByAddress(ByteArray(4) { i -> (h shr (24 - 8 * i)).toByte() }) }
+}
+
+/** The unicast fallback for [broadcastTargets]: every neighbour on each IPv4 interface. */
+private fun unicastTargets(): List<InetAddress> = runCatching {
+    NetworkInterface.getNetworkInterfaces().toList()
+        .filter { it.isUp && !it.isLoopback }
+        .flatMap { it.interfaceAddresses }
+        .filter { it.address is Inet4Address }
+        .flatMap { subnetHosts(it.address as Inet4Address, it.networkPrefixLength.toInt()) }
+        .distinctBy { it.hostAddress }
+}.getOrDefault(emptyList())
+
+/**
+ * Broadcasts a discovery request, asks every neighbour directly as well (see [subnetHosts]), and
+ * collects answers for [timeoutMs].
  *
  * Deduplicated by server id (a server on several interfaces answers more than once). Never throws:
  * a network the broadcast can't leave simply yields an empty list, and the setup screen falls back
@@ -65,7 +97,7 @@ suspend fun jellyfinDiscoverServers(timeoutMs: Int = 2500): List<DiscoveredServe
             socket.broadcast = true
             socket.soTimeout = 400
             val payload = DISCOVERY_MESSAGE.toByteArray()
-            broadcastTargets().forEach { target ->
+            (broadcastTargets() + unicastTargets()).forEach { target ->
                 runCatching {
                     socket.send(DatagramPacket(payload, payload.size, InetSocketAddress(target, DISCOVERY_PORT)))
                 }
