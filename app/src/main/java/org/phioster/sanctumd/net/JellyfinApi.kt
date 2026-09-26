@@ -289,7 +289,9 @@ internal interface JellyfinApi {
     @GET("Library/VirtualFolders") suspend fun virtualFolders(): List<JfVirtualFolder>
     @GET("UserViews") suspend fun views(@Query("userId") uid: String): JfItemsResp
     @GET("Items/Latest") suspend fun latest(@Query("userId") uid: String, @Query("Limit") limit: Int = 20, @Query("ParentId") parentId: String? = null, @Query("Fields") fields: String = "OfficialRating"): List<JfItem>
-    @GET("UserItems/Resume") suspend fun resume(@Query("userId") uid: String, @Query("Limit") limit: Int = 20, @Query("Fields") fields: String = "OfficialRating"): JfItemsResp
+    // MediaTypes=Video, as Jellyfin's own web client asks: without it the server also returns the
+    // season and the series of a half-watched episode, each as its own "continue watching" tile.
+    @GET("UserItems/Resume") suspend fun resume(@Query("userId") uid: String, @Query("Limit") limit: Int = 20, @Query("Fields") fields: String = "OfficialRating", @Query("MediaTypes") mediaTypes: String = "Video"): JfItemsResp
     /** What to watch next in a series, the TV home row. Still a Shows endpoint in 10.11. */
     @GET("Shows/NextUp") suspend fun nextUp(
         @Query("userId") uid: String,

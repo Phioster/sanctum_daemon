@@ -13,9 +13,9 @@ import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
 
 /**
- * Pins the two request details that a Jellyfin server accepts silently but answers uselessly.
+ * Pins request details that a Jellyfin server accepts silently but answers uselessly.
  *
- * Both were live defects: a comma list of segment types matches no enum value, so every segment
+ * All were live defects: a comma list of segment types matches no enum value, so every segment
  * query came back empty and the skip-intro button never appeared; and X-Emby-Token is a legacy
  * auth method that server 12 disables by default.
  */
@@ -60,5 +60,16 @@ class JellyfinRequestShapeTest {
         val auth = req.getHeader("Authorization")
         assertTrue("got $auth", auth != null && auth.startsWith("MediaBrowser ") && auth.contains("Token=\"tk\""))
         assertEquals(null, req.getHeader("X-Emby-Token"))
+    }
+
+    @Test
+    fun `continue watching asks for videos only`() = runBlocking {
+        // Without the filter the server lists the season and the series of a half-watched episode
+        // as resumable too, and each showed up as its own tile beside the episode.
+        server.enqueue(MockResponse().setBody("""{"Items":[]}""").setHeader("Content-Type", "application/json"))
+        jellyfinResume(config().copy(userId = "u1"))
+        val path = server.takeRequest().path!!
+        assertTrue("got $path", path.startsWith("/UserItems/Resume"))
+        assertTrue("got $path", path.contains("MediaTypes=Video"))
     }
 }
