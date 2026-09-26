@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -52,6 +54,7 @@ internal val FOLDER_KINDS = setOf("Series", "Season")
  * "Play" is the first focused control on purpose. The overwhelmingly common intent is to press OK
  * once more and have the film start.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun TvDetailScreen(
     config: ServiceConfig,
@@ -148,7 +151,13 @@ internal fun TvDetailScreen(
                     }
 
                     val isFolder = d.kind in FOLDER_KINDS
-                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    // Wraps instead of squeezing: a series carries four buttons, and on a 1080p TV a
+                    // single row ran out of width, crushing the third button to a sliver whose label
+                    // broke one letter per line into a tall empty bar and pushing the fourth off screen.
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
                         if (isFolder) {
                             // The point of this button: start watching without first drilling through
                             // seasons and episodes to find where you left off.
