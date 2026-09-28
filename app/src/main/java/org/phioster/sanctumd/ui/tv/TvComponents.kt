@@ -134,6 +134,8 @@ internal fun TvButton(
                 fontFamily = Mono,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
