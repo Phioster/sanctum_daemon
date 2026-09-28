@@ -3,6 +3,19 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## A TV that finds its server, and a cleaner Continue Watching (v2.1.6)
+- **Server search found nothing when the server was a phone with its screen off.** A
+  Jellyfin server running on an Android phone drops broadcasts while the screen is off: the
+  Wi-Fi chip discards them unless an app holds a multicast lock. Direct messages still get
+  through, so the search now also asks every address in the local /24 network directly.
+- **Continue Watching showed a season and a series next to the episode.** Without asking for
+  videos only, Jellyfin also reports the season and the series of a half-watched episode as
+  resumable, each as its own tile. The query now asks for videos only, as Jellyfin's own web
+  client does. This applies to the app, the TV client and the widget alike.
+- **The TV detail buttons no longer get squashed.** A series shows four buttons in one row.
+  On the TV the width ran out: the third shrank to a sliver with its label wrapping letter by
+  letter, and the fourth disappeared. The row now wraps, and button labels stay on one line.
+
 ## Notifications that say when they are blocked, and a calendar that pages again (v2.1.5)
 2.1.4 was set in the build but never published, so its changes ship here as well.
 - **Notifications could stop without a trace.** Android can take the notification
