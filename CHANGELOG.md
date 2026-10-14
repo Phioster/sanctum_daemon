@@ -3,6 +3,11 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Seasons in reading order (v2.1.8)
+- **Season 1 now comes first.** A Sonarr series listed its seasons newest first, with the
+  specials somewhere in the middle of the scroll. They now read top to bottom from season 1,
+  and the specials stay at the very end.
+
 ## Seasons you can monitor and fold away (v2.1.7)
 - **A Sonarr season can be monitored on its own.** Until now a series had a monitor switch
   for the whole series and one per episode, but nothing in between, so following a single

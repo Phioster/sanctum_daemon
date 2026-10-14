@@ -227,7 +227,7 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                 when {
                     eps == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
                     eps.isEmpty() -> item { Text("no episodes", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
-                    else -> eps.groupBy { it.seasonNumber }.forEach { (season, seasonEps) ->
+                    else -> seasonsInOrder(eps).forEach { (season, seasonEps) ->
                         val open = season in st.openSeasons.orEmpty()
                         // Fall back to the episodes when the series didn't list the season.
                         val seasonMonitored = st.detail?.seasonMonitored?.get(season) ?: seasonEps.any { it.monitored }
