@@ -82,6 +82,8 @@ data class ArrDetail(
     val posterUrl: String,
     val tmdbId: Int,
     val genres: String,
+    /** Sonarr only: each season's own monitored flag, by season number. */
+    val seasonMonitored: Map<Int, Boolean> = emptyMap(),
 )
 
 /** A cast member (resolved via a Seerr/Overseerr TMDB proxy). */

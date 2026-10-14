@@ -964,6 +964,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrDetailOf(config: ServiceConfig, id: Int): ArrDetail = arrDetail(config, id)
     suspend fun arrSetLibraryMonitored(config: ServiceConfig, id: Int, monitored: Boolean): String =
         org.phioster.sanctumd.net.arrSetLibraryMonitored(config, id, monitored)
+    suspend fun arrSetSeasonMonitored(config: ServiceConfig, seriesId: Int, season: Int, monitored: Boolean, episodeIds: List<Int>): String =
+        org.phioster.sanctumd.net.arrSetSeasonMonitored(config, seriesId, season, monitored, episodeIds)
     suspend fun arrEpisodesOf(config: ServiceConfig, seriesId: Int): List<ArrEpisode> = arrEpisodes(config, seriesId)
     suspend fun arrSetEpisodeMonitored(config: ServiceConfig, episodeId: Int, monitored: Boolean): String =
         org.phioster.sanctumd.net.arrSetEpisodeMonitored(config, episodeId, monitored)

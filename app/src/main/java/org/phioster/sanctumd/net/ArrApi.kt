@@ -886,6 +886,10 @@ suspend fun arrDetail(config: ServiceConfig, id: Int): ArrDetail = withContext(D
         posterUrl = poster,
         tmdbId = jsInt(o, "tmdbId") ?: 0,
         genres = genres,
+        seasonMonitored = (o["seasons"] as? JsonArray).orEmpty().mapNotNull { el ->
+            val season = el as? JsonObject ?: return@mapNotNull null
+            jsInt(season, "seasonNumber")?.let { it to (jsBool(season, "monitored") ?: false) }
+        }.toMap(),
     )
 }
 
@@ -908,6 +912,45 @@ suspend fun arrSetEpisodeMonitored(config: ServiceConfig, episodeId: Int, monito
         okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).putUrl("$base/episode/monitor", body), if (monitored) "monitoring" else "unmonitored")
     } catch (t: Throwable) {
         "error: ${t.message ?: t.javaClass.simpleName}"
+    }
+}
+
+/**
+ * Sonarr: monitor or unmonitor one season, the way Sonarr's own season toggle does: flip
+ * `seasons[n].monitored` on the series and PUT it back. The episodes are then set to match
+ * explicitly, so the result doesn't depend on whether this Sonarr version cascades it itself.
+ */
+suspend fun arrSetSeasonMonitored(
+    config: ServiceConfig,
+    seriesId: Int,
+    seasonNumber: Int,
+    monitored: Boolean,
+    episodeIds: List<Int>,
+): String = destructive("set Sonarr series $seriesId season $seasonNumber monitored=$monitored") {
+    withContext(Dispatchers.IO) {
+        try {
+            val base = arrBase(config.type)
+            val api = apiFor<ArrApi>(config, apiKeyHeader(config))
+            val raw = api.itemDetail("$base/series/$seriesId")
+            val seasons = (raw["seasons"] as? JsonArray).orEmpty().map { el ->
+                val season = el as? JsonObject
+                if (season != null && jsInt(season, "seasonNumber") == seasonNumber) {
+                    JsonObject(season.toMutableMap().apply { put("monitored", JsonPrimitive(monitored)) })
+                } else el
+            }
+            val body = JsonObject(raw.toMutableMap().apply { put("seasons", JsonArray(seasons)) })
+            var res = api.putUrl("$base/series/$seriesId", body)
+            if (res.isSuccessful && episodeIds.isNotEmpty()) {
+                val epBody = buildJsonObject {
+                    putJsonArray("episodeIds") { episodeIds.forEach { add(it) } }
+                    put("monitored", monitored)
+                }
+                res = api.putUrl("$base/episode/monitor", epBody)
+            }
+            okOr(res, if (monitored) "monitoring" else "unmonitored")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 

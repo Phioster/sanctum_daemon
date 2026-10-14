@@ -3,6 +3,15 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Seasons you can monitor and fold away (v2.1.7)
+- **A Sonarr season can be monitored on its own.** Until now a series had a monitor switch
+  for the whole series and one per episode, but nothing in between, so following a single
+  season meant tapping every episode. Each season header now has its own switch. It sets the
+  season the way Sonarr's own page does, and then sets that season's episodes to match.
+- **Seasons fold open and closed.** A long series used to be one endless list of episodes.
+  As on Sonarr's website, only the newest season starts open; tapping a season header opens
+  or closes it.
+
 ## A TV that finds its server, and a cleaner Continue Watching (v2.1.6)
 - **Server search found nothing when the server was a phone with its screen off.** A
   Jellyfin server running on an Android phone drops broadcasts while the screen is off: the
