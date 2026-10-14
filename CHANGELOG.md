@@ -3,6 +3,21 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Four Jellyfin server tools (v2.1.9)
+- **Approve a Quick Connect code from the phone.** The TV client shows a code while it signs
+  in, and until now it had to be approved in Jellyfin's web interface. The Jellyfin dashboard
+  now has a button for it: type the code and the other device is signed in as your user.
+- **Refresh metadata the way Jellyfin's own dialog does.** The detail menu of any title has
+  "Refresh metadata…": scan for new files, search for missing metadata, or replace all of
+  it, optionally replacing the images too, the usual fix for a wrong poster. The quick scan
+  buttons also send the modes explicitly now; without them the server falls back to `None`.
+- **Disk space at a glance.** A new Storage tile lists every library folder and the server's
+  own folders with free and used space, the bar turning amber above 90 %. It needs Jellyfin
+  10.11 or newer and says so on older servers.
+- **Remove a device.** Each device in the list can be removed, which signs it out. The device
+  this app is signed in as is marked and cannot be removed from here.
+- Four empty lists read "no st.devices" and the like, a leftover of an old rename. Fixed.
+
 ## Seasons in reading order (v2.1.8)
 - **Season 1 now comes first.** A Sonarr series listed its seasons newest first, with the
   specials somewhere in the middle of the scroll. They now read top to bottom from season 1,

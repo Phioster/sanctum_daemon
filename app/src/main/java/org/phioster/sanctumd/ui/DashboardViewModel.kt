@@ -568,6 +568,14 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun jellyfinRestartServer(config: ServiceConfig): String = jellyfinRestart(config)
     suspend fun jellyfinDeviceList(config: ServiceConfig): List<org.phioster.sanctumd.model.JellyDevice> =
         jellyfinDevices(config)
+    suspend fun jellyfinRemoveDevice(config: ServiceConfig, deviceId: String): String =
+        org.phioster.sanctumd.net.jellyfinDeleteDevice(config, deviceId)
+    suspend fun jellyfinStorageList(config: ServiceConfig): List<org.phioster.sanctumd.model.JellyStorageFolder> =
+        org.phioster.sanctumd.net.jellyfinStorage(config)
+    suspend fun jellyfinApproveCode(config: ServiceConfig, code: String): String =
+        org.phioster.sanctumd.net.jellyfinApproveQuickConnect(config, code)
+    suspend fun jellyfinRefresh(config: ServiceConfig, itemId: String, mode: org.phioster.sanctumd.model.JellyRefreshMode, replaceImages: Boolean): String =
+        org.phioster.sanctumd.net.jellyfinRefreshItem(config, itemId, mode, replaceImages)
     suspend fun jellyfinLibraryList(config: ServiceConfig): List<org.phioster.sanctumd.model.JellyLibrary> =
         jellyfinLibraries(config)
     suspend fun jellyfinAddUser(config: ServiceConfig, name: String, password: String): String =

@@ -213,6 +213,17 @@ internal fun JellyfinScreen(
         }
     }
 
+    ds.refresh?.let { target ->
+        JellyfinRefreshDialog(
+            title = target.name,
+            accent = accent,
+            onDismiss = { ds.refresh = null },
+        ) { mode, replaceImages ->
+            ds.refresh = null
+            scope.launch { actionMsg = vm.jellyfinRefresh(config, target.id, mode, replaceImages) }
+        }
+    }
+
     ds.delete?.let { target ->
         JellyfinDeleteDialog(
             vm, config, target, accent,

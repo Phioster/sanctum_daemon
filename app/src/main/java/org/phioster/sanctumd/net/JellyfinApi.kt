@@ -167,12 +167,28 @@ internal data class JfCounts(
 @Serializable internal data class JfActivityPage(val Items: List<JfActivityEntry> = emptyList())
 
 @Serializable internal data class JfDevice(
+    val Id: String = "",
     val Name: String = "",
+    val CustomName: String? = null,
     val AppName: String = "",
     val LastUserName: String? = null,
     val DateLastActivity: String? = null,
 )
 @Serializable internal data class JfDevicePage(val Items: List<JfDevice> = emptyList())
+
+@Serializable internal data class JfFolderStorage(
+    val Path: String = "",
+    val FreeSpace: Long = 0,
+    val UsedSpace: Long = 0,
+)
+@Serializable internal data class JfLibraryStorage(val Name: String = "", val Folders: List<JfFolderStorage> = emptyList())
+@Serializable internal data class JfSystemStorage(
+    val ProgramDataFolder: JfFolderStorage? = null,
+    val CacheFolder: JfFolderStorage? = null,
+    val TranscodingTempFolder: JfFolderStorage? = null,
+    val InternalMetadataFolder: JfFolderStorage? = null,
+    val Libraries: List<JfLibraryStorage> = emptyList(),
+)
 
 @Serializable internal data class JfUserData(
     val PlayedPercentage: Double? = null,
@@ -342,7 +358,13 @@ internal interface JellyfinApi {
         @Query("Limit") limit: Int = 12,
         @Query("Fields") fields: String = "OfficialRating",
     ): JfItemsResp
-    @POST("Items/{id}/Refresh") suspend fun refreshItem(@Path("id") id: String): Response<ResponseBody>
+    @POST("Items/{id}/Refresh") suspend fun refreshItem(
+        @Path("id") id: String,
+        @Query("metadataRefreshMode") metadataRefreshMode: String,
+        @Query("imageRefreshMode") imageRefreshMode: String,
+        @Query("replaceAllMetadata") replaceAllMetadata: Boolean,
+        @Query("replaceAllImages") replaceAllImages: Boolean,
+    ): Response<ResponseBody>
     @DELETE("Items/{id}") suspend fun deleteItem(@Path("id") id: String): Response<ResponseBody>
     @GET("Items/{id}/RemoteSearch/Subtitles/{lang}") suspend fun subtitleSearch(
         @Path("id") id: String,
@@ -366,6 +388,12 @@ internal interface JellyfinApi {
     @POST("ScheduledTasks/Running/{id}") suspend fun runTask(@Path("id") id: String): Response<ResponseBody>
     @GET("System/ActivityLog/Entries") suspend fun activityLog(@Query("limit") limit: Int = 30): JfActivityPage
     @GET("Devices") suspend fun devices(): JfDevicePage
+    @DELETE("Devices") suspend fun deleteDevice(@Query("id") id: String): Response<ResponseBody>
+    @GET("System/Info/Storage") suspend fun systemStorage(): JfSystemStorage
+    @POST("QuickConnect/Authorize") suspend fun quickConnectAuthorize(
+        @Query("code") code: String,
+        @Query("userId") userId: String?,
+    ): Response<ResponseBody>
     @POST("System/Restart") suspend fun restartServer(): Response<ResponseBody>
     @POST("System/Shutdown") suspend fun shutdownServer(): Response<ResponseBody>
     @GET("System/Logs") suspend fun logFiles(): List<JfLogFile>

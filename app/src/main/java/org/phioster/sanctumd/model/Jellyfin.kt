@@ -122,7 +122,25 @@ data class JellyDevice(
     val app: String,
     val user: String,
     val lastActivity: String,
+    val id: String = "",
+    /** The device this app is signed in as; removing it would log the app itself out. */
+    val own: Boolean = false,
 )
+
+/** One folder on the server, with the free/used space of the disk it lives on. */
+data class JellyStorageFolder(
+    val label: String,
+    val path: String,
+    val freeBytes: Long,
+    val usedBytes: Long,
+)
+
+/** The modes of Jellyfin's own "Refresh metadata" dialog. */
+enum class JellyRefreshMode(val label: String) {
+    SCAN("scan for new and updated files"),
+    MISSING("search for missing metadata"),
+    REPLACE("replace all metadata"),
+}
 
 /**
  * What actually got watched, from the Playback Reporting plugin's own database.
