@@ -28,6 +28,9 @@ internal object ClientIdentity {
     @Volatile
     private var deviceId: String = ""
 
+    /** This install's id, as the server lists it under Devices. */
+    val ownDeviceId: String get() = deviceId
+
     fun init(context: Context) {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         deviceId = prefs.getString(KEY_DEVICE_ID, null) ?: UUID.randomUUID().toString()

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -54,12 +55,15 @@ import org.phioster.sanctumd.model.JellyLibrary
 import org.phioster.sanctumd.model.JellyLogFile
 import org.phioster.sanctumd.model.JellyPackage
 import org.phioster.sanctumd.model.JellyPlugin
+import org.phioster.sanctumd.model.JellyStorageFolder
 import org.phioster.sanctumd.model.JellySystemInfo
 import org.phioster.sanctumd.model.JellyTask
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.ui.DashboardViewModel
 import org.phioster.sanctumd.ui.common.DashCat
 import org.phioster.sanctumd.ui.common.DashTile
+import org.phioster.sanctumd.ui.common.SecondaryButton
+import org.phioster.sanctumd.ui.theme.AppIcons
 import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
@@ -80,6 +84,11 @@ internal class JellyfinAdminState {
     var libraries by mutableStateOf<List<JellyLibrary>?>(null)
     var plugins by mutableStateOf<List<JellyPlugin>?>(null)
     var logFiles by mutableStateOf<List<JellyLogFile>?>(null)
+    var storage by mutableStateOf<List<JellyStorageFolder>?>(null)
+    /** Why [storage] is empty, e.g. a server older than 10.11. */
+    var storageError by mutableStateOf<String?>(null)
+    var showQuickConnect by mutableStateOf(false)
+    var removeDevice by mutableStateOf<JellyDevice?>(null)
 
     /** The category opened from a tile; null shows the tile overview. */
     var section by mutableStateOf<String?>(null)
@@ -105,6 +114,12 @@ internal class JellyfinAdminState {
         libraries = runCatching { vm.jellyfinLibraryList(config) }.getOrDefault(emptyList())
         plugins = runCatching { vm.jellyfinPluginList(config) }.getOrDefault(emptyList())
         logFiles = runCatching { vm.jellyfinLogList(config) }.getOrDefault(emptyList())
+        runCatching { vm.jellyfinStorageList(config) }
+            .onSuccess { storage = it; storageError = null }
+            .onFailure {
+                storage = emptyList()
+                storageError = if ((it as? retrofit2.HttpException)?.code() == 404) "needs Jellyfin 10.11 or newer" else it.message ?: "failed"
+            }
         null
     } catch (c: kotlinx.coroutines.CancellationException) {
         throw c
@@ -151,6 +166,8 @@ internal fun LazyListScope.jellyfinDashboardTab(
                     Text("v${si?.version ?: "…"}${if (!si?.os.isNullOrBlank()) " · ${si!!.os}" else ""}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
                 }
             }
+            Spacer(Modifier.height(10.dp))
+            SecondaryButton("approve a Quick Connect code", Modifier.fillMaxWidth(), icon = AppIcons.Locked) { st.showQuickConnect = true }
             Spacer(Modifier.height(12.dp))
             val cats = listOf(
                 DashCat("tasks", "Tasks", st.tasks?.size, Icons.Filled.Schedule),
@@ -159,6 +176,7 @@ internal fun LazyListScope.jellyfinDashboardTab(
                 DashCat("plugins", "Plugins", st.plugins?.size, Icons.Filled.Extension),
                 DashCat("logs", "Logs", st.logFiles?.size, Icons.Filled.Description),
                 DashCat("devices", "Devices", st.devices?.size, Icons.Filled.Devices),
+                DashCat("storage", "Storage", st.storage?.size, Icons.Filled.Storage),
             )
             cats.chunked(2).forEach { rowCats ->
                 Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -195,7 +213,7 @@ internal fun LazyListScope.jellyfinDashboardTab(
                 val ac = st.activity
                 when {
                     ac == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                    ac.isEmpty() -> item { Text("no st.activity", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                    ac.isEmpty() -> item { Text("no activity", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
                     else -> items(ac) { e -> JellyActivityRow(e, accent) }
                 }
             }
@@ -211,7 +229,7 @@ internal fun LazyListScope.jellyfinDashboardTab(
                 val lb = st.libraries
                 when {
                     lb == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                    lb.isEmpty() -> item { Text("no st.libraries", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                    lb.isEmpty() -> item { Text("no libraries", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
                     else -> items(lb) { l -> JellyLibraryRow(l, accent) { st.editLibrary = l } }
                 }
             }
@@ -230,7 +248,7 @@ internal fun LazyListScope.jellyfinDashboardTab(
                 val pl = st.plugins
                 when {
                     pl == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                    pl.isEmpty() -> item { Text("no st.plugins", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                    pl.isEmpty() -> item { Text("no plugins", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
                     else -> items(pl) { p -> JellyPluginRow(p, accent) { st.pluginDetail = p } }
                 }
             }
@@ -251,8 +269,16 @@ internal fun LazyListScope.jellyfinDashboardTab(
                 val dv = st.devices
                 when {
                     dv == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                    dv.isEmpty() -> item { Text("no st.devices", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                    else -> items(dv) { d -> JellyDeviceRow(d, accent) }
+                    dv.isEmpty() -> item { Text("no devices", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                    else -> items(dv) { d -> JellyDeviceRow(d, accent, onRemove = if (d.own || d.id.isBlank()) null else { { st.removeDevice = d } }) }
+                }
+            }
+            "storage" -> {
+                val sg = st.storage
+                when {
+                    sg == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                    sg.isEmpty() -> item { Text(st.storageError ?: "no storage info", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                    else -> items(sg) { f -> JellyStorageRow(f, accent) }
                 }
             }
         }
@@ -373,6 +399,34 @@ internal fun JellyfinAdminDialogs(
                 st.showCatalog = false
                 scope.launch { onMessage(vm.jellyfinCatalogInstall(config, pkg.name, pkg.guid)); onReload() }
             },
+        )
+    }
+
+    if (st.showQuickConnect) {
+        JellyQuickConnectDialog(onDismiss = { st.showQuickConnect = false }) { code ->
+            st.showQuickConnect = false
+            scope.launch { onMessage(vm.jellyfinApproveCode(config, code)) }
+        }
+    }
+
+    st.removeDevice?.let { d ->
+        AlertDialog(
+            onDismissRequest = { st.removeDevice = null },
+            containerColor = Surface,
+            title = { Text("Remove ${d.name}?", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Text(
+                    "It is signed out and has to log in again to use Jellyfin.",
+                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 13.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    st.removeDevice = null
+                    scope.launch { onMessage(vm.jellyfinRemoveDevice(config, d.id)); onReload() }
+                }) { Text("Remove", fontFamily = Mono, color = ErrRed) }
+            },
+            dismissButton = { TextButton(onClick = { st.removeDevice = null }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
 

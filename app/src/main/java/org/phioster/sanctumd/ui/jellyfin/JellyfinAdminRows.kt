@@ -253,23 +253,87 @@ internal fun JellyActivityRow(item: org.phioster.sanctumd.model.JellyActivity, a
 }
 
 @Composable
-internal fun JellyDeviceRow(item: org.phioster.sanctumd.model.JellyDevice, accent: Color) {
+internal fun JellyDeviceRow(item: org.phioster.sanctumd.model.JellyDevice, accent: Color, onRemove: (() -> Unit)?) {
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            if (item.app.isNotBlank()) Text(item.app, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(
+                        if (item.own) "${item.name} (this app)" else item.name,
+                        fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                    )
+                    if (item.app.isNotBlank()) Text(item.app, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp)
+                }
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    buildString {
+                        if (item.user.isNotBlank()) append(item.user)
+                        if (item.lastActivity.isNotBlank()) { if (isNotEmpty()) append(" · "); append(item.lastActivity) }
+                    },
+                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (onRemove != null) {
+                androidx.compose.material3.IconButton(onClick = onRemove) {
+                    Icon(org.phioster.sanctumd.ui.theme.AppIcons.Cancel, contentDescription = "Remove device", tint = ErrRed.copy(alpha = 0.8f))
+                }
+            }
         }
-        Spacer(Modifier.height(2.dp))
-        Text(
-            buildString {
-                if (item.user.isNotBlank()) append(item.user)
-                if (item.lastActivity.isNotBlank()) { if (isNotEmpty()) append(" · "); append(item.lastActivity) }
-            },
-            fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-        )
         Spacer(Modifier.height(6.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
     }
+}
+
+@Composable
+internal fun JellyStorageRow(item: org.phioster.sanctumd.model.JellyStorageFolder, accent: Color) {
+    val total = item.freeBytes + item.usedBytes
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(item.label, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            if (total > 0) {
+                Text("${formatFileSize(item.freeBytes)} free of ${formatFileSize(total)}", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp)
+            }
+        }
+        Text(item.path, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (total > 0) {
+            Spacer(Modifier.height(4.dp))
+            val used = item.usedBytes.toFloat() / total
+            // Amber once a disk is nearly full, the point of looking here at all.
+            LinearProgressIndicator(
+                progress = { used },
+                modifier = Modifier.fillMaxWidth(),
+                color = if (used > 0.9f) org.phioster.sanctumd.ui.theme.WarnAmber else MatrixGreen,
+                trackColor = Surface,
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
+    }
+}
+
+/** Approve the code another client shows, e.g. the TV during its sign-in. */
+@Composable
+internal fun JellyQuickConnectDialog(onDismiss: () -> Unit, onApprove: (String) -> Unit) {
+    var code by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surface,
+        title = { Text("Quick Connect", fontFamily = Mono, color = MatrixGreen) },
+        text = {
+            Column {
+                Text(
+                    "Enter the code the other device shows. It signs in as your Jellyfin user.",
+                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp,
+                )
+                Spacer(Modifier.height(8.dp))
+                Field("Code", code) { code = it.trim() }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = code.isNotBlank(), onClick = { onApprove(code) }) { Text("Approve", fontFamily = Mono, color = MatrixGreen) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+    )
 }
 
 @Composable

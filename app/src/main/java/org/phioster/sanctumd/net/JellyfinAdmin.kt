@@ -303,12 +303,67 @@ suspend fun jellyfinDevices(config: ServiceConfig): List<JellyDevice> = withCont
     val token = jellyfinAccessToken(config)
     jfApi(config, token).devices().Items.map { d ->
         JellyDevice(
-            name = d.Name.ifBlank { "?" },
+            name = d.CustomName?.takeIf { it.isNotBlank() } ?: d.Name.ifBlank { "?" },
             app = d.AppName,
             user = d.LastUserName ?: "",
             lastActivity = (d.DateLastActivity ?: "").take(16).replace('T', ' '),
+            id = d.Id,
+            own = d.Id.isNotBlank() && d.Id == ClientIdentity.ownDeviceId,
         )
     }.sortedByDescending { it.lastActivity }
+}
+
+/** Removes a device from the server, which also revokes its login. */
+suspend fun jellyfinDeleteDevice(config: ServiceConfig, deviceId: String): String = destructive("remove Jellyfin device $deviceId") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            okOr(jfApi(config, token).deleteDevice(deviceId), "device removed")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
+}
+
+/** Free and used space per library folder, then the server's own folders. Needs Jellyfin 10.11+. */
+suspend fun jellyfinStorage(config: ServiceConfig): List<org.phioster.sanctumd.model.JellyStorageFolder> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    storageFolders(jfApi(config, token).systemStorage())
+}
+
+/** Server folders often share one disk; each path is listed once, libraries first. */
+internal fun storageFolders(s: JfSystemStorage): List<org.phioster.sanctumd.model.JellyStorageFolder> {
+    val libraries = s.Libraries.flatMap { lib ->
+        lib.Folders.map { org.phioster.sanctumd.model.JellyStorageFolder(lib.Name, it.Path, it.FreeSpace, it.UsedSpace) }
+    }
+    val server = listOf(
+        "data" to s.ProgramDataFolder,
+        "metadata" to s.InternalMetadataFolder,
+        "cache" to s.CacheFolder,
+        "transcodes" to s.TranscodingTempFolder,
+    ).mapNotNull { (label, f) ->
+        f?.takeIf { it.Path.isNotBlank() }?.let { org.phioster.sanctumd.model.JellyStorageFolder(label, it.Path, it.FreeSpace, it.UsedSpace) }
+    }
+    return (libraries + server).distinctBy { it.path }
+}
+
+/** Approves the Quick Connect code another client (e.g. the TV) is showing. */
+suspend fun jellyfinApproveQuickConnect(config: ServiceConfig, code: String): String = destructive("approve Jellyfin Quick Connect code") {
+    withContext(Dispatchers.IO) {
+        try {
+            val token = jellyfinAccessToken(config)
+            val api = jfApi(config, token)
+            // With an API key there is no user behind the token, so name the one to sign in as.
+            val userId = jellyfinResolveUserId(config, api).ifBlank { null }
+            val resp = api.quickConnectAuthorize(code.trim(), userId)
+            when (resp.code()) {
+                404 -> "error: no pending request with that code (expired?)"
+                else -> okOr(resp, "approved")
+            }
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
 }
 
 suspend fun jellyfinRestart(config: ServiceConfig): String = destructive("restart the Jellyfin server") {

@@ -273,17 +273,38 @@ suspend fun jellyfinSetPlayed(config: ServiceConfig, itemId: String, played: Boo
     if (!resp.isSuccessful) error("HTTP ${resp.code()}")
 }
 
-/** Trigger a metadata/library refresh for a single library or item. */
-suspend fun jellyfinScanItem(config: ServiceConfig, itemId: String): String = destructive("rescan Jellyfin item $itemId") {
+/** The query a refresh mode sends, mirroring Jellyfin web's refresh dialog. */
+internal data class JfRefreshQuery(val metadataMode: String, val imageMode: String, val replaceMetadata: Boolean, val replaceImages: Boolean)
+
+/** Without explicit modes the server defaults to `None`, which skips the metadata providers. */
+internal fun refreshQuery(mode: org.phioster.sanctumd.model.JellyRefreshMode, replaceImages: Boolean): JfRefreshQuery = when (mode) {
+    org.phioster.sanctumd.model.JellyRefreshMode.SCAN -> JfRefreshQuery("Default", "Default", replaceMetadata = false, replaceImages = false)
+    org.phioster.sanctumd.model.JellyRefreshMode.MISSING -> JfRefreshQuery("FullRefresh", "FullRefresh", replaceMetadata = false, replaceImages = replaceImages)
+    org.phioster.sanctumd.model.JellyRefreshMode.REPLACE -> JfRefreshQuery("FullRefresh", "FullRefresh", replaceMetadata = true, replaceImages = replaceImages)
+}
+
+/** Refresh a single library or item in one of the modes of Jellyfin's refresh dialog. */
+suspend fun jellyfinRefreshItem(
+    config: ServiceConfig,
+    itemId: String,
+    mode: org.phioster.sanctumd.model.JellyRefreshMode,
+    replaceImages: Boolean = false,
+): String = destructive("refresh Jellyfin item $itemId ($mode, replaceImages=$replaceImages)") {
     withContext(Dispatchers.IO) {
         try {
             val token = jellyfinAccessToken(config)
-            okOr(jfApi(config, token).refreshItem(itemId), "scan started")
+            val q = refreshQuery(mode, replaceImages)
+            val resp = jfApi(config, token).refreshItem(itemId, q.metadataMode, q.imageMode, q.replaceMetadata, q.replaceImages)
+            okOr(resp, if (mode == org.phioster.sanctumd.model.JellyRefreshMode.SCAN) "scan started" else "refresh started")
         } catch (t: Throwable) {
             "error: ${t.message ?: t.javaClass.simpleName}"
         }
     }
 }
+
+/** Quick scan for new and updated files, the "scan" chips. */
+suspend fun jellyfinScanItem(config: ServiceConfig, itemId: String): String =
+    jellyfinRefreshItem(config, itemId, org.phioster.sanctumd.model.JellyRefreshMode.SCAN)
 
 /** Playback control: cmd = "Pause" | "Unpause" | "Stop" | "PlayPause". */
 suspend fun jellyfinPlayCommand(config: ServiceConfig, sessionId: String, cmd: String): String = destructive("send playback command $cmd to session $sessionId") {
