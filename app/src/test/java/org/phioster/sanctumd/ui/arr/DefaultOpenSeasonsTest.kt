@@ -2,6 +2,7 @@ package org.phioster.sanctumd.ui.arr
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.phioster.sanctumd.model.ArrEpisode
 
 /** Which Sonarr season starts open, as on Sonarr's own series page. */
 class DefaultOpenSeasonsTest {
@@ -20,5 +21,17 @@ class DefaultOpenSeasonsTest {
 
     @Test fun `no episodes, nothing open`() {
         assertEquals(emptySet<Int>(), defaultOpenSeasons(emptyList()))
+    }
+
+    private fun ep(season: Int, number: Int) = ArrEpisode(season * 100 + number, season, number, "", false, false, "")
+
+    @Test fun `season 1 on top, specials at the bottom`() {
+        val eps = listOf(ep(2, 1), ep(1, 2), ep(0, 1), ep(1, 1), ep(10, 1))
+        assertEquals(listOf(1, 2, 10, 0), seasonsInOrder(eps).map { it.first })
+    }
+
+    @Test fun `episodes keep their order inside a season`() {
+        val eps = listOf(ep(1, 2), ep(1, 1))
+        assertEquals(listOf(2, 1), seasonsInOrder(eps).single().second.map { it.episodeNumber })
     }
 }
