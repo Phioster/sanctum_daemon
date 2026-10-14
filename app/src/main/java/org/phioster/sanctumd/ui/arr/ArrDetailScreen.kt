@@ -228,12 +228,28 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                     eps == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
                     eps.isEmpty() -> item { Text("no episodes", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
                     else -> eps.groupBy { it.seasonNumber }.forEach { (season, seasonEps) ->
+                        val open = season in st.openSeasons.orEmpty()
+                        // Fall back to the episodes when the series didn't list the season.
+                        val seasonMonitored = st.detail?.seasonMonitored?.get(season) ?: seasonEps.any { it.monitored }
                         item(key = "season_$season") {
                             SonarrSeasonHeader(
                                 season = season,
                                 episodeCount = seasonEps.size,
                                 haveCount = seasonEps.count { it.hasFile },
                                 accent = accent,
+                                open = open,
+                                monitored = seasonMonitored,
+                                onToggleOpen = {
+                                    val now = st.openSeasons.orEmpty()
+                                    st.openSeasons = if (open) now - season else now + season
+                                },
+                                onToggleMonitor = {
+                                    scope.launch {
+                                        st.actionMsg = vm.arrSetSeasonMonitored(config, itemId, season, !seasonMonitored, seasonEps.map { it.id })
+                                        st.detail = runCatching { vm.arrDetailOf(config, itemId) }.getOrNull() ?: st.detail
+                                        st.episodes = runCatching { vm.arrEpisodesOf(config, itemId) }.getOrNull() ?: st.episodes
+                                    }
+                                },
                                 onSearch = {
                                     openReleases(
                                         movieId = null, episodeId = null,
@@ -243,7 +259,7 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                                 },
                             )
                         }
-                        items(seasonEps, key = { it.id }) { ep ->
+                        if (open) items(seasonEps, key = { it.id }) { ep ->
                             ArrEpisodeRow(
                                 ep, accent,
                                 onToggleMonitor = {
@@ -291,20 +307,43 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
 }
 
 @Composable
-internal fun SonarrSeasonHeader(season: Int, episodeCount: Int, haveCount: Int, accent: Color, onSearch: () -> Unit) {
+internal fun SonarrSeasonHeader(
+    season: Int,
+    episodeCount: Int,
+    haveCount: Int,
+    accent: Color,
+    open: Boolean,
+    monitored: Boolean,
+    onToggleOpen: () -> Unit,
+    onToggleMonitor: () -> Unit,
+    onSearch: () -> Unit,
+) {
     Row(
-        Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 2.dp),
+        Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 2.dp).clickable { onToggleOpen() },
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Icon(
+            if (open) AppIcons.Expanded else AppIcons.Collapsed,
+            contentDescription = if (open) "collapse" else "expand",
+            tint = accent, modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(4.dp))
         Text(
             if (season == 0) "SPECIALS" else "SEASON $season",
             fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold,
         )
         Spacer(Modifier.width(8.dp))
         Text("$haveCount/$episodeCount", fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 10.sp, modifier = Modifier.weight(1f))
+        IconButton(onClick = onToggleMonitor) {
+            Icon(
+                if (monitored) AppIcons.Monitored else AppIcons.NotMonitored,
+                contentDescription = if (monitored) "Unmonitor season" else "Monitor season",
+                tint = if (monitored) WarnAmber else MatrixGreen.copy(alpha = 0.5f),
+            )
+        }
         // Interactive search for the whole season (season packs + episodes).
-        IconButton(onClick = onSearch, modifier = Modifier.size(28.dp)) {
-            Icon(AppIcons.Search, contentDescription = "Search season", tint = MatrixGreen)
+        IconButton(onClick = onSearch) {
+            Icon(AppIcons.Search, contentDescription = "Search season", tint = accent)
         }
     }
     HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))

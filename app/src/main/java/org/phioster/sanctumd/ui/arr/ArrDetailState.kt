@@ -32,6 +32,8 @@ internal class ArrDetailState {
     var availability by mutableStateOf(WatchAvailability.NONE)
     var loadError by mutableStateOf<String?>(null)
     var actionMsg by mutableStateOf<String?>(null)
+    /** Sonarr seasons shown open; null until the episodes arrive and pick the default. */
+    var openSeasons by mutableStateOf<Set<Int>?>(null)
 
     // ── The dialogs ──
     /** The album whose track list is open, and its tracks once they arrive. */
@@ -58,7 +60,11 @@ internal class ArrDetailState {
         try {
             val d = vm.arrDetailOf(config, itemId)
             detail = d
-            if (isSonarr) episodes = vm.arrEpisodesOf(config, itemId)
+            if (isSonarr) {
+                val eps = vm.arrEpisodesOf(config, itemId)
+                episodes = eps
+                if (openSeasons == null) openSeasons = defaultOpenSeasons(eps.map { it.seasonNumber })
+            }
             if (isLidarr) albums = vm.arrAlbumsOf(config, itemId)
             if (vm.hasSeerr() && d.tmdbId > 0) {
                 val extras = runCatching { vm.arrTitleExtras(d.tmdbId, isSonarr) }.getOrDefault(SeerrTitleExtras())
@@ -72,6 +78,13 @@ internal class ArrDetailState {
         }
     }
 }
+
+/**
+ * Like Sonarr's own series page: only the newest season starts open. Specials only open on
+ * their own when there is nothing else.
+ */
+internal fun defaultOpenSeasons(seasons: Collection<Int>): Set<Int> =
+    (seasons.filter { it > 0 }.maxOrNull() ?: seasons.maxOrNull())?.let { setOf(it) } ?: emptySet()
 
 @Composable
 internal fun rememberArrDetailState(itemId: Int): ArrDetailState = remember(itemId) { ArrDetailState() }
