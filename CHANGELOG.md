@@ -3,6 +3,10 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Quick Connect button in tone (v2.1.10)
+- **The Quick Connect button sat on a grey slab** between the green-tinted server card and
+  tiles. It now uses their tint.
+
 ## Four Jellyfin server tools (v2.1.9)
 - **Approve a Quick Connect code from the phone.** The TV client shows a code while it signs
   in, and until now it had to be approved in Jellyfin's web interface. The Jellyfin dashboard

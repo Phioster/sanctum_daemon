@@ -192,12 +192,23 @@ internal fun PrimaryButton(label: String, modifier: Modifier = Modifier, icon: I
     }
 }
 
-/** Outlined accent button (accent text on a slightly-raised surface), the secondary action. */
+/**
+ * Outlined accent button (accent text on a slightly-raised surface), the secondary action.
+ * [surface] lets it sit among tinted cards without standing out as a grey slab.
+ */
 @Composable
-internal fun SecondaryButton(label: String, modifier: Modifier = Modifier, icon: ImageVector? = null, accent: Color = MatrixGreen, enabled: Boolean = true, onClick: () -> Unit) {
+internal fun SecondaryButton(
+    label: String,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    accent: Color = MatrixGreen,
+    enabled: Boolean = true,
+    surface: Color = SurfaceHi,
+    onClick: () -> Unit,
+) {
     Row(
         modifier.clip(RoundedCornerShape(8.dp))
-            .background(SurfaceHi)
+            .background(surface)
             .border(1.dp, accent.copy(alpha = if (enabled) 0.6f else 0.25f), RoundedCornerShape(8.dp))
             .clickable(enabled = enabled) { onClick() }
             .padding(horizontal = 16.dp, vertical = 11.dp),

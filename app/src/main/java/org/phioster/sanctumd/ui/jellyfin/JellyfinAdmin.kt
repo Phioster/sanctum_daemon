@@ -167,7 +167,11 @@ internal fun LazyListScope.jellyfinDashboardTab(
                 }
             }
             Spacer(Modifier.height(10.dp))
-            SecondaryButton("approve a Quick Connect code", Modifier.fillMaxWidth(), icon = AppIcons.Locked) { st.showQuickConnect = true }
+            // Same tint as the server card and tiles around it.
+            SecondaryButton(
+                "approve a Quick Connect code", Modifier.fillMaxWidth(),
+                icon = AppIcons.Locked, surface = MatrixGreen.copy(alpha = 0.06f),
+            ) { st.showQuickConnect = true }
             Spacer(Modifier.height(12.dp))
             val cats = listOf(
                 DashCat("tasks", "Tasks", st.tasks?.size, Icons.Filled.Schedule),
