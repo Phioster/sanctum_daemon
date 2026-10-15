@@ -115,6 +115,9 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                                     st.barMenu = false; openReleases(movieId = itemId, episodeId = null, title = st.detail?.title ?: "")
                                 })
                             }
+                            if (!isLidarr) {
+                                DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { st.barMenu = false; st.editOpen = true })
+                            }
                             DropdownMenuItem(text = { Text("Refresh & scan", fontFamily = Mono) }, onClick = {
                                 st.barMenu = false; scope.launch { st.actionMsg = vm.arrRefresh(config, itemId) }
                             })
@@ -181,6 +184,17 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                             st.actionMsg = vm.arrSetLibraryMonitored(config, itemId, !d.monitored)
                             st.detail = runCatching { vm.arrDetailOf(config, itemId) }.getOrNull() ?: st.detail
                         }
+                    }
+                }
+                // Radarr: the movie's one file, tappable for the details.
+                if (!isSonarr && !isLidarr) {
+                    st.files?.values?.firstOrNull()?.let { f ->
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "file: ${fileSummary(f)}",
+                            fontFamily = Mono, color = if (f.cutoffNotMet) WarnAmber else accent, fontSize = 12.sp,
+                            modifier = Modifier.fillMaxWidth().clickable { st.fileOpen = f to (d?.title ?: "File") }.padding(vertical = 6.dp),
+                        )
                     }
                 }
                 if (!d?.genres.isNullOrBlank()) {
@@ -295,6 +309,8 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                         if (open) items(seasonEps, key = { it.id }) { ep ->
                             ArrEpisodeRow(
                                 ep, accent,
+                                file = st.files?.get(ep.fileId),
+                                onOpenFile = { f -> st.fileOpen = f to "S%02dE%02d %s".format(ep.seasonNumber, ep.episodeNumber, ep.title) },
                                 onToggleMonitor = {
                                     scope.launch {
                                         vm.arrSetEpisodeMonitored(config, ep.id, !ep.monitored)
@@ -391,7 +407,14 @@ internal fun SonarrSeasonHeader(
 }
 
 @Composable
-internal fun ArrEpisodeRow(item: ArrEpisode, accent: Color, onToggleMonitor: () -> Unit, onSearch: () -> Unit) {
+internal fun ArrEpisodeRow(
+    item: ArrEpisode,
+    accent: Color,
+    file: org.phioster.sanctumd.model.ArrFileInfo? = null,
+    onOpenFile: (org.phioster.sanctumd.model.ArrFileInfo) -> Unit = {},
+    onToggleMonitor: () -> Unit,
+    onSearch: () -> Unit,
+) {
     val c = if (item.hasFile) MatrixGreen else if (item.monitored) WarnAmber else MatrixGreen.copy(alpha = 0.4f)
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -401,10 +424,19 @@ internal fun ArrEpisodeRow(item: ArrEpisode, accent: Color, onToggleMonitor: () 
                     fontFamily = Mono, color = c, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
                 if (item.hasFile) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    // The file line opens the file; the rest of the row still searches.
+                    Row(
+                        Modifier.let { m -> if (file != null) m.clickable { onOpenFile(file) } else m },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Icon(AppIcons.Done, contentDescription = null, tint = c.copy(alpha = 0.7f), modifier = Modifier.size(11.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("downloaded", fontFamily = Mono, color = c.copy(alpha = 0.7f), fontSize = 10.sp)
+                        Text(
+                            file?.let { fileSummary(it) } ?: "downloaded",
+                            fontFamily = Mono,
+                            color = if (file?.cutoffNotMet == true) WarnAmber else c.copy(alpha = 0.7f),
+                            fontSize = 10.sp,
+                        )
                     }
                 } else {
                     Text(item.airDate, fontFamily = Mono, color = c.copy(alpha = 0.7f), fontSize = 10.sp)

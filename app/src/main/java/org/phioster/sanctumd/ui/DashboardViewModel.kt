@@ -1075,6 +1075,17 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun arrBlocklistOf(config: ServiceConfig): List<org.phioster.sanctumd.model.ArrBlocklistItem> =
         org.phioster.sanctumd.net.arrBlocklist(config)
     suspend fun arrRefresh(config: ServiceConfig, id: Int): String = org.phioster.sanctumd.net.arrRefreshItem(config, id)
+    suspend fun arrFilesOf(config: ServiceConfig, itemId: Int): Map<Int, org.phioster.sanctumd.model.ArrFileInfo> =
+        org.phioster.sanctumd.net.arrFiles(config, itemId)
+    suspend fun arrRemoveFile(config: ServiceConfig, fileId: Int): String = org.phioster.sanctumd.net.arrDeleteFile(config, fileId)
+    suspend fun arrEdit(
+        config: ServiceConfig,
+        id: Int,
+        qualityProfileId: Int,
+        seriesType: String?,
+        seasonFolder: Boolean?,
+        minimumAvailability: String?,
+    ): String = org.phioster.sanctumd.net.arrUpdateItem(config, id, qualityProfileId, seriesType, seasonFolder, minimumAvailability)
     suspend fun arrSearchSeason(config: ServiceConfig, seriesId: Int, season: Int): String =
         org.phioster.sanctumd.net.arrSeasonSearch(config, seriesId, season)
     suspend fun arrHistoryOf(config: ServiceConfig, id: Int): List<ArrHistoryItem> = org.phioster.sanctumd.net.arrItemHistory(config, id)

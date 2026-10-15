@@ -84,6 +84,13 @@ data class ArrDetail(
     val genres: String,
     /** Sonarr only: each season's own monitored flag, by season number. */
     val seasonMonitored: Map<Int, Boolean> = emptyMap(),
+    // The editable settings, as the item currently has them.
+    val qualityProfileId: Int = 0,
+    /** Sonarr: standard, daily or anime. */
+    val seriesType: String = "",
+    val seasonFolder: Boolean = true,
+    /** Radarr: announced, inCinemas or released. */
+    val minimumAvailability: String = "",
 )
 
 /** A cast member (resolved via a Seerr/Overseerr TMDB proxy). */
@@ -158,6 +165,22 @@ data class ArrEpisode(
     val hasFile: Boolean,
     val monitored: Boolean,
     val airDate: String,
+    /** The episode file's id; 0 without a file. */
+    val fileId: Int = 0,
+)
+
+/** One file on disk of a movie or an episode, as Radarr/Sonarr describe it. */
+data class ArrFileInfo(
+    val id: Int,
+    val path: String,
+    val sizeBytes: Long,
+    val quality: String,
+    val video: String,
+    val audio: String,
+    val subtitles: String,
+    val releaseGroup: String,
+    /** The quality profile would still upgrade this file. */
+    val cutoffNotMet: Boolean,
 )
 
 /** An interactive-search release from a Servarr app. */
