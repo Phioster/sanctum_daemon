@@ -922,6 +922,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         prowlarrGrab(config, release)
     fun prowlarrCategoryOptions(): List<ProwlarrCategory> = prowlarrCategories
     suspend fun prowlarrHistoryList(config: ServiceConfig): List<ProwlarrHistoryItem> = prowlarrHistory(config)
+    suspend fun prowlarrAppList(config: ServiceConfig): List<org.phioster.sanctumd.model.ProwlarrApp> =
+        org.phioster.sanctumd.net.prowlarrApps(config)
+    suspend fun prowlarrSyncApps(config: ServiceConfig): String = org.phioster.sanctumd.net.runProwlarrAppSync(config)
     suspend fun prowlarrTaskList(config: ServiceConfig): List<ProwlarrTaskItem> = prowlarrTasks(config)
     suspend fun prowlarrSystemInfo(config: ServiceConfig): ProwlarrSystemInfo = prowlarrSystem(config)
     suspend fun sendReleaseToArr(arrConfig: ServiceConfig, release: ProwlarrRelease): String =

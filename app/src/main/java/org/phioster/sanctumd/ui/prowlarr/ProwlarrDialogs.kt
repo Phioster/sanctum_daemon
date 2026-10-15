@@ -281,14 +281,18 @@ internal fun ProwlarrSystemDialog(
 ) {
     var systemInfo by remember { mutableStateOf<org.phioster.sanctumd.model.ProwlarrSystemInfo?>(null) }
     var tasks by remember { mutableStateOf<List<org.phioster.sanctumd.model.ProwlarrTaskItem>?>(null) }
+    var apps by remember { mutableStateOf<List<org.phioster.sanctumd.model.ProwlarrApp>?>(null) }
+    var syncMsg by remember { mutableStateOf<String?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     LaunchedEffect(Unit) {
         systemInfo = runCatching { vm.prowlarrSystemInfo(config) }.getOrNull()
+        apps = runCatching { vm.prowlarrAppList(config) }.getOrDefault(emptyList())
         tasks = runCatching { vm.prowlarrTaskList(config) }.getOrDefault(emptyList())
     }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Surface,
-        title = { Text("System & tasks", fontFamily = Mono, color = MatrixGreen) },
+        title = { Text("System, apps & tasks", fontFamily = Mono, color = MatrixGreen) },
         text = {
             Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
                 val si = systemInfo
@@ -303,6 +307,30 @@ internal fun ProwlarrSystemDialog(
                         Text("• $msg", fontFamily = Mono, color = c, fontSize = 12.sp)
                     }
                 }
+                Spacer(Modifier.height(12.dp))
+                SectionHeader("APPS")
+                val ap = apps
+                when {
+                    ap == null -> Text("…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                    ap.isEmpty() -> Text("no apps connected", fontFamily = Mono, color = WarnAmber, fontSize = 12.sp)
+                    else -> ap.forEach { a ->
+                        Column(Modifier.padding(vertical = 4.dp)) {
+                            Text(a.name, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
+                            Text(
+                                listOf(a.kind, a.syncLevel).filter { it.isNotBlank() }.joinToString(" · "),
+                                fontFamily = Mono,
+                                color = if (a.syncLevel == "disabled") WarnAmber else MatrixGreen.copy(alpha = 0.6f),
+                                fontSize = 10.sp,
+                            )
+                        }
+                    }
+                }
+                if (!ap.isNullOrEmpty()) {
+                    TextButton(onClick = { scope.launch { syncMsg = vm.prowlarrSyncApps(config) } }) {
+                        Text("sync indexers to apps", fontFamily = Mono, color = MatrixGreen)
+                    }
+                }
+                syncMsg?.let { Text(it, fontFamily = Mono, color = if (it.startsWith("error")) ErrRed else MatrixGreen, fontSize = 11.sp) }
                 Spacer(Modifier.height(12.dp))
                 SectionHeader("TASKS")
                 val tk = tasks

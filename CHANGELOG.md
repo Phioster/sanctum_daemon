@@ -3,6 +3,15 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Push priorities, and Prowlarr's apps in view (v2.1.14)
+- **ntfy priorities are honoured.** Every live push used to land on one loud channel. Priority
+  1 and 2 now arrive silently on "Live push · quiet", priority 5 on its own "Live push ·
+  urgent" channel, which Android lets you allow through Do Not Disturb on its own. 3 and 4
+  stay on the original "Live push" channel, so its settings still apply.
+- **Prowlarr's connected apps.** "System, apps & tasks" lists the apps Prowlarr feeds its
+  indexers to, with their sync level, and "sync indexers to apps" pushes them now, the same
+  as Prowlarr's own "Sync App Indexers" button.
+
 ## Why a download failed, and what to do about it (v2.1.13)
 - **NZBGet history says why.** "FAILURE/UNPACK" only named the stage. A failed entry now
   carries the reason under it: password protected, disk full, repair failed, or the health

@@ -185,7 +185,7 @@ internal fun ProwlarrScreen(
                                 barMenu = false; showAddSchema = true
                             })
                             DropdownMenuItem(text = { Text("Test all indexers", fontFamily = Mono) }, onClick = { barMenu = false; act({ vm.prowlarrTestAll(config) }, false) })
-                            DropdownMenuItem(text = { Text("System & tasks", fontFamily = Mono) }, onClick = {
+                            DropdownMenuItem(text = { Text("System, apps & tasks", fontFamily = Mono) }, onClick = {
                                 barMenu = false; showSystem = true
                             })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })

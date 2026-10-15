@@ -138,6 +138,8 @@ internal interface ProwlarrApi {
         @Query("sortDirection") sortDirection: String = "descending",
     ): ProwlarrHistoryPage
     @GET("api/v1/system/task") suspend fun tasks(): List<ProwlarrTaskRec>
+    @GET("api/v1/applications") suspend fun applications(): List<JsonObject>
+    @POST("api/v1/command") suspend fun command(@Body body: JsonObject): Response<ResponseBody>
     @GET("api/v1/system/status") suspend fun systemStatus(): ProwlarrSystemStatusRec
     @GET("api/v1/health") suspend fun health(): List<ProwlarrHealthRec>
 }
@@ -415,6 +417,31 @@ suspend fun prowlarrTasks(config: ServiceConfig): List<ProwlarrTaskItem> = withC
             lastExecution = (t.lastExecution ?: "").take(16).replace('T', ' '),
             nextExecution = (t.nextExecution ?: "").take(16).replace('T', ' '),
         )
+    }
+}
+
+suspend fun prowlarrApps(config: ServiceConfig): List<org.phioster.sanctumd.model.ProwlarrApp> = withContext(Dispatchers.IO) {
+    apiFor<ProwlarrApi>(config, apiKeyHeader(config)).applications().map { o ->
+        org.phioster.sanctumd.model.ProwlarrApp(
+            name = jsStr(o, "name").orEmpty(),
+            kind = jsStr(o, "implementationName") ?: jsStr(o, "implementation").orEmpty(),
+            syncLevel = jsStr(o, "syncLevel").orEmpty(),
+        )
+    }.sortedBy { it.name.lowercase() }
+}
+
+/** Pushes the indexers to every app now, the "Sync App Indexers" button of Prowlarr's own UI. */
+suspend fun runProwlarrAppSync(config: ServiceConfig): String = destructive("sync Prowlarr indexers to apps") {
+    withContext(Dispatchers.IO) {
+        try {
+            val body = buildJsonObject {
+                put("name", "ApplicationIndexerSync")
+                put("forceSync", true)
+            }
+            okOr(apiFor<ProwlarrApi>(config, apiKeyHeader(config)).command(body), "sync started")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }
 
