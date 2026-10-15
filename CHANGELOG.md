@@ -3,6 +3,17 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## A title's history, a refresh, and a season searched in one tap (v2.1.11)
+- **History per title.** The menu of a series, film or artist has "History": everything
+  that was grabbed, imported, failed or deleted for it, newest first, with the episode named
+  for a series. A grab can be blocklisted from there, as in the global history.
+- **Refresh & scan.** Re-reads the metadata and rescans the folder of one title, the button
+  Sonarr and Radarr have on their own pages. The command takes a list of ids, and an empty
+  list would refresh the whole library, so the title's id is always sent.
+- **Automatic season search.** The search icon of a season header now offers "Automatic
+  search" next to "Interactive search": one tap and Sonarr looks for the whole season itself,
+  season packs first.
+
 ## Quick Connect button in tone (v2.1.10)
 - **The Quick Connect button sat on a grey slab** between the green-tinted server card and
   tiles. It now uses their tint.

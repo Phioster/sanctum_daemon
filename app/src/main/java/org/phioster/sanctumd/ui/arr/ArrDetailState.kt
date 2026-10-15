@@ -10,6 +10,7 @@ import org.phioster.sanctumd.model.ArrAlbum
 import org.phioster.sanctumd.model.ArrCastMember
 import org.phioster.sanctumd.model.ArrDetail
 import org.phioster.sanctumd.model.ArrEpisode
+import org.phioster.sanctumd.model.ArrHistoryItem
 import org.phioster.sanctumd.model.ArrRelease
 import org.phioster.sanctumd.model.ArrTrack
 import org.phioster.sanctumd.model.SeerrTitleExtras
@@ -40,6 +41,9 @@ internal class ArrDetailState {
     var trackAlbum by mutableStateOf<ArrAlbum?>(null)
     var tracks by mutableStateOf<List<ArrTrack>?>(null)
     var barMenu by mutableStateOf(false)
+    /** The item's history dialog: open with [history] null while it loads. */
+    var historyOpen by mutableStateOf(false)
+    var history by mutableStateOf<List<ArrHistoryItem>?>(null)
     var showMove by mutableStateOf(false)
     var moveTargets by mutableStateOf<List<String>?>(null)
     var moving by mutableStateOf(false)

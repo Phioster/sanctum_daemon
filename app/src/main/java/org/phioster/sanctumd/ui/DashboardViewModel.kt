@@ -1071,6 +1071,10 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.net.arrQueueRemove(config, id, blocklist = true)
     suspend fun arrBlocklistOf(config: ServiceConfig): List<org.phioster.sanctumd.model.ArrBlocklistItem> =
         org.phioster.sanctumd.net.arrBlocklist(config)
+    suspend fun arrRefresh(config: ServiceConfig, id: Int): String = org.phioster.sanctumd.net.arrRefreshItem(config, id)
+    suspend fun arrSearchSeason(config: ServiceConfig, seriesId: Int, season: Int): String =
+        org.phioster.sanctumd.net.arrSeasonSearch(config, seriesId, season)
+    suspend fun arrHistoryOf(config: ServiceConfig, id: Int): List<ArrHistoryItem> = org.phioster.sanctumd.net.arrItemHistory(config, id)
     suspend fun arrBlockFromHistory(config: ServiceConfig, id: Int): String =
         org.phioster.sanctumd.net.arrBlocklistFromHistory(config, id)
     suspend fun arrUnblock(config: ServiceConfig, id: Int): String =

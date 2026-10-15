@@ -208,7 +208,10 @@ internal fun arrParentId(seriesId: Int, movieId: Int, artistId: Int): Int =
     val seriesId: Int = 0,
     val movieId: Int = 0,
     val artistId: Int = 0,
+    /** Sonarr, with `includeEpisode=true`: which episode the entry is about. */
+    val episode: ArrHistoryEpisode? = null,
 )
+@Serializable internal data class ArrHistoryEpisode(val seasonNumber: Int = 0, val episodeNumber: Int = 0)
 @Serializable internal data class ArrHistoryPage(val records: List<ArrHistoryRec> = emptyList())
 
 @Serializable internal data class ArrIndexerRecord(
@@ -252,6 +255,8 @@ internal interface ArrApi {
     @POST suspend fun downloadRelease(@Url url: String, @Body body: ArrGrabReq): Response<ResponseBody>
     @DELETE suspend fun deleteItem(@Url url: String): Response<ResponseBody>
     @GET suspend fun history(@Url url: String): ArrHistoryPage
+    /** The per-item history routes answer with a bare array instead of a page. */
+    @GET suspend fun historyList(@Url url: String): List<ArrHistoryRec>
     @GET suspend fun calendar(@Url url: String): List<JsonObject>
     @GET suspend fun diskspace(@Url url: String): List<ArrDiskRecord>
     @GET suspend fun systemStatus(@Url url: String): ArrSystemStatusRec
@@ -629,6 +634,69 @@ suspend fun arrSearchItem(config: ServiceConfig, id: Int): String = destructive(
             "error: ${t.message ?: t.javaClass.simpleName}"
         }
     }
+}
+
+/**
+ * Refresh metadata and rescan the disk for one item, Sonarr's and Radarr's "Refresh & Scan".
+ * The command takes a list, and an empty one refreshes the whole library, so the id always goes in.
+ */
+suspend fun arrRefreshItem(config: ServiceConfig, id: Int): String = destructive("refresh item $id on ${config.type.label}") {
+    withContext(Dispatchers.IO) {
+        try {
+            val (name, field) = when (config.type) {
+                ServiceType.SONARR -> "RefreshSeries" to "seriesIds"
+                ServiceType.LIDARR -> "RefreshArtist" to "artistIds"
+                else -> "RefreshMovie" to "movieIds"
+            }
+            val body = buildJsonObject {
+                put("name", name)
+                putJsonArray(field) { add(id) }
+            }
+            okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).command("${arrBase(config.type)}/command", body), "refresh started")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
+}
+
+/** Sonarr: automatic search for one whole season (season packs first, like the web UI). */
+suspend fun arrSeasonSearch(config: ServiceConfig, seriesId: Int, seasonNumber: Int): String =
+    destructive("search season $seasonNumber of series $seriesId") {
+        withContext(Dispatchers.IO) {
+            try {
+                val body = buildJsonObject {
+                    put("name", "SeasonSearch")
+                    put("seriesId", seriesId)
+                    put("seasonNumber", seasonNumber)
+                }
+                okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).command("${arrBase(config.type)}/command", body), "search started")
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
+
+/** Everything that happened to one series / movie / artist, newest first. */
+suspend fun arrItemHistory(config: ServiceConfig, id: Int): List<ArrHistoryItem> = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    val url = when (config.type) {
+        ServiceType.SONARR -> "$base/history/series?seriesId=$id&includeEpisode=true"
+        ServiceType.LIDARR -> "$base/history/artist?artistId=$id"
+        else -> "$base/history/movie?movieId=$id"
+    }
+    apiFor<ArrApi>(config, apiKeyHeader(config)).historyList(url)
+        .sortedByDescending { it.date }
+        .map { h ->
+            val ep = h.episode?.let { "S%02dE%02d · ".format(it.seasonNumber, it.episodeNumber) }.orEmpty()
+            ArrHistoryItem(
+                id = h.id,
+                title = ep + h.sourceTitle,
+                eventType = h.eventType,
+                date = h.date.take(16).replace('T', ' '),
+                quality = h.quality.quality.name,
+                itemId = id,
+            )
+        }
 }
 
 /**
