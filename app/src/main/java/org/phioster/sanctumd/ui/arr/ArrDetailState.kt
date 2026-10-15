@@ -91,8 +91,12 @@ internal fun defaultOpenSeasons(seasons: Collection<Int>): Set<Int> =
     (seasons.filter { it > 0 }.maxOrNull() ?: seasons.maxOrNull())?.let { setOf(it) } ?: emptySet()
 
 /** Seasons in reading order: season 1 at the top, the specials (season 0) always last. */
-internal fun seasonsInOrder(episodes: List<ArrEpisode>): List<Pair<Int, List<ArrEpisode>>> =
-    episodes.groupBy { it.seasonNumber }.toList().sortedWith(compareBy({ it.first == 0 }, { it.first }))
+internal fun seasonsInOrder(episodes: List<ArrEpisode>, oldestFirst: Boolean = true): List<Pair<Int, List<ArrEpisode>>> =
+    episodes.groupBy { it.seasonNumber }.toList()
+        .sortedWith(compareBy({ it.first == 0 }, { it.first }))
+        .map { (season, eps) ->
+            season to if (oldestFirst) eps.sortedBy { it.episodeNumber } else eps.sortedByDescending { it.episodeNumber }
+        }
 
 @Composable
 internal fun rememberArrDetailState(itemId: Int): ArrDetailState = remember(itemId) { ArrDetailState() }
