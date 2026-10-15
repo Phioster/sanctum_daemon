@@ -10,6 +10,7 @@ import org.phioster.sanctumd.model.ArrAlbum
 import org.phioster.sanctumd.model.ArrCastMember
 import org.phioster.sanctumd.model.ArrDetail
 import org.phioster.sanctumd.model.ArrEpisode
+import org.phioster.sanctumd.model.ArrFileInfo
 import org.phioster.sanctumd.model.ArrHistoryItem
 import org.phioster.sanctumd.model.ArrRelease
 import org.phioster.sanctumd.model.ArrTrack
@@ -41,6 +42,11 @@ internal class ArrDetailState {
     var trackAlbum by mutableStateOf<ArrAlbum?>(null)
     var tracks by mutableStateOf<List<ArrTrack>?>(null)
     var barMenu by mutableStateOf(false)
+    /** Files on disk by file id (Sonarr: the series' episodes, Radarr: the movie). */
+    var files by mutableStateOf<Map<Int, ArrFileInfo>?>(null)
+    /** The file whose details are open, with the line it is titled by. */
+    var fileOpen by mutableStateOf<Pair<ArrFileInfo, String>?>(null)
+    var editOpen by mutableStateOf(false)
     /** The item's history dialog: open with [history] null while it loads. */
     var historyOpen by mutableStateOf(false)
     var history by mutableStateOf<List<ArrHistoryItem>?>(null)
@@ -70,6 +76,7 @@ internal class ArrDetailState {
                 if (openSeasons == null) openSeasons = defaultOpenSeasons(eps.map { it.seasonNumber })
             }
             if (isLidarr) albums = vm.arrAlbumsOf(config, itemId)
+            if (!isLidarr) files = runCatching { vm.arrFilesOf(config, itemId) }.getOrDefault(emptyMap())
             if (vm.hasSeerr() && d.tmdbId > 0) {
                 val extras = runCatching { vm.arrTitleExtras(d.tmdbId, isSonarr) }.getOrDefault(SeerrTitleExtras())
                 cast = extras.cast

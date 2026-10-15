@@ -151,6 +151,7 @@ internal fun arrParentId(seriesId: Int, movieId: Int, artistId: Int): Int =
     val hasFile: Boolean = false,
     val monitored: Boolean = false,
     val airDate: String? = null,
+    val episodeFileId: Int = 0,
 )
 
 @Serializable internal data class ArrQualityRef(val quality: ArrQualityName = ArrQualityName())
@@ -954,6 +955,10 @@ suspend fun arrDetail(config: ServiceConfig, id: Int): ArrDetail = withContext(D
         posterUrl = poster,
         tmdbId = jsInt(o, "tmdbId") ?: 0,
         genres = genres,
+        qualityProfileId = jsInt(o, "qualityProfileId") ?: 0,
+        seriesType = jsStr(o, "seriesType").orEmpty(),
+        seasonFolder = jsBool(o, "seasonFolder") ?: true,
+        minimumAvailability = jsStr(o, "minimumAvailability").orEmpty(),
         seasonMonitored = (o["seasons"] as? JsonArray).orEmpty().mapNotNull { el ->
             val season = el as? JsonObject ?: return@mapNotNull null
             jsInt(season, "seasonNumber")?.let { it to (jsBool(season, "monitored") ?: false) }
@@ -961,11 +966,89 @@ suspend fun arrDetail(config: ServiceConfig, id: Int): ArrDetail = withContext(D
     )
 }
 
+/** Radarr's or Sonarr's description of one file, flattened to what fits on a phone. */
+internal fun arrFileInfo(o: JsonObject): org.phioster.sanctumd.model.ArrFileInfo {
+    val mi = o["mediaInfo"] as? JsonObject
+    fun m(key: String) = mi?.let { jsStr(it, key) }.orEmpty()
+    val channels = (mi?.get("audioChannels") as? JsonPrimitive)?.doubleOrNull
+    val quality = ((o["quality"] as? JsonObject)?.get("quality") as? JsonObject)?.let { jsStr(it, "name") }.orEmpty()
+    val video = listOf(m("videoCodec"), m("resolution"), m("videoDynamicRangeType").ifBlank { m("videoDynamicRange") })
+        .filter { it.isNotBlank() }.joinToString(" · ")
+    val audio = listOfNotNull(
+        m("audioCodec").takeIf { it.isNotBlank() },
+        channels?.takeIf { it > 0 }?.let { "%.1f".format(java.util.Locale.ROOT, it) },
+        m("audioLanguages").takeIf { it.isNotBlank() },
+    ).joinToString(" · ")
+    return org.phioster.sanctumd.model.ArrFileInfo(
+        id = jsInt(o, "id") ?: 0,
+        path = jsStr(o, "relativePath") ?: jsStr(o, "path").orEmpty(),
+        sizeBytes = jsLong(o, "size") ?: 0L,
+        quality = quality,
+        video = video,
+        audio = audio,
+        subtitles = m("subtitles"),
+        releaseGroup = jsStr(o, "releaseGroup").orEmpty(),
+        cutoffNotMet = jsBool(o, "qualityCutoffNotMet") == true,
+    )
+}
+
+/** Every file of a series (Sonarr) or the movie's file (Radarr), by file id. */
+suspend fun arrFiles(config: ServiceConfig, itemId: Int): Map<Int, org.phioster.sanctumd.model.ArrFileInfo> = withContext(Dispatchers.IO) {
+    val base = arrBase(config.type)
+    val url = if (config.type == ServiceType.SONARR) "$base/episodefile?seriesId=$itemId" else "$base/moviefile?movieId=$itemId"
+    apiFor<ArrApi>(config, apiKeyHeader(config)).jsonList(url).map(::arrFileInfo).associateBy { it.id }
+}
+
+/** Deletes one file from disk, e.g. so the profile grabs a better copy. The entry stays. */
+suspend fun arrDeleteFile(config: ServiceConfig, fileId: Int): String = destructive("delete file $fileId on ${config.type.label}") {
+    withContext(Dispatchers.IO) {
+        try {
+            val kind = if (config.type == ServiceType.SONARR) "episodefile" else "moviefile"
+            okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).deleteItem("${arrBase(config.type)}/$kind/$fileId"), "file deleted")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
+}
+
+/**
+ * Changes a series' or movie's settings after it was added. GET the item, overlay only the
+ * fields given, PUT it back, so nothing the screen doesn't know about is lost.
+ */
+suspend fun arrUpdateItem(
+    config: ServiceConfig,
+    id: Int,
+    qualityProfileId: Int,
+    seriesType: String? = null,
+    seasonFolder: Boolean? = null,
+    minimumAvailability: String? = null,
+): String = destructive("edit ${config.type.label} item $id") {
+    withContext(Dispatchers.IO) {
+        try {
+            val base = arrBase(config.type)
+            val path = arrItemPath(config.type)
+            val api = apiFor<ArrApi>(config, apiKeyHeader(config))
+            val raw = api.itemDetail("$base/$path/$id")
+            val body = JsonObject(
+                raw.toMutableMap().apply {
+                    if (qualityProfileId > 0) put("qualityProfileId", JsonPrimitive(qualityProfileId))
+                    seriesType?.let { put("seriesType", JsonPrimitive(it)) }
+                    seasonFolder?.let { put("seasonFolder", JsonPrimitive(it)) }
+                    minimumAvailability?.let { put("minimumAvailability", JsonPrimitive(it)) }
+                },
+            )
+            okOr(api.putUrl("$base/$path/$id", body), "saved")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
+}
+
 /** Sonarr: episodes for a series, newest season first. */
 suspend fun arrEpisodes(config: ServiceConfig, seriesId: Int): List<ArrEpisode> = withContext(Dispatchers.IO) {
     val base = arrBase(config.type)
     apiFor<ArrApi>(config, apiKeyHeader(config)).episodes("$base/episode", seriesId).map { e ->
-        ArrEpisode(e.id, e.seasonNumber, e.episodeNumber, e.title, e.hasFile, e.monitored, e.airDate?.take(10) ?: "")
+        ArrEpisode(e.id, e.seasonNumber, e.episodeNumber, e.title, e.hasFile, e.monitored, e.airDate?.take(10) ?: "", e.episodeFileId)
     }.sortedWith(compareByDescending<ArrEpisode> { it.seasonNumber }.thenByDescending { it.episodeNumber })
 }
 

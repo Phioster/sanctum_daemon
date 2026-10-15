@@ -131,6 +131,37 @@ internal fun ArrDetailDialogs(
         )
     }
 
+    st.fileOpen?.let { (file, title) ->
+        ArrFileDialog(file, title, accent, onDismiss = { st.fileOpen = null }) {
+            st.fileOpen = null
+            scope.launch {
+                st.actionMsg = vm.arrRemoveFile(config, file.id)
+                st.files = runCatching { vm.arrFilesOf(config, itemId) }.getOrNull() ?: st.files
+                if (config.type == org.phioster.sanctumd.model.ServiceType.SONARR) {
+                    st.episodes = runCatching { vm.arrEpisodesOf(config, itemId) }.getOrNull() ?: st.episodes
+                }
+                st.detail = runCatching { vm.arrDetailOf(config, itemId) }.getOrNull() ?: st.detail
+            }
+        }
+    }
+
+    val editing = st.detail
+    if (st.editOpen && editing != null) {
+        ArrEditDialog(
+            detail = editing,
+            isSonarr = config.type == org.phioster.sanctumd.model.ServiceType.SONARR,
+            accent = accent,
+            loadProfiles = { vm.arrProfilesList(config) },
+            onDismiss = { st.editOpen = false },
+        ) { profileId, seriesType, seasonFolder, availability ->
+            st.editOpen = false
+            scope.launch {
+                st.actionMsg = vm.arrEdit(config, itemId, profileId, seriesType, seasonFolder, availability)
+                st.detail = runCatching { vm.arrDetailOf(config, itemId) }.getOrNull() ?: st.detail
+            }
+        }
+    }
+
     if (st.historyOpen) {
         AlertDialog(
             onDismissRequest = { st.historyOpen = false },

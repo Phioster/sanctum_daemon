@@ -3,6 +3,17 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Edit a title, and see what is on disk (v2.1.16)
+- **Edit a series or movie after adding it.** "Edit" in the title's menu changes the quality
+  profile, for a series also its type (standard, anime, daily) and season folders, for a
+  movie when it counts as available. Only the chosen fields change; everything else is
+  written back exactly as Sonarr or Radarr sent it.
+- **The file behind every episode and movie.** An episode with a file now shows its quality
+  and size instead of just "downloaded", amber while the profile still wants an upgrade; a
+  movie shows the same under its facts. Tapping it opens the details: video, audio and
+  languages, subtitles, release group and path, and "Delete file", which removes the file but
+  keeps the entry, so a monitored title is searched again. Deleting asks for a second tap.
+
 ## Episodes from the first one, or the newest (v2.1.15)
 - **A season now reads from episode 1.** Sonarr sends a season newest first, so a season of
   60 episodes opened on episode 60. The order is now episode 1 first, and the switch next to
