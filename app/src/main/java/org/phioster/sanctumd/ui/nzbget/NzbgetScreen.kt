@@ -359,10 +359,21 @@ internal fun HistoryRow(item: NzbHistoryEntry, onAction: (String) -> Unit) {
                 Text(item.status, fontFamily = Mono, color = statusColor, fontSize = 11.sp)
                 Text("${item.sizeMb} MB", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
             }
+            if (item.reason.isNotBlank()) {
+                Spacer(Modifier.height(2.dp))
+                Text(item.reason, fontFamily = Mono, color = ErrRed.copy(alpha = 0.85f), fontSize = 11.sp)
+            }
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            if (!item.status.startsWith("SUCCESS")) {
+                // Fetches only the articles that were missing, instead of the whole download again.
+                DropdownMenuItem(text = { Text("Retry failed articles", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryRetryFailed") })
+                DropdownMenuItem(text = { Text("Post-process again", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryProcess") })
+            }
+            // Tells Sonarr/Radarr this release is bad, so they blocklist it and grab another.
+            DropdownMenuItem(text = { Text("Mark bad, grab another", fontFamily = Mono, color = ErrRed) }, onClick = { menu = false; onAction("HistoryMarkBad") })
             DropdownMenuItem(text = { Text("Return to queue", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryReturn") })
             DropdownMenuItem(text = { Text("Redownload", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryRedownload") })
             DropdownMenuItem(text = { Text("Delete (hide)", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryDelete") })

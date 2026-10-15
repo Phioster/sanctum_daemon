@@ -3,6 +3,15 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Why a download failed, and what to do about it (v2.1.13)
+- **NZBGet history says why.** "FAILURE/UNPACK" only named the stage. A failed entry now
+  carries the reason under it: password protected, disk full, repair failed, or the health
+  next to the minimum it needed.
+- **Three new actions on a history entry.** "Retry failed articles" fetches only what was
+  missing instead of the whole download; "Post-process again" reruns repair and unpack;
+  "Mark bad, grab another" tells Sonarr/Radarr the release is bad, so they blocklist it and
+  look for a different one.
+
 ## Seerr repairs: retry, fix a stuck status, run a job now (v2.1.12)
 - **Retry a failed request.** A request that never reached Radarr or Sonarr shows "Retry
   request" in its detail. Seerr versions without the route say so instead of failing quietly.
