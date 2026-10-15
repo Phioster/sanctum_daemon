@@ -142,6 +142,15 @@ internal interface SeerrApi {
     @GET("api/v1/request/{id}") suspend fun requestDetail(@Path("id") id: Int): JsonObject
     @GET("api/v1/issue/{id}") suspend fun issueDetail(@Path("id") id: Int): JsonObject
     @DELETE("api/v1/request/{id}") suspend fun deleteRequest(@Path("id") id: Int): Response<ResponseBody>
+    @POST("api/v1/request/{id}/retry") suspend fun retryRequest(@Path("id") id: Int): Response<ResponseBody>
+    @POST("api/v1/media/{id}/{status}") suspend fun setMediaStatus(
+        @Path("id") id: Int,
+        @Path("status") status: String,
+        @Body body: JsonObject,
+    ): Response<ResponseBody>
+    @DELETE("api/v1/media/{id}") suspend fun deleteMedia(@Path("id") id: Int): Response<ResponseBody>
+    @GET("api/v1/settings/jobs") suspend fun jobs(): List<JsonObject>
+    @POST("api/v1/settings/jobs/{id}/run") suspend fun runJob(@Path("id") id: String): Response<ResponseBody>
     @POST("api/v1/issue") suspend fun createIssue(@Body body: JsonObject): Response<ResponseBody>
     @POST("api/v1/issue/{id}/comment") suspend fun addComment(@Path("id") id: Int, @Body body: JsonObject): Response<ResponseBody>
     @POST("api/v1/issue/{id}/{status}") suspend fun setIssueStatus(@Path("id") id: Int, @Path("status") status: String): Response<ResponseBody>
@@ -155,6 +164,18 @@ internal fun seerrStatusText(status: Int) = when (status) {
     4 -> "failed"
     5 -> "completed" // every finished request carries this; unmapped it rendered as "?"
     else -> "?"
+}
+
+/** Seerr's MediaStatus, the availability of the title itself rather than of one request. */
+internal fun seerrMediaStatusText(status: Int) = when (status) {
+    1 -> "unknown"
+    2 -> "pending"
+    3 -> "processing"
+    4 -> "partially available"
+    5 -> "available"
+    6 -> "blocklisted"
+    7 -> "deleted"
+    else -> ""
 }
 
 internal fun seerrIssueType(type: Int) = when (type) {
@@ -491,7 +512,74 @@ suspend fun seerrRequestDetail(config: ServiceConfig, id: Int): SeerrRequestDeta
             pending = status == 1,
             tmdbId = tmdb,
             tvdbId = jsInt(media, "tvdbId") ?: 0,
+            failed = status == 4,
+            mediaId = jsInt(media, "id") ?: 0,
+            mediaStatus = seerrMediaStatusText(jsInt(media, if (jsBool(o, "is4k") == true) "status4k" else "status") ?: 0),
         )
+    }
+
+/** Sends a failed request to Radarr/Sonarr again. Older Seerr builds lack the route (404). */
+suspend fun seerrRetryRequest(config: ServiceConfig, id: Int): String =
+    destructive("retry Seerr request $id") {
+        withContext(Dispatchers.IO) {
+            try {
+                val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).retryRequest(id)
+                when (r.code()) {
+                    404 -> "error: this Seerr version can't retry requests"
+                    409 -> "error: only failed requests can be retried"
+                    else -> okOr(r, "sent again")
+                }
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
+
+/** Marks a title available when Seerr is stuck on "processing" although the file is there. */
+suspend fun seerrMarkAvailable(config: ServiceConfig, mediaId: Int, is4k: Boolean): String =
+    destructive("mark Seerr media $mediaId available") {
+        withContext(Dispatchers.IO) {
+            try {
+                val body = buildJsonObject { put("is4k", is4k) }
+                okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).setMediaStatus(mediaId, "available", body), "marked available")
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
+
+/** Clears Seerr's entry for a title, requests included, so it can be requested afresh. */
+suspend fun seerrResetMedia(config: ServiceConfig, mediaId: Int): String =
+    destructive("reset Seerr media $mediaId") {
+        withContext(Dispatchers.IO) {
+            try {
+                okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).deleteMedia(mediaId), "reset")
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
+
+suspend fun seerrJobs(config: ServiceConfig): List<org.phioster.sanctumd.model.SeerrJob> = withContext(Dispatchers.IO) {
+    apiFor<SeerrApi>(config, apiKeyHeader(config)).jobs().map { o ->
+        org.phioster.sanctumd.model.SeerrJob(
+            id = jsStr(o, "id").orEmpty(),
+            name = jsStr(o, "name") ?: jsStr(o, "id").orEmpty(),
+            nextRun = jsStr(o, "nextExecutionTime").orEmpty().take(16).replace('T', ' '),
+            running = jsBool(o, "running") == true,
+        )
+    }.filter { it.id.isNotBlank() }
+}
+
+suspend fun seerrRunJob(config: ServiceConfig, jobId: String): String =
+    destructive("run Seerr job $jobId") {
+        withContext(Dispatchers.IO) {
+            try {
+                okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).runJob(jobId), "started")
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
     }
 
 /** Removes a request entirely. The only way back once it has been approved. */

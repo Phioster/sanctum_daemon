@@ -133,6 +133,7 @@ internal fun SeerrScreen(
         }
     }
     var showStats by remember { mutableStateOf(false) }
+    var showJobs by remember { mutableStateOf(false) }
     var issueDetailId by remember { mutableStateOf<Int?>(null) }
     var reportFor by remember { mutableStateOf<Pair<Int, String>?>(null) }
     var requestDetail by remember { mutableStateOf<org.phioster.sanctumd.model.SeerrRequestDetail?>(null) }
@@ -248,6 +249,7 @@ internal fun SeerrScreen(
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
                             DropdownMenuItem(text = { Text("Search & request", fontFamily = Mono) }, onClick = { barMenu = false; showAdd = true })
                             DropdownMenuItem(text = { Text("Users & stats", fontFamily = Mono) }, onClick = { barMenu = false; showStats = true })
+                            DropdownMenuItem(text = { Text("Jobs", fontFamily = Mono) }, onClick = { barMenu = false; showJobs = true })
                             DropdownMenuItem(text = { Text("Open in Seerr", fontFamily = Mono) }, onClick = { barMenu = false; openExternal(context, seerrAppPackages, config.baseUrl) })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
@@ -458,6 +460,7 @@ internal fun SeerrScreen(
     }
 
     if (showStats) SeerrStatsDialog(vm, config, accent) { showStats = false }
+    if (showJobs) SeerrJobsDialog(vm, config, accent) { showJobs = false }
 
     issueDetailId?.let { iid ->
         SeerrIssueDialog(
