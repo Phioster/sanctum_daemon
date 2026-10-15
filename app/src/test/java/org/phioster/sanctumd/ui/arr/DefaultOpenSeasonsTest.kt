@@ -30,8 +30,16 @@ class DefaultOpenSeasonsTest {
         assertEquals(listOf(1, 2, 10, 0), seasonsInOrder(eps).map { it.first })
     }
 
-    @Test fun `episodes keep their order inside a season`() {
-        val eps = listOf(ep(1, 2), ep(1, 1))
-        assertEquals(listOf(2, 1), seasonsInOrder(eps).single().second.map { it.episodeNumber })
+    /** Sonarr sends a season newest first; by default it reads from episode 1. */
+    @Test fun `episode 1 comes first by default`() {
+        val eps = listOf(ep(1, 3), ep(1, 1), ep(1, 2))
+        assertEquals(listOf(1, 2, 3), seasonsInOrder(eps).single().second.map { it.episodeNumber })
+    }
+
+    @Test fun `newest first when chosen, seasons still from 1`() {
+        val eps = listOf(ep(1, 1), ep(2, 1), ep(1, 2))
+        val ordered = seasonsInOrder(eps, oldestFirst = false)
+        assertEquals(listOf(1, 2), ordered.map { it.first })
+        assertEquals(listOf(2, 1), ordered.first().second.map { it.episodeNumber })
     }
 }

@@ -83,6 +83,8 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
     val isSonarr = config.type == ServiceType.SONARR
     val isLidarr = config.type == ServiceType.LIDARR
     val st = rememberArrDetailState(itemId)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var oldestFirst by remember { mutableStateOf(EpisodeOrder.oldestFirst(context)) }
     LaunchedEffect(itemId) { st.load(vm, config, itemId, isSonarr, isLidarr) }
     fun openReleases(movieId: Int?, episodeId: Int?, title: String, albumId: Int? = null, seriesId: Int? = null, seasonNumber: Int? = null) {
         st.pickerTitle = title; st.releases = null; st.pickerOpen = true
@@ -228,7 +230,28 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                 HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
                 if (isSonarr || isLidarr) {
                     Spacer(Modifier.height(8.dp))
-                    Text(if (isLidarr) "ALBUMS" else "EPISODES", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (isLidarr) "ALBUMS" else "EPISODES",
+                            fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.weight(1f),
+                        )
+                        if (isSonarr) {
+                            Row(
+                                Modifier.clickable {
+                                    oldestFirst = !oldestFirst
+                                    EpisodeOrder.setOldestFirst(context, oldestFirst)
+                                }.padding(vertical = 6.dp, horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    if (oldestFirst) AppIcons.MoveDown else AppIcons.MoveUp,
+                                    contentDescription = null, tint = accent, modifier = Modifier.size(14.dp),
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(if (oldestFirst) "episode 1 first" else "newest first", fontFamily = Mono, color = accent, fontSize = 11.sp)
+                            }
+                        }
+                    }
                 }
             }
             if (isSonarr) {
@@ -236,7 +259,7 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                 when {
                     eps == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
                     eps.isEmpty() -> item { Text("no episodes", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
-                    else -> seasonsInOrder(eps).forEach { (season, seasonEps) ->
+                    else -> seasonsInOrder(eps, oldestFirst).forEach { (season, seasonEps) ->
                         val open = season in st.openSeasons.orEmpty()
                         // Fall back to the episodes when the series didn't list the season.
                         val seasonMonitored = st.detail?.seasonMonitored?.get(season) ?: seasonEps.any { it.monitored }

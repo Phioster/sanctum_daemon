@@ -3,6 +3,11 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Episodes from the first one, or the newest (v2.1.15)
+- **A season now reads from episode 1.** Sonarr sends a season newest first, so a season of
+  60 episodes opened on episode 60. The order is now episode 1 first, and the switch next to
+  "EPISODES" turns it to newest first. The choice is remembered for every series.
+
 ## Push priorities, and Prowlarr's apps in view (v2.1.14)
 - **ntfy priorities are honoured.** Every live push used to land on one loud channel. Priority
   1 and 2 now arrive silently on "Live push · quiet", priority 5 on its own "Live push ·
