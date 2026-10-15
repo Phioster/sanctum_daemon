@@ -213,6 +213,28 @@ internal fun JellyfinScreen(
         }
     }
 
+    // Both change what the sheet shows, so it is re-read rather than left stale.
+    fun reloadSheet(id: String) = scope.launch {
+        runCatching { vm.jellyfinMediaDetail(config, id) }.getOrNull()?.let { ds.replaceTop(it) }
+        vm.refreshAll()
+    }
+
+    ds.editMetadata?.let { target ->
+        JellyfinMetadataDialog(vm, config, target, accent, onDismiss = { ds.editMetadata = null }) { msg ->
+            ds.editMetadata = null
+            actionMsg = msg
+            reloadSheet(target.id)
+        }
+    }
+
+    ds.images?.let { target ->
+        JellyfinImagesDialog(vm, config, target, accent, onDismiss = { ds.images = null }) { msg ->
+            ds.images = null
+            actionMsg = msg
+            reloadSheet(target.id)
+        }
+    }
+
     ds.refresh?.let { target ->
         JellyfinRefreshDialog(
             title = target.name,

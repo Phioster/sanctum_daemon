@@ -3,6 +3,15 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Edit Jellyfin metadata and pick the artwork (v2.1.17)
+- **Edit metadata.** "Edit metadata…" in the detail menu changes title, original and sort
+  title, year, overview, genres, tags and parental rating, and can lock the item so the next
+  refresh doesn't undo the edit. Jellyfin replaces the whole item on save, so the edit is
+  written onto the full item the server sent; cast, provider ids and studios stay as they are.
+- **Pick the artwork.** "Images…" shows what the metadata providers offer as poster,
+  backdrop, logo or thumb, with provider, language and size. A tap sets it; "upload from
+  phone" takes one from the gallery instead.
+
 ## Edit a title, and see what is on disk (v2.1.16)
 - **Edit a series or movie after adding it.** "Edit" in the title's menu changes the quality
   profile, for a series also its type (standard, anime, daily) and season folders, for a
