@@ -79,8 +79,9 @@ internal fun nzbFailureReason(h: NzbHistoryItem): String {
     if (h.Status.startsWith("SUCCESS")) return ""
     val parts = buildList {
         if (h.Health < 1000) {
+            // Each number formatted on its own: re-formatting "87.3 %" would read "% (" as a flag and throw.
             val health = "health %.1f %%".format(h.Health / 10.0)
-            add(if (h.Health < h.CriticalHealth) "$health (needs %.1f %%)".format(h.CriticalHealth / 10.0) else health)
+            add(if (h.Health < h.CriticalHealth) health + " (needs %.1f %%)".format(h.CriticalHealth / 10.0) else health)
         }
         when (h.DeleteStatus) {
             "HEALTH" -> add("deleted: too many missing articles")
