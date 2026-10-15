@@ -574,6 +574,16 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.net.jellyfinStorage(config)
     suspend fun jellyfinApproveCode(config: ServiceConfig, code: String): String =
         org.phioster.sanctumd.net.jellyfinApproveQuickConnect(config, code)
+    suspend fun jellyfinMetadataOf(config: ServiceConfig, itemId: String): org.phioster.sanctumd.net.JellyMetadata =
+        org.phioster.sanctumd.net.jellyfinMetadata(config, itemId)
+    suspend fun jellyfinSaveMeta(config: ServiceConfig, itemId: String, m: org.phioster.sanctumd.net.JellyMetadata): String =
+        org.phioster.sanctumd.net.jellyfinSaveMetadata(config, itemId, m)
+    suspend fun jellyfinRemoteImageList(config: ServiceConfig, itemId: String, type: String): List<org.phioster.sanctumd.net.JellyRemoteImage> =
+        org.phioster.sanctumd.net.jellyfinRemoteImages(config, itemId, type)
+    suspend fun jellyfinPickImage(config: ServiceConfig, itemId: String, type: String, url: String): String =
+        org.phioster.sanctumd.net.jellyfinPickRemoteImage(config, itemId, type, url)
+    suspend fun jellyfinUploadImageBytes(config: ServiceConfig, itemId: String, type: String, bytes: ByteArray, mime: String): String =
+        org.phioster.sanctumd.net.jellyfinUploadImage(config, itemId, type, bytes, mime)
     suspend fun jellyfinRefresh(config: ServiceConfig, itemId: String, mode: org.phioster.sanctumd.model.JellyRefreshMode, replaceImages: Boolean): String =
         org.phioster.sanctumd.net.jellyfinRefreshItem(config, itemId, mode, replaceImages)
     suspend fun jellyfinLibraryList(config: ServiceConfig): List<org.phioster.sanctumd.model.JellyLibrary> =

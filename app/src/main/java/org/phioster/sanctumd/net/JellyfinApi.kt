@@ -174,6 +174,7 @@ internal data class JfCounts(
     val LastUserName: String? = null,
     val DateLastActivity: String? = null,
 )
+@Serializable internal data class JfRemoteImages(val Images: List<JsonObject> = emptyList())
 @Serializable internal data class JfDevicePage(val Items: List<JfDevice> = emptyList())
 
 @Serializable internal data class JfFolderStorage(
@@ -366,6 +367,25 @@ internal interface JellyfinApi {
         @Query("replaceAllImages") replaceAllImages: Boolean,
     ): Response<ResponseBody>
     @DELETE("Items/{id}") suspend fun deleteItem(@Path("id") id: String): Response<ResponseBody>
+    /** The full item as JSON, for edits that must write every field back. */
+    @GET("Items/{id}") suspend fun itemRaw(@Path("id") id: String, @Query("userId") uid: String): JsonObject
+    @POST("Items/{id}") suspend fun updateItem(@Path("id") id: String, @Body body: JsonObject): Response<ResponseBody>
+    @GET("Items/{id}/RemoteImages") suspend fun remoteImages(
+        @Path("id") id: String,
+        @Query("type") type: String,
+        @Query("includeAllLanguages") allLanguages: Boolean = true,
+        @Query("limit") limit: Int = 60,
+    ): JfRemoteImages
+    @POST("Items/{id}/RemoteImages/Download") suspend fun downloadRemoteImage(
+        @Path("id") id: String,
+        @Query("type") type: String,
+        @Query("imageUrl") url: String,
+    ): Response<ResponseBody>
+    @POST("Items/{id}/Images/{type}") suspend fun uploadImage(
+        @Path("id") id: String,
+        @Path("type") type: String,
+        @Body body: okhttp3.RequestBody,
+    ): Response<ResponseBody>
     @GET("Items/{id}/RemoteSearch/Subtitles/{lang}") suspend fun subtitleSearch(
         @Path("id") id: String,
         @Path("lang") language: String,

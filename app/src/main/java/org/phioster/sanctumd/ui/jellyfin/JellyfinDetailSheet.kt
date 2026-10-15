@@ -311,6 +311,14 @@ internal fun JellyfinDetailSheet(
                         onClick = { state.menuOpen = false; state.identify = d },
                     )
                     DropdownMenuItem(
+                        text = { Text("Edit metadata…", fontFamily = Mono) },
+                        onClick = { state.menuOpen = false; state.editMetadata = d },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Images…", fontFamily = Mono) },
+                        onClick = { state.menuOpen = false; state.images = d },
+                    )
+                    DropdownMenuItem(
                         text = { Text("Refresh metadata…", fontFamily = Mono) },
                         onClick = { state.menuOpen = false; state.refresh = d },
                     )
