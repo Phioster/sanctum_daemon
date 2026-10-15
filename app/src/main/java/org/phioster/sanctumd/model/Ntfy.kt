@@ -9,4 +9,6 @@ data class NtfyMessage(
     val text: String,
     /** Optional target the publisher attached; see jellyfinItemIdFromClick. */
     val click: String = "",
+    /** ntfy's 1 (min) to 5 (max); 3 when the publisher set none. */
+    val priority: Int = 3,
 )

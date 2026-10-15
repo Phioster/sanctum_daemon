@@ -4,6 +4,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 import org.phioster.sanctumd.model.NtfyMessage
 
 private val json = Json { ignoreUnknownKeys = true }
@@ -82,6 +83,7 @@ fun parseNtfyLine(line: String): NtfyMessage? {
         title = title,
         text = text,
         click = str("click").orEmpty(),
+        priority = (obj["priority"] as? JsonPrimitive)?.intOrNull?.coerceIn(1, 5) ?: 3,
     )
 }
 

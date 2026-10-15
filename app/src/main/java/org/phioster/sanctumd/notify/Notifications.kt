@@ -17,6 +17,8 @@ object Notifications {
     const val CH_REQUESTS = "requests"
     const val CH_HEALTH = "health"
     const val CH_LIVE = "live"
+    const val CH_LIVE_QUIET = "live_quiet"
+    const val CH_LIVE_URGENT = "live_urgent"
     const val CH_SERVICE = "live_service"
     const val CH_DOWNLOADS = "downloads"
     // Historic name. Renaming it would leave the old periodic work scheduled.
@@ -30,11 +32,24 @@ object Notifications {
             Triple(CH_REQUESTS, "Seerr requests", NotificationManager.IMPORTANCE_DEFAULT),
             Triple(CH_HEALTH, "Health issues", NotificationManager.IMPORTANCE_LOW),
             Triple(CH_LIVE, "Live push", NotificationManager.IMPORTANCE_HIGH),
+            Triple(CH_LIVE_QUIET, "Live push · quiet", NotificationManager.IMPORTANCE_LOW),
+            Triple(CH_LIVE_URGENT, "Live push · urgent", NotificationManager.IMPORTANCE_HIGH),
             Triple(CH_SERVICE, "Live push service", NotificationManager.IMPORTANCE_MIN),
             Triple(CH_DOWNLOADS, "Media downloads", NotificationManager.IMPORTANCE_LOW),
         ).forEach { (id, name, importance) ->
             nm.createNotificationChannel(NotificationChannel(id, name, importance))
         }
+    }
+
+    /**
+     * The channel for a ntfy priority. 3 and 4 stay on the original "live" channel so whatever
+     * the user set for it still applies; urgent gets its own, which Android lets the user allow
+     * through Do Not Disturb without letting every push through.
+     */
+    fun liveChannelFor(priority: Int): String = when {
+        priority <= 2 -> CH_LIVE_QUIET
+        priority >= 5 -> CH_LIVE_URGENT
+        else -> CH_LIVE
     }
 
     fun schedule(ctx: Context, intervalMin: Int) {

@@ -169,7 +169,7 @@ class NtfyStreamService : Service() {
         val title = if (msg.topic.isNotBlank() && msg.topic != mainTopic) "[${maskTopic(msg.topic)}] $base" else base
         val id = remoteNotificationId(msg.topic + "|" + msg.id.ifEmpty { msg.text })
         if (!collapseHealthPair(parseHealthEvent(base, msg.text), msg.topic, id, title, msg.time)) {
-            postNotification(id, title, msg.text, msg.time, jellyfinItemIdFromClick(msg.click))
+            postNotification(id, title, msg.text, msg.time, jellyfinItemIdFromClick(msg.click), msg.priority)
         }
         if (msg.time > 0) store.saveNtfyCursor(msg.time, recentIds + msg.id, cursorScope)
     }
@@ -215,6 +215,7 @@ class NtfyStreamService : Service() {
         text: String,
         whenSeconds: Long = 0L,
         jellyfinItemId: String? = null,
+        priority: Int = 3,
     ) {
         if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) return
         val launch = packageManager.getLaunchIntentForPackage(packageName)?.apply {
@@ -227,7 +228,7 @@ class NtfyStreamService : Service() {
             }
         }
         val pi = launch?.let { PendingIntent.getActivity(this, id, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT) }
-        val n = NotificationCompat.Builder(this, Notifications.CH_LIVE)
+        val n = NotificationCompat.Builder(this, Notifications.liveChannelFor(priority))
             .setSmallIcon(org.phioster.sanctumd.R.drawable.ic_notify)
             .setColor(android.graphics.Color.parseColor("#14532D"))
             .setContentTitle(title)
@@ -235,6 +236,8 @@ class NtfyStreamService : Service() {
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(pi)
             .setAutoCancel(true)
+            // Only read below Android 8, where there are no channels.
+            .setPriority(if (priority >= 5) NotificationCompat.PRIORITY_MAX else if (priority <= 2) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_HIGH)
             // The message's own time, not this moment. A phone that was asleep delivers a whole
             // backlog at once, and stamping those with the delivery time made a 12-second outage
             // at 02:03 read as six separate alarms at 06:26.

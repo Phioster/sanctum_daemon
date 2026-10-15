@@ -43,6 +43,14 @@ data class ProwlarrHistoryItem(
 )
 
 /** A scheduled system task. */
+/** An app Prowlarr pushes its indexers to (Sonarr, Radarr, …). */
+data class ProwlarrApp(
+    val name: String,
+    val kind: String,
+    /** fullSync, addOnly or disabled. */
+    val syncLevel: String,
+)
+
 data class ProwlarrTaskItem(
     val name: String,
     val lastExecution: String,
