@@ -568,6 +568,16 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun jellyfinRestartServer(config: ServiceConfig): String = jellyfinRestart(config)
     suspend fun jellyfinDeviceList(config: ServiceConfig): List<org.phioster.sanctumd.model.JellyDevice> =
         jellyfinDevices(config)
+    suspend fun jellyfinUpcomingList(config: ServiceConfig): List<org.phioster.sanctumd.net.JellyEpisodeLine> =
+        org.phioster.sanctumd.net.jellyfinUpcoming(config)
+    suspend fun jellyfinMissingList(config: ServiceConfig): List<org.phioster.sanctumd.net.JellyEpisodeLine> =
+        org.phioster.sanctumd.net.jellyfinMissing(config)
+    suspend fun jellyfinBackupList(config: ServiceConfig): List<org.phioster.sanctumd.net.JellyBackup> =
+        org.phioster.sanctumd.net.jellyfinBackups(config)
+    suspend fun jellyfinMakeBackup(config: ServiceConfig, metadata: Boolean, trickplay: Boolean, subtitles: Boolean): String =
+        org.phioster.sanctumd.net.jellyfinCreateBackup(config, metadata, trickplay, subtitles)
+    suspend fun jellyfinRestore(config: ServiceConfig, path: String): String =
+        org.phioster.sanctumd.net.jellyfinRestoreBackup(config, path)
     suspend fun jellyfinRemoveDevice(config: ServiceConfig, deviceId: String): String =
         org.phioster.sanctumd.net.jellyfinDeleteDevice(config, deviceId)
     suspend fun jellyfinStorageList(config: ServiceConfig): List<org.phioster.sanctumd.model.JellyStorageFolder> =

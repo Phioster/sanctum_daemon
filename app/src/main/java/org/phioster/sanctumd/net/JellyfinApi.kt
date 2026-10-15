@@ -211,6 +211,7 @@ internal data class JfCounts(
     val AlbumArtist: String? = null,
     val RunTimeTicks: Long? = null, // audio: track length, in 100-ns ticks
     val LocationType: String? = null, // "FileSystem"/"Remote" = present; "Virtual" = metadata only, no file
+    val PremiereDate: String? = null,
     val ImageTags: Map<String, String>? = null,
     val OfficialRating: String? = null,
     val UserData: JfUserData? = null,
@@ -351,6 +352,20 @@ internal interface JellyfinApi {
     // Watched state. On a Series/Season the server cascades to every episode underneath.
     @POST("UserPlayedItems/{id}") suspend fun markPlayed(@Path("id") id: String, @Query("userId") uid: String): Response<ResponseBody>
     @DELETE("UserPlayedItems/{id}") suspend fun markUnplayed(@Path("id") id: String, @Query("userId") uid: String): Response<ResponseBody>
+    @GET("Items") suspend fun missingEpisodes(
+        @Query("userId") uid: String,
+        @Query("IsMissing") missing: Boolean = true,
+        @Query("IsUnaired") unaired: Boolean = false,
+        @Query("Recursive") recursive: Boolean = true,
+        @Query("IncludeItemTypes") types: String = "Episode",
+        @Query("SortBy") sortBy: String = "PremiereDate",
+        @Query("SortOrder") sortOrder: String = "Descending",
+        @Query("Limit") limit: Int = 150,
+    ): JfItemsResp
+    @GET("Shows/Upcoming") suspend fun upcoming(@Query("userId") uid: String, @Query("limit") limit: Int = 60): JfItemsResp
+    @GET("Backup") suspend fun backups(): List<JsonObject>
+    @POST("Backup/Create") suspend fun createBackup(@Body body: JsonObject): Response<ResponseBody>
+    @POST("Backup/Restore") suspend fun restoreBackup(@Body body: JsonObject): Response<ResponseBody>
     @GET("Items") suspend fun searchItems(
         @Query("userId") uid: String,
         @Query("searchTerm") term: String,
