@@ -118,6 +118,19 @@ data class SeerrRequestDetail(
     /** Provider ids, for finding the same title in Radarr/Sonarr. 0 = not reported. */
     val tmdbId: Int = 0,
     val tvdbId: Int = 0,
+    /** The request never reached Radarr/Sonarr and can be sent again. */
+    val failed: Boolean = false,
+    /** Seerr's media entry behind the request; 0 when the server didn't include it. */
+    val mediaId: Int = 0,
+    val mediaStatus: String = "",
+)
+
+/** One of Seerr's scheduled jobs (library scans, *arr syncs, download sync). */
+data class SeerrJob(
+    val id: String,
+    val name: String,
+    val nextRun: String,
+    val running: Boolean,
 )
 
 /** A Seerr user, for the admin user list. */

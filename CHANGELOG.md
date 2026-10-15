@@ -3,6 +3,16 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Seerr repairs: retry, fix a stuck status, run a job now (v2.1.12)
+- **Retry a failed request.** A request that never reached Radarr or Sonarr shows "Retry
+  request" in its detail. Seerr versions without the route say so instead of failing quietly.
+- **Fix a stuck status.** The request detail now shows the title's own media status next to
+  the request's. "Mark available" ends a "processing" that outlived the download; "Reset
+  media" clears Seerr's entry and its requests so the title can be requested afresh. Reset
+  asks for a second tap, and files in Radarr/Sonarr are not touched.
+- **Run a job now.** The Seerr menu has "Jobs": every scheduled job with its next run, each
+  startable on the spot. The way out when Seerr waits hours for its next Jellyfin scan.
+
 ## A title's history, a refresh, and a season searched in one tap (v2.1.11)
 - **History per title.** The menu of a series, film or artist has "History": everything
   that was grabbed, imported, failed or deleted for it, newest first, with the episode named

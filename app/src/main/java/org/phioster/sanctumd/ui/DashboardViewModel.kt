@@ -1157,6 +1157,12 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.net.seerrServiceOptions(config, mediaType)
     suspend fun seerrRequestDetailOf(config: ServiceConfig, id: Int): org.phioster.sanctumd.model.SeerrRequestDetail =
         org.phioster.sanctumd.net.seerrRequestDetail(config, id)
+    suspend fun seerrRetryReq(config: ServiceConfig, id: Int): String = org.phioster.sanctumd.net.seerrRetryRequest(config, id)
+    suspend fun seerrMarkAvailable(config: ServiceConfig, mediaId: Int, is4k: Boolean): String =
+        org.phioster.sanctumd.net.seerrMarkAvailable(config, mediaId, is4k)
+    suspend fun seerrResetMedia(config: ServiceConfig, mediaId: Int): String = org.phioster.sanctumd.net.seerrResetMedia(config, mediaId)
+    suspend fun seerrJobList(config: ServiceConfig): List<org.phioster.sanctumd.model.SeerrJob> = org.phioster.sanctumd.net.seerrJobs(config)
+    suspend fun seerrRunJob(config: ServiceConfig, jobId: String): String = org.phioster.sanctumd.net.seerrRunJob(config, jobId)
     suspend fun seerrDeleteReq(config: ServiceConfig, id: Int): String =
         org.phioster.sanctumd.net.seerrDeleteRequest(config, id)
     suspend fun seerrIssueDetailOf(config: ServiceConfig, id: Int): org.phioster.sanctumd.model.SeerrIssueDetail =

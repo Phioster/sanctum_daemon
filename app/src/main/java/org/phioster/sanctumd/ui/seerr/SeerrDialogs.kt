@@ -363,3 +363,56 @@ internal fun SeerrIssueDialog(
         },
     )
 }
+
+/**
+ * Seerr's scheduled jobs, each startable now. The way out when Seerr still says "processing"
+ * because its next Jellyfin scan or *arr sync is hours away.
+ */
+@Composable
+internal fun SeerrJobsDialog(
+    vm: DashboardViewModel,
+    config: ServiceConfig,
+    accent: Color,
+    onDismiss: () -> Unit,
+) {
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var jobs by remember { mutableStateOf<List<org.phioster.sanctumd.model.SeerrJob>?>(null) }
+    var message by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) { jobs = runCatching { vm.seerrJobList(config) }.getOrDefault(emptyList()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surface,
+        title = { Text("Jobs", fontFamily = Mono, color = MatrixGreen) },
+        text = {
+            Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
+                message?.let {
+                    Text(it, fontFamily = Mono, color = if (it.startsWith("error")) ErrRed else MatrixGreen, fontSize = 11.sp)
+                    Spacer(Modifier.height(6.dp))
+                }
+                val js = jobs
+                when {
+                    js == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                    js.isEmpty() -> Text("no jobs", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                    else -> js.forEach { job ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(job.name, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
+                                Text(
+                                    if (job.running) "running…" else "next ${job.nextRun}",
+                                    fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 10.sp,
+                                )
+                            }
+                            TextButton(enabled = !job.running, onClick = {
+                                scope.launch {
+                                    message = "${job.name}: ${vm.seerrRunJob(config, job.id)}"
+                                    jobs = runCatching { vm.seerrJobList(config) }.getOrNull() ?: jobs
+                                }
+                            }) { Text("run", fontFamily = Mono, color = accent) }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+    )
+}

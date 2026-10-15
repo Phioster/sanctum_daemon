@@ -56,6 +56,8 @@ internal fun SeerrRequestDetailDialog(
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var showCounterpart by remember { mutableStateOf(false) }
+    // Resetting drops the title's requests too, so it takes a second tap.
+    var confirmReset by remember { mutableStateOf(false) }
 
     if (showCounterpart) {
         val type = seerrServiceTypeFor(detail.mediaType)
@@ -92,6 +94,7 @@ internal fun SeerrRequestDetailDialog(
         text = {
             Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
                 Field("status", detail.status, accent)
+                Field("media", detail.mediaStatus, accent)
                 Field("type", detail.mediaType + if (detail.is4k) " · 4K" else "", accent)
                 if (detail.seasonCount > 0) Field("seasons", detail.seasonCount.toString(), accent)
                 Field("requested by", detail.requestedBy, accent)
@@ -116,6 +119,34 @@ internal fun SeerrRequestDetailDialog(
                         TextButton(enabled = !busy, onClick = { act("decline") { vm.seerrDeclineReq(config, detail.id) } }) {
                             Text("Decline", fontFamily = Mono, color = accent)
                         }
+                    }
+                }
+                if (detail.failed) {
+                    TextButton(enabled = !busy, onClick = { act("retry") { vm.seerrRetryReq(config, detail.id) } }) {
+                        Text("Retry request", fontFamily = Mono, color = MatrixGreen)
+                    }
+                }
+                // For a title stuck on "processing" although the file arrived, or one that
+                // should be requestable again.
+                if (detail.mediaId > 0) {
+                    Row {
+                        if (detail.mediaStatus != "available") {
+                            TextButton(enabled = !busy, onClick = { act("status") { vm.seerrMarkAvailable(config, detail.mediaId, detail.is4k) } }) {
+                                Text("Mark available", fontFamily = Mono, color = accent)
+                            }
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        TextButton(enabled = !busy, onClick = {
+                            if (confirmReset) act("reset") { vm.seerrResetMedia(config, detail.mediaId) } else confirmReset = true
+                        }) {
+                            Text(if (confirmReset) "Tap again to reset" else "Reset media", fontFamily = Mono, color = ErrRed)
+                        }
+                    }
+                    if (confirmReset) {
+                        Text(
+                            "Clears Seerr's entry for this title and its requests. Files in Radarr/Sonarr stay.",
+                            fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp,
+                        )
                     }
                 }
                 // Once a request is approved, the interesting questions ("did it grab a bad
