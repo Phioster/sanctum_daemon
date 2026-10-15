@@ -38,6 +38,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -111,6 +113,13 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                                     st.barMenu = false; openReleases(movieId = itemId, episodeId = null, title = st.detail?.title ?: "")
                                 })
                             }
+                            DropdownMenuItem(text = { Text("Refresh & scan", fontFamily = Mono) }, onClick = {
+                                st.barMenu = false; scope.launch { st.actionMsg = vm.arrRefresh(config, itemId) }
+                            })
+                            DropdownMenuItem(text = { Text("History", fontFamily = Mono) }, onClick = {
+                                st.barMenu = false; st.history = null; st.historyOpen = true
+                                scope.launch { st.history = runCatching { vm.arrHistoryOf(config, itemId) }.getOrDefault(emptyList()) }
+                            })
                             DropdownMenuItem(text = { Text("Move to folder", fontFamily = Mono) }, onClick = {
                                 st.barMenu = false
                                 st.moveTargets = null
@@ -250,6 +259,7 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                                         st.episodes = runCatching { vm.arrEpisodesOf(config, itemId) }.getOrNull() ?: st.episodes
                                     }
                                 },
+                                onAutoSearch = { scope.launch { st.actionMsg = vm.arrSearchSeason(config, itemId, season) } },
                                 onSearch = {
                                     openReleases(
                                         movieId = null, episodeId = null,
@@ -316,8 +326,10 @@ internal fun SonarrSeasonHeader(
     monitored: Boolean,
     onToggleOpen: () -> Unit,
     onToggleMonitor: () -> Unit,
+    onAutoSearch: () -> Unit,
     onSearch: () -> Unit,
 ) {
+    var searchMenu by remember { mutableStateOf(false) }
     Row(
         Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 2.dp).clickable { onToggleOpen() },
         verticalAlignment = Alignment.CenterVertically,
@@ -341,9 +353,15 @@ internal fun SonarrSeasonHeader(
                 tint = if (monitored) WarnAmber else MatrixGreen.copy(alpha = 0.5f),
             )
         }
-        // Interactive search for the whole season (season packs + episodes).
-        IconButton(onClick = onSearch) {
-            Icon(AppIcons.Search, contentDescription = "Search season", tint = accent)
+        // Automatic or interactive, Sonarr's two season buttons behind one icon.
+        Box {
+            IconButton(onClick = { searchMenu = true }) {
+                Icon(AppIcons.Search, contentDescription = "Search season", tint = accent)
+            }
+            DropdownMenu(expanded = searchMenu, onDismissRequest = { searchMenu = false }) {
+                DropdownMenuItem(text = { Text("Automatic search", fontFamily = Mono) }, onClick = { searchMenu = false; onAutoSearch() })
+                DropdownMenuItem(text = { Text("Interactive search", fontFamily = Mono) }, onClick = { searchMenu = false; onSearch() })
+            }
         }
     }
     HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))

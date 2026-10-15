@@ -131,6 +131,32 @@ internal fun ArrDetailDialogs(
         )
     }
 
+    if (st.historyOpen) {
+        AlertDialog(
+            onDismissRequest = { st.historyOpen = false },
+            containerColor = Surface,
+            title = { Text("History", fontFamily = Mono, color = MatrixGreen) },
+            text = {
+                Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
+                    val h = st.history
+                    when {
+                        h == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        h.isEmpty() -> Text("no history", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                        else -> h.forEach { ev ->
+                            ArrHistoryRow(ev, accent) {
+                                scope.launch {
+                                    st.actionMsg = vm.arrBlockFromHistory(config, ev.id)
+                                    st.history = runCatching { vm.arrHistoryOf(config, itemId) }.getOrNull() ?: st.history
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { st.historyOpen = false }) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+        )
+    }
+
     if (st.confirmDelete) {
         AlertDialog(
             onDismissRequest = { st.confirmDelete = false },
