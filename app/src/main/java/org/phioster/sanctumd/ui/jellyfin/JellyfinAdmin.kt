@@ -28,6 +28,9 @@ import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -88,6 +91,14 @@ internal class JellyfinAdminState {
     /** Why [storage] is empty, e.g. a server older than 10.11. */
     var storageError by mutableStateOf<String?>(null)
     var showQuickConnect by mutableStateOf(false)
+    var upcoming by mutableStateOf<List<org.phioster.sanctumd.net.JellyEpisodeLine>?>(null)
+    var missing by mutableStateOf<List<org.phioster.sanctumd.net.JellyEpisodeLine>?>(null)
+    var backups by mutableStateOf<List<org.phioster.sanctumd.net.JellyBackup>?>(null)
+    /** Why [backups] is empty, e.g. a server older than 10.11. */
+    var backupError by mutableStateOf<String?>(null)
+    var showCreateBackup by mutableStateOf(false)
+    var backupRunning by mutableStateOf(false)
+    var restoreTarget by mutableStateOf<org.phioster.sanctumd.net.JellyBackup?>(null)
     var removeDevice by mutableStateOf<JellyDevice?>(null)
 
     /** The category opened from a tile; null shows the tile overview. */
@@ -114,6 +125,14 @@ internal class JellyfinAdminState {
         libraries = runCatching { vm.jellyfinLibraryList(config) }.getOrDefault(emptyList())
         plugins = runCatching { vm.jellyfinPluginList(config) }.getOrDefault(emptyList())
         logFiles = runCatching { vm.jellyfinLogList(config) }.getOrDefault(emptyList())
+        upcoming = runCatching { vm.jellyfinUpcomingList(config) }.getOrDefault(emptyList())
+        missing = runCatching { vm.jellyfinMissingList(config) }.getOrDefault(emptyList())
+        runCatching { vm.jellyfinBackupList(config) }
+            .onSuccess { backups = it; backupError = null }
+            .onFailure {
+                backups = emptyList()
+                backupError = if ((it as? retrofit2.HttpException)?.code() == 404) "needs Jellyfin 10.11 or newer" else it.message ?: "failed"
+            }
         runCatching { vm.jellyfinStorageList(config) }
             .onSuccess { storage = it; storageError = null }
             .onFailure {
@@ -181,6 +200,9 @@ internal fun LazyListScope.jellyfinDashboardTab(
                 DashCat("logs", "Logs", st.logFiles?.size, Icons.Filled.Description),
                 DashCat("devices", "Devices", st.devices?.size, Icons.Filled.Devices),
                 DashCat("storage", "Storage", st.storage?.size, Icons.Filled.Storage),
+                DashCat("upcoming", "Upcoming", st.upcoming?.size, Icons.Filled.Event),
+                DashCat("missing", "Missing", st.missing?.size, Icons.Filled.EventBusy),
+                DashCat("backups", "Backups", st.backups?.size, Icons.Filled.Backup),
             )
             cats.chunked(2).forEach { rowCats ->
                 Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -277,6 +299,25 @@ internal fun LazyListScope.jellyfinDashboardTab(
                     else -> items(dv) { d -> JellyDeviceRow(d, accent, onRemove = if (d.own || d.id.isBlank()) null else { { st.removeDevice = d } }) }
                 }
             }
+            "upcoming" -> episodeLines(st.upcoming, "nothing announced for your shows", accent)
+            "missing" -> episodeLines(st.missing, "nothing missing", accent)
+            "backups" -> {
+                item {
+                    Text(
+                        if (st.backupRunning) "creating backup…" else "+ new backup",
+                        fontFamily = Mono, color = accent, fontSize = 13.sp,
+                        modifier = Modifier.fillMaxWidth().clickable(enabled = !st.backupRunning && st.backupError == null) { st.showCreateBackup = true }
+                            .padding(vertical = 8.dp),
+                    )
+                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+                }
+                val bk = st.backups
+                when {
+                    bk == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                    bk.isEmpty() -> item { Text(st.backupError ?: "no backups yet", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                    else -> items(bk) { b -> JellyBackupRow(b, accent) { st.restoreTarget = b } }
+                }
+            }
             "storage" -> {
                 val sg = st.storage
                 when {
@@ -286,6 +327,14 @@ internal fun LazyListScope.jellyfinDashboardTab(
                 }
             }
         }
+    }
+}
+
+private fun LazyListScope.episodeLines(list: List<org.phioster.sanctumd.net.JellyEpisodeLine>?, empty: String, accent: Color) {
+    when {
+        list == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+        list.isEmpty() -> item { Text(empty, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+        else -> items(list) { e -> JellyEpisodeLineRow(e, accent) }
     }
 }
 
@@ -404,6 +453,25 @@ internal fun JellyfinAdminDialogs(
                 scope.launch { onMessage(vm.jellyfinCatalogInstall(config, pkg.name, pkg.guid)); onReload() }
             },
         )
+    }
+
+    if (st.showCreateBackup) {
+        JellyCreateBackupDialog(onDismiss = { st.showCreateBackup = false }) { metadata, trickplay, subtitles ->
+            st.showCreateBackup = false
+            st.backupRunning = true
+            scope.launch {
+                onMessage(vm.jellyfinMakeBackup(config, metadata, trickplay, subtitles))
+                st.backupRunning = false
+                st.backups = runCatching { vm.jellyfinBackupList(config) }.getOrNull() ?: st.backups
+            }
+        }
+    }
+
+    st.restoreTarget?.let { b ->
+        JellyRestoreBackupDialog(b, onDismiss = { st.restoreTarget = null }) {
+            st.restoreTarget = null
+            scope.launch { onMessage(vm.jellyfinRestore(config, b.path)) }
+        }
     }
 
     if (st.showQuickConnect) {

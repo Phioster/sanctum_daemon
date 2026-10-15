@@ -3,6 +3,16 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## What airs next, what is missing, and server backups (v2.1.18)
+- **Upcoming and missing episodes.** Two new tiles on the Jellyfin dashboard: "Upcoming"
+  lists the next episodes of your shows with their air date, "Missing" the aired episodes
+  Jellyfin knows of but has no file for, newest first. Browsing still hides those on purpose.
+- **Server backups.** The "Backups" tile lists the server's backup archives and creates a new
+  one; the database is always in it, metadata, trickplay and subtitles are optional. Creating
+  waits up to ten minutes for the archive instead of giving up after twenty seconds.
+  "restore" rolls the server back after a confirmation that spells out the date. Needs
+  Jellyfin 10.11 or newer and says so on older servers.
+
 ## Edit Jellyfin metadata and pick the artwork (v2.1.17)
 - **Edit metadata.** "Edit metadata…" in the detail menu changes title, original and sort
   title, year, overview, genres, tags and parental rating, and can lock the item so the next
