@@ -60,7 +60,49 @@ import retrofit2.http.POST
     val Name: String = "",
     val Status: String = "",
     val FileSizeMB: Long = 0,
+    val ParStatus: String = "NONE",
+    val UnpackStatus: String = "NONE",
+    val MoveStatus: String = "NONE",
+    val ScriptStatus: String = "NONE",
+    val DeleteStatus: String = "NONE",
+    val MarkStatus: String = "NONE",
+    /** Per mille; below [CriticalHealth] the download cannot be repaired. */
+    val Health: Int = 1000,
+    val CriticalHealth: Int = 1000,
 )
+
+/**
+ * The stage that broke, from the sub-statuses NZBGet reports next to the summary `Status`
+ * (names and values as in its XmlRpc.cpp). A success, or a reason NZBGet doesn't give, is blank.
+ */
+internal fun nzbFailureReason(h: NzbHistoryItem): String {
+    if (h.Status.startsWith("SUCCESS")) return ""
+    val parts = buildList {
+        if (h.Health < 1000) {
+            // Each number formatted on its own: re-formatting "87.3 %" would read "% (" as a flag and throw.
+            val health = "health %.1f %%".format(h.Health / 10.0)
+            add(if (h.Health < h.CriticalHealth) health + " (needs %.1f %%)".format(h.CriticalHealth / 10.0) else health)
+        }
+        when (h.DeleteStatus) {
+            "HEALTH" -> add("deleted: too many missing articles")
+            "DUPE" -> add("deleted: duplicate")
+            "BAD" -> add("marked bad")
+            "MANUAL" -> add("deleted by hand")
+        }
+        when (h.ParStatus) {
+            "FAILURE" -> add("repair failed")
+            "MANUAL" -> add("repair needs manual action")
+        }
+        when (h.UnpackStatus) {
+            "FAILURE" -> add("unpack failed")
+            "SPACE" -> add("unpack: disk full")
+            "PASSWORD" -> add("unpack: password protected")
+        }
+        if (h.MoveStatus == "FAILURE") add("move failed")
+        if (h.ScriptStatus == "FAILURE") add("script failed")
+    }
+    return parts.joinToString(" · ")
+}
 
 internal interface NzbgetApi {
     @GET("jsonrpc/status") suspend fun status(): NzbStatusResp
@@ -137,7 +179,7 @@ suspend fun nzbgetQueue(config: ServiceConfig): List<NzbQueueItem> = withContext
 
 suspend fun nzbgetHistory(config: ServiceConfig, hidden: Boolean): List<NzbHistoryEntry> = withContext(Dispatchers.IO) {
     apiFor<NzbgetApi>(config, basicHeader(config)).history(NzbHistoryReq(params = listOf(hidden))).result.map {
-        NzbHistoryEntry(it.NZBID, it.Name, it.Status, it.FileSizeMB)
+        NzbHistoryEntry(it.NZBID, it.Name, it.Status, it.FileSizeMB, nzbFailureReason(it))
     }
 }
 

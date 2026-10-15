@@ -18,4 +18,6 @@ data class NzbHistoryEntry(
     val name: String,
     val status: String,
     val sizeMb: Long,
+    /** Why it did not succeed, in a few words; blank for a success. */
+    val reason: String = "",
 )
