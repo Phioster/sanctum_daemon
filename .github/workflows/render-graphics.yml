@@ -1,0 +1,38 @@
+# Renders the promo graphics (docs/promo/v3.0/graphics/src/*.html) to PNG with Chromium and
+# uploads them as an artifact. Nothing is committed: the images are looked at before they go in.
+# Runs on push because workflow_dispatch only works once a workflow is on the default branch.
+name: Render graphics
+
+on:
+  push:
+    paths:
+      - 'docs/promo/v3.0/graphics/src/**'
+      - 'docs/screenshots/*.png'
+      - '.github/workflows/render-graphics.yml'
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Chromium for Playwright
+        run: npx --yes playwright@1.48.2 install --with-deps chromium
+      - name: Render
+        run: |
+          mkdir -p out
+          src="$PWD/docs/promo/v3.0/graphics/src"
+          shot() { npx --yes playwright@1.48.2 screenshot --wait-for-timeout=1500 --viewport-size="$2" "file://$src/$1.html" "out/$1.png"; }
+          shot social-preview 1280,640
+          shot launch-banner 1500,500
+          shot feature-showcase 1920,1080
+          shot end-card 1080,2340
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: graphics
+          path: out/*.png
+          retention-days: 1
