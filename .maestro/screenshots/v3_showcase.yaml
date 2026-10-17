@@ -9,26 +9,31 @@ name: v3 showcase screenshots
 - launchApp:
     clearState: true
 - tapOn: "skip"
-- tapOn: "no server yet? try the demo"
+# With no services the home shows nothing; the way in sits in the services drawer.
+# Text selectors are regexes, so the "?" in the button's label is left out of the pattern.
+- tapOn: "Services"
+- tapOn: ".*try the demo"
+- extendedWaitUntil:
+    visible: "Jellyfin"
+    timeout: 20000
 - waitForAnimationToEnd:
-    timeout: 5000
-# The DEMO chip hides for this session on a long press, so it stays out of the pictures.
+    timeout: 8000
+- takeScreenshot: shots/02_services
+# Close the drawer for the home dashboard; the DEMO chip hides for this session on a long
+# press, so it stays out of the pictures.
+- back
 - longPressOn:
     text: "DEMO"
     optional: true
 - extendedWaitUntil:
-    visible: "UNIVERSAL CALENDAR|WATCH LEADERBOARD|POPULAR|RECENTLY"
+    visible: "UNIVERSAL CALENDAR|WATCH LEADERBOARD|POPULAR.*|RECENTLY.*"
     timeout: 20000
     optional: true
-- waitForAnimationToEnd
+- waitForAnimationToEnd:
+    timeout: 8000
 - takeScreenshot: shots/01_home
-
-# ── the services drawer ──
-- tapOn:
-    text: "Services"
-    optional: true
+- tapOn: "Services"
 - waitForAnimationToEnd
-- takeScreenshot: shots/02_services
 
 # ── Radarr: library, then the new service sheet, then a title ──
 - tapOn:

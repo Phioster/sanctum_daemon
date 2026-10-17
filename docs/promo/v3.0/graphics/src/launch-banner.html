@@ -1,0 +1,39 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Sanctumd 3.0 launch banner</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  /* 1500 x 500: the header size of X/Mastodon/Bluesky, and wide enough for a release page. */
+  .stage { width: 1500px; height: 500px; }
+  .left { position: absolute; left: 70px; top: 62px; z-index: 2; }
+  .prompt { font-size: 22px; }
+  .title { font-size: 76px; margin-top: 8px; white-space: nowrap; }
+  .cursor { width: 34px; height: 60px; margin-left: 10px; }
+  .line { font-size: 25px; margin-top: 16px; color: #c8ffd6; }
+  .out { font-size: 19px; margin-top: 22px; color: var(--dim); line-height: 1.55; }
+  .out b { color: var(--fg); font-weight: 400; }
+  .phones { position: absolute; right: 44px; top: 40px; display: flex; gap: 20px; z-index: 2; }
+  .phone { width: 180px; height: 377px; border-radius: 24px; }
+  .phone:nth-child(2) { margin-top: 30px; }
+  .phone:nth-child(3) { margin-top: 60px; }
+</style></head>
+<body><div class="stage">
+  <div class="rain" style="-webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,.25), rgba(0,0,0,.4) 45%, #000 70%)"></div>
+  <div class="left">
+    <div class="prompt">visitor@homelab:~$ ./sanctumd --release</div>
+    <div class="title">SANCTUMD 3.0<span class="cursor"></span></div>
+    <div class="line">Your whole media stack, in one Android app.</div>
+    <div class="out">
+      <b>[OK]</b> Jellyfin admin · *arr · Seerr · NZBGet · ntfy<br>
+      <b>[OK]</b> talks to each API directly, no backend, no account<br>
+      <b>[OK]</b> demo mode: try it without a server<br>
+      <b>[OK]</b> free software, GPL-3.0
+    </div>
+  </div>
+  <div class="phones">
+    <div class="phone"><img src="../../../../screenshots/jellyfin-admin.png" alt=""></div>
+    <div class="phone"><img src="../../../../screenshots/media-detail.png" alt=""></div>
+    <div class="phone"><img src="../../../../screenshots/live-push.png" alt=""></div>
+  </div>
+</div>
+<script src="rain.js"></script>
+</body></html>

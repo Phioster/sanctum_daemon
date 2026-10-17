@@ -117,30 +117,52 @@
   dashboard · tasks · activity
   users · per-library access
   media browse · cast · now playing
-  plugins · libraries · logs
+  remote control · quick connect
+  plugins + repos · libraries · logs
+  server · transcoding · library
+    settings, only touched fields sent
+  metadata &amp; artwork editing
+  playlists · collections
+  api keys · backups · storage
+  music: albums · lyrics (timed)
+    instant mix · more like this
 
 [radarr / sonarr / lidarr]
   library · missing · cutoff
   queue · history · add
   interactive search → grab
   manual import · per-ep monitoring
+  edit a title · files on disk
+  rename files · tags
+  quality profiles · indexers
+  download clients · import lists
+  blocklist · import exclusions
   cast · where-to-stream (via Seerr)
-  system &amp; health
+  system &amp; health · logs · backups
 
 [seerr]
   requests · issues · discover
   watchlist · per-season requests
   approve/decline · media detail
   where-to-stream, per region
-  users &amp; stats
+  users &amp; stats · quotas
+  settings · jobs &amp; cache
+  blocklist · logs
 
 [prowlarr]
   indexers · search · history
-  tasks · send-to-arr
+  tasks · apps · send-to-arr
+  tags · indexer proxies
+  logs · backups
 
 [nzbget]
   queue · history · pause/resume
-  edit · add-url · server details</pre></div></details>
+  edit · add-url · server details
+  why a download failed
+  speed limit · post-processing
+  volume per news server
+  .nzb from the share menu
+  log, per download too</pre></div></details>
 
     <details><summary><b>the dashboard</b></summary><div class="body"><pre class="console">[home]
   editable tabs + services drawer
@@ -153,11 +175,24 @@
   accent · header icon · poster size
   fan-art Ken-Burns background
   flat / solid / glass themes
+  your own themes, with a
+    readability check
 [search]
   global, across all services
 [widgets]
   Glance home-screen: shortcuts ·
   status · quick actions · agenda</pre></div></details>
+
+    <details><summary><b>demo mode</b></summary><div class="body"><pre class="console">[try it]
+  "try the demo" on first start,
+  or Settings → demo mode
+  a busy made-up homelab: films,
+  shows, music, six viewers,
+  downloads, requests, pushes
+[safe]
+  answered inside the app, your
+  own services stay untouched
+  one tap on DEMO to leave</pre></div></details>
 
     <details><summary><b>notifications</b></summary><div class="body"><pre class="console">[ntfy]
   add it like any other service
@@ -260,6 +295,8 @@ Android     17 on the phone</pre></div></details>
         <a class="btn" href="#">[ loading… ]</a>
       </div>
     </div>
+    <p class="note">No server at hand? Install it anyway and tap <b>try the demo</b>: a busy
+      made-up homelab, answered inside the app, nothing of yours touched.</p>
     <p class="note">Sideload the APK. There is no Play Store listing. Every release is
       built from this source by GitHub Actions — see
       <a href="https://github.com/Phioster/sanctum_daemon/releases">all releases</a>.</p>
@@ -305,7 +342,7 @@ Android     17 on the phone</pre></div></details>
         Nothing else leaves your network, and no other screen is affected.</p>
       <h3>How is it tested and reviewed?</h3>
       <p>Every change goes through review before it lands, and then through CI: a test suite of
-        339 cases, detekt, Android Lint, and a launch test that installs the app on an emulator
+        more than 500 cases, detekt, Android Lint, and a launch test that installs the app on an emulator
         and drives it. The app runs on one real homelab every day before anything is tagged as a
         release.</p>
       <p>What that does not cover: one person's setup is not a survey. Everything that works,

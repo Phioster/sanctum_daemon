@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Sanctumd end card</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  /* 1080 x 2340, the phone's own frame, so the card follows the recording without a jump. */
+  .stage { width: 1080px; height: 2340px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  img.icon { width: 320px; height: 320px; border-radius: 64px; box-shadow: 0 0 60px rgba(0,255,65,.3); }
+  .title { font-size: 100px; margin-top: 70px; }
+  .line { font-size: 46px; color: #c8ffd6; margin-top: 40px; line-height: 1.4; }
+  .url { font-size: 40px; margin-top: 90px; border: 2px solid var(--border); padding: 22px 34px; }
+  .foot { font-size: 34px; color: var(--dim); margin-top: 60px; }
+</style></head>
+<body><div class="stage">
+  <div class="rain" style="opacity:.5"></div>
+  <img class="icon" src="../../../../icon.png" alt="" style="position:relative;z-index:2">
+  <div class="title" style="position:relative;z-index:2">SANCTUMD 3.0</div>
+  <div class="line" style="position:relative;z-index:2">Your whole media stack,<br>in one Android app.</div>
+  <div class="url" style="position:relative;z-index:2">github.com/Phioster/sanctum_daemon</div>
+  <div class="foot" style="position:relative;z-index:2">free · GPL-3.0 · demo mode built in</div>
+</div>
+<script src="rain.js"></script>
+</body></html>
