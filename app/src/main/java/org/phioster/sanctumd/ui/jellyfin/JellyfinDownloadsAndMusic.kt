@@ -275,18 +275,21 @@ internal fun MusicBar(
     }
 }
 
-/** Full-screen now-playing: big art, seek bar, prev/play-pause/next. */
+/** Full-screen now-playing: big art, seek bar, prev/play-pause/next, then queue or lyrics. */
 @Composable
 internal fun NowPlayingScreen(
     state: org.phioster.sanctumd.ui.player.MusicState,
     accent: Color,
     onClose: () -> Unit,
+    vm: org.phioster.sanctumd.ui.DashboardViewModel? = null,
+    config: org.phioster.sanctumd.model.ServiceConfig? = null,
 ) {
     BackHandler { onClose() }
     var pos by remember { mutableStateOf(0L) }
     var dur by remember { mutableStateOf(0L) }
     var scrubbing by remember { mutableStateOf(false) }
     var scrubPos by remember { mutableStateOf(0f) }
+    var showLyrics by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         while (true) {
             if (!scrubbing) { pos = org.phioster.sanctumd.ui.player.MusicController.positionMs(); dur = org.phioster.sanctumd.ui.player.MusicController.durationMs() }
@@ -305,7 +308,8 @@ internal fun NowPlayingScreen(
                 Text("now playing", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp)
             }
             Spacer(Modifier.height(24.dp))
-            Box(Modifier.fillMaxWidth(0.82f).aspectRatio(1f).clip(RoundedCornerShape(12.dp)).background(Surface)) {
+            // The cover steps back while lyrics are open, so more lines fit under the controls.
+            Box(Modifier.fillMaxWidth(if (showLyrics) 0.42f else 0.82f).aspectRatio(1f).clip(RoundedCornerShape(12.dp)).background(Surface)) {
                 if (state.artworkUri.isNotBlank()) {
                     coil.compose.AsyncImage(model = state.artworkUri, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 }
@@ -359,8 +363,24 @@ internal fun NowPlayingScreen(
                     )
                 }
             }
-            // Queue / album track list fills the space below the controls.
-            if (state.queue.size > 1) {
+            if (vm != null && config != null && state.currentMediaId.isNotBlank()) {
+                Spacer(Modifier.height(14.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (state.queue.size > 1) {
+                        BrowseChip("up next", if (!showLyrics) accent else MatrixGreen.copy(alpha = 0.6f)) { showLyrics = false }
+                    }
+                    BrowseChip("lyrics", if (showLyrics) accent else MatrixGreen.copy(alpha = 0.6f)) { showLyrics = true }
+                    BrowseChip("instant mix", MatrixGreen.copy(alpha = 0.85f), AppIcons.Shuffle) {
+                        vm.playJellyfinInstantMix(config, state.currentMediaId)
+                        showLyrics = false
+                    }
+                }
+            }
+            if (showLyrics && vm != null && config != null) {
+                Spacer(Modifier.height(10.dp))
+                LyricsPane(vm, config, state.currentMediaId, pos, accent, Modifier.fillMaxWidth().weight(1f))
+            } else if (state.queue.size > 1) {
+                // Queue / album track list fills the space below the controls.
                 Spacer(Modifier.height(18.dp))
                 Text("UP NEXT", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(4.dp))
@@ -385,5 +405,57 @@ internal fun NowPlayingScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * The song's lyrics. Timed ones follow the song: the line being sung is lit and kept in view, and
+ * tapping a line jumps there. Untimed ones are just a page to read.
+ */
+@Composable
+private fun LyricsPane(
+    vm: org.phioster.sanctumd.ui.DashboardViewModel,
+    config: org.phioster.sanctumd.model.ServiceConfig,
+    trackId: String,
+    positionMs: Long,
+    accent: Color,
+    modifier: Modifier,
+) {
+    var lyrics by remember(trackId) { mutableStateOf<org.phioster.sanctumd.net.MusicLyrics?>(null) }
+    var state by remember(trackId) { mutableStateOf("loading…") }
+    LaunchedEffect(trackId) {
+        runCatching { vm.jellyfinLyricsOf(config, trackId) }
+            .onSuccess { lyrics = it; state = if (it == null) "no lyrics on the server for this song" else "" }
+            .onFailure { state = "error: ${it.message ?: it.javaClass.simpleName}" }
+    }
+    val l = lyrics
+    if (l == null) {
+        Text(state, fontFamily = Mono, color = if (state.startsWith("error")) ErrRed else MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp,
+            modifier = modifier.padding(top = 12.dp))
+        return
+    }
+    val current = l.lineAt(positionMs)
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    LaunchedEffect(current) { if (current > 1) listState.animateScrollToItem(current - 2) }
+    LazyColumn(modifier, state = listState) {
+        itemsIndexed(l.lines) { i, line ->
+            val lit = l.synced && i == current
+            Text(
+                line.text.ifBlank { " " },
+                fontFamily = Mono,
+                fontSize = if (lit) 17.sp else 15.sp,
+                fontWeight = if (lit) FontWeight.Bold else FontWeight.Normal,
+                color = when {
+                    !l.synced -> MatrixGreen
+                    lit -> accent
+                    i < current -> MatrixGreen.copy(alpha = 0.45f)
+                    else -> MatrixGreen.copy(alpha = 0.8f)
+                },
+                modifier = Modifier.fillMaxWidth()
+                    .then(if (l.synced) Modifier.clickable { line.startMs?.let { org.phioster.sanctumd.ui.player.MusicController.seekTo(it) } } else Modifier)
+                    .padding(vertical = 5.dp),
+            )
+        }
+        if (!l.synced) item { Spacer(Modifier.height(24.dp)) }
     }
 }

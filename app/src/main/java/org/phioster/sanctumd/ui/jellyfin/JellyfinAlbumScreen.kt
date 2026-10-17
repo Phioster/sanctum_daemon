@@ -1,5 +1,13 @@
 package org.phioster.sanctumd.ui.jellyfin
 
+import org.phioster.sanctumd.ui.common.SectionHeader
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -118,6 +126,7 @@ internal fun LazyListScope.jellyfinAlbumLevel(
             if (album.tracks.isNotEmpty()) {
                 BrowseChip("play", MatrixGreen, AppIcons.Play) { vm.playJellyfinAlbum(config, album.id) }
                 BrowseChip("shuffle", MatrixGreen, AppIcons.Shuffle) { vm.playJellyfinAlbum(config, album.id, shuffle = true) }
+                BrowseChip("mix", MatrixGreen, AppIcons.Audio) { vm.playJellyfinInstantMix(config, album.id) }
             }
             val toGet = contents.orEmpty().filter { !it.isFolder && it.kind == "Audio" && downloads[it.id]?.done != true }
             if (toGet.isNotEmpty()) {
@@ -147,7 +156,34 @@ internal fun LazyListScope.jellyfinAlbumLevel(
             onDetails = { contents.orEmpty().firstOrNull { it.id == track.id }?.let(act.open) },
         )
     }
+    item(key = "similar-${album.id}") { SimilarAlbums(vm, config, album.id, accent, act.open) }
     item { Spacer(Modifier.height(16.dp)) }
+}
+
+/** "More like this": albums Jellyfin finds close to this one, a tap opens the sleeve. */
+@Composable
+private fun SimilarAlbums(vm: DashboardViewModel, config: ServiceConfig, albumId: String, accent: Color, onOpen: (JellyMediaItem) -> Unit) {
+    var list by remember(albumId) { mutableStateOf<List<JellyMediaItem>>(emptyList()) }
+    LaunchedEffect(albumId) { list = runCatching { vm.jellyfinSimilarOf(config, albumId) }.getOrDefault(emptyList()) }
+    if (list.isEmpty()) return
+    Column(Modifier.fillMaxWidth().padding(top = 18.dp)) {
+        SectionHeader("more like this", accent)
+        Spacer(Modifier.height(10.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(list, key = { it.id }) { a ->
+                Column(Modifier.width(112.dp).clickable { onOpen(a) }) {
+                    Box(Modifier.size(112.dp).clip(RoundedCornerShape(8.dp)).background(Surface)) {
+                        if (a.posterUrl.isNotBlank()) JellyPoster(a.posterUrl, config, Modifier.size(112.dp), RoundedCornerShape(8.dp), ContentScale.Crop)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(a.name, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (a.subtitle.isNotBlank()) {
+                        Text(a.subtitle, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+    }
 }
 
 /** One line of the running order: number, title, length. And a caret on the one that is playing. */

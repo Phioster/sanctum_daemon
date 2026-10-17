@@ -5,15 +5,21 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ArrowRight
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.DoNotDisturbOn
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
@@ -22,13 +28,19 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Mail
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
@@ -36,16 +48,20 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -118,4 +134,22 @@ internal object AppIcons {
     val Notify: ImageVector = Icons.Filled.Notifications
     val Locked: ImageVector = Icons.Filled.Lock
     val Message: ImageVector = Icons.Filled.Mail
+
+    // ── Service menu: what a service's settings pages are about ──
+    val Delete: ImageVector = Icons.Filled.Delete
+    val Health: ImageVector = Icons.Filled.Memory
+    val Indexers: ImageVector = Icons.Filled.Public
+    val Blocklist: ImageVector = Icons.Filled.Block
+    val Exclusions: ImageVector = Icons.Filled.DoNotDisturbOn
+    val Tags: ImageVector = Icons.Filled.LocalOffer
+    val Lists: ImageVector = Icons.AutoMirrored.Filled.List
+    val Logs: ImageVector = Icons.Filled.Description
+    val Backups: ImageVector = Icons.Filled.Backup
+    val Test: ImageVector = Icons.Filled.NetworkCheck
+    val Proxy: ImageVector = Icons.Filled.VpnKey
+    val Speed: ImageVector = Icons.Filled.Speed
+    val Users: ImageVector = Icons.Filled.People
+    val Jobs: ImageVector = Icons.Filled.Schedule
+    val Rows: ImageVector = Icons.Filled.ViewAgenda
+    val Restart: ImageVector = Icons.Filled.PowerSettingsNew
 }

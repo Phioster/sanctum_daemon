@@ -1,5 +1,9 @@
 package org.phioster.sanctumd.ui.nzbget
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
@@ -22,7 +26,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.History
@@ -141,8 +144,9 @@ internal fun NzbgetScreen(
         if (tab != 0) null else if (busy) 3_000L else 15_000L
     }) { loadQueue() }
 
-    var barMenu by remember { mutableStateOf(false) }
     var showAdd by remember { mutableStateOf(false) }
+    var showServers by remember { mutableStateOf(false) }
+    var picked by remember { mutableStateOf<PendingNzb?>(null) }
     /** The log dialog: null closed, (null, _) the whole server log, (id, name) one download's. */
     var logTarget by remember { mutableStateOf<Pair<Int?, String>?>(null) }
     var addUrl by remember { mutableStateOf("") }
@@ -151,12 +155,20 @@ internal fun NzbgetScreen(
     var categoryFor by remember { mutableStateOf<Int?>(null) }
     var categoryText by remember { mutableStateOf("") }
     val context = LocalContext.current
+    val pickNzb = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch { picked = withContext(Dispatchers.IO) { readNzb(context, uri) } }
+    }
     fun act(action: suspend () -> String) {
         scope.launch {
             actionMsg = action()
             if (tab == 0) loadQueue() else loadHistory()
             vm.refreshAll()
         }
+    }
+
+    if (showServers) {
+        NzbServersScreen(vm, config, onBack = { showServers = false })
+        return
     }
 
     Scaffold(
@@ -176,29 +188,33 @@ internal fun NzbgetScreen(
                     }
                 },
                 actions = {
-                    Box {
-                        IconButton(onClick = { barMenu = true }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen)
-                        }
-                        DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
-                            DropdownMenuItem(text = { Text("Add NZB (URL)", fontFamily = Mono) }, onClick = { barMenu = false; showAdd = true })
-                            DropdownMenuItem(text = { Text("Log", fontFamily = Mono) }, onClick = { barMenu = false; logTarget = null to "Log" })
-                            val postPaused = pauseState?.postPaused == true
-                            DropdownMenuItem(
-                                text = { Text(if (postPaused) "Resume post-processing" else "Pause post-processing", fontFamily = Mono) },
-                                onClick = { barMenu = false; act { vm.nzbPostPause(config, !postPaused) } },
-                            )
-                            DropdownMenuItem(text = { Text("Server details", fontFamily = Mono) }, onClick = { barMenu = false; scope.launch { serverInfo = runCatching { vm.nzbServer(config) }.getOrNull() ?: listOf("error" to "could not load") } })
-                            DropdownMenuItem(text = { Text("View on web", fontFamily = Mono) }, onClick = { barMenu = false; runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(config.baseUrl))) } })
-                            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
-                            DropdownMenuItem(text = { Text("Speed: Unlimited", fontFamily = Mono) }, onClick = { barMenu = false; act { vm.nzbRate(config, 0) } })
-                            DropdownMenuItem(text = { Text("Speed: 5 MB/s", fontFamily = Mono) }, onClick = { barMenu = false; act { vm.nzbRate(config, 5120) } })
-                            DropdownMenuItem(text = { Text("Speed: 10 MB/s", fontFamily = Mono) }, onClick = { barMenu = false; act { vm.nzbRate(config, 10240) } })
-                            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
-                            DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
-                            DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
-                        }
-                    }
+                    val postPaused = pauseState?.postPaused == true
+                    ServiceMenuButton(
+                        config = config,
+                        primary = listOf(
+                            MenuAction("Upload NZB", AppIcons.Add) { pickNzb.launch(arrayOf("application/x-nzb", "application/octet-stream", "text/xml", "application/xml")) },
+                            MenuAction("Add by URL", AppIcons.Download) { showAdd = true },
+                        ),
+                        sections = listOf(
+                            MenuSection("Speed limit", listOf(
+                                MenuAction("Unlimited", AppIcons.Speed) { act { vm.nzbRate(config, 0) } },
+                                MenuAction("5 MB/s", AppIcons.Speed) { act { vm.nzbRate(config, 5120) } },
+                                MenuAction("10 MB/s", AppIcons.Speed) { act { vm.nzbRate(config, 10240) } },
+                            )),
+                            MenuSection("Server", listOf(
+                                MenuAction("News servers", AppIcons.Server) { showServers = true },
+                                if (postPaused) MenuAction("Resume post-processing", AppIcons.Play) { act { vm.nzbPostPause(config, false) } }
+                                else MenuAction("Pause post-processing", AppIcons.Pause) { act { vm.nzbPostPause(config, true) } },
+                                MenuAction("Server details", AppIcons.Server) {
+                                    scope.launch { serverInfo = runCatching { vm.nzbServer(config) }.getOrNull() ?: listOf("error" to "could not load") }
+                                },
+                                MenuAction("Log", AppIcons.Logs) { logTarget = null to "Log" },
+                                MenuAction("Web UI", AppIcons.Open) { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(config.baseUrl))) } },
+                            )),
+                        ),
+                        onEdit = onEdit,
+                        onDelete = onDelete,
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
             )
@@ -310,6 +326,12 @@ internal fun NzbgetScreen(
         }
     }
 
+    picked?.let { file ->
+        NzbUploadDialog(vm, file, preselected = config) { msg ->
+            picked = null
+            if (msg != null) { actionMsg = msg; scope.launch { loadQueue() } }
+        }
+    }
     logTarget?.let { (id, title) ->
         NzbLogDialog(title = title, load = { if (id == null) vm.nzbLog(config) else vm.nzbItemLog(config, id) }) { logTarget = null }
     }

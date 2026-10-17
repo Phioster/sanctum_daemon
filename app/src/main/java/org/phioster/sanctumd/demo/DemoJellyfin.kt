@@ -75,7 +75,8 @@ internal object DemoJellyfin {
 
     private fun trackItem(a: DemoAlbum, t: DemoTrackRaw, playlistEntry: String? = null) = obj(
         "Id" to trackId(a.id, t.n, t.disc), "Name" to t.title, "Type" to "Audio", "IsFolder" to false,
-        "AlbumArtist" to a.artist, "Album" to a.title, "IndexNumber" to t.n, "ParentIndexNumber" to t.disc,
+        "AlbumArtist" to a.artist, "Album" to a.title, "AlbumId" to albumId(a.id), "AlbumPrimaryImageTag" to "d",
+        "IndexNumber" to t.n, "ParentIndexNumber" to t.disc,
         "RunTimeTicks" to t.ms * 10_000, "ImageTags" to mapOf("Primary" to "d"), "PlaylistItemId" to playlistEntry,
         "UserData" to userData(trackId(a.id, t.n, t.disc)),
     )
@@ -92,6 +93,40 @@ internal object DemoJellyfin {
     private val kidsMovies get() = DemoWorld.libraryMovies.filter { it.genres.any { g -> g == "Animation" || g == "Family" } }
 
     private fun items(list: List<JsonObject>) = json(obj("Items" to list, "TotalRecordCount" to list.size))
+
+    /**
+     * Made-up words, not a real song's: every track's first song gets timed lyrics, the second
+     * plain ones, the rest none, so all three cases can be seen.
+     */
+    private fun lyrics(id: String): DemoAnswer {
+        val n = id.substringAfterLast('-').toIntOrNull() ?: return DemoAnswer.NotFound
+        val words = listOf(
+            "Lights are low in the server room", "Fans hum a song in a minor key", "Every disk is spinning slow",
+            "The daemon keeps its watch for me", "", "Queue is empty, night is long", "Indexers sleep till half past three",
+            "Somewhere a download finishes", "And Jellyfin plays this melody",
+        )
+        return when (n) {
+            1 -> json(obj("Metadata" to obj("IsSynced" to true), "Lyrics" to words.mapIndexed { i, w -> obj("Text" to w, "Start" to (8_000L + i * 4_500L) * 10_000) }))
+            2 -> json(obj("Metadata" to obj("IsSynced" to false), "Lyrics" to words.map { obj("Text" to it) }))
+            else -> DemoAnswer.NotFound
+        }
+    }
+
+    /** A mix: the seed's own album first, then tracks from albums of the same genre. */
+    private fun instantMix(id: String): List<JsonObject> {
+        val seed = when (val f = find(id)) {
+            is DemoAlbum -> f
+            is Pair<*, *> -> f.first as? DemoAlbum
+            else -> null
+        } ?: return emptyList()
+        val others = DemoWorld.libraryAlbums.filter { it.id != seed.id }.sortedByDescending { it.genre == seed.genre }
+        return (listOf(seed) + others).take(6).flatMap { a -> a.tracks.take(4).map { trackItem(a, it) } }.take(20)
+    }
+
+    private fun similar(id: String): List<JsonObject> {
+        val a = find(id) as? DemoAlbum ?: return emptyList()
+        return DemoWorld.libraryAlbums.filter { it.id != a.id }.sortedByDescending { it.genre == a.genre }.take(8).map { albumItem(it) }
+    }
 
     /** Every item by id, for detail screens and "by id" queries. */
     private fun find(id: String): Any? = when {
@@ -338,6 +373,9 @@ internal object DemoJellyfin {
             p == "Shows/NextUp" -> items(DemoWorld.libraryShows.take(10).mapNotNull { s -> DemoWorld.episodes[s.tmdbId].orEmpty().lastOrNull { it.hasFile }?.let { episodeItem(it) } })
             p == "Shows/Upcoming" -> items(upcoming)
             p == "Items" -> itemsQuery(r)
+            seg.size == 3 && seg[0] == "Audio" && seg[2] == "Lyrics" -> lyrics(seg[1])
+            seg.size == 3 && seg[0] == "Items" && seg[2] == "InstantMix" -> items(instantMix(seg[1]))
+            seg.size == 3 && seg[0] == "Items" && seg[2] == "Similar" -> items(similar(seg[1]))
             p.startsWith("Items/") && seg.size == 2 -> detail(seg[1])?.let { json(it) } ?: DemoAnswer.NotFound
             p.endsWith("/Collections") -> items(emptyList())
             p.startsWith("Playlists/") && p.endsWith("/Items") -> playlists.firstOrNull { it.id == seg[1] }?.let { pl -> items(pl.entries.map { it.second }) } ?: DemoAnswer.NotFound

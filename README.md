@@ -8,9 +8,12 @@
 ![Kotlin](https://img.shields.io/badge/Kotlin-Compose-238636?style=flat-square&labelColor=0d1117&logo=kotlin&logoColor=3fb950)
 ![SDK](https://img.shields.io/badge/SDK-35-238636?style=flat-square&labelColor=0d1117)
 ![License](https://img.shields.io/badge/License-GPL--3.0-238636?style=flat-square&labelColor=0d1117)
-![Status](https://img.shields.io/badge/status-2.1.3-238636?style=flat-square&labelColor=0d1117)
+![Release](https://img.shields.io/github/v/release/Phioster/sanctum_daemon?style=flat-square&labelColor=0d1117&color=238636&label=release)
 
 **Jellyfin admin + the \*arr / download stack. One native Android app, one matrix-terminal theme.**
+
+No server at hand? The app has a **demo mode**: a busy made-up homelab, built in.
+[Download](https://github.com/Phioster/sanctum_daemon/releases/latest) · tap *try the demo* · look around.
 
 </div>
 
@@ -77,30 +80,52 @@ visitor@homelab:~$ ./sanctumd --whoami
   dashboard · tasks · activity
   users · per-library access
   media browse · cast · now playing
-  plugins · libraries · logs
+  remote control · quick connect
+  plugins + repos · libraries · logs
+  server · transcoding · library
+    settings, only touched fields sent
+  metadata & artwork editing
+  playlists · collections
+  api keys · backups · storage
+  music: albums · lyrics (timed)
+    instant mix · more like this
 
 [radarr / sonarr / lidarr]
   library · missing · cutoff
   queue · history · add
   interactive search → grab
   manual import · per-ep monitoring
+  edit a title · files on disk
+  rename files · tags
+  quality profiles · indexers
+  download clients · import lists
+  blocklist · import exclusions
   cast · where-to-stream (via Seerr)
-  system & health
+  system & health · logs · backups
 
 [seerr]
   requests · issues · discover
   watchlist · per-season requests
   approve/decline · media detail
   where-to-stream, per region
-  users & stats
+  users & stats · quotas
+  settings · jobs & cache
+  blocklist · logs
 
 [prowlarr]
   indexers · search · history
-  tasks · send-to-arr
+  tasks · apps · send-to-arr
+  tags · indexer proxies
+  logs · backups
 
 [nzbget]
   queue · history · pause/resume
   edit · add-url · server details
+  why a download failed
+  speed limit · post-processing
+  volume per news server
+  .nzb from the share menu
+  log, per download too
 ```
 </details>
 
@@ -119,11 +144,30 @@ visitor@homelab:~$ ./sanctumd --whoami
   accent · header icon · poster size
   fan-art Ken-Burns background
   flat / solid / glass themes
+  your own themes, with a
+    readability check
 [search]
   global, across all services
 [widgets]
   Glance home-screen: shortcuts ·
   status · quick actions · agenda
+```
+</details>
+
+<details>
+<summary><b>demo mode</b></summary>
+
+```text
+[try it]
+  "try the demo" on first start,
+  or Settings → demo mode
+  a busy made-up homelab: films,
+  shows, music, six viewers,
+  downloads, requests, pushes
+[safe]
+  answered inside the app, your
+  own services stay untouched
+  one tap on DEMO to leave
 ```
 </details>
 
@@ -259,7 +303,7 @@ grows.
 A large part of this code was written with an AI assistant.
 
 That does not mean nobody stands behind it. Every change goes through review, a test
-suite of 339 cases, detekt and Android Lint, and a launch test on an emulator. The app
+suite of more than 500 cases, detekt and Android Lint, and a launch test on an emulator. The app
 runs on one real homelab every day before anything is tagged. Bugs are mine to fix, and
 the issue tracker is the only way they reach me: there is no crash reporting in here, on
 purpose.
@@ -267,10 +311,12 @@ purpose.
 ## ▚▚ `./install`
 
 Grab the signed APK from the
-[latest release](https://github.com/Phioster/sanctum_daemon/releases/latest):
+[latest release](https://github.com/Phioster/sanctum_daemon/releases/latest) and open it on
+the phone (allow installing from your browser or file manager when Android asks), or from a
+computer:
 
 ```console
-$ adb install -r sanctumd-v2.1.3.apk
+$ adb install -r sanctumd-vX.Y.Z.apk
 ```
 
 Android 8.0+ on **arm64**. The APK carries `arm64-v8a` libraries only,
@@ -286,7 +332,7 @@ it is the larger download: plenty of TV sticks run a 32-bit userspace on a
 64-bit chip, and without those libraries libmpv cannot load at all.
 
 ```console
-$ adb install -r sanctumd-tv-v2.1.3.apk
+$ adb install -r sanctumd-tv-vX.Y.Z.apk
 ```
 
 ## ▚▚ `./build`
@@ -308,7 +354,8 @@ Swap `Phone` for `Tv` to build the television flavour, or use plain
 
 ```text
 feature-complete · in daily use
-1.0 shipped 2026-07-20, now at 2.1.3
+1.0 shipped 2026-07-20
+current version: see the release badge
 security audit passed, every finding fixed
 ```
 

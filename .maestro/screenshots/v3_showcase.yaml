@@ -1,0 +1,152 @@
+# Release screenshots, taken from the real app in demo mode (no server, no private data).
+# Not a test: every step after the demo starts is optional, so one moved label costs one
+# picture, not the whole run. Run on a clean install:
+#   maestro test .maestro/screenshots/v3_showcase.yaml
+# Pictures land in ./shots/ next to where it runs. CI: .github/workflows/screenshots.yml.
+appId: org.phioster.nexarr
+name: v3 showcase screenshots
+---
+- launchApp:
+    clearState: true
+- tapOn: "skip"
+# With no services the home shows nothing; the way in sits in the services drawer.
+# Text selectors are regexes, so the "?" in the button's label is left out of the pattern.
+- tapOn: "Services"
+- tapOn: ".*try the demo"
+- extendedWaitUntil:
+    visible: "Jellyfin"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: shots/02_services
+# Close the drawer for the home dashboard; the DEMO chip hides for this session on a long
+# press, so it stays out of the pictures.
+- back
+- longPressOn:
+    text: "DEMO"
+    optional: true
+- extendedWaitUntil:
+    visible: "UNIVERSAL CALENDAR|WATCH LEADERBOARD|POPULAR.*|RECENTLY.*"
+    timeout: 20000
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: shots/01_home
+- tapOn: "Services"
+- waitForAnimationToEnd
+
+# ── Radarr: library, then the new service sheet, then a title ──
+- tapOn:
+    text: "Radarr"
+    optional: true
+- extendedWaitUntil:
+    visible: "Library"
+    timeout: 15000
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: shots/03_radarr_library
+- tapOn:
+    text: "More"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: shots/04_radarr_service_menu
+- tapOn:
+    text: "Quality profiles"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: shots/05_radarr_quality_profiles
+- back
+- tapOn:
+    point: "50%,50%"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: shots/06_radarr_detail
+- back
+- back
+
+# ── Jellyfin: admin dashboard, transcoding settings, now playing ──
+- tapOn:
+    text: "Jellyfin"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    text: "Dashboard"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: shots/07_jellyfin_dashboard
+- scrollUntilVisible:
+    element: "Transcoding"
+    optional: true
+- tapOn:
+    text: "Transcoding"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: shots/08_jellyfin_transcoding
+- back
+- tapOn:
+    text: "Now Playing"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: shots/09_jellyfin_now_playing
+- back
+
+# ── NZBGet: queue and the volume per news server ──
+- tapOn:
+    text: "NZBGet"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: shots/10_nzbget_queue
+- tapOn:
+    text: "More"
+    optional: true
+- tapOn:
+    text: "News servers"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: shots/11_nzbget_news_servers
+- back
+- back
+
+# ── Seerr requests ──
+- tapOn:
+    text: "Seerr"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: shots/12_seerr
+- back
+
+# ── ntfy pushes with posters ──
+- tapOn:
+    text: "ntfy"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: shots/13_ntfy
+- back
+
+# ── stats and the theme editor ──
+- tapOn:
+    text: "Stats"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: shots/14_stats
+- back
+- tapOn:
+    text: "Settings"
+    optional: true
+- tapOn:
+    text: "theme"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: shots/15_theme_presets
+- scrollUntilVisible:
+    element: "new theme"
+    optional: true
+- tapOn:
+    text: "new theme"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: shots/16_theme_editor
