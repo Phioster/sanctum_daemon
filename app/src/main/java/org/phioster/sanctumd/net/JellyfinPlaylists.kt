@@ -153,3 +153,16 @@ suspend fun jellyfinMergeVersions(config: ServiceConfig, itemIds: List<String>):
     write("merge ${itemIds.size} Jellyfin items into one", "merged ${itemIds.size} versions") {
         withJf(config) { api, _, _ -> api.mergeVersions(itemIds.joinToString(",")) }
     }
+
+/** What follows position [pos] of a play queue; null at its end or when not playing from one. */
+internal fun <T> queueAfter(queue: List<T>, pos: Int): T? = if (pos < 0) null else queue.getOrNull(pos + 1)
+
+/**
+ * The video part of a playlist as a play queue, and where the tapped entry sits in it. Songs
+ * are left out: they belong to the music player, not the film player.
+ */
+internal fun videoQueue(entries: List<JellyPlaylistEntry>, tapped: Int): Pair<List<NextEpisode>, Int> {
+    val videos = entries.withIndex().filter { !it.value.isAudio }
+    val queue = videos.map { NextEpisode(it.value.item.id, it.value.item.name, it.value.item.subtitle) }
+    return queue to videos.indexOfFirst { it.index == tapped }.coerceAtLeast(0)
+}
