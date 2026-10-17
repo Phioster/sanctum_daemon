@@ -705,6 +705,29 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
      * [startIndex] is which track the tap landed on; the rest of the album follows as the queue,
      * which is what a music player does and what a list of "play just this one" would not.
      */
+    suspend fun jellyfinPlaylistList(config: ServiceConfig): List<org.phioster.sanctumd.net.JellyPlaylist> = org.phioster.sanctumd.net.jellyfinPlaylists(config)
+    suspend fun jellyfinPlaylistDetailOf(config: ServiceConfig, id: String): org.phioster.sanctumd.net.JellyPlaylistDetail =
+        org.phioster.sanctumd.net.jellyfinPlaylistDetail(config, id)
+    suspend fun jellyfinPlaylistCreate(config: ServiceConfig, name: String, ids: List<String>): String =
+        org.phioster.sanctumd.net.jellyfinCreatePlaylist(config, name, ids)
+    suspend fun jellyfinPlaylistAdd(config: ServiceConfig, id: String, ids: List<String>): String = org.phioster.sanctumd.net.jellyfinAddToPlaylist(config, id, ids)
+    suspend fun jellyfinPlaylistRemove(config: ServiceConfig, id: String, entryIds: List<String>): String =
+        org.phioster.sanctumd.net.jellyfinRemoveFromPlaylist(config, id, entryIds)
+    suspend fun jellyfinPlaylistMove(config: ServiceConfig, id: String, entryId: String, to: Int): String =
+        org.phioster.sanctumd.net.jellyfinMovePlaylistEntry(config, id, entryId, to)
+    suspend fun jellyfinPlaylistUpdate(config: ServiceConfig, id: String, name: String? = null, public: Boolean? = null): String =
+        org.phioster.sanctumd.net.jellyfinUpdatePlaylist(config, id, name, public)
+    suspend fun jellyfinPlaylistShare(config: ServiceConfig, id: String, userId: String, canEdit: Boolean?): String =
+        org.phioster.sanctumd.net.jellyfinSharePlaylist(config, id, userId, canEdit)
+    suspend fun jellyfinPlaylistDelete(config: ServiceConfig, id: String): String = org.phioster.sanctumd.net.jellyfinDeletePlaylist(config, id)
+    suspend fun jellyfinMerge(config: ServiceConfig, ids: List<String>): String = org.phioster.sanctumd.net.jellyfinMergeVersions(config, ids)
+
+    /** A ready-made queue, e.g. a playlist; same player path as an album. */
+    fun playJellyfinTracks(config: ServiceConfig, tracks: List<org.phioster.sanctumd.net.MusicTrack>, startIndex: Int, shuffle: Boolean) {
+        val from = if (shuffle && tracks.isNotEmpty()) tracks.indices.random() else startIndex
+        org.phioster.sanctumd.ui.player.MusicController.play(getApplication<Application>(), tracks, from, config.customHeaders, shuffle = shuffle)
+    }
+
     fun playJellyfinAlbum(
         config: ServiceConfig,
         albumId: String,

@@ -1,6 +1,7 @@
 package org.phioster.sanctumd.ui.jellyfin
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -238,9 +239,23 @@ internal fun MediaHero(item: org.phioster.sanctumd.model.JellyMediaItem, config:
 }
 
 /** A poster tile that fills its grid cell (2:3 poster + caption) for the library browse grid. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-internal fun MediaGridCard(item: org.phioster.sanctumd.model.JellyMediaItem, config: ServiceConfig, accent: Color, modifier: Modifier, onSetWatched: ((Boolean) -> Boolean)? = null, onClick: () -> Unit) {
-    Column(modifier.clickable { onClick() }) {
+internal fun MediaGridCard(
+    item: org.phioster.sanctumd.model.JellyMediaItem,
+    config: ServiceConfig,
+    accent: Color,
+    modifier: Modifier,
+    onSetWatched: ((Boolean) -> Boolean)? = null,
+    selected: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier
+            .background(if (selected) accent.copy(alpha = 0.25f) else Color.Transparent, RoundedCornerShape(6.dp))
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+    ) {
         Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(6.dp))) {
             if (item.posterUrl.isNotBlank()) {
                 JellyPoster(item.posterUrl, config, Modifier.matchParentSize(), RoundedCornerShape(6.dp), ContentScale.Crop)
@@ -389,9 +404,24 @@ private fun MediaCheckRow(text: String, checked: Boolean, onToggle: (Boolean) ->
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-internal fun JellyMediaRow(item: org.phioster.sanctumd.model.JellyMediaItem, config: ServiceConfig, accent: Color, onSetWatched: ((Boolean) -> Boolean)? = null, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+internal fun JellyMediaRow(
+    item: org.phioster.sanctumd.model.JellyMediaItem,
+    config: ServiceConfig,
+    accent: Color,
+    onSetWatched: ((Boolean) -> Boolean)? = null,
+    selected: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
+    onClick: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth()
+            .background(if (selected) accent.copy(alpha = 0.25f) else Color.Transparent)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Box {
             if (item.posterUrl.isNotBlank()) {
                 JellyPoster(item.posterUrl, config, Modifier.width(46.dp).height(68.dp), RoundedCornerShape(4.dp), ContentScale.Crop)

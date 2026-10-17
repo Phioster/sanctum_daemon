@@ -224,6 +224,8 @@ internal data class JfCounts(
     val ImageTags: Map<String, String>? = null,
     val OfficialRating: String? = null,
     val UserData: JfUserData? = null,
+    val PlaylistItemId: String? = null, // only on playlist entries
+    val ChildCount: Int? = null,
 )
 @Serializable internal data class JfItemsResp(val Items: List<JfItem> = emptyList())
 @Serializable internal data class JfPerson(
@@ -376,6 +378,27 @@ internal interface JellyfinApi {
     @POST("Collections") suspend fun createCollection(@Query("name") name: String, @Query("ids") ids: String): Response<ResponseBody>
     @POST("Collections/{id}/Items") suspend fun addToCollection(@Path("id") id: String, @Query("ids") ids: String): Response<ResponseBody>
     @DELETE("Collections/{id}/Items") suspend fun removeFromCollection(@Path("id") id: String, @Query("ids") ids: String): Response<ResponseBody>
+    @GET("Items") suspend fun playlists(
+        @Query("userId") uid: String,
+        @Query("IncludeItemTypes") types: String = "Playlist",
+        @Query("Recursive") recursive: Boolean = true,
+        @Query("SortBy") sortBy: String = "SortName",
+        @Query("Fields") fields: String = "ChildCount",
+    ): JfItemsResp
+    @GET("Playlists/{id}/Items") suspend fun playlistItems(
+        @Path("id") id: String,
+        @Query("userId") uid: String,
+        @Query("Fields") fields: String = "PrimaryImageAspectRatio,OfficialRating",
+    ): JfItemsResp
+    @GET("Playlists/{id}") suspend fun playlistInfo(@Path("id") id: String): JsonObject
+    @POST("Playlists") suspend fun createPlaylist(@Body body: JsonObject): JsonObject
+    @POST("Playlists/{id}") suspend fun updatePlaylist(@Path("id") id: String, @Body body: JsonObject): Response<ResponseBody>
+    @POST("Playlists/{id}/Items") suspend fun addToPlaylist(@Path("id") id: String, @Query("ids") ids: String, @Query("userId") uid: String): Response<ResponseBody>
+    @DELETE("Playlists/{id}/Items") suspend fun removeFromPlaylist(@Path("id") id: String, @Query("entryIds") entryIds: String): Response<ResponseBody>
+    @POST("Playlists/{id}/Items/{entry}/Move/{index}") suspend fun movePlaylistItem(@Path("id") id: String, @Path("entry") entry: String, @Path("index") index: Int): Response<ResponseBody>
+    @POST("Playlists/{id}/Users/{uid}") suspend fun sharePlaylist(@Path("id") id: String, @Path("uid") uid: String, @Body body: JsonObject): Response<ResponseBody>
+    @DELETE("Playlists/{id}/Users/{uid}") suspend fun unsharePlaylist(@Path("id") id: String, @Path("uid") uid: String): Response<ResponseBody>
+    @POST("Videos/MergeVersions") suspend fun mergeVersions(@Query("ids") ids: String): Response<ResponseBody>
     @DELETE("ScheduledTasks/Running/{id}") suspend fun cancelTask(@Path("id") id: String): Response<ResponseBody>
     @GET("Auth/Keys") suspend fun apiKeys(): JsonObject
     @POST("Auth/Keys") suspend fun createApiKey(@Query("app") app: String): Response<ResponseBody>
