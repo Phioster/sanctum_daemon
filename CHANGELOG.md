@@ -3,6 +3,18 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Volume per news server, and NZB files from the share menu (v2.1.38)
+- **News servers** (NZBGet menu): how much each provider delivered today, in 7 and 30 days and
+  in total, the last 30 days as bars, and how many articles it actually had, green, amber or red.
+  Fill servers are marked as such, switched-off ones say "off". Every server keeps the counter
+  you reset yourself (to track a block account, say), with "reset" next to it.
+- **Upload NZB files.** Share an .nzb from the browser, a file manager or a mail app to
+  Sanctumd, or open it with Sanctumd: a dialog asks which NZBGet (when there are several),
+  which category (read from NZBGet) and whether to add it paused. "Upload NZB" in the NZBGet
+  menu does the same from a file picker; adding by URL is still there.
+- Files that aren't NZBs are turned away before anything is sent, and the upload goes through
+  Safe Mode. The share only opens the dialog after the app lock.
+
 ## A tidier service menu (v2.1.37)
 - **The ⋮ menu is a sheet now.** Radarr, Sonarr and Lidarr had grown a dropdown of fifteen
   plain lines, taller than the screen. It opens as a sheet from the bottom instead: the main
