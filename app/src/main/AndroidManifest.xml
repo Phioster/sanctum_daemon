@@ -42,6 +42,31 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- NZB files from the share menu or "open with": go to NZBGet after a confirm. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/x-nzb" />
+                <!-- Android has no type for .nzb, so most apps share it as a generic file;
+                     anything that isn't an NZB is turned away with a message. -->
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="application/x-nzb" />
+            </intent-filter>
+            <!-- Many file managers don't know .nzb and hand it over as a generic file. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:host="*" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:pathPattern=".*\\.nzb" />
+                <data android:pathPattern=".*\\..*\\.nzb" />
+            </intent-filter>
         </activity>
 
         <!-- Offline media downloads: streams Jellyfin files to private storage. -->

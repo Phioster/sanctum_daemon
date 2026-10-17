@@ -3,6 +3,36 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Lyrics, Instant Mix and "more like this" (v2.1.39)
+- **Lyrics** ("lyrics" in now playing): whatever lyrics Jellyfin has for the song. Timed lyrics
+  follow along: the line being sung lights up and stays in view, and tapping a line jumps
+  there. Plain lyrics read like a page. The cover shrinks while they are open so more lines fit.
+- **Instant Mix**: "instant mix" in now playing starts Jellyfin's mix from the song that is
+  playing, "mix" next to play and shuffle does it from a whole album. The mix replaces the queue,
+  with covers taken from each song's album.
+- **More like this**: under an album's running order, a row of albums Jellyfin finds close to
+  it; a tap opens that album.
+
+## Volume per news server, and NZB files from the share menu (v2.1.38)
+- **News servers** (NZBGet menu): how much each provider delivered today, in 7 and 30 days and
+  in total, the last 30 days as bars, and how many articles it actually had, green, amber or red.
+  Fill servers are marked as such, switched-off ones say "off". Every server keeps the counter
+  you reset yourself (to track a block account, say), with "reset" next to it.
+- **Upload NZB files.** Share an .nzb from the browser, a file manager or a mail app to
+  Sanctumd, or open it with Sanctumd: a dialog asks which NZBGet (when there are several),
+  which category (read from NZBGet) and whether to add it paused. "Upload NZB" in the NZBGet
+  menu does the same from a file picker; adding by URL is still there.
+- Files that aren't NZBs are turned away before anything is sent, and the upload goes through
+  Safe Mode. The share only opens the dialog after the app lock.
+
+## A tidier service menu (v2.1.37)
+- **The ⋮ menu is a sheet now.** Radarr, Sonarr and Lidarr had grown a dropdown of fifteen
+  plain lines, taller than the screen. It opens as a sheet from the bottom instead: the main
+  actions as buttons on top ("Search & add", "Manual import"), the rest as tiles with icons in
+  groups (Library, Connections, System). Prowlarr, NZBGet, Seerr and Jellyfin use the same sheet.
+- **Removing a service asks first.** "remove" sits apart at the bottom, in red, and needs a
+  second tap. Before, "Delete" was one slip below "Edit" and removed the service at once.
+
 ## Renaming, tags, import lists, download clients and proxies (v2.1.36)
 - **Rename files** (a title's menu in Sonarr, Radarr and Lidarr): shows which files the naming
   scheme would rename, old name above new, all ticked; untick what should stay and rename the rest.

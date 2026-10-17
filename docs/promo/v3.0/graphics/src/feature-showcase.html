@@ -1,0 +1,48 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Sanctumd feature showcase</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  /* 1920 x 1080. Six real screens; swap a picture by editing SHOTS below. */
+  .stage { width: 1920px; height: 1080px; }
+  .head { position: absolute; left: 70px; top: 50px; z-index: 2; }
+  .prompt { font-size: 22px; }
+  .title { font-size: 54px; margin-top: 6px; }
+  .cursor { width: 26px; height: 46px; margin-left: 8px; }
+  .title .v { font-size: 28px; letter-spacing: .04em; vertical-align: super; margin-left: 20px;
+    border: 2px solid var(--border); padding: 2px 8px; text-shadow: none; }
+  .row { position: absolute; left: 70px; right: 70px; top: 200px; display: flex; justify-content: space-between; z-index: 2; }
+  .card { width: 280px; }
+  .phone { width: 280px; height: 586px; border-radius: 26px; }
+  .cap { margin-top: 26px; }
+  .cap b { display: block; font-size: 21px; color: var(--fg); font-weight: 700; }
+  .cap span { display: block; font-size: 16px; color: #b7f5c6; margin-top: 8px; line-height: 1.45; }
+  .foot { position: absolute; left: 70px; bottom: 38px; font-size: 19px; color: var(--dim); z-index: 2; }
+</style></head>
+<body><div class="stage">
+  <div class="rain" style="opacity:.6"></div>
+  <div class="head">
+    <div class="prompt">visitor@homelab:~$ ./sanctumd --features</div>
+    <div class="title">SANCTUMD<span class="cursor"></span><span class="v">3.0</span></div>
+  </div>
+  <div class="row" id="row"></div>
+  <div class="foot">github.com/Phioster/sanctum_daemon &nbsp;·&nbsp; free · GPL-3.0 · every screen from the built-in demo mode</div>
+</div>
+<script>
+  // [screenshot under docs/screenshots/, headline, one line of what it does]
+  const SHOTS = [
+    ['services.png', 'every service', 'live numbers for Jellyfin, the *arr apps, Seerr, NZBGet and ntfy'],
+    ['jellyfin-admin.png', 'jellyfin admin', 'tasks, plugins, backups, API keys, storage, Quick Connect'],
+    ['now-playing.png', 'who is watching', 'every session, with pause, stop, message and a remote'],
+    ['media-detail.png', 'requests & media', 'cast, where to stream, request or open in Seerr'],
+    ['live-push.png', 'live push', 'the *arr webhooks via ntfy, as notifications with posters'],
+    ['themes.png', 'make it yours', 'presets, your own themes, cards and dashboards you arrange'],
+  ];
+  const row = document.getElementById('row');
+  for (const [f, h, t] of SHOTS) {
+    row.insertAdjacentHTML('beforeend',
+      `<div class="card"><div class="phone"><img src="../../../../screenshots/${f}" alt=""></div>
+       <div class="cap"><b>[${h}]</b><span>${t}</span></div></div>`);
+  }
+</script>
+<script src="rain.js"></script>
+</body></html>

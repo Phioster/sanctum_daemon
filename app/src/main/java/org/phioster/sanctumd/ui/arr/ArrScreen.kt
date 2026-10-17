@@ -24,7 +24,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -140,7 +139,6 @@ internal fun ArrScreen(
 
     var refreshing by remember { mutableStateOf(false) }
     LaunchedEffect(actionMsg) { if (actionMsg != null) { kotlinx.coroutines.delay(4000); actionMsg = null } }
-    var barMenu by remember { mutableStateOf(false) }
     var showAdd by remember { mutableStateOf(initialAddTerm != null) }
     var addTerm by remember { mutableStateOf(initialAddTerm ?: "") }
     // Interactive "custom search" release picker for a missing/cutoff row.
@@ -249,37 +247,35 @@ internal fun ArrScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
                 },
                 actions = {
-                    Box {
-                        IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
-                        DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
-                            DropdownMenuItem(text = { Text("Search & add", fontFamily = Mono) }, onClick = { barMenu = false; addTerm = ""; showAdd = true })
-                            if (supportsImport) {
-                                DropdownMenuItem(text = { Text("Manual import", fontFamily = Mono) }, onClick = {
-                                    barMenu = false
-                                    importAt = ArrImportStart(rememberedPath, scan = false)
-                                })
-                            }
-                            if (supportsDetail) {
-                                DropdownMenuItem(text = { Text("System & health", fontFamily = Mono) }, onClick = {
-                                    barMenu = false; showSystem = true
-                                })
-                            }
-                            DropdownMenuItem(text = { Text("Indexers", fontFamily = Mono) }, onClick = { barMenu = false; showIndexers = true })
-                            DropdownMenuItem(text = { Text("Quality profiles", fontFamily = Mono) }, onClick = { barMenu = false; showProfiles = true })
-                            DropdownMenuItem(text = { Text("Blocklist", fontFamily = Mono) }, onClick = { barMenu = false; showBlocklist = true })
-                            // Lidarr keeps exclusions under another route and shape; only Sonarr and Radarr here.
-                            if (config.type == ServiceType.SONARR || config.type == ServiceType.RADARR) {
-                                DropdownMenuItem(text = { Text("Import exclusions", fontFamily = Mono) }, onClick = { barMenu = false; showExclusions = true })
-                            }
-                            DropdownMenuItem(text = { Text("Tags", fontFamily = Mono) }, onClick = { barMenu = false; showTags = true })
-                            DropdownMenuItem(text = { Text("Import lists", fontFamily = Mono) }, onClick = { barMenu = false; providers = "importlists" })
-                            DropdownMenuItem(text = { Text("Download clients", fontFamily = Mono) }, onClick = { barMenu = false; providers = "downloadclients" })
-                            DropdownMenuItem(text = { Text("Logs", fontFamily = Mono) }, onClick = { barMenu = false; showLogs = true })
-                            DropdownMenuItem(text = { Text("Backups", fontFamily = Mono) }, onClick = { barMenu = false; showBackups = true })
-                            DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
-                            DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
-                        }
-                    }
+                    val lidarr = config.type == ServiceType.LIDARR
+                    ServiceMenuButton(
+                        config = config,
+                        primary = listOfNotNull(
+                            MenuAction("Search & add", AppIcons.Search) { addTerm = ""; showAdd = true },
+                            if (supportsImport) MenuAction("Manual import", AppIcons.Folder) { importAt = ArrImportStart(rememberedPath, scan = false) } else null,
+                        ),
+                        sections = listOf(
+                            MenuSection("Library", listOfNotNull(
+                                MenuAction("Quality profiles", AppIcons.Quality) { showProfiles = true },
+                                MenuAction("Tags", AppIcons.Tags) { showTags = true },
+                                MenuAction("Import lists", AppIcons.Lists) { providers = "importlists" },
+                                // Lidarr keeps exclusions under another route and shape; only Sonarr and Radarr here.
+                                if (!lidarr) MenuAction("Import exclusions", AppIcons.Exclusions) { showExclusions = true } else null,
+                                MenuAction("Blocklist", AppIcons.Blocklist) { showBlocklist = true },
+                            )),
+                            MenuSection("Connections", listOf(
+                                MenuAction("Indexers", AppIcons.Indexers) { showIndexers = true },
+                                MenuAction("Download clients", AppIcons.Download) { providers = "downloadclients" },
+                            )),
+                            MenuSection("System", listOfNotNull(
+                                if (supportsDetail) MenuAction("System & health", AppIcons.Health) { showSystem = true } else null,
+                                MenuAction("Logs", AppIcons.Logs) { showLogs = true },
+                                MenuAction("Backups", AppIcons.Backups) { showBackups = true },
+                            )),
+                        ),
+                        onEdit = onEdit,
+                        onDelete = onDelete,
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
             )

@@ -30,6 +30,49 @@ internal object DemoNzbget {
                 "Health" to (if (failed) 912 else 1000), "CriticalHealth" to 958, "HistoryTime" to now - i * 3_600L)
         }
 
+    /** Two main providers, one block account as a fill server. */
+    private val servers = listOf(
+        Triple("Newshosting", "news.newshosting.example", 0),
+        Triple("Eweka", "news.eweka.example", 0),
+        Triple("Blocknews (fill)", "eu.blocknews.example", 1),
+    )
+
+    private fun config() = servers.flatMapIndexed { i, (name, host, level) ->
+        val n = i + 1
+        listOf("Server$n.Name" to name, "Server$n.Host" to host, "Server$n.Level" to "$level", "Server$n.Active" to "yes", "Server$n.Password" to "secret")
+    }.plus(listOf("movies", "tv", "music", "software").mapIndexed { i, c -> "Category${i + 1}.Name" to c })
+        .map { (k, v) -> obj("Name" to k, "Value" to v) }
+
+    /** 40 days of traffic: weekends heavier, the fill server only picks up what the others miss. */
+    private fun volumes(): List<Any> {
+        val days = 40
+        val gb = 1_073_741_824L
+        fun size(b: Long) = obj("SizeLo" to (b and 0xFFFF_FFFFL), "SizeHi" to (b ushr 32), "SizeMB" to b / 1_048_576)
+        val perServer = servers.indices.map { s ->
+            (0 until days).map { d ->
+                val base = if (d % 7 in 5..6) 46L else 23L
+                when (s) { 0 -> (base + d % 5) * gb; 1 -> (base / 2 + d % 3) * gb; else -> (d % 4) * gb / 3 }
+            }
+        }
+        val all = (0 until days).map { d -> perServer.sumOf { it[d] } }
+        return (listOf(all) + perServer).mapIndexed { id, list ->
+            val total = list.sum() + id * 7 * gb
+            obj(
+                "ServerID" to id, "DataTime" to now, "FirstDay" to now / 86_400 - days + 1,
+                "TotalSizeLo" to (total and 0xFFFF_FFFFL), "TotalSizeHi" to (total ushr 32), "TotalSizeMB" to total / 1_048_576,
+                "CustomSizeLo" to (list.takeLast(9).sum() and 0xFFFF_FFFFL), "CustomSizeHi" to (list.takeLast(9).sum() ushr 32),
+                "CustomSizeMB" to list.takeLast(9).sum() / 1_048_576, "CustomTime" to now - 9 * 86_400L,
+                "CountersResetTime" to now - days * 86_400L, "SecSlot" to 0, "MinSlot" to 0, "HourSlot" to 0, "DaySlot" to days - 1,
+                "BytesPerDays" to list.map { size(it) },
+                "ArticlesPerDays" to list.map { b ->
+                    val articles = b / 750_000
+                    val failed = when (id) { 3 -> articles / 4; 0 -> articles / 300; else -> articles / 150 }
+                    obj("Success" to articles - failed, "Failed" to failed)
+                },
+            )
+        }
+    }
+
     fun handle(r: DemoRequest): DemoAnswer {
         val rate = 54_525_952L
         return when {
@@ -47,7 +90,10 @@ internal object DemoNzbget {
                     obj("ID" to 2, "Kind" to "INFO", "Time" to now - 300, "Text" to "Unpack for ${DemoWorld.downloads.getOrNull(2)?.release} started"),
                     obj("ID" to 3, "Kind" to "WARNING", "Time" to now - 2_400, "Text" to "news.example-provider.com: article not found, trying backup server"),
                 )))
-                "servervolumes" -> json(obj("result" to emptyList<Any>()))
+                "servervolumes" -> json(obj("result" to volumes()))
+                "config" -> json(obj("result" to config()))
+                "append" -> json(obj("result" to 4_242))
+                "resetservervolume" -> json(obj("result" to true))
                 else -> json(obj("result" to true))
             }
             else -> DemoAnswer.NotFound

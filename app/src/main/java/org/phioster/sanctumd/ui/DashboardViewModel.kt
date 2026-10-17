@@ -737,6 +737,22 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.ui.player.MusicController.play(getApplication<Application>(), tracks, from, config.customHeaders, shuffle = shuffle)
     }
 
+    suspend fun jellyfinLyricsOf(config: ServiceConfig, trackId: String) = org.phioster.sanctumd.net.jellyfinLyrics(config, trackId)
+    suspend fun jellyfinSimilarOf(config: ServiceConfig, itemId: String) = org.phioster.sanctumd.net.jellyfinSimilar(config, itemId)
+
+    /** Replaces the queue with Jellyfin's Instant Mix from [itemId] (a track, album or artist). */
+    fun playJellyfinInstantMix(config: ServiceConfig, itemId: String) = viewModelScope.launch {
+        val ctx = getApplication<Application>()
+        runCatching { org.phioster.sanctumd.net.jellyfinInstantMix(config, itemId) }
+            .onSuccess { tracks ->
+                if (tracks.isEmpty()) org.phioster.sanctumd.ui.player.MusicController.report(ctx, "music: Jellyfin found nothing to mix with this")
+                else org.phioster.sanctumd.ui.player.MusicController.play(ctx, tracks, 0, config.customHeaders)
+            }
+            .onFailure {
+                org.phioster.sanctumd.ui.player.MusicController.report(ctx, "music: ${it.message ?: it.javaClass.simpleName}", it)
+            }
+    }
+
     fun playJellyfinAlbum(
         config: ServiceConfig,
         albumId: String,
@@ -1070,6 +1086,17 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun nzbAddUrl(config: ServiceConfig, url: String, category: String): String =
         runNzbAppendUrl(config, url, category)
     suspend fun nzbServer(config: ServiceConfig): List<Pair<String, String>> = nzbServerDetails(config)
+    suspend fun nzbVolumes(config: ServiceConfig) = org.phioster.sanctumd.net.nzbServerVolumes(config)
+    suspend fun nzbResetVolume(config: ServiceConfig, serverId: Int, label: String): String =
+        org.phioster.sanctumd.net.runNzbResetVolume(config, serverId, label)
+    suspend fun nzbCategoryList(config: ServiceConfig): List<String> = org.phioster.sanctumd.net.nzbCategories(config)
+    suspend fun nzbAddFile(config: ServiceConfig, name: String?, bytes: ByteArray, category: String, paused: Boolean): String =
+        org.phioster.sanctumd.net.runNzbAppendFile(config, name, bytes, category, paused)
+
+    /** An .nzb shared to the app, waiting for the upload dialog (shown behind the app lock). */
+    private val _pendingNzb = MutableStateFlow<org.phioster.sanctumd.ui.nzbget.PendingNzb?>(null)
+    val pendingNzb: StateFlow<org.phioster.sanctumd.ui.nzbget.PendingNzb?> = _pendingNzb.asStateFlow()
+    fun setPendingNzb(file: org.phioster.sanctumd.ui.nzbget.PendingNzb?) { _pendingNzb.value = file }
 
     suspend fun arrMissingList(config: ServiceConfig): List<ArrMissingItem> = arrMissing(config)
     suspend fun arrQueueList(config: ServiceConfig): List<ArrQueueItem> = arrQueue(config)
