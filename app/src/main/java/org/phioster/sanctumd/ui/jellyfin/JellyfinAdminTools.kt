@@ -9,6 +9,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -54,6 +59,15 @@ internal fun JellyRemoteDialog(vm: DashboardViewModel, config: ServiceConfig, se
     val scope = rememberCoroutineScope()
     var last by remember { mutableStateOf<String?>(null) }
     fun send(cmd: String) = scope.launch { last = "$cmd: ${vm.jellyfinRemoteCmd(config, session.id, cmd)}" }
+    // Shown as chosen right away; the session list catches up on its next refresh.
+    var audioSel by remember { mutableStateOf(session.audioIndex) }
+    var subSel by remember { mutableStateOf(session.subtitleIndex ?: -1) }
+    fun track(audio: Boolean, index: Int) = scope.launch {
+        if (audio) audioSel = index else subSel = index
+        last = vm.jellyfinTrack(config, session.id, audio, index)
+    }
+    val audioTracks = session.tracks.filter { it.type == "Audio" }
+    val subTracks = session.tracks.filter { it.type == "Subtitle" }
 
     @Composable
     fun Key(label: String, cmd: String, modifier: Modifier = Modifier) {
@@ -64,7 +78,7 @@ internal fun JellyRemoteDialog(vm: DashboardViewModel, config: ServiceConfig, se
         containerColor = Surface,
         title = { Text("Remote · ${session.device.ifBlank { session.client }}", fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         text = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { Key("up", "MoveUp") }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
                     Key("left", "MoveLeft"); Key("OK", "Select"); Key("right", "MoveRight")
@@ -77,10 +91,92 @@ internal fun JellyRemoteDialog(vm: DashboardViewModel, config: ServiceConfig, se
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
                     Key("vol -", "VolumeDown"); Key("mute", "ToggleMute"); Key("vol +", "VolumeUp")
                 }
+                if (audioTracks.size > 1) {
+                    Spacer(Modifier.height(10.dp))
+                    org.phioster.sanctumd.ui.common.SectionHeader("AUDIO")
+                    audioTracks.forEach { tr -> TrackLine(tr.title, tr.index == audioSel) { track(true, tr.index) } }
+                }
+                if (subTracks.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    org.phioster.sanctumd.ui.common.SectionHeader("SUBTITLES")
+                    TrackLine("off", subSel == -1) { track(false, -1) }
+                    subTracks.forEach { tr -> TrackLine(tr.title, tr.index == subSel) { track(false, tr.index) } }
+                }
                 last?.let {
                     Spacer(Modifier.height(6.dp))
                     Text(it, fontFamily = Mono, color = if (it.contains("error")) ErrRed else MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp)
                 }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },
+    )
+}
+
+@Composable
+private fun TrackLine(title: String, selected: Boolean, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.material3.Icon(
+            if (selected) org.phioster.sanctumd.ui.theme.AppIcons.Selected else org.phioster.sanctumd.ui.theme.AppIcons.NotSelected,
+            contentDescription = null, tint = MatrixGreen, modifier = Modifier.size(16.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(title, fontFamily = Mono, color = if (selected) MatrixGreen else MatrixGreen.copy(alpha = 0.7f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/**
+ * Where plugins come from. Jellyfin stores the list as a whole, so each change saves it all
+ * and reads it back.
+ */
+@Composable
+internal fun JellyReposDialog(vm: DashboardViewModel, config: ServiceConfig, accent: Color, onDismiss: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var repos by remember { mutableStateOf<List<org.phioster.sanctumd.net.JellyRepo>?>(null) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var name by remember { mutableStateOf("") }
+    var url by remember { mutableStateOf("") }
+    var confirmRemove by remember { mutableStateOf<String?>(null) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { repos = runCatching { vm.jellyfinRepoList(config) }.getOrDefault(emptyList()) }
+    fun save(next: List<org.phioster.sanctumd.net.JellyRepo>) = scope.launch {
+        message = vm.jellyfinRepoSave(config, next)
+        repos = runCatching { vm.jellyfinRepoList(config) }.getOrNull() ?: repos
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surface,
+        title = { Text("Repositories", fontFamily = Mono, color = MatrixGreen) },
+        text = {
+            Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
+                message?.let { Text(it, fontFamily = Mono, color = if (it.startsWith("error")) ErrRed else MatrixGreen, fontSize = 11.sp) }
+                val rs = repos
+                when {
+                    rs == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                    rs.isEmpty() -> Text("no repositories", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                    else -> rs.forEach { r ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(r.name, fontFamily = Mono, color = if (r.enabled) MatrixGreen else MatrixGreen.copy(alpha = 0.45f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(r.url, fontFamily = Mono, color = accent.copy(alpha = 0.6f), fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            Switch(checked = r.enabled, onCheckedChange = { on -> save(rs.map { if (it.url == r.url) it.copy(enabled = on) else it }) })
+                            TextButton(onClick = {
+                                if (confirmRemove == r.url) { confirmRemove = null; save(rs.filterNot { it.url == r.url }) } else confirmRemove = r.url
+                            }) { Text(if (confirmRemove == r.url) "sure?" else "remove", fontFamily = Mono, color = ErrRed, fontSize = 11.sp) }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
+                Field("Name", name) { name = it }
+                Field("URL (manifest.json)", url) { url = it.trim() }
+                TextButton(
+                    enabled = repos != null && name.isNotBlank() && url.startsWith("http"),
+                    onClick = {
+                        val next = repos.orEmpty() + org.phioster.sanctumd.net.JellyRepo(name.trim(), url, true)
+                        name = ""; url = ""
+                        save(next)
+                    },
+                ) { Text("+ add", fontFamily = Mono, color = accent) }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },

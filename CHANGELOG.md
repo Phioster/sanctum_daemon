@@ -3,6 +3,12 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Tracks on the TV, and plugin repositories (v2.1.26)
+- **Audio and subtitle tracks from the remote.** While something plays, "remote" lists its
+  audio tracks and subtitles (with "off"); a tap switches the TV over.
+- **Plugin repositories.** "repositories" under the plugin catalog lists where plugins come
+  from; switch one off, remove it (second tap) or add one by name and manifest URL.
+
 ## Pull to refresh, and lists that keep up by themselves (v2.1.25)
 - **Pull to refresh everywhere.** Sonarr/Radarr (list and detail), NZBGet, Prowlarr, Seerr,
   Jellyfin, ntfy and the stats screen refresh with a pull down, like the home screen.

@@ -62,10 +62,19 @@ internal data class JfCounts(
     val SeriesName: String? = null,
     val ProductionYear: Int? = null,
     val RunTimeTicks: Long? = null,
+    val MediaStreams: List<JfSessionStream> = emptyList(),
+)
+@Serializable internal data class JfSessionStream(
+    val Index: Int = -1,
+    val Type: String = "",
+    val DisplayTitle: String? = null,
+    val Language: String? = null,
 )
 @Serializable internal data class JfPlayState(
     val PositionTicks: Long? = null,
     val IsPaused: Boolean = false,
+    val AudioStreamIndex: Int? = null,
+    val SubtitleStreamIndex: Int? = null,
 )
 @Serializable internal data class JfUserFull(
     val Id: String = "",
@@ -372,6 +381,9 @@ internal interface JellyfinApi {
     @POST("Auth/Keys") suspend fun createApiKey(@Query("app") app: String): Response<ResponseBody>
     @DELETE("Auth/Keys/{key}") suspend fun revokeApiKey(@Path("key") key: String): Response<ResponseBody>
     @POST("Sessions/{id}/Command/{command}") suspend fun sessionCommand(@Path("id") id: String, @Path("command") command: String): Response<ResponseBody>
+    @POST("Sessions/{id}/Command") suspend fun sessionGeneralCommand(@Path("id") id: String, @Body body: JsonObject): Response<ResponseBody>
+    @GET("Repositories") suspend fun repositories(): List<JsonObject>
+    @POST("Repositories") suspend fun setRepositories(@Body body: kotlinx.serialization.json.JsonArray): Response<ResponseBody>
     @DELETE("Videos/{id}/AlternateSources") suspend fun splitVersions(@Path("id") id: String): Response<ResponseBody>
     @POST("Videos/{id}/Subtitles") suspend fun uploadSubtitle(@Path("id") id: String, @Body body: JsonObject): Response<ResponseBody>
     @GET("Backup") suspend fun backups(): List<JsonObject>

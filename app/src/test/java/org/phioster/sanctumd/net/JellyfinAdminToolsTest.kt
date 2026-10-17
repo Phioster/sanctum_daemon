@@ -113,7 +113,51 @@ class JellyfinAdminToolsTest {
         assertEquals("11.0.0.0", up.getValue("a1b2c3d4e5f60718293a4b5c6d7e8f90").version)
     }
 
+    @Test fun `a track switch is a general command with the index as text`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(204))
+        assertEquals("switched", jellyfinSetTrack(config(), "s1", audio = false, index = -1))
+        val req = server.takeRequest()
+        assertEquals("POST /Sessions/s1/Command", "${req.method} ${req.path}")
+        assertEquals("""{"Name":"SetSubtitleStreamIndex","Arguments":{"Index":"-1"}}""", req.body.readUtf8())
+    }
+
+    @Test fun `sessions carry the playing item's tracks and the chosen ones`() = runBlocking {
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"Id":"s1","UserName":"SekVII","SupportsRemoteControl":true,
+                    "NowPlayingItem":{"Name":"Film","Type":"Movie","RunTimeTicks":100,"MediaStreams":[
+                      {"Index":0,"Type":"Video","DisplayTitle":"1080p"},
+                      {"Index":1,"Type":"Audio","DisplayTitle":"Deutsch - AC3"},
+                      {"Index":2,"Type":"Audio","Language":"eng"},
+                      {"Index":3,"Type":"Subtitle","DisplayTitle":"Deutsch - SRT"}]},
+                    "PlayState":{"PositionTicks":50,"AudioStreamIndex":2,"SubtitleStreamIndex":-1}}]""",
+            ),
+        )
+        val s = jellyfinSessions(config()).single()
+        assertEquals(listOf("Audio:1:Deutsch - AC3", "Audio:2:eng", "Subtitle:3:Deutsch - SRT"), s.tracks.map { "${it.type}:${it.index}:${it.title}" })
+        assertEquals(2, s.audioIndex)
+        assertEquals(-1, s.subtitleIndex)
+    }
+
+    @Test fun `repositories are read and saved back as the whole list`() = runBlocking {
+        server.enqueue(MockResponse().setBody("""[{"Name":"Jellyfin Stable","Url":"https://repo.jellyfin.org/files/plugin/manifest.json","Enabled":true}]"""))
+        server.enqueue(MockResponse().setResponseCode(204))
+        val repos = jellyfinRepos(config())
+        assertEquals(listOf(JellyRepo("Jellyfin Stable", "https://repo.jellyfin.org/files/plugin/manifest.json", true)), repos)
+        assertEquals("repositories saved", jellyfinSaveRepos(config(), repos + JellyRepo("Intro", "https://x/manifest.json", false)))
+        assertEquals("GET /Repositories", line())
+        val post = server.takeRequest()
+        assertEquals("POST /Repositories", "${post.method} ${post.path}")
+        assertEquals(
+            """[{"Name":"Jellyfin Stable","Url":"https://repo.jellyfin.org/files/plugin/manifest.json","Enabled":true},{"Name":"Intro","Url":"https://x/manifest.json","Enabled":false}]""",
+            post.body.readUtf8(),
+        )
+    }
+
     @Test fun `safe mode keeps every write off the network`() = runBlocking {
+        SafeMode.enabled = true
+        jellyfinSetTrack(config(), "s", true, 1)
+        jellyfinSaveRepos(config(), emptyList())
         SafeMode.enabled = true
         jellyfinCancelTask(config(), "t")
         jellyfinCreateApiKey(config(), "x")

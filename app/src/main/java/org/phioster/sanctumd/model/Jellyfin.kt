@@ -12,7 +12,15 @@ data class JellySession(
     val paused: Boolean,
     val canControl: Boolean,
     val lastActivity: String,
+    /** Audio and subtitle tracks of what is playing; empty when idle. */
+    val tracks: List<JellySessionTrack> = emptyList(),
+    val audioIndex: Int? = null,
+    /** -1 means subtitles are off. */
+    val subtitleIndex: Int? = null,
 )
+
+/** One track the remote can switch to; [type] is "Audio" or "Subtitle". */
+data class JellySessionTrack(val index: Int, val type: String, val title: String)
 
 /** A Jellyfin user. */
 data class JellyUser(

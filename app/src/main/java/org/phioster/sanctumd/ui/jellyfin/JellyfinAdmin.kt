@@ -116,6 +116,7 @@ internal class JellyfinAdminState {
     var showAddLibrary by mutableStateOf(false)
     var pluginDetail by mutableStateOf<JellyPlugin?>(null)
     var showCatalog by mutableStateOf(false)
+    var showRepos by mutableStateOf(false)
     var catalog by mutableStateOf<List<JellyPackage>?>(null)
     var confirmRestart by mutableStateOf(false)
     /** True while a restart is polling for the server to come back. Keeps its status message
@@ -280,6 +281,11 @@ internal fun LazyListScope.jellyfinDashboardTab(
                             st.catalog = null; st.showCatalog = true
                             scope.launch { st.catalog = runCatching { vm.jellyfinCatalog(config) }.getOrDefault(emptyList()) }
                         }.padding(vertical = 8.dp),
+                    )
+                    Text(
+                        "repositories",
+                        fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 12.sp,
+                        modifier = Modifier.fillMaxWidth().clickable { st.showRepos = true }.padding(bottom = 8.dp),
                     )
                     HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
                 }
@@ -472,6 +478,8 @@ internal fun JellyfinAdminDialogs(
         )
     }
 
+    // Closing reloads the catalog, since a changed repository changes what updates exist.
+    if (st.showRepos) JellyReposDialog(vm, config, accent) { st.showRepos = false; st.catalog = null }
     if (st.showNewKey) {
         JellyNewApiKeyDialog(onDismiss = { st.showNewKey = false }) { app ->
             st.showNewKey = false
