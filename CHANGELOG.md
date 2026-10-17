@@ -3,6 +3,17 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## More from Seerr: upcoming, related, blocklist, quotas, logs (v2.1.21)
+- **Upcoming.** Discover has an "upcoming" view: films and series not out yet, alternating.
+- **Recommended and similar.** A title's page ends with two poster rows; a tap opens that one.
+- **Blocklist.** "block from discover" on a title's page keeps it out of discover and requests;
+  "Blocklist" in the Seerr menu lists what is blocked and lets a title back in.
+- **Delete the file through Seerr.** A request whose title is available can delete the file
+  in Radarr or Sonarr from its detail, after a second tap.
+- **Per-user requests and quota.** A user in "Users & stats" opens their movie and series
+  quota and their recent requests.
+- **Seerr's log.** "Logs" in the Seerr menu, from errors only up to info.
+
 ## Collections, and buttons on pushes (v2.1.20)
 - **Jellyfin collections.** "Collections…" in a title's menu lists every collection with the
   ones holding the title ticked; a tap adds or removes it, and a new collection can be started

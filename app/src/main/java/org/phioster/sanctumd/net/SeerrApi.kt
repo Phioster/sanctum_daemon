@@ -115,7 +115,17 @@ internal interface SeerrApi {
         @Query("take") take: Int,
         @Query("filter") filter: String,
         @Query("sort") sort: String,
+        @Query("requestedBy") requestedBy: Int? = null,
     ): SeerrRequestPage
+    @GET("api/v1/discover/movies/upcoming") suspend fun upcomingMovies(@Query("page") page: Int = 1): JsonObject
+    @GET("api/v1/discover/tv/upcoming") suspend fun upcomingTv(@Query("page") page: Int = 1): JsonObject
+    @GET("api/v1/{type}/{id}/{kind}") suspend fun related(@Path("type") type: String, @Path("id") id: Int, @Path("kind") kind: String): JsonObject
+    @GET("api/v1/blocklist") suspend fun blocklist(@Query("take") take: Int = 100, @Query("filter") filter: String = "manual"): JsonObject
+    @POST("api/v1/blocklist") suspend fun addToBlocklist(@Body body: JsonObject): Response<ResponseBody>
+    @DELETE("api/v1/blocklist/{tmdbId}") suspend fun removeFromBlocklist(@Path("tmdbId") tmdbId: Int, @Query("mediaType") mediaType: String): Response<ResponseBody>
+    @DELETE("api/v1/media/{id}/file") suspend fun deleteMediaFile(@Path("id") id: Int, @Query("is4k") is4k: Boolean): Response<ResponseBody>
+    @GET("api/v1/user/{id}/quota") suspend fun quota(@Path("id") id: Int): JsonObject
+    @GET("api/v1/settings/logs") suspend fun logs(@Query("take") take: Int = 100, @Query("filter") filter: String): List<JsonObject>
 
     @GET("api/v1/issue") suspend fun issues(
         @Query("take") take: Int,
@@ -195,9 +205,9 @@ internal suspend fun SeerrApi.resolveTitle(media: SeerrMedia, type: String): Str
     }.getOrNull() ?: "#${media.tmdbId}"
 }
 
-suspend fun seerrRequests(config: ServiceConfig, filter: String): List<SeerrRequestItem> = withContext(Dispatchers.IO) {
+suspend fun seerrRequests(config: ServiceConfig, filter: String, requestedBy: Int? = null): List<SeerrRequestItem> = withContext(Dispatchers.IO) {
     val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
-    val reqs = api.requests(take = 30, filter = filter, sort = "added").results
+    val reqs = api.requests(take = 30, filter = filter, sort = "added", requestedBy = requestedBy).results
     coroutineScope {
         reqs.map { r ->
             async {
@@ -301,6 +311,7 @@ internal fun parseDiscoverItems(page: JsonObject, defaultType: String?): List<Se
 suspend fun seerrDiscover(config: ServiceConfig, kind: String): List<SeerrDiscoverItem> = withContext(Dispatchers.IO) {
     val api = apiFor<SeerrApi>(config, apiKeyHeader(config))
     val (page, def) = when (kind) {
+        "upcoming" -> return@withContext seerrUpcoming(config)
         "movies" -> api.discoverMovies() to "movie"
         "tv" -> api.discoverTv() to "tv"
         else -> api.trending() to null
@@ -441,6 +452,7 @@ suspend fun seerrRequestStats(config: ServiceConfig): List<Pair<String, String>>
 suspend fun seerrUsers(config: ServiceConfig): List<SeerrUserInfo> = withContext(Dispatchers.IO) {
     apiFor<SeerrApi>(config, apiKeyHeader(config)).users().results.map { u ->
         SeerrUserInfo(
+            id = u.id,
             name = u.displayName.ifBlank { u.username ?: "user #${u.id}" },
             email = u.email ?: "",
             requestCount = u.requestCount,

@@ -134,13 +134,15 @@ internal fun SeerrScreen(
     }
     var showStats by remember { mutableStateOf(false) }
     var showJobs by remember { mutableStateOf(false) }
+    var showBlocklist by remember { mutableStateOf(false) }
+    var showLogs by remember { mutableStateOf(false) }
     var issueDetailId by remember { mutableStateOf<Int?>(null) }
     var reportFor by remember { mutableStateOf<Pair<Int, String>?>(null) }
     var requestDetail by remember { mutableStateOf<org.phioster.sanctumd.model.SeerrRequestDetail?>(null) }
 
     val reqFilters = listOf("all", "pending", "approved", "processing", "failed", "available", "unavailable")
     val issueFilters = listOf("open", "resolved", "all")
-    val discoverKinds = listOf("trending", "movies", "tv", "genres")
+    val discoverKinds = listOf("trending", "upcoming", "movies", "tv", "genres")
 
     suspend fun loadRequests() {
         listError = null
@@ -250,6 +252,8 @@ internal fun SeerrScreen(
                             DropdownMenuItem(text = { Text("Search & request", fontFamily = Mono) }, onClick = { barMenu = false; showAdd = true })
                             DropdownMenuItem(text = { Text("Users & stats", fontFamily = Mono) }, onClick = { barMenu = false; showStats = true })
                             DropdownMenuItem(text = { Text("Jobs", fontFamily = Mono) }, onClick = { barMenu = false; showJobs = true })
+                            DropdownMenuItem(text = { Text("Blocklist", fontFamily = Mono) }, onClick = { barMenu = false; showBlocklist = true })
+                            DropdownMenuItem(text = { Text("Logs", fontFamily = Mono) }, onClick = { barMenu = false; showLogs = true })
                             DropdownMenuItem(text = { Text("Open in Seerr", fontFamily = Mono) }, onClick = { barMenu = false; openExternal(context, seerrAppPackages, config.baseUrl) })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
@@ -447,6 +451,7 @@ internal fun SeerrScreen(
             onBack = { mediaDetail = null },
             onRequest = { item -> mediaDetail = null; confirmItem = item },
             onReportIssue = { id, title -> reportFor = id to title },
+            onOpenOther = { di -> openDiscoverDetail(di) },
         )
     }
 
@@ -461,6 +466,8 @@ internal fun SeerrScreen(
 
     if (showStats) SeerrStatsDialog(vm, config, accent) { showStats = false }
     if (showJobs) SeerrJobsDialog(vm, config, accent) { showJobs = false }
+    if (showBlocklist) SeerrBlocklistDialog(vm, config, accent) { showBlocklist = false }
+    if (showLogs) SeerrLogsDialog(vm, config) { showLogs = false }
 
     issueDetailId?.let { iid ->
         SeerrIssueDialog(

@@ -142,6 +142,7 @@ data class SeerrJob(
 
 /** A Seerr user, for the admin user list. */
 data class SeerrUserInfo(
+    val id: Int = 0,
     val name: String,
     val email: String,
     val requestCount: Int,
