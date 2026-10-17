@@ -1,0 +1,14 @@
+# The seven scenes of sanctumd-3.0-demo.mp4 as recorded on 2026-10-18 (Nothing Phone 3, v2.1.39,
+# demo mode, DEMO chip hidden). Start screen | record | taps | trimmed to (= the caption's length).
+# Coordinates are for 1260 x 2800 and this build; read them again with `uiautomator dump` if either changes.
+#
+# 1 home calendar, top          | scene.py s1_home 8        2.0:swipe:630,2100,630,1150,2600       | 6 s
+# 2 home, scrolled to top       | scene.py s2_services 6    0.8:tap:84,258                         | 4 s
+# 3 services drawer             | scene.py s3_radarr 9      0.8:tap:331,1239 3.6:tap:1176,258      | 7 s
+# 4 NZBGet queue                | scene.py s4_news 10       0.8:tap:1176,258 2.4:tap:315,2092 5.2:swipe:630,2200,630,1300,1800 | 8 s
+# 5 Jellyfin, Media tab         | scene.py s5_playing 8     0.8:tap:477,648 3.6:swipe:630,2200,630,1500,1600 | 6 s
+# 6 Jellyfin, Dashboard, top    | scene.py s6_transcoding 10 0.8:swipe:630,2300,630,1100,700 3.0:tap:235,2420 5.6:swipe:630,2200,630,1400,1800 | 8 s
+# 7 home calendar, top          | scene.py s7_end 8         1.6:tap:630,1257                       | 6 s
+#
+# Then: norm.py each with its length, concat the n_*.mp4 in order into
+# docs/screenshots/v3.0/demo-raw.mp4 (ffmpeg -f concat -c copy), and run ../make-video.sh.

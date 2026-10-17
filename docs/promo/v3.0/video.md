@@ -4,7 +4,16 @@
 Silent with captions (most people watch muted), vertical 1080×2340 for phones and social,
 ending on a title card with the link.
 
-## How it is recorded
+## How it was recorded (the video in this folder)
+
+`sanctumd-3.0-demo.mp4` was recorded on the real phone, scene by scene, with `record/`:
+`scene.py` runs `adb shell screenrecord` while timed taps and swipes play (so nobody's pauses
+end up in the video), `norm.py` crops the status bar and trims each scene to its caption's
+length, and the joined scenes are `docs/screenshots/v3.0/demo-raw.mp4`. `make-video.sh` then
+adds captions and the end card. `record/scenes.txt` lists every scene with its taps.
+Captions are white on a dark box: green text vanished on the green app.
+
+## How it is recorded in CI (emulator)
 
 `.maestro/screenshots/v3_video.yaml` drives the real debug build in demo mode, and
 `.maestro/screenshots/capture.sh` records the screen with `adb shell screenrecord` around it.
