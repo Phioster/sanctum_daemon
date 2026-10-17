@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import org.phioster.sanctumd.data.ServiceStore
 import org.phioster.sanctumd.model.ServiceConfig
@@ -369,6 +370,14 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                 _services.value = list
                 _servicesLoaded.value = true
                 refreshAll()
+            }
+        }
+        // Cards keep their ids in demo mode, so their cached data would show the other world.
+        viewModelScope.launch {
+            org.phioster.sanctumd.demo.DemoMode.enabled.drop(1).collect {
+                cardDataCache.clear()
+                cardDataTick.clear()
+                dashRefreshTick.intValue++
             }
         }
         viewModelScope.launch {

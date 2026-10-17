@@ -3,6 +3,12 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Demo mode, cleaner switch (v2.1.33)
+- **Switching shows the right world at once.** Turning demo mode on or off now drops the
+  cards' cached data and reloads them, so the dashboard no longer shows the previous
+  world's calendar or leaderboard until a pull-to-refresh.
+- New screenshots in the README and on the website, all taken in demo mode.
+
 ## Demo mode (v2.1.32)
 - **Try it without a server.** "no server yet? try the demo" under the add-service form (and
   in the empty service list), or "demo mode" in Settings, opens a busy made-up server: a
