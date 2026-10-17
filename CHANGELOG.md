@@ -3,6 +3,18 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## A queue that says more, and acts on several at once (v2.1.23)
+- **Richer queue rows.** Each download shows its ETA at the current speed (counting the items
+  ahead of it), category, priority, how old the release is and, once articles are missing,
+  its health in amber. While one is being repaired or unpacked, that step and its progress
+  appear under it.
+- **Pause for a while.** "pause for…" next to the pause buttons stops downloading for 30
+  minutes, an hour or three; NZBGet resumes by itself, and the header says until when.
+- **Post-processing on hold.** The menu pauses or resumes repair and unpack separately from
+  downloading, e.g. while the disk is busy.
+- **Several at once.** A long press on a queue item starts picking; tap more, then pause,
+  resume, move to the top or delete them all in one go.
+
 ## Seerr's log opens (v2.1.22)
 - **"Logs" failed with a JSON error.** Seerr's spec describes the log as a bare list, but
   Seerr 3.3 pages it like every other list. Both shapes are read now.

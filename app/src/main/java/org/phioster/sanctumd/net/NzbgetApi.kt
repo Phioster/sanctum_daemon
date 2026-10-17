@@ -36,6 +36,8 @@ import retrofit2.http.POST
     val ArticleCacheMB: Long = 0,
     val UpTimeSec: Long = 0,
     val ThreadCount: Int = 0,
+    val PostPaused: Boolean = false,
+    val ResumeTime: Long = 0,
 )
 
 @Serializable internal data class NzbStringResp(val result: String = "")
@@ -48,6 +50,12 @@ import retrofit2.http.POST
     val Status: String = "",
     val FileSizeMB: Long = 0,
     val RemainingSizeMB: Long = 0,
+    val Category: String = "",
+    val MaxPriority: Int = 0,
+    val Health: Int = 1000,
+    val MinPostTime: Long = 0,
+    val PostInfoText: String = "",
+    val PostStageProgress: Int = 0,
 )
 
 @Serializable internal data class NzbRpcReq(val method: String, val params: List<String> = emptyList(), val id: Int = 1)
@@ -133,14 +141,16 @@ internal fun appendUrlBody(url: String, category: String): JsonObject =
         }
     }
 
-internal fun editqueueBody(command: String, editText: String, id: Int): JsonObject =
+internal fun editqueueBody(command: String, editText: String, id: Int): JsonObject = editqueueBody(command, editText, listOf(id))
+
+internal fun editqueueBody(command: String, editText: String, ids: List<Int>): JsonObject =
     buildJsonObject {
         put("method", "editqueue")
         putJsonArray("params") {
             add(command)
             add(0) // offset
             add(editText)
-            addJsonArray { add(id) }
+            addJsonArray { ids.forEach { add(it) } }
         }
     }
 
@@ -174,11 +184,94 @@ suspend fun runNzbgetResume(config: ServiceConfig): String = destructive("resume
     }
 }
 
-suspend fun nzbgetQueue(config: ServiceConfig): List<NzbQueueItem> = withContext(Dispatchers.IO) {
-    apiFor<NzbgetApi>(config, basicHeader(config)).listgroups().result.map {
-        NzbQueueItem(it.NZBID, it.NZBName, it.Status, it.FileSizeMB, it.RemainingSizeMB)
+/**
+ * Seconds until each item is done. The queue downloads in order, so an item waits for the ones
+ * ahead of it: its ETA is everything remaining up to and including it, at the current rate.
+ * Null for all when nothing is moving; a paused item adds nothing and gets null itself.
+ */
+internal fun queueEtas(remainingMb: List<Long>, paused: List<Boolean>, rateBytesPerSec: Long): List<Long?> {
+    if (rateBytesPerSec <= 0) return remainingMb.map { null }
+    var ahead = 0L
+    return remainingMb.indices.map { i ->
+        if (paused[i]) {
+            null
+        } else {
+            ahead += remainingMb[i]
+            ahead * 1024 * 1024 / rateBytesPerSec
+        }
     }
 }
+
+/** The queue with [NzbQueueItem.etaSec] filled in from the current [rateBytesPerSec]. */
+internal fun withEtas(queue: List<NzbQueueItem>, rateBytesPerSec: Long): List<NzbQueueItem> {
+    val etas = queueEtas(queue.map { it.remainingMb }, queue.map { it.status.startsWith("PAUSED") }, rateBytesPerSec)
+    return queue.mapIndexed { i, q -> q.copy(etaSec = etas[i]) }
+}
+
+suspend fun nzbgetQueue(config: ServiceConfig): List<NzbQueueItem> = withContext(Dispatchers.IO) {
+    val groups = apiFor<NzbgetApi>(config, basicHeader(config)).listgroups().result
+    val now = System.currentTimeMillis() / 1000
+    groups.map {
+        NzbQueueItem(
+            it.NZBID, it.NZBName, it.Status, it.FileSizeMB, it.RemainingSizeMB,
+            category = it.Category,
+            priority = it.MaxPriority,
+            health = it.Health,
+            ageDays = if (it.MinPostTime > 0) ((now - it.MinPostTime) / 86_400).toInt() else -1,
+            postInfo = it.PostInfoText,
+            postProgress = it.PostStageProgress,
+        )
+    }
+}
+
+suspend fun nzbgetPauseState(config: ServiceConfig): org.phioster.sanctumd.model.NzbPauseState = withContext(Dispatchers.IO) {
+    val s = apiFor<NzbgetApi>(config, basicHeader(config)).status().result
+    org.phioster.sanctumd.model.NzbPauseState(s.DownloadPaused, s.ResumeTime, s.PostPaused, if (s.DownloadPaused) 0L else s.DownloadRate)
+}
+
+/** Pauses downloading and lets NZBGet itself resume after [minutes], no app needed. */
+suspend fun runNzbPauseFor(config: ServiceConfig, minutes: Int): String = destructive("pause NZBGet for $minutes min") {
+    withContext(Dispatchers.IO) {
+        try {
+            val api = apiFor<NzbgetApi>(config, basicHeader(config))
+            if (!api.rpc(NzbRpcReq("pausedownload")).result) return@withContext "error: pause refused"
+            val ok = api.rpcJson(
+                buildJsonObject {
+                    put("method", "scheduleresume")
+                    putJsonArray("params") { add(minutes * 60) }
+                },
+            ).result
+            if (ok) "paused for $minutes min" else "error: paused, but the timer was refused"
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
+}
+
+/** Holds or releases post-processing (repair, unpack, scripts) without touching downloads. */
+suspend fun runNzbPostPause(config: ServiceConfig, pause: Boolean): String = destructive("${if (pause) "pause" else "resume"} NZBGet post-processing") {
+    withContext(Dispatchers.IO) {
+        try {
+            val ok = apiFor<NzbgetApi>(config, basicHeader(config)).rpc(NzbRpcReq(if (pause) "pausepost" else "resumepost")).result
+            if (ok) (if (pause) "post-processing paused" else "post-processing resumed") else "error: refused"
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
+}
+
+/** editqueue on several items in one call; NZBGet takes the id list as it is. */
+suspend fun runNzbEditMany(config: ServiceConfig, command: String, ids: List<Int>, editText: String = ""): String =
+    destructive("NZBGet $command on ${ids.size} items") {
+        withContext(Dispatchers.IO) {
+            try {
+                val ok = apiFor<NzbgetApi>(config, basicHeader(config)).rpcJson(editqueueBody(command, editText, ids)).result
+                if (ok) "done (${ids.size})" else "error: refused"
+            } catch (t: Throwable) {
+                "error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
 
 suspend fun nzbgetHistory(config: ServiceConfig, hidden: Boolean): List<NzbHistoryEntry> = withContext(Dispatchers.IO) {
     apiFor<NzbgetApi>(config, basicHeader(config)).history(NzbHistoryReq(params = listOf(hidden))).result.map {

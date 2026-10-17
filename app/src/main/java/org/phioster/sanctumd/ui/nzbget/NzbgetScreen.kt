@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -100,12 +102,19 @@ internal fun NzbgetScreen(
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var refreshing by remember { mutableStateOf(false) }
+    var pauseState by remember { mutableStateOf<org.phioster.sanctumd.model.NzbPauseState?>(null) }
+    /** Queue items picked by a long press; non-empty switches rows from menu to selection. */
+    var selected by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var pauseMenu by remember { mutableStateOf(false) }
     LaunchedEffect(actionMsg) { if (actionMsg != null) { kotlinx.coroutines.delay(4000); actionMsg = null } }
 
     suspend fun loadQueue() {
         listError = null
         try {
-            queue = vm.queue(config)
+            val q = vm.queue(config)
+            pauseState = runCatching { vm.nzbPauseState(config) }.getOrNull()
+            queue = org.phioster.sanctumd.net.withEtas(q, pauseState?.rateBytesPerSec ?: 0L)
+            selected = selected.filter { id -> q.any { it.id == id } }.toSet()
         } catch (c: kotlinx.coroutines.CancellationException) {
             throw c
         } catch (t: Throwable) {
@@ -166,6 +175,11 @@ internal fun NzbgetScreen(
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
                             DropdownMenuItem(text = { Text("Add NZB (URL)", fontFamily = Mono) }, onClick = { barMenu = false; showAdd = true })
                             DropdownMenuItem(text = { Text("Log", fontFamily = Mono) }, onClick = { barMenu = false; logTarget = null to "Log" })
+                            val postPaused = pauseState?.postPaused == true
+                            DropdownMenuItem(
+                                text = { Text(if (postPaused) "Resume post-processing" else "Pause post-processing", fontFamily = Mono) },
+                                onClick = { barMenu = false; act { vm.nzbPostPause(config, !postPaused) } },
+                            )
                             DropdownMenuItem(text = { Text("Server details", fontFamily = Mono) }, onClick = { barMenu = false; scope.launch { serverInfo = runCatching { vm.nzbServer(config) }.getOrNull() ?: listOf("error" to "could not load") } })
                             DropdownMenuItem(text = { Text("View on web", fontFamily = Mono) }, onClick = { barMenu = false; runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(config.baseUrl))) } })
                             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
@@ -196,10 +210,29 @@ internal fun NzbgetScreen(
                     ActionBtn("Pause all", true) { act { vm.nzbgetPause(config) } }
                     Spacer(Modifier.width(12.dp))
                     ActionBtn("Resume all", true) { act { vm.nzbgetResume(config) } }
-                    Spacer(Modifier.width(12.dp))
+                    Box {
+                        TextButton(onClick = { pauseMenu = true }) { Text("pause for…", fontFamily = Mono, color = accent, fontSize = 12.sp) }
+                        DropdownMenu(expanded = pauseMenu, onDismissRequest = { pauseMenu = false }) {
+                            listOf(30 to "30 min", 60 to "1 hour", 180 to "3 hours").forEach { (min, label) ->
+                                DropdownMenuItem(text = { Text(label, fontFamily = Mono) }, onClick = { pauseMenu = false; act { vm.nzbPauseFor(config, min) } })
+                            }
+                        }
+                    }
                     IconButton(enabled = !refreshing, onClick = { actionMsg = null; scope.launch { refreshing = true; if (tab == 0) loadQueue() else loadHistory(); refreshing = false } }) {
                         if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), color = MatrixGreen, strokeWidth = 2.dp)
                         else Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
+                    }
+                }
+                pauseState?.let { ps ->
+                    val lines = buildList {
+                        if (ps.paused && ps.resumeAt > 0) {
+                            add("paused until " + java.text.SimpleDateFormat("HH:mm", java.util.Locale.ROOT).format(java.util.Date(ps.resumeAt * 1000)))
+                        }
+                        if (ps.postPaused) add("post-processing paused")
+                    }
+                    if (lines.isNotEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(lines.joinToString(" · "), fontFamily = Mono, color = org.phioster.sanctumd.ui.theme.WarnAmber, fontSize = 12.sp)
                     }
                 }
                 actionMsg?.let {
@@ -214,6 +247,20 @@ internal fun NzbgetScreen(
                 if (tab == 1) {
                     Spacer(Modifier.width(8.dp))
                     FilterChip(selected = showHidden, onClick = { showHidden = !showHidden }, label = { Text("hidden", fontFamily = Mono) })
+                }
+            }
+            if (tab == 0 && selected.isNotEmpty()) {
+                // Acts on every picked item in one editqueue call.
+                Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("${selected.size} selected", fontFamily = Mono, color = accent, fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp).weight(1f))
+                    listOf("GroupPause" to "pause", "GroupResume" to "resume", "GroupMoveTop" to "top", "GroupDelete" to "delete").forEach { (cmd, label) ->
+                        TextButton(onClick = {
+                            val ids = selected.toList()
+                            selected = emptySet()
+                            act { vm.nzbEditMany(config, cmd, ids) }
+                        }) { Text(label, fontFamily = Mono, color = if (cmd == "GroupDelete") ErrRed else MatrixGreen, fontSize = 12.sp) }
+                    }
+                    TextButton(onClick = { selected = emptySet() }) { Text("x", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp) }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -231,6 +278,9 @@ internal fun NzbgetScreen(
                                 else -> items(q) { qi ->
                                     QueueRow(
                                         item = qi,
+                                        selected = qi.id in selected,
+                                        selecting = selected.isNotEmpty(),
+                                        onToggleSelect = { selected = if (qi.id in selected) selected - qi.id else selected + qi.id },
                                         onAction = { cmd, txt -> act { vm.nzbEdit(config, cmd, qi.id, txt) } },
                                         onCategory = { categoryText = ""; categoryFor = qi.id },
                                     )
@@ -314,11 +364,51 @@ internal fun NzbgetScreen(
     }
 }
 
+/** "1h 05m", "12m", "40s": short enough for a queue row. */
+internal fun formatEta(sec: Long): String = when {
+    sec >= 3600 -> "%dh %02dm".format(sec / 3600, (sec % 3600) / 60)
+    sec >= 60 -> "${sec / 60}m"
+    else -> "${sec}s"
+}
+
+/** NZBGet's priority numbers as the words its own UI uses. */
+internal fun priorityLabel(p: Int): String = when {
+    p >= 900 -> "force"
+    p >= 100 -> "very high"
+    p >= 50 -> "high"
+    p <= -100 -> "very low"
+    p <= -50 -> "low"
+    else -> ""
+}
+
+/** Everything about a queue item that fits on one line; empty parts are left out. */
+internal fun queueDetail(item: NzbQueueItem): String = listOfNotNull(
+    item.etaSec?.let { "ETA ${formatEta(it)}" },
+    item.category.takeIf { it.isNotBlank() },
+    priorityLabel(item.priority).takeIf { it.isNotBlank() },
+    item.ageDays.takeIf { it >= 0 }?.let { "${it}d old" },
+    item.health.takeIf { it < 1000 }?.let { "health %.1f%%".format(java.util.Locale.ROOT, it / 10.0) },
+).joinToString(" · ")
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-internal fun QueueRow(item: NzbQueueItem, onAction: (String, String) -> Unit, onCategory: () -> Unit) {
+internal fun QueueRow(
+    item: NzbQueueItem,
+    selected: Boolean = false,
+    selecting: Boolean = false,
+    onToggleSelect: () -> Unit = {},
+    onAction: (String, String) -> Unit,
+    onCategory: () -> Unit,
+) {
     var menu by remember { mutableStateOf(false) }
     Box {
-        Column(Modifier.fillMaxWidth().clickable { menu = true }.padding(vertical = 8.dp)) {
+        Column(
+            Modifier.fillMaxWidth()
+                .background(if (selected) MatrixGreen.copy(alpha = 0.12f) else androidx.compose.ui.graphics.Color.Transparent)
+                // A long press starts picking; while picking, a tap adds or removes instead of opening the menu.
+                .combinedClickable(onClick = { if (selecting) onToggleSelect() else menu = true }, onLongClick = onToggleSelect)
+                .padding(vertical = 8.dp),
+        ) {
             Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(6.dp))
             LinearProgressIndicator(
@@ -331,6 +421,20 @@ internal fun QueueRow(item: NzbQueueItem, onAction: (String, String) -> Unit, on
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(item.status, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
                 Text("${item.remainingMb} / ${item.sizeMb} MB", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+            }
+            val detail = queueDetail(item)
+            if (detail.isNotBlank()) {
+                Text(detail, fontFamily = Mono, color = if (item.health < 1000) org.phioster.sanctumd.ui.theme.WarnAmber else MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (item.postInfo.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(item.postInfo, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                LinearProgressIndicator(
+                    progress = { (item.postProgress / 1000f).coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MatrixGreen.copy(alpha = 0.6f),
+                    trackColor = Surface,
+                )
             }
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
