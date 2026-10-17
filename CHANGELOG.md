@@ -3,6 +3,19 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Playlists, picking several titles, merging versions (v2.1.28)
+- **Playlists.** The Jellyfin media home has a PLAYLISTS row with every playlist and "+ new".
+  An opened playlist shows its running order: move titles up and down, remove them, rename
+  the list, share it (public, or with chosen users who may or may not edit) and delete it.
+  A music playlist plays as one queue, with "play all" and "shuffle"; in a list with films a
+  tap opens the title.
+- **Add to playlist.** A film, episode or song has "Add to playlist…" in its menu, into an
+  existing list or a new one.
+- **Pick several.** A long press on a title in a library starts picking; tap more, then add
+  them all to a playlist at once.
+- **Merge versions.** With two or more films picked, "merge versions" folds them into one
+  title with versions, the counterpart to "Split versions".
+
 ## Logs, backups and import exclusions for the *arr apps (v2.1.27)
 - **Logs.** Sonarr, Radarr, Lidarr and Prowlarr have "Logs" in their menu: newest first,
   from errors only up to info; a line with an exception opens it on a tap.

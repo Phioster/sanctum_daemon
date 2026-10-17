@@ -306,6 +306,12 @@ internal fun JellyfinDetailSheet(
                         text = { Text("Subtitles", fontFamily = Mono) },
                         onClick = { state.menuOpen = false; state.subtitles = d },
                     )
+                    if (d.kind in setOf("Movie", "Episode", "Video", "Audio", "MusicVideo")) {
+                        DropdownMenuItem(
+                            text = { Text("Add to playlist…", fontFamily = Mono) },
+                            onClick = { state.menuOpen = false; state.addToPlaylist = d },
+                        )
+                    }
                     if (d.kind in setOf("Movie", "Episode", "Video")) {
                         DropdownMenuItem(
                             text = { Text("Upload subtitle…", fontFamily = Mono) },

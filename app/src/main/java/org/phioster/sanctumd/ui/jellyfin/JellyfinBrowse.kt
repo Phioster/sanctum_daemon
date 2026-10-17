@@ -65,6 +65,14 @@ internal class JellyfinBrowseState {
     var resume by mutableStateOf<List<JellyMediaItem>?>(null)
     var latest by mutableStateOf<List<JellyMediaItem>?>(null)
     var favorites by mutableStateOf<List<JellyMediaItem>?>(null)
+    var playlists by mutableStateOf<List<org.phioster.sanctumd.net.JellyPlaylist>?>(null)
+    /** The playlist at the current level, when it is one; it gets its own view like an album. */
+    var playlist by mutableStateOf<org.phioster.sanctumd.net.JellyPlaylistDetail?>(null)
+    /** Items picked by a long press at the current level. */
+    var selected by mutableStateOf<Set<String>>(emptySet())
+    /** Item ids waiting for "add to playlist"; null when that dialog is closed. */
+    var addToPlaylist by mutableStateOf<List<String>?>(null)
+    var showNewPlaylist by mutableStateOf(false)
 
     /** The folders descended into. Empty = the Media home. */
     var stack by mutableStateOf<List<JellyMediaItem>>(emptyList())
@@ -92,12 +100,17 @@ internal class JellyfinBrowseState {
         resume = vm.jellyfinContinue(config)
         latest = vm.jellyfinRecent(config, null)
         favorites = runCatching { vm.jellyfinFavoriteList(config) }.getOrDefault(emptyList())
+        playlists = runCatching { vm.jellyfinPlaylistList(config) }.getOrDefault(emptyList())
     }
 
     /** Loads one folder's contents. Returns an error message, or null when it worked. */
     suspend fun loadFolder(vm: DashboardViewModel, config: ServiceConfig, parent: JellyMediaItem): String? {
         contents = null
         album = null
+        if (parent.kind == "Playlist") {
+            playlist = null
+            return guard { playlist = vm.jellyfinPlaylistDetailOf(config, parent.id); contents = emptyList() }
+        }
         return guard {
             // An album is fetched twice on purpose: once as playable tracks (what the screen shows
             // and what the queue plays. They must not disagree) and once as generic items, because
@@ -125,6 +138,8 @@ internal class JellyfinBrowseState {
         }.getOrDefault(emptyList())
         children = children + (f.id to kids)
     }
+
+    fun toggle(id: String) { selected = if (id in selected) selected - id else selected + id }
 
     private inline fun guard(body: () -> Unit): String? = try {
         body()
@@ -256,6 +271,15 @@ internal fun LazyListScope.jellyfinMediaHome(
                 MediaPosterRow(favs, config, accent, MediaRowStyle(), act.setWatched) { act.open(it) }
             }
         }
+        // Always shown, even empty: it is also where a first playlist gets made.
+        st.playlists?.let { pls ->
+            item {
+                Spacer(Modifier.height(16.dp))
+                MediaSectionHeader("PLAYLISTS", accent)
+                Spacer(Modifier.height(8.dp))
+                PlaylistRow(pls, accent, onOpen = { act.open(it.asMediaItem()) }, onNew = { st.showNewPlaylist = true })
+            }
+        }
         if (!lat.isNullOrEmpty() && !sRecent.hidden) {
             item {
                 Spacer(Modifier.height(16.dp))
@@ -306,6 +330,10 @@ internal fun LazyListScope.jellyfinFolderLevel(
     playingId: String,
 ) {
     val here = st.stack.last()
+    if (here.kind == "Playlist") {
+        jellyfinPlaylistLevel(st, vm, config, accent, scope, act, playingId)
+        return
+    }
     // Music leaves the generic folder machinery here: an album is a sleeve and a running order,
     // and the sort chips, the unwatched filter and the drill-in rows all mean nothing to it.
     if (here.kind == "MusicAlbum") {
@@ -415,11 +443,33 @@ internal fun LazyListScope.jellyfinFolderLevel(
         if (st.filter.isBlank()) list
         else list.filter { it.name.contains(st.filter, ignoreCase = true) }
     }
+    val picked = st.contents.orEmpty().filter { it.id in st.selected }
+    if (picked.isNotEmpty()) {
+        item {
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("${picked.size} picked", fontFamily = Mono, color = accent, fontSize = 12.sp)
+                BrowseChip("add to playlist", MatrixGreen, AppIcons.Add) { st.addToPlaylist = picked.map { it.id }; st.selected = emptySet() }
+                // Jellyfin merges films only; the first picked becomes the main version.
+                if (picked.size >= 2 && picked.all { it.kind == "Movie" }) {
+                    BrowseChip("merge ${picked.size} versions", MatrixGreen) {
+                        val ids = picked.map { it.id }
+                        st.selected = emptySet()
+                        scope.launch { act.message(vm.jellyfinMerge(config, ids)); st.reload(vm, config) }
+                    }
+                }
+                BrowseChip("clear", MatrixGreen.copy(alpha = 0.7f), AppIcons.Cancel) { st.selected = emptySet() }
+            }
+        }
+    }
+    // While picking, a tap adds or removes instead of opening.
+    fun tapOf(it: JellyMediaItem): () -> Unit = { if (st.selected.isNotEmpty()) st.toggle(it.id) else act.open(it) }
     when {
         m == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
         m.isEmpty() -> item { Text("empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
         // Audio tracks read better as a list; everything else as a 3-column poster grid.
-        m.any { it.kind == "Audio" } -> items(m) { it2 -> JellyMediaRow(it2, config, accent, { want -> act.setWatched(it2, want) }) { act.open(it2) } }
+        m.any { it.kind == "Audio" } -> items(m) { it2 ->
+            JellyMediaRow(it2, config, accent, { want -> act.setWatched(it2, want) }, selected = it2.id in st.selected, onLongClick = { st.toggle(it2.id) }, onClick = tapOf(it2))
+        }
         // Albums open their own screen; a list of them wants square covers, not film posters.
         m.all { it.isFolder && it.kind == "MusicAlbum" } ->
             items(m, key = { "alb-${it.id}" }) { a -> AlbumListRow(a, config, accent) { act.open(a) } }
@@ -442,7 +492,12 @@ internal fun LazyListScope.jellyfinFolderLevel(
             m.chunked(3).forEachIndexed { idx, rowItems ->
                 item(key = "browserow-$idx") {
                     Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        rowItems.forEach { it2 -> MediaGridCard(it2, config, accent, Modifier.weight(1f), { want -> act.setWatched(it2, want) }) { act.open(it2) } }
+                        rowItems.forEach { it2 ->
+                            MediaGridCard(
+                                it2, config, accent, Modifier.weight(1f), { want -> act.setWatched(it2, want) },
+                                selected = it2.id in st.selected, onLongClick = { st.toggle(it2.id) }, onClick = tapOf(it2),
+                            )
+                        }
                         repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }

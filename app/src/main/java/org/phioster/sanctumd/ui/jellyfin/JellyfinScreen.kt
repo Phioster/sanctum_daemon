@@ -250,6 +250,25 @@ internal fun JellyfinScreen(
         }
     }
 
+    ds.addToPlaylist?.let { target -> bs.addToPlaylist = listOf(target.id); ds.addToPlaylist = null }
+    bs.addToPlaylist?.let { ids ->
+        AddToPlaylistDialog(vm, config, ids, accent, onDismiss = { bs.addToPlaylist = null }) { msg ->
+            bs.addToPlaylist = null
+            actionMsg = msg
+            scope.launch { bs.playlists = runCatching { vm.jellyfinPlaylistList(config) }.getOrNull() ?: bs.playlists }
+        }
+    }
+    if (bs.showNewPlaylist) {
+        NewPlaylistDialog(onDismiss = { bs.showNewPlaylist = false }) { name ->
+            bs.showNewPlaylist = false
+            scope.launch {
+                val r = vm.jellyfinPlaylistCreate(config, name, emptyList())
+                actionMsg = if (r.startsWith("error")) r else "created $name"
+                bs.playlists = runCatching { vm.jellyfinPlaylistList(config) }.getOrNull() ?: bs.playlists
+            }
+        }
+    }
+
     ds.uploadSubtitle?.let { target ->
         JellyfinUploadSubtitleDialog(vm, config, target, accent, onDismiss = { ds.uploadSubtitle = null }) { msg ->
             ds.uploadSubtitle = null
@@ -308,7 +327,7 @@ internal fun JellyfinScreen(
         }
     }
     // Leaving a folder level closes everything. The state belongs to the level you were on.
-    LaunchedEffect(bs.stack) { bs.expanded = emptySet(); bs.children = emptyMap() }
+    LaunchedEffect(bs.stack) { bs.expanded = emptySet(); bs.children = emptyMap(); bs.selected = emptySet() }
 
     // ── Watched toggle ────────────────────────────────────────────────────────────────────────────
     // Marking a Series/Season cascades to every episode on the server, so folders confirm first.
