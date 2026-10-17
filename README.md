@@ -36,16 +36,22 @@ visitor@homelab:~$ ./sanctumd --whoami
   <img src="docs/screenshots/home-calendar.png" width="49%" alt="Home · calendar &amp; leaderboard">
   <br>
   <img src="docs/screenshots/dashboard-series.png" width="49%" alt="Series dashboard">
-  <img src="docs/screenshots/media-detail.png" width="49%" alt="Media detail with cast">
+  <img src="docs/screenshots/media-detail.png" width="49%" alt="Film detail with cast">
   <br>
+  <img src="docs/screenshots/service-menu.png" width="49%" alt="Service menu: manage, not just watch">
   <img src="docs/screenshots/jellyfin-admin.png" width="49%" alt="Jellyfin admin">
+  <br>
+  <img src="docs/screenshots/jellyfin-transcoding.png" width="49%" alt="Jellyfin transcoding settings">
   <img src="docs/screenshots/now-playing.png" width="49%" alt="Jellyfin now playing, with remote control">
   <br>
-  <img src="docs/screenshots/music.png" width="49%" alt="Music album">
+  <img src="docs/screenshots/music.png" width="49%" alt="Music with lyrics and Instant Mix">
+  <img src="docs/screenshots/news-servers.png" width="49%" alt="NZBGet traffic per news server">
+  <br>
   <img src="docs/screenshots/live-push.png" width="49%" alt="Live push (ntfy) with posters">
+  <img src="docs/screenshots/stats.png" width="49%" alt="Stats across all services">
   <br>
   <img src="docs/screenshots/themes.png" width="49%" alt="Theme presets">
-  <img src="docs/screenshots/stats.png" width="49%" alt="Stats across all services">
+  <img src="docs/screenshots/theme-editor.png" width="49%" alt="Theme editor with readability check">
   <br>
   <sub>Screenshots from the built-in demo mode: a made-up server, no real data.</sub>
 </div>
