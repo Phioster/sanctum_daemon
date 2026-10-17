@@ -13,6 +13,14 @@ data class NzbQueueItem(
 }
 
 /** A completed/failed entry from NZBGet history (optionally including hidden/DUP). */
+/** One line of NZBGet's message log. */
+data class NzbLogEntry(
+    /** INFO, WARNING, ERROR, DETAIL or DEBUG. */
+    val kind: String,
+    val time: String,
+    val text: String,
+)
+
 data class NzbHistoryEntry(
     val id: Int,
     val name: String,

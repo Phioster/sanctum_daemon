@@ -52,6 +52,8 @@ import retrofit2.http.POST
 
 @Serializable internal data class NzbRpcReq(val method: String, val params: List<String> = emptyList(), val id: Int = 1)
 @Serializable internal data class NzbBoolResp(val result: Boolean = false)
+@Serializable internal data class NzbLogMsg(val ID: Int = 0, val Kind: String = "", val Time: Long = 0, val Text: String = "")
+@Serializable internal data class NzbLogResp(val result: List<NzbLogMsg> = emptyList())
 
 @Serializable internal data class NzbHistoryReq(val params: List<Boolean>, val method: String = "history", val id: Int = 1)
 @Serializable internal data class NzbHistoryResp(val result: List<NzbHistoryItem> = emptyList())
@@ -110,6 +112,7 @@ internal interface NzbgetApi {
     @POST("jsonrpc") suspend fun rpc(@Body req: NzbRpcReq): NzbBoolResp
     @POST("jsonrpc") suspend fun history(@Body req: NzbHistoryReq): NzbHistoryResp
     @POST("jsonrpc") suspend fun rpcJson(@Body body: JsonObject): NzbBoolResp
+    @POST("jsonrpc") suspend fun logRpc(@Body body: JsonObject): NzbLogResp
     @POST("jsonrpc") suspend fun rpcInt(@Body body: JsonObject): NzbIntResp
     @POST("jsonrpc") suspend fun version(@Body req: NzbRpcReq): NzbStringResp
 }
@@ -182,6 +185,34 @@ suspend fun nzbgetHistory(config: ServiceConfig, hidden: Boolean): List<NzbHisto
         NzbHistoryEntry(it.NZBID, it.Name, it.Status, it.FileSizeMB, nzbFailureReason(it))
     }
 }
+
+/** `log(IDFrom, NumberOfEntries)`: IDFrom 0 asks for the last [count] messages. */
+internal fun logBody(count: Int): JsonObject = buildJsonObject {
+    put("method", "log")
+    putJsonArray("params") { add(0); add(count) }
+}
+
+/** `loadlog(NZBID, IDFrom, NumberOfEntries)`: one download's own messages. */
+internal fun loadLogBody(nzbId: Int, count: Int): JsonObject = buildJsonObject {
+    put("method", "loadlog")
+    putJsonArray("params") { add(nzbId); add(0); add(count) }
+}
+
+private fun NzbLogMsg.toEntry() = org.phioster.sanctumd.model.NzbLogEntry(
+    kind = Kind,
+    time = if (Time > 0) java.text.SimpleDateFormat("dd.MM. HH:mm:ss", java.util.Locale.ROOT).format(java.util.Date(Time * 1000)) else "",
+    text = Text,
+)
+
+/** NZBGet's own messages, newest first: server errors, unpack failures, health warnings. */
+suspend fun nzbgetLog(config: ServiceConfig, count: Int = 200): List<org.phioster.sanctumd.model.NzbLogEntry> = withContext(Dispatchers.IO) {
+    apiFor<NzbgetApi>(config, basicHeader(config)).logRpc(logBody(count)).result.sortedByDescending { it.ID }.map { it.toEntry() }
+}
+
+suspend fun nzbgetItemLog(config: ServiceConfig, nzbId: Int, count: Int = 300): List<org.phioster.sanctumd.model.NzbLogEntry> =
+    withContext(Dispatchers.IO) {
+        apiFor<NzbgetApi>(config, basicHeader(config)).logRpc(loadLogBody(nzbId, count)).result.sortedByDescending { it.ID }.map { it.toEntry() }
+    }
 
 /** editqueue command (GroupPause/GroupDelete/HistoryRedownload/…) on a single item. */
 suspend fun runNzbEditQueue(config: ServiceConfig, command: String, id: Int, editText: String = ""): String =

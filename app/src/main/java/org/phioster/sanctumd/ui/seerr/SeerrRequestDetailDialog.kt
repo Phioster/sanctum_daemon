@@ -58,6 +58,14 @@ internal fun SeerrRequestDetailDialog(
     var showCounterpart by remember { mutableStateOf(false) }
     // Resetting drops the title's requests too, so it takes a second tap.
     var confirmReset by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf(false) }
+
+    if (editing) {
+        SeerrEditRequestDialog(vm, config, detail, accent, onDismiss = { editing = false }) { msg ->
+            editing = false
+            onActed("edit: $msg")
+        }
+    }
 
     if (showCounterpart) {
         val type = seerrServiceTypeFor(detail.mediaType)
@@ -118,6 +126,10 @@ internal fun SeerrRequestDetailDialog(
                         Spacer(Modifier.width(8.dp))
                         TextButton(enabled = !busy, onClick = { act("decline") { vm.seerrDeclineReq(config, detail.id) } }) {
                             Text("Decline", fontFamily = Mono, color = accent)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        TextButton(enabled = !busy, onClick = { editing = true }) {
+                            Text("Edit", fontFamily = Mono, color = accent)
                         }
                     }
                 }

@@ -123,6 +123,13 @@ data class SeerrRequestDetail(
     /** Seerr's media entry behind the request; 0 when the server didn't include it. */
     val mediaId: Int = 0,
     val mediaStatus: String = "",
+    // What an edit has to send back: Seerr replaces these wholesale.
+    val serverId: Int? = null,
+    val profileId: Int? = null,
+    /** The folder as stored; null means the server default. */
+    val rootFolderPath: String? = null,
+    /** TV: the season numbers this request asks for. */
+    val seasons: List<Int> = emptyList(),
 )
 
 /** One of Seerr's scheduled jobs (library scans, *arr syncs, download sync). */

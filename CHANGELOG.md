@@ -3,6 +3,15 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## NZBGet's log, and a request changed before approving (v2.1.19)
+- **NZBGet log.** "Log" in the NZBGet menu shows the server's last 200 messages, newest
+  first, errors in red and warnings in amber, with a switch to hide everything else. "Show
+  log" on a history entry shows that one download's messages, where a failed unpack or a
+  server's refusal is spelled out.
+- **Edit a pending Seerr request.** Next to Approve and Decline: "Edit" changes the quality
+  profile, the folder (the private archive, say) and, for a series, the seasons before the
+  request goes out. Seerr replaces what it is sent, so a series always sends its seasons back.
+
 ## What airs next, what is missing, and server backups (v2.1.18)
 - **Upcoming and missing episodes.** Two new tiles on the Jellyfin dashboard: "Upcoming"
   lists the next episodes of your shows with their air date, "Missing" the aired episodes

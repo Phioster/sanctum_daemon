@@ -126,6 +126,8 @@ internal fun NzbgetScreen(
 
     var barMenu by remember { mutableStateOf(false) }
     var showAdd by remember { mutableStateOf(false) }
+    /** The log dialog: null closed, (null, _) the whole server log, (id, name) one download's. */
+    var logTarget by remember { mutableStateOf<Pair<Int?, String>?>(null) }
     var addUrl by remember { mutableStateOf("") }
     var addCat by remember { mutableStateOf("") }
     var serverInfo by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
@@ -163,6 +165,7 @@ internal fun NzbgetScreen(
                         }
                         DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
                             DropdownMenuItem(text = { Text("Add NZB (URL)", fontFamily = Mono) }, onClick = { barMenu = false; showAdd = true })
+                            DropdownMenuItem(text = { Text("Log", fontFamily = Mono) }, onClick = { barMenu = false; logTarget = null to "Log" })
                             DropdownMenuItem(text = { Text("Server details", fontFamily = Mono) }, onClick = { barMenu = false; scope.launch { serverInfo = runCatching { vm.nzbServer(config) }.getOrNull() ?: listOf("error" to "could not load") } })
                             DropdownMenuItem(text = { Text("View on web", fontFamily = Mono) }, onClick = { barMenu = false; runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(config.baseUrl))) } })
                             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
@@ -238,7 +241,7 @@ internal fun NzbgetScreen(
                             when {
                                 h == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                 h.isEmpty() -> item { Text("no history", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                else -> items(h) { hi -> HistoryRow(hi) { cmd -> act { vm.nzbEdit(config, cmd, hi.id) } } }
+                                else -> items(h) { hi -> HistoryRow(hi, onShowLog = { logTarget = hi.id to hi.name }) { cmd -> act { vm.nzbEdit(config, cmd, hi.id) } } }
                             }
                         }
                     }
@@ -247,6 +250,9 @@ internal fun NzbgetScreen(
         }
     }
 
+    logTarget?.let { (id, title) ->
+        NzbLogDialog(title = title, load = { if (id == null) vm.nzbLog(config) else vm.nzbItemLog(config, id) }) { logTarget = null }
+    }
     if (showAdd) {
         AlertDialog(
             onDismissRequest = { showAdd = false },
@@ -344,7 +350,7 @@ internal fun QueueRow(item: NzbQueueItem, onAction: (String, String) -> Unit, on
 }
 
 @Composable
-internal fun HistoryRow(item: NzbHistoryEntry, onAction: (String) -> Unit) {
+internal fun HistoryRow(item: NzbHistoryEntry, onShowLog: () -> Unit = {}, onAction: (String) -> Unit) {
     var menu by remember { mutableStateOf(false) }
     val statusColor = when {
         item.status.contains("SUCCESS", true) -> MatrixGreen
@@ -374,6 +380,7 @@ internal fun HistoryRow(item: NzbHistoryEntry, onAction: (String) -> Unit) {
             }
             // Tells Sonarr/Radarr this release is bad, so they blocklist it and grab another.
             DropdownMenuItem(text = { Text("Mark bad, grab another", fontFamily = Mono, color = ErrRed) }, onClick = { menu = false; onAction("HistoryMarkBad") })
+            DropdownMenuItem(text = { Text("Show log", fontFamily = Mono) }, onClick = { menu = false; onShowLog() })
             DropdownMenuItem(text = { Text("Return to queue", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryReturn") })
             DropdownMenuItem(text = { Text("Redownload", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryRedownload") })
             DropdownMenuItem(text = { Text("Delete (hide)", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryDelete") })
