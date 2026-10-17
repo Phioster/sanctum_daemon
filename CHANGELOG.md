@@ -3,6 +3,15 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Logs, backups and import exclusions for the *arr apps (v2.1.27)
+- **Logs.** Sonarr, Radarr, Lidarr and Prowlarr have "Logs" in their menu: newest first,
+  from errors only up to info; a line with an exception opens it on a tap.
+- **Backups.** "Backups" lists the app's backups, makes one now and deletes old ones (second
+  tap). Restoring stays in the web UI, since it restarts the app.
+- **Import exclusions.** Sonarr and Radarr list the titles an import list must not add again;
+  "remove" lets the list add a title on its next sync. Until now exclusions could only be set
+  while deleting.
+
 ## Tracks on the TV, and plugin repositories (v2.1.26)
 - **Audio and subtitle tracks from the remote.** While something plays, "remote" lists its
   audio tracks and subtitles (with "off"); a tap switches the TV over.
