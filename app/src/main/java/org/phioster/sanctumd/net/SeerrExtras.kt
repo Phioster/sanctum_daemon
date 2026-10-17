@@ -104,9 +104,16 @@ suspend fun seerrQuota(config: ServiceConfig, userId: Int): SeerrQuota = withCon
     SeerrQuota(quotaPart(o["movie"] as? JsonObject), quotaPart(o["tv"] as? JsonObject))
 }
 
+/**
+ * The log entries of either answer shape. The spec says a bare array, but Seerr 3.3 pages it
+ * like everything else: `{"pageInfo": …, "results": [ … ]}`.
+ */
+internal fun logEntries(el: kotlinx.serialization.json.JsonElement): List<JsonObject> =
+    ((el as? JsonArray) ?: ((el as? JsonObject)?.get("results") as? JsonArray)).orEmpty().mapNotNull { it as? JsonObject }
+
 /** [filter] is the lowest level shown: debug, info, warn or error. */
 suspend fun seerrLogs(config: ServiceConfig, filter: String): List<SeerrLogLine> = withContext(Dispatchers.IO) {
-    seerr(config).logs(filter = filter).map { o ->
+    logEntries(seerr(config).logs(filter = filter)).map { o ->
         SeerrLogLine(
             level = jsStr(o, "level").orEmpty(),
             time = jsStr(o, "timestamp").orEmpty().take(19).replace('T', ' '),

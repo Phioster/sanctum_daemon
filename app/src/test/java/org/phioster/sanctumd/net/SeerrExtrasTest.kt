@@ -100,6 +100,22 @@ class SeerrExtrasTest {
         assertEquals("Radarr unreachable", l.message)
     }
 
+    /** What Seerr 3.3 actually sends, read off the live instance. */
+    @Test fun `a paged log answer is read too`() = runBlocking {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"pageInfo":{"pages":1,"pageSize":100,"results":1,"page":1},
+                    "results":[{"level":"warn","message":"slow","timestamp":"2026-10-17T12:00:00.000Z"}]}""",
+            ),
+        )
+        assertEquals(listOf("slow"), seerrLogs(config(), "warn").map { it.message })
+    }
+
+    @Test fun `an empty paged log is empty, not an error`() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"pageInfo":{"pages":0,"pageSize":100,"results":0,"page":1},"results":[]}"""))
+        assertEquals(emptyList<SeerrLogLine>(), seerrLogs(config(), "error"))
+    }
+
     @Test fun `a user's requests are filtered by requestedBy`() = runBlocking {
         server.enqueue(MockResponse().setBody("""{"results":[]}"""))
         seerrRequests(config(), "all", requestedBy = 3)

@@ -3,6 +3,10 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Seerr's log opens (v2.1.22)
+- **"Logs" failed with a JSON error.** Seerr's spec describes the log as a bare list, but
+  Seerr 3.3 pages it like every other list. Both shapes are read now.
+
 ## More from Seerr: upcoming, related, blocklist, quotas, logs (v2.1.21)
 - **Upcoming.** Discover has an "upcoming" view: films and series not out yet, alternating.
 - **Recommended and similar.** A title's page ends with two poster rows; a tap opens that one.
