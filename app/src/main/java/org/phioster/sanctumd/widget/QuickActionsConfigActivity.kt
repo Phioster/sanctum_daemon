@@ -70,7 +70,7 @@ class QuickActionsConfigActivity : ComponentActivity() {
         var services by remember { mutableStateOf<List<ServiceConfig>?>(null) }
 
         LaunchedEffect(Unit) {
-            services = runCatching { ServiceStore(ctx).services.first() }.getOrDefault(emptyList())
+            services = runCatching { ServiceStore(ctx).realServices.first() }.getOrDefault(emptyList())
                 .filter { WidgetActions.forType(it.type).isNotEmpty() }
         }
 

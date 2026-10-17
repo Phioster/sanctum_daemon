@@ -49,7 +49,7 @@ private val Dim: Color get() = ThemeState.palette.dimInk()
 
 /** Loads the shared status cache both stat tiles and the stack-health tile render from. */
 private suspend fun loadState(context: Context): Pair<List<ServiceConfig>, Map<String, StatusSnap>> {
-    val services = runCatching { ServiceStore(context).services.first() }
+    val services = runCatching { ServiceStore(context).realServices.first() }
         .getOrDefault(emptyList())
         .filter { it.type != ServiceType.SHORTCUTS }
     val snaps = runCatching { StatusSnapshotStore(context).read() }.getOrDefault(emptyMap())

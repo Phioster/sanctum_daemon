@@ -94,7 +94,7 @@ class NtfyStreamService : Service() {
     private suspend fun superviseStreams() {
         val store = NotifyStore(applicationContext)
         val settings = store.currentSettings()
-        val services = runCatching { ServiceStore(applicationContext).services.first() }.getOrDefault(emptyList())
+        val services = runCatching { ServiceStore(applicationContext).realServices.first() }.getOrDefault(emptyList())
         jellyfinServiceId = services.firstOrNull { it.type == ServiceType.JELLYFIN }?.id
         val subs = buildSubs(settings, services)
         if (subs.isEmpty()) { stopSelf(); return }

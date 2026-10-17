@@ -53,13 +53,19 @@ private val json = Json { ignoreUnknownKeys = true }
 /** Persists the user's dashboard tabs (widget layout) as JSON in DataStore. */
 class DashboardStore(private val context: Context) {
 
-    val tabs: Flow<List<DashTab>> = context.dashboardDataStore.data.map { prefs ->
+    /** The user's layout; in demo mode the same layout, its cards pointed at the demo services. */
+    val tabs: Flow<List<DashTab>> get() = kotlinx.coroutines.flow.combine(
+        realTabs, ServiceStore(context).realServices, org.phioster.sanctumd.demo.DemoMode.enabled,
+    ) { tabs, services, demo -> if (demo) org.phioster.sanctumd.demo.DemoMode.tabsFor(tabs, services) else tabs }
+
+    private val realTabs: Flow<List<DashTab>> = context.dashboardDataStore.data.map { prefs ->
         prefs[TABS_KEY]?.let { stored ->
             runCatching { json.decodeFromString<List<DashTab>>(stored) }.getOrNull()
         } ?: emptyList()
     }
 
     suspend fun save(list: List<DashTab>) {
+        if (org.phioster.sanctumd.demo.DemoMode.isOn) return
         context.dashboardDataStore.edit { it[TABS_KEY] = json.encodeToString(list) }
     }
 

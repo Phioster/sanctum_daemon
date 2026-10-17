@@ -33,6 +33,8 @@ class StatsHistoryStore(private val context: Context) {
     /** Adds today's snapshot, replacing any existing entry for the same [StatsSnapshot.epochDay],
      *  then trims to the most-recent [MAX_DAYS] days. */
     suspend fun append(snap: StatsSnapshot) {
+        // Made-up numbers must not end up in the user's trends.
+        if (org.phioster.sanctumd.demo.DemoMode.isOn) return
         val merged = mergeSnapshots(read(), snap, MAX_DAYS)
         context.statsHistoryDataStore.edit { it[HISTORY_KEY] = historyJson.encodeToString(merged) }
     }

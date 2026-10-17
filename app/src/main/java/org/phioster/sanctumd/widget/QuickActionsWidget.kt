@@ -49,7 +49,7 @@ private val Chip = Color(0xFF13251A)
 class QuickActionsWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         ThemeState.palette = ThemeStore.read(context)
-        val services = runCatching { ServiceStore(context).services.first() }.getOrDefault(emptyList())
+        val services = runCatching { ServiceStore(context).realServices.first() }.getOrDefault(emptyList())
         provideContent {
             val sid = currentState<Preferences>()[serviceIdKey] ?: ""
             Content(services.firstOrNull { it.id == sid })
@@ -102,7 +102,7 @@ class RunQuickAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val sid = parameters[pServiceId] ?: return
         val idx = parameters[pActionIndex] ?: return
-        val services = runCatching { ServiceStore(context).services.first() }.getOrDefault(emptyList())
+        val services = runCatching { ServiceStore(context).realServices.first() }.getOrDefault(emptyList())
         val config = services.firstOrNull { it.id == sid } ?: return
         val action = WidgetActions.forType(config.type).getOrNull(idx) ?: return
         val result = runCatching { action.run(config) }.getOrElse { "error: ${it.message ?: "failed"}" }

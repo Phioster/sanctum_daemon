@@ -3,6 +3,19 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Demo mode (v2.1.32)
+- **Try it without a server.** "no server yet? try the demo" under the add-service form (and
+  in the empty service list), or "demo mode" in Settings, opens a busy made-up server: a
+  Jellyfin with films, shows and music, six people watching, Radarr/Sonarr/Lidarr with a full
+  calendar, downloads running in NZBGet, Seerr requests, Prowlarr indexers and ntfy pushes
+  with posters. Titles, posters and cast are public TMDb data; albums come from Apple's
+  public charts.
+- **Your own setup stays untouched.** The demo answers inside the app and never reaches the
+  network for its data; your services and dashboard stay stored as they were, background
+  checks, widgets and notifications keep using them, and nothing typed in the demo is saved.
+- **Easy way out.** While the demo runs, an amber "DEMO exit" chip sits in the home bar; one
+  tap and your own services are back.
+
 ## Pictures in pushes, and Seerr's settings (v2.1.31)
 - **Pictures in pushes.** A ntfy message with an image attached (a webhook's poster) shows it
   large in the expanded notification and as its thumbnail; the topic list shows it too. The

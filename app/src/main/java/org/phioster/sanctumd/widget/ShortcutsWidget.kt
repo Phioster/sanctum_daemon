@@ -43,7 +43,7 @@ private val Chip = Color(0xFF13251A)
 class ShortcutsWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         ThemeState.palette = ThemeStore.read(context)
-        val services = runCatching { ServiceStore(context).services.first() }.getOrDefault(emptyList())
+        val services = runCatching { ServiceStore(context).realServices.first() }.getOrDefault(emptyList())
         // Flatten every shortcut across all SHORTCUTS services, carrying its owning service id.
         val entries = services
             .filter { it.type == ServiceType.SHORTCUTS }

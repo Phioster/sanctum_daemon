@@ -64,7 +64,7 @@ private fun logoRes(type: ServiceType): Int = ServiceRegistry.logoRes(type)
 class StatusWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         ThemeState.palette = ThemeStore.read(context)
-        val services = runCatching { ServiceStore(context).services.first() }
+        val services = runCatching { ServiceStore(context).realServices.first() }
             .getOrDefault(emptyList())
             .filter { it.type != ServiceType.SHORTCUTS }
         val snaps = runCatching { StatusSnapshotStore(context).read() }.getOrDefault(emptyMap())

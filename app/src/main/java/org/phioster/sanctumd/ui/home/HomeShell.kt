@@ -205,6 +205,7 @@ internal fun HomeShell(
                     IconButton(onClick = { openDrawer() }) { Icon(Icons.Filled.Menu, contentDescription = "Services", tint = MatrixGreen) }
                 },
                 actions = {
+                    org.phioster.sanctumd.ui.common.DemoExitChip()
                     // No search icon here, the tabs already carry the inline search bar.
                     IconButton(onClick = { editMode = !editMode }) {
                         Icon(if (editMode) Icons.Filled.Check else Icons.Filled.Edit, contentDescription = "Edit", tint = if (editMode) MatrixGreen else MatrixGreen.copy(alpha = 0.8f))
@@ -459,6 +460,8 @@ internal fun ServicesContent(
             if (services.isEmpty()) {
                 Spacer(Modifier.height(48.dp))
                 Text("no services yet\n\ntap + to add a service", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 14.sp)
+                Spacer(Modifier.height(24.dp))
+                org.phioster.sanctumd.ui.common.TryDemoButton()
             } else {
                 // View switcher, one chip showing the current mode, the rest behind a menu.
                 Box(Modifier.padding(bottom = 10.dp)) {

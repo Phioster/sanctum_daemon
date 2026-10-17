@@ -17,7 +17,7 @@ import org.phioster.sanctumd.net.fetchStatus
 /** Refreshes the cached service-status snapshot that the status widget renders from. */
 class StatusCacheWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result = coroutineScope {
-        val services = runCatching { ServiceStore(applicationContext).services.first() }
+        val services = runCatching { ServiceStore(applicationContext).realServices.first() }
             .getOrDefault(emptyList())
             .filter { it.type != ServiceType.SHORTCUTS } // shortcuts have no status
         val snaps = services.map { svc ->

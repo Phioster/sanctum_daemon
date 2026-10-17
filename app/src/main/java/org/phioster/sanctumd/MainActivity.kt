@@ -307,6 +307,8 @@ internal fun SanctumdApp(vm: DashboardViewModel = viewModel()) {
                     addOpen = false; editing = null
                 },
                 onTest = { vm.test(it) },
+                // Only for a new service, and not while the demo already runs.
+                onTryDemo = if (editing == null && !org.phioster.sanctumd.demo.DemoMode.isOn) ({ addOpen = false; editing = null }) else null,
             )
             r.startsWith("detail") -> {
                 val cfg = shownDetail.value

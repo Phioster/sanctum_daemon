@@ -17,7 +17,7 @@ import org.phioster.sanctumd.net.jellyfinResume
 /** Refreshes the cached "continue watching" list for [ResumeWidget]. */
 class ResumeCacheWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result = coroutineScope {
-        val services = runCatching { ServiceStore(applicationContext).services.first() }
+        val services = runCatching { ServiceStore(applicationContext).realServices.first() }
             .getOrDefault(emptyList())
             .filter { it.type == ServiceType.JELLYFIN }
 

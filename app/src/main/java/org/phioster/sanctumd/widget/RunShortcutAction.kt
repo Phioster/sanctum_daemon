@@ -16,7 +16,7 @@ class RunShortcutAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val serviceId = parameters[serviceIdKey] ?: return
         val name = parameters[shortcutNameKey] ?: return
-        val services = runCatching { ServiceStore(context).services.first() }.getOrDefault(emptyList())
+        val services = runCatching { ServiceStore(context).realServices.first() }.getOrDefault(emptyList())
         val config = services.firstOrNull { it.id == serviceId } ?: return
         val sc = config.shortcuts.firstOrNull { it.name == name } ?: return
         val result = runCatching { runHttpShortcut(config, sc) }.getOrElse { "error: ${it.message ?: "failed"}" }

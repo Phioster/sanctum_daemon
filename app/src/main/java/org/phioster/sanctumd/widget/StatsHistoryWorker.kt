@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit
  *  DataStore. Scheduled once/day; a same-day run just replaces that day's entry. */
 class StatsHistoryWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
-        val services = runCatching { ServiceStore(applicationContext).services.first() }.getOrDefault(emptyList())
+        val services = runCatching { ServiceStore(applicationContext).realServices.first() }.getOrDefault(emptyList())
         if (services.isEmpty()) return Result.success()
         val snap = runCatching { collectStatsSnapshot(services) }.getOrNull() ?: return Result.retry()
         if (snap.metrics.isNotEmpty()) StatsHistoryStore(applicationContext).append(snap)
