@@ -15,6 +15,11 @@ posted.
 - **Say it is your project and that AI helped write it**, in the post, not when someone asks.
 - **Lead with the demo mode**: it is the answer to "why would I install an APK from a stranger".
 
+## Media
+
+The demo video (`sanctumd-3.0-demo.mp4`, 49 s, silent, captioned), seven short clips (`clips/`)
+and current screenshots (`docs/screenshots/`) are ready; `announcements.md` says which fits where.
+
 ## Priority
 
 | # | Where | Why | Effort | Notes |
