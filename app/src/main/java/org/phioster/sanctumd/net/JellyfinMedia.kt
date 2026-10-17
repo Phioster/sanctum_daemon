@@ -165,6 +165,7 @@ suspend fun jellyfinItemDetail(config: ServiceConfig, itemId: String): JellyMedi
         number = d.IndexNumber,
         fileInfo = d.MediaSources.firstOrNull()?.toFileInfo(),
         providerIds = d.ProviderIds.orEmpty(),
+        versionCount = d.MediaSources.size.coerceAtLeast(1),
     )
 }
 

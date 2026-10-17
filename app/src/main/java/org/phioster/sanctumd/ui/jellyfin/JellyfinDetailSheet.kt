@@ -306,6 +306,18 @@ internal fun JellyfinDetailSheet(
                         text = { Text("Subtitles", fontFamily = Mono) },
                         onClick = { state.menuOpen = false; state.subtitles = d },
                     )
+                    if (d.kind in setOf("Movie", "Episode", "Video")) {
+                        DropdownMenuItem(
+                            text = { Text("Upload subtitle…", fontFamily = Mono) },
+                            onClick = { state.menuOpen = false; state.uploadSubtitle = d },
+                        )
+                    }
+                    if (d.versionCount > 1) {
+                        DropdownMenuItem(
+                            text = { Text("Split ${d.versionCount} versions", fontFamily = Mono) },
+                            onClick = { state.menuOpen = false; scope.launch { onMessage(vm.jellyfinSplit(config, d.id)) } },
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text("Identify", fontFamily = Mono) },
                         onClick = { state.menuOpen = false; state.identify = d },

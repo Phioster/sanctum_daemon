@@ -32,12 +32,14 @@ import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,6 +73,7 @@ import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
 import org.phioster.sanctumd.ui.theme.Surface
+import org.phioster.sanctumd.ui.theme.WarnAmber
 
 /**
  * The server-administration side of the Jellyfin screen: what the Dashboard tab shows and which
@@ -100,6 +103,9 @@ internal class JellyfinAdminState {
     var backupRunning by mutableStateOf(false)
     var restoreTarget by mutableStateOf<org.phioster.sanctumd.net.JellyBackup?>(null)
     var removeDevice by mutableStateOf<JellyDevice?>(null)
+    var apiKeys by mutableStateOf<List<org.phioster.sanctumd.net.JellyApiKey>?>(null)
+    var showNewKey by mutableStateOf(false)
+    var revokeKey by mutableStateOf<org.phioster.sanctumd.net.JellyApiKey?>(null)
 
     /** The category opened from a tile; null shows the tile overview. */
     var section by mutableStateOf<String?>(null)
@@ -127,6 +133,7 @@ internal class JellyfinAdminState {
         logFiles = runCatching { vm.jellyfinLogList(config) }.getOrDefault(emptyList())
         upcoming = runCatching { vm.jellyfinUpcomingList(config) }.getOrDefault(emptyList())
         missing = runCatching { vm.jellyfinMissingList(config) }.getOrDefault(emptyList())
+        apiKeys = runCatching { vm.jellyfinApiKeyList(config) }.getOrDefault(emptyList())
         runCatching { vm.jellyfinBackupList(config) }
             .onSuccess { backups = it; backupError = null }
             .onFailure {
@@ -203,6 +210,7 @@ internal fun LazyListScope.jellyfinDashboardTab(
                 DashCat("upcoming", "Upcoming", st.upcoming?.size, Icons.Filled.Event),
                 DashCat("missing", "Missing", st.missing?.size, Icons.Filled.EventBusy),
                 DashCat("backups", "Backups", st.backups?.size, Icons.Filled.Backup),
+                DashCat("apikeys", "API keys", st.apiKeys?.size, Icons.Filled.Key),
             )
             cats.chunked(2).forEach { rowCats ->
                 Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -232,7 +240,11 @@ internal fun LazyListScope.jellyfinDashboardTab(
                 val tk = st.tasks
                 when {
                     tk == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                    else -> items(tk) { t -> JellyTaskRow(t, accent) { scope.launch { onMessage(vm.jellyfinRunTaskById(config, t.id)); onReload() } } }
+                    else -> items(tk) { t ->
+                        JellyTaskRow(t, accent, onCancel = { scope.launch { onMessage(vm.jellyfinCancelTaskById(config, t.id)); onReload() } }) {
+                            scope.launch { onMessage(vm.jellyfinRunTaskById(config, t.id)); onReload() }
+                        }
+                    }
                 }
             }
             "activity" -> {
@@ -275,7 +287,40 @@ internal fun LazyListScope.jellyfinDashboardTab(
                 when {
                     pl == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
                     pl.isEmpty() -> item { Text("no plugins", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
-                    else -> items(pl) { p -> JellyPluginRow(p, accent) { st.pluginDetail = p } }
+                    else -> {
+                        // The catalog holds the latest versions; without it no update can be seen.
+                        item { LaunchedEffect(Unit) { if (st.catalog == null) st.catalog = runCatching { vm.jellyfinCatalog(config) }.getOrNull() } }
+                        val updates = org.phioster.sanctumd.net.pluginUpdates(pl, st.catalog.orEmpty())
+                        items(pl) { p ->
+                            JellyPluginRow(p, accent) { st.pluginDetail = p }
+                            updates[p.id]?.let { pkg ->
+                                Text(
+                                    "update to v${pkg.version}",
+                                    fontFamily = Mono, color = WarnAmber, fontSize = 12.sp,
+                                    modifier = Modifier.fillMaxWidth().clickable {
+                                        scope.launch { onMessage(vm.jellyfinCatalogInstall(config, pkg.name, pkg.guid)); st.catalog = null; onReload() }
+                                    }.padding(bottom = 8.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            "apikeys" -> {
+                item {
+                    Text(
+                        "+ new key",
+                        fontFamily = Mono, color = accent, fontSize = 13.sp,
+                        modifier = Modifier.fillMaxWidth().clickable { st.showNewKey = true }.padding(vertical = 8.dp),
+                    )
+                    Text("tap a key to copy it", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 10.sp)
+                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+                }
+                val ks = st.apiKeys
+                when {
+                    ks == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                    ks.isEmpty() -> item { Text("no keys", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp)) }
+                    else -> items(ks) { k -> JellyApiKeyRow(k, accent) { st.revokeKey = k } }
                 }
             }
             "logs" -> {
@@ -425,6 +470,19 @@ internal fun JellyfinAdminDialogs(
                 scope.launch { onMessage(vm.jellyfinRemoveLibrary(config, lib.name)); onReload() }
             },
         )
+    }
+
+    if (st.showNewKey) {
+        JellyNewApiKeyDialog(onDismiss = { st.showNewKey = false }) { app ->
+            st.showNewKey = false
+            scope.launch { onMessage(vm.jellyfinNewApiKey(config, app)); onReload() }
+        }
+    }
+    st.revokeKey?.let { k ->
+        JellyRevokeKeyDialog(k, onDismiss = { st.revokeKey = null }) {
+            st.revokeKey = null
+            scope.launch { onMessage(vm.jellyfinRevokeKey(config, k.token)); onReload() }
+        }
     }
 
     st.pluginDetail?.let { p ->

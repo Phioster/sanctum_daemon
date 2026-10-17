@@ -3,6 +3,20 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Jellyfin admin: keys, remote, plugin updates (v2.1.24)
+- **Cancel a task.** A running scheduled task has "cancel" next to its progress.
+- **API keys.** A new "API keys" tile lists the server's keys with the app that uses them; a
+  tap copies a key, "+ new key" creates one, and revoking asks first, since whatever uses the
+  key stops reaching Jellyfin.
+- **Plugin updates.** The plugin list checks the catalog and marks plugins with a newer
+  version; "update to vX" installs it (restart the server afterwards).
+- **Remote control.** Sessions that accept commands get "remote": arrows, OK, back, home,
+  the OSD and volume, for a TV on the couch, also while nothing plays.
+- **Split versions.** A film Jellyfin merged from several files can be split again from its
+  menu.
+- **Upload a subtitle.** "Upload subtitle…" on a film or episode sends a .srt/.ass/.vtt from
+  the phone, with language, forced and hearing-impaired flags.
+
 ## A queue that says more, and acts on several at once (v2.1.23)
 - **Richer queue rows.** Each download shows its ETA at the current speed (counting the items
   ahead of it), category, priority, how old the release is and, once articles are missing,
