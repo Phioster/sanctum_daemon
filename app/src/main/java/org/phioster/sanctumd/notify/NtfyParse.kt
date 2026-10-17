@@ -89,7 +89,25 @@ fun parseNtfyLine(line: String): NtfyMessage? {
         click = str("click").orEmpty(),
         priority = (obj["priority"] as? JsonPrimitive)?.intOrNull?.coerceIn(1, 5) ?: 3,
         actions = parseNtfyActions(obj["actions"]),
+        imageUrl = ntfyImageUrl(obj),
+        tags = (obj["tags"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull },
+        markdown = str("content_type") == "text/markdown",
     )
+}
+
+private val IMAGE_EXT = Regex("""\.(jpe?g|png|webp|gif)(\?.*)?$""", RegexOption.IGNORE_CASE)
+
+/**
+ * The picture a message carries: an image attachment first (a webhook's poster), the message
+ * icon second. Only http(s), so a message can't point the phone at a local file.
+ */
+internal fun ntfyImageUrl(obj: JsonObject): String {
+    fun ok(u: String?) = u?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+    val att = obj["attachment"] as? JsonObject
+    val attUrl = ok((att?.get("url") as? JsonPrimitive)?.contentOrNull)
+    val attType = (att?.get("type") as? JsonPrimitive)?.contentOrNull.orEmpty()
+    if (attUrl != null && (attType.startsWith("image/") || IMAGE_EXT.containsMatchIn(attUrl))) return attUrl
+    return ok((obj["icon"] as? JsonPrimitive)?.contentOrNull).orEmpty()
 }
 
 /**

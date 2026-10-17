@@ -17,7 +17,9 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.phioster.sanctumd.model.NtfyMessage
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceStatus
@@ -59,3 +61,20 @@ suspend fun ntfyHistory(config: ServiceConfig, topic: String, since: String = "4
 }
 
 // ---- HTTP shortcuts ----
+
+/** A test message to [topic], so the webhook path and the phone's live push can be checked end to end. */
+suspend fun ntfyPublishTest(config: ServiceConfig, topic: String): String = destructive("send a test message to a ntfy topic") {
+    withContext(Dispatchers.IO) {
+        try {
+            val url = "${config.normalizedBaseUrl}$topic"
+            val req = ntfyRequest(config, url).newBuilder()
+                .header("Title", "Sanctumd test")
+                .header("Tags", "white_check_mark,test")
+                .post("If this shows up, the topic and the live push work.".toRequestBody("text/plain".toMediaType()))
+                .build()
+            baseOkClient.newCall(req).execute().use { r -> if (r.isSuccessful) "test sent" else "error: HTTP ${r.code}" }
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
+}
