@@ -44,7 +44,7 @@ suspend fun seerrSeasonEpisodes(config: ServiceConfig, tmdbId: Int, season: Int)
 suspend fun seerrPerson(config: ServiceConfig, personId: Int): SeerrPerson = withContext(Dispatchers.IO) {
     val api = seerr(config)
     val p = api.person(personId)
-    val cast = runCatching { api.personCredits(personId)["cast"] as? JsonArray }.getOrNull().orEmpty()
+    val cast = runCatching { api.personCredits(personId)["cast"] as? JsonArray }.getOrNull() ?: JsonArray(emptyList())
     val credits = parseDiscoverItems(buildJsonObject { put("results", cast) }, null)
         .distinctBy { it.mediaType to it.tmdbId }
         .sortedByDescending { it.year.ifBlank { "0" } }
