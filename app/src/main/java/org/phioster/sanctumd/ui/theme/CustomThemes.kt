@@ -3,6 +3,7 @@ package org.phioster.sanctumd.ui.theme
 import android.content.Context
 import androidx.compose.ui.graphics.Color
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /** A theme made in the editor: the same three colours a preset row shows, packed ARGB. */
