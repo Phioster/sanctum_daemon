@@ -1,7 +1,25 @@
 # Changelog
 
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
-Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
+Versioning is `major.minor.patch`; the app is in daily use, now at 3.0.
+
+## Sanctumd 3.0 (v3.0.0)
+The first public release since 2.1.6. It collects the thirty-three versions below (2.1.7 to
+2.1.39), which were only built for testing: **the app went from watching your stack to running it.**
+- **Jellyfin administered from the phone:** server, transcoding and library settings, remote
+  control with audio and subtitle tracks, Quick Connect, API keys, backups, plugins and their
+  updates, metadata and artwork, collections, playlists, versions, music with lyrics and Instant Mix.
+- **The \*arr apps beyond the queue:** edit titles, files per episode, rename to the naming
+  scheme, tags, quality profiles, indexers, download clients, import lists and exclusions,
+  blocklist, logs, backups; Prowlarr apps, tags and proxies.
+- **Seerr:** edit, retry and fix requests, season details, people, recommendations, quotas,
+  blocklist and Seerr's own settings.
+- **NZBGet:** why a download failed and what to do about it, volume per news server, .nzb upload
+  and sharing.
+- **Everything else:** a demo mode to try it without a server, your own themes with a
+  readability check, pushes with pictures and action buttons, one menu per service, pull to
+  refresh everywhere.
+- Nothing changed in the app since 2.1.39; this version is that build, released.
 
 ## Lyrics, Instant Mix and "more like this" (v2.1.39)
 - **Lyrics** ("lyrics" in now playing): whatever lyrics Jellyfin has for the song. Timed lyrics
