@@ -4,7 +4,11 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.intOrNull
+import org.phioster.sanctumd.model.NtfyAction
 import org.phioster.sanctumd.model.NtfyMessage
 
 private val json = Json { ignoreUnknownKeys = true }
@@ -84,6 +88,7 @@ fun parseNtfyLine(line: String): NtfyMessage? {
         text = text,
         click = str("click").orEmpty(),
         priority = (obj["priority"] as? JsonPrimitive)?.intOrNull?.coerceIn(1, 5) ?: 3,
+        actions = parseNtfyActions(obj["actions"]),
     )
 }
 
@@ -100,3 +105,26 @@ fun jellyfinItemIdFromClick(click: String?): String? {
     val id = click?.trim()?.takeIf { it.startsWith(prefix) }?.removePrefix(prefix)?.substringBefore('?')
     return id?.takeIf { it.isNotBlank() && it.all { c -> c.isLetterOrDigit() || c == '-' } }
 }
+
+/**
+ * The buttons of a message. Only "view" and "http" are understood ("broadcast" targets other
+ * apps), only http(s) addresses are accepted, and Android shows at most three.
+ */
+internal fun parseNtfyActions(el: JsonElement?): List<NtfyAction> =
+    (el as? JsonArray).orEmpty().mapNotNull { a ->
+        val o = a as? JsonObject ?: return@mapNotNull null
+        fun s(key: String) = (o[key] as? JsonPrimitive)?.contentOrNull
+        val kind = s("action")?.lowercase() ?: return@mapNotNull null
+        val label = s("label")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        val url = s("url")?.trim().orEmpty()
+        if (kind !in setOf("view", "http") || !(url.startsWith("https://") || url.startsWith("http://"))) return@mapNotNull null
+        NtfyAction(
+            kind = kind,
+            label = label,
+            url = url,
+            method = s("method")?.uppercase() ?: "POST",
+            headers = (o["headers"] as? JsonObject)?.mapNotNull { (k, v) -> (v as? JsonPrimitive)?.contentOrNull?.let { k to it } }?.toMap().orEmpty(),
+            body = s("body").orEmpty(),
+            clear = (o["clear"] as? JsonPrimitive)?.booleanOrNull == true,
+        )
+    }.take(3)

@@ -169,7 +169,7 @@ class NtfyStreamService : Service() {
         val title = if (msg.topic.isNotBlank() && msg.topic != mainTopic) "[${maskTopic(msg.topic)}] $base" else base
         val id = remoteNotificationId(msg.topic + "|" + msg.id.ifEmpty { msg.text })
         if (!collapseHealthPair(parseHealthEvent(base, msg.text), msg.topic, id, title, msg.time)) {
-            postNotification(id, title, msg.text, msg.time, jellyfinItemIdFromClick(msg.click), msg.priority)
+            postNotification(id, title, msg.text, msg.time, jellyfinItemIdFromClick(msg.click), msg.priority, msg.actions)
         }
         if (msg.time > 0) store.saveNtfyCursor(msg.time, recentIds + msg.id, cursorScope)
     }
@@ -216,6 +216,7 @@ class NtfyStreamService : Service() {
         whenSeconds: Long = 0L,
         jellyfinItemId: String? = null,
         priority: Int = 3,
+        actions: List<org.phioster.sanctumd.model.NtfyAction> = emptyList(),
     ) {
         if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) return
         val launch = packageManager.getLaunchIntentForPackage(packageName)?.apply {
@@ -236,6 +237,7 @@ class NtfyStreamService : Service() {
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(pi)
             .setAutoCancel(true)
+            .apply { actions.forEachIndexed { i, a -> NtfyActionReceiver.button(this@NtfyStreamService, id, i, a)?.let { addAction(it) } } }
             // Only read below Android 8, where there are no channels.
             .setPriority(if (priority >= 5) NotificationCompat.PRIORITY_MAX else if (priority <= 2) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_HIGH)
             // The message's own time, not this moment. A phone that was asleep delivers a whole

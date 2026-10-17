@@ -227,6 +227,10 @@ internal fun JellyfinScreen(
         }
     }
 
+    ds.collections?.let { target ->
+        JellyfinCollectionsDialog(vm, config, target, accent, onDismiss = { ds.collections = null }) { msg -> actionMsg = msg }
+    }
+
     ds.images?.let { target ->
         JellyfinImagesDialog(vm, config, target, accent, onDismiss = { ds.images = null }) { msg ->
             ds.images = null
