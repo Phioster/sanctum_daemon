@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -101,7 +100,6 @@ internal fun ProwlarrScreen(
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var refreshing by remember { mutableStateOf(false) }
     LaunchedEffect(actionMsg) { if (actionMsg != null) { kotlinx.coroutines.delay(4000); actionMsg = null } }
-    var barMenu by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     val categories = remember { vm.prowlarrCategoryOptions() }
     var category by remember { mutableStateOf(categories.first()) }
@@ -185,24 +183,26 @@ internal fun ProwlarrScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
                 },
                 actions = {
-                    Box {
-                        IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
-                        DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
-                            DropdownMenuItem(text = { Text("Add indexer", fontFamily = Mono) }, onClick = {
-                                barMenu = false; showAddSchema = true
-                            })
-                            DropdownMenuItem(text = { Text("Test all indexers", fontFamily = Mono) }, onClick = { barMenu = false; act({ vm.prowlarrTestAll(config) }, false) })
-                            DropdownMenuItem(text = { Text("System, apps & tasks", fontFamily = Mono) }, onClick = {
-                                barMenu = false; showSystem = true
-                            })
-                            DropdownMenuItem(text = { Text("Tags", fontFamily = Mono) }, onClick = { barMenu = false; showTags = true })
-                            DropdownMenuItem(text = { Text("Indexer proxies", fontFamily = Mono) }, onClick = { barMenu = false; showProxies = true })
-                            DropdownMenuItem(text = { Text("Logs", fontFamily = Mono) }, onClick = { barMenu = false; showLogs = true })
-                            DropdownMenuItem(text = { Text("Backups", fontFamily = Mono) }, onClick = { barMenu = false; showBackups = true })
-                            DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
-                            DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
-                        }
-                    }
+                    ServiceMenuButton(
+                        config = config,
+                        primary = listOf(
+                            MenuAction("Add indexer", AppIcons.Add) { showAddSchema = true },
+                            MenuAction("Test all", AppIcons.Test) { act({ vm.prowlarrTestAll(config) }, false) },
+                        ),
+                        sections = listOf(
+                            MenuSection("Indexers", listOf(
+                                MenuAction("Tags", AppIcons.Tags) { showTags = true },
+                                MenuAction("Indexer proxies", AppIcons.Proxy) { showProxies = true },
+                            )),
+                            MenuSection("System", listOf(
+                                MenuAction("System, apps & tasks", AppIcons.Health) { showSystem = true },
+                                MenuAction("Logs", AppIcons.Logs) { showLogs = true },
+                                MenuAction("Backups", AppIcons.Backups) { showBackups = true },
+                            )),
+                        ),
+                        onEdit = onEdit,
+                        onDelete = onDelete,
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
             )

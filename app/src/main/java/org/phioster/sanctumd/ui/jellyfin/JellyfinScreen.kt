@@ -20,10 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -105,7 +102,6 @@ internal fun JellyfinScreen(
     var listError by remember { mutableStateOf<String?>(null) }
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var refreshing by remember { mutableStateOf(false) }
-    var barMenu by remember { mutableStateOf(false) }
     val ds = rememberJellyfinDetailState()
     val bs = rememberJellyfinBrowseState()
     var playRequest by remember { mutableStateOf<PlayRequest?>(null) }
@@ -417,19 +413,21 @@ internal fun JellyfinScreen(
                             Text(label, fontFamily = Mono, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
-                    Box {
-                        IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
-                        DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
-                            if (mode == 3) {
-                                DropdownMenuItem(text = { Text("Customize rows", fontFamily = Mono) }, onClick = { barMenu = false; rowPickerOpen = true })
-                            }
-                            DropdownMenuItem(text = { Text("Open in Jellyfin", fontFamily = Mono) }, onClick = { barMenu = false; openExternal(context, jellyfinAppPackages, "${config.normalizedBaseUrl}web/") })
-                            DropdownMenuItem(text = { Text("Scan library", fontFamily = Mono) }, onClick = { barMenu = false; scope.launch { actionMsg = vm.jellyfinScan(config) } })
-                            DropdownMenuItem(text = { Text("Restart server", fontFamily = Mono) }, onClick = { barMenu = false; ad.confirmRestart = true })
-                            DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
-                            DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
-                        }
-                    }
+                    ServiceMenuButton(
+                        config = config,
+                        primary = listOf(
+                            MenuAction("Open in Jellyfin", AppIcons.Open) { openExternal(context, jellyfinAppPackages, "${config.normalizedBaseUrl}web/") },
+                        ),
+                        sections = listOf(
+                            MenuSection("Server", listOfNotNull(
+                                if (mode == 3) MenuAction("Customize rows", AppIcons.Rows) { rowPickerOpen = true } else null,
+                                MenuAction("Scan library", AppIcons.Refresh) { scope.launch { actionMsg = vm.jellyfinScan(config) } },
+                                MenuAction("Restart server", AppIcons.Restart) { ad.confirmRestart = true },
+                            )),
+                        ),
+                        onEdit = onEdit,
+                        onDelete = onDelete,
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
             )

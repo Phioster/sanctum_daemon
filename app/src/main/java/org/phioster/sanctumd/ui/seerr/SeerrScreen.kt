@@ -28,7 +28,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -122,7 +121,6 @@ internal fun SeerrScreen(
     var actionMsg by remember { mutableStateOf<String?>(null) }
     var refreshing by remember { mutableStateOf(false) }
     LaunchedEffect(actionMsg) { if (actionMsg != null) { kotlinx.coroutines.delay(4000); actionMsg = null } }
-    var barMenu by remember { mutableStateOf(false) }
     var showAdd by remember { mutableStateOf(false) }
     var confirmItem by remember { mutableStateOf<SeerrSearchItem?>(null) }
     var mediaDetail by remember { mutableStateOf<org.phioster.sanctumd.model.SeerrMediaDetail?>(null) }
@@ -252,20 +250,26 @@ internal fun SeerrScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
                 },
                 actions = {
-                    Box {
-                        IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen) }
-                        DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
-                            DropdownMenuItem(text = { Text("Search & request", fontFamily = Mono) }, onClick = { barMenu = false; showAdd = true })
-                            DropdownMenuItem(text = { Text("Users & stats", fontFamily = Mono) }, onClick = { barMenu = false; showStats = true })
-                            DropdownMenuItem(text = { Text("Settings", fontFamily = Mono) }, onClick = { barMenu = false; showSettings = true })
-                            DropdownMenuItem(text = { Text("Jobs & cache", fontFamily = Mono) }, onClick = { barMenu = false; showJobs = true })
-                            DropdownMenuItem(text = { Text("Blocklist", fontFamily = Mono) }, onClick = { barMenu = false; showBlocklist = true })
-                            DropdownMenuItem(text = { Text("Logs", fontFamily = Mono) }, onClick = { barMenu = false; showLogs = true })
-                            DropdownMenuItem(text = { Text("Open in Seerr", fontFamily = Mono) }, onClick = { barMenu = false; openExternal(context, seerrAppPackages, config.baseUrl) })
-                            DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
-                            DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
-                        }
-                    }
+                    ServiceMenuButton(
+                        config = config,
+                        primary = listOf(
+                            MenuAction("Search & request", AppIcons.Search) { showAdd = true },
+                            MenuAction("Open in Seerr", AppIcons.Open) { openExternal(context, seerrAppPackages, config.baseUrl) },
+                        ),
+                        sections = listOf(
+                            MenuSection("Manage", listOf(
+                                MenuAction("Users & stats", AppIcons.Users) { showStats = true },
+                                MenuAction("Blocklist", AppIcons.Blocklist) { showBlocklist = true },
+                            )),
+                            MenuSection("System", listOf(
+                                MenuAction("Settings", AppIcons.Settings) { showSettings = true },
+                                MenuAction("Jobs & cache", AppIcons.Jobs) { showJobs = true },
+                                MenuAction("Logs", AppIcons.Logs) { showLogs = true },
+                            )),
+                        ),
+                        onEdit = onEdit,
+                        onDelete = onDelete,
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
             )
