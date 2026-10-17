@@ -3,6 +3,13 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Episodes before requesting, and actors' pages (v2.1.30)
+- **Season details when requesting.** In the request dialog of a series every season opens
+  into its episode list with air dates; dates still ahead are marked, so a half-aired season
+  is visible before asking for it.
+- **Person pages.** A face in a title's cast opens that person: photo, birth, biography and
+  everything else they played in, newest first; a tap opens that title.
+
 ## Video playlists play on (v2.1.29)
 - **Up next in a playlist.** A film or episode started from a playlist (by a tap, or "play all")
   runs on through the list: near the end the same card as for episodes shows what comes next

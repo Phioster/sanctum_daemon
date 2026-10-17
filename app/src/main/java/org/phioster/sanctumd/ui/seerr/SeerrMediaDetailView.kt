@@ -91,6 +91,10 @@ internal fun SeerrMediaDetailView(
     BackHandler(onBack = onBack)
     var onWatchlist by remember(d.tmdbId) { mutableStateOf(d.onWatchlist) }
     var watchlistBusy by remember(d.tmdbId) { mutableStateOf(false) }
+    var openPerson by remember(d.tmdbId) { mutableStateOf<Int?>(null) }
+    openPerson?.let { pid ->
+        SeerrPersonDialog(vm, config, pid, accent, onDismiss = { openPerson = null }) { di -> openPerson = null; onOpenOther(di) }
+    }
     var recommended by remember(d.tmdbId) { mutableStateOf<List<org.phioster.sanctumd.model.SeerrDiscoverItem>>(emptyList()) }
     var similar by remember(d.tmdbId) { mutableStateOf<List<org.phioster.sanctumd.model.SeerrDiscoverItem>>(emptyList()) }
     LaunchedEffect(d.tmdbId) {
@@ -204,7 +208,11 @@ internal fun SeerrMediaDetailView(
                     Spacer(Modifier.height(8.dp))
                     Row(Modifier.horizontalScroll(rememberScrollState())) {
                         d.cast.forEach { member ->
-                            Column(Modifier.width(84.dp).padding(end = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Column(
+                                Modifier.width(84.dp).padding(end = 10.dp)
+                                    .clickable(enabled = member.personId > 0) { openPerson = member.personId },
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
                                 if (member.profileUrl.isNotBlank()) {
                                     AsyncImage(
                                         model = member.profileUrl, contentDescription = null, contentScale = ContentScale.Crop,

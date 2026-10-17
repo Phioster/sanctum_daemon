@@ -117,6 +117,9 @@ internal interface SeerrApi {
         @Query("sort") sort: String,
         @Query("requestedBy") requestedBy: Int? = null,
     ): SeerrRequestPage
+    @GET("api/v1/tv/{id}/season/{n}") suspend fun season(@Path("id") id: Int, @Path("n") n: Int): JsonObject
+    @GET("api/v1/person/{id}") suspend fun person(@Path("id") id: Int): JsonObject
+    @GET("api/v1/person/{id}/combined_credits") suspend fun personCredits(@Path("id") id: Int): JsonObject
     @GET("api/v1/discover/movies/upcoming") suspend fun upcomingMovies(@Query("page") page: Int = 1): JsonObject
     @GET("api/v1/discover/tv/upcoming") suspend fun upcomingTv(@Query("page") page: Int = 1): JsonObject
     @GET("api/v1/{type}/{id}/{kind}") suspend fun related(@Path("type") type: String, @Path("id") id: Int, @Path("kind") kind: String): JsonObject
@@ -829,6 +832,7 @@ internal fun parseCast(detail: JsonObject): List<ArrCastMember> {
             name = jsStr(c, "name") ?: "?",
             character = jsStr(c, "character") ?: "",
             profileUrl = if (!profile.isNullOrBlank()) "https://image.tmdb.org/t/p/w185$profile" else "",
+            personId = jsInt(c, "id") ?: 0,
         )
     }
 }

@@ -120,6 +120,7 @@ internal fun SeerrRequestDialog(
     var defaultProfileId by remember(item) { mutableStateOf(0) }
     var seasons by remember(item) { mutableStateOf<List<org.phioster.sanctumd.model.SeerrSeason>?>(null) }
     var selectedSeasons by remember(item) { mutableStateOf<Set<Int>>(emptySet()) }
+    var openSeasons by remember(item) { mutableStateOf<Set<Int>>(emptySet()) }
     LaunchedEffect(item) {
         // Only worth offering when there is something to choose between; a single-option
         // setup keeps the dialog exactly as it was.
@@ -185,9 +186,10 @@ internal fun SeerrRequestDialog(
                             Text("All seasons", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
                         }
                         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
-                        Column(Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState())) {
+                        Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
                             ss.forEach { s ->
                                 val checked = s.seasonNumber in selectedSeasons
+                                val open = s.seasonNumber in openSeasons
                                 Row(
                                     Modifier.fillMaxWidth().clickable {
                                         selectedSeasons = if (checked) selectedSeasons - s.seasonNumber else selectedSeasons + s.seasonNumber
@@ -195,8 +197,15 @@ internal fun SeerrRequestDialog(
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Text(if (checked) "[x] " else "[ ] ", fontFamily = Mono, color = if (checked) MatrixGreen else MatrixGreen.copy(alpha = 0.4f), fontSize = 12.sp)
-                                    Text("${s.name} · ${s.episodeCount} ep", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.85f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text("${s.name} · ${s.episodeCount} ep", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.85f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                    // The episode list with air dates, to see what a season holds before asking for it.
+                                    androidx.compose.material3.Icon(
+                                        if (open) org.phioster.sanctumd.ui.theme.AppIcons.Expanded else org.phioster.sanctumd.ui.theme.AppIcons.Collapsed,
+                                        contentDescription = "Episodes", tint = MatrixGreen.copy(alpha = 0.7f),
+                                        modifier = Modifier.clickable { openSeasons = if (open) openSeasons - s.seasonNumber else openSeasons + s.seasonNumber }.padding(horizontal = 6.dp),
+                                    )
                                 }
+                                if (open) SeerrEpisodeList(vm, config, item.tmdbId, s.seasonNumber)
                             }
                         }
                     }
