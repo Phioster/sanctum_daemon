@@ -128,6 +128,11 @@ suspend fun jellyfinSessions(config: ServiceConfig): List<JellySession> = withCo
                 paused = s.PlayState?.IsPaused ?: false,
                 canControl = s.SupportsRemoteControl,
                 lastActivity = (s.LastActivityDate ?: "").take(16).replace('T', ' '),
+                tracks = np?.MediaStreams.orEmpty().filter { it.Type == "Audio" || it.Type == "Subtitle" }.map {
+                    org.phioster.sanctumd.model.JellySessionTrack(it.Index, it.Type, it.DisplayTitle ?: it.Language ?: "#${it.Index}")
+                },
+                audioIndex = s.PlayState?.AudioStreamIndex,
+                subtitleIndex = s.PlayState?.SubtitleStreamIndex,
             )
         }
         .sortedByDescending { it.nowPlaying.isNotEmpty() }

@@ -107,3 +107,35 @@ internal fun pluginUpdates(
         ?: catalog.firstOrNull { it.name.equals(p.name, ignoreCase = true) }
     if (pkg != null && pkg.version.isNotBlank() && isNewerVersion(p.version, pkg.version)) p.id to pkg else null
 }.toMap()
+
+/** SetAudioStreamIndex / SetSubtitleStreamIndex as a GeneralCommand; index -1 turns subtitles off. */
+internal fun trackCommandBody(audio: Boolean, index: Int): JsonObject = buildJsonObject {
+    put("Name", if (audio) "SetAudioStreamIndex" else "SetSubtitleStreamIndex")
+    put("Arguments", buildJsonObject { put("Index", index.toString()) })
+}
+
+suspend fun jellyfinSetTrack(config: ServiceConfig, sessionId: String, audio: Boolean, index: Int): String =
+    call("switch ${if (audio) "audio" else "subtitle"} track on $sessionId", "switched") {
+        jf(config, jellyfinAccessToken(config)).sessionGeneralCommand(sessionId, trackCommandBody(audio, index))
+    }
+
+/** A plugin repository: where the catalog and its updates come from. */
+data class JellyRepo(val name: String, val url: String, val enabled: Boolean)
+
+suspend fun jellyfinRepos(config: ServiceConfig): List<JellyRepo> = withContext(Dispatchers.IO) {
+    jf(config, jellyfinAccessToken(config)).repositories().map {
+        JellyRepo(jsStr(it, "Name").orEmpty(), jsStr(it, "Url").orEmpty(), jsBool(it, "Enabled") != false)
+    }
+}
+
+internal fun reposBody(repos: List<JellyRepo>): JsonArray = kotlinx.serialization.json.buildJsonArray {
+    repos.forEach { r ->
+        add(buildJsonObject { put("Name", r.name); put("Url", r.url); put("Enabled", r.enabled) })
+    }
+}
+
+/** Jellyfin only takes the whole list, so every change sends all repositories back. */
+suspend fun jellyfinSaveRepos(config: ServiceConfig, repos: List<JellyRepo>): String =
+    call("save Jellyfin plugin repositories", "repositories saved") {
+        jf(config, jellyfinAccessToken(config)).setRepositories(reposBody(repos))
+    }

@@ -581,6 +581,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun jellyfinRemoteCmd(config: ServiceConfig, sessionId: String, command: String): String =
         org.phioster.sanctumd.net.jellyfinRemote(config, sessionId, command)
     suspend fun jellyfinSplit(config: ServiceConfig, itemId: String): String = org.phioster.sanctumd.net.jellyfinSplitVersions(config, itemId)
+    suspend fun jellyfinTrack(config: ServiceConfig, sessionId: String, audio: Boolean, index: Int): String =
+        org.phioster.sanctumd.net.jellyfinSetTrack(config, sessionId, audio, index)
+    suspend fun jellyfinRepoList(config: ServiceConfig): List<org.phioster.sanctumd.net.JellyRepo> = org.phioster.sanctumd.net.jellyfinRepos(config)
+    suspend fun jellyfinRepoSave(config: ServiceConfig, repos: List<org.phioster.sanctumd.net.JellyRepo>): String =
+        org.phioster.sanctumd.net.jellyfinSaveRepos(config, repos)
     suspend fun jellyfinSubtitleUpload(
         config: ServiceConfig, itemId: String, language: String, format: String, forced: Boolean, hearingImpaired: Boolean, bytes: ByteArray,
     ): String = org.phioster.sanctumd.net.jellyfinUploadSubtitle(config, itemId, language, format, forced, hearingImpaired, bytes)
