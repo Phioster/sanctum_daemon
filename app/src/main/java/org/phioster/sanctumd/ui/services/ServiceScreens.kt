@@ -332,7 +332,6 @@ internal fun ServiceDetailScreen(
     val scope = rememberCoroutineScope()
     var actionResult by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
-    var barMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = Black,
@@ -350,17 +349,7 @@ internal fun ServiceDetailScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen)
                     }
                 },
-                actions = {
-                    Box {
-                        IconButton(onClick = { barMenu = true }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MatrixGreen)
-                        }
-                        DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
-                            DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
-                            DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
-                        }
-                    }
-                },
+                actions = { ServiceMenuButton(config = config, onEdit = onEdit, onDelete = onDelete) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Black, titleContentColor = MatrixGreen),
             )
         },
