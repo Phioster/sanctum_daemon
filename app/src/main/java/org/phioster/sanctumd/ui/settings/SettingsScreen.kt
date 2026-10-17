@@ -119,7 +119,7 @@ internal fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowIn
                     SettingsCategoryRow("security", "Biometric app lock") { section = "security" }
                     SettingsCategoryRow("content", "Hide adult / 18+ content") { section = "content" }
                     SettingsCategoryRow("general", "Which screen the app opens on") { section = "general" }
-                    SettingsCategoryRow("theme", "Accent presets and background") { section = "theme" }
+                    SettingsCategoryRow("theme", "Presets, your own themes and background") { section = "theme" }
                     SettingsCategoryRow("playback", "Languages, subtitles, autoplay & skipping") { section = "playback" }
                     SettingsCategoryRow("gestures", "Swipe between dashboard tabs + swipe zone") { section = "gestures" }
                     SettingsCategoryRow("backup / data", "Export or import your config (encrypted)") { section = "backup / data" }
@@ -323,6 +323,9 @@ internal fun ThemeSection() {
     val active = org.phioster.sanctumd.ui.theme.ThemeState.palette
     var presetId by remember { mutableStateOf(org.phioster.sanctumd.ui.theme.ThemeStore.paletteId(context)) }
     var background by remember { mutableStateOf(org.phioster.sanctumd.ui.theme.ThemeStore.backgroundMode(context)) }
+    var customs by remember { mutableStateOf(org.phioster.sanctumd.ui.theme.CustomThemes.all(context)) }
+    // null = closed; Pair(theme being edited or null for a new one, opened)
+    var editor by remember { mutableStateOf<Pair<org.phioster.sanctumd.ui.theme.CustomTheme?, Boolean>?>(null) }
 
     Text(
         "PRESET",
@@ -358,6 +361,60 @@ internal fun ThemeSection() {
             if (selected) Icon(AppIcons.Done, contentDescription = "selected", tint = MatrixGreen, modifier = Modifier.size(16.dp))
         }
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+    }
+
+    Text(
+        "OWN THEMES",
+        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp,
+        modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
+    )
+    customs.forEach { t ->
+        val shown = t.palette().withBackground(background)
+        Row(
+            Modifier.fillMaxWidth()
+                .clickable {
+                    presetId = t.id
+                    org.phioster.sanctumd.ui.theme.ThemeStore.writePreset(context, t.id)
+                }
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(shown.accent, shown.background, shown.surface).forEach { c ->
+                    Box(
+                        Modifier.size(width = 22.dp, height = 22.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(c)
+                            .border(1.dp, MatrixGreen.copy(alpha = 0.25f), RoundedCornerShape(4.dp)),
+                    )
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(t.name, fontFamily = Mono, color = MatrixGreen, fontSize = 14.sp, modifier = Modifier.weight(1f))
+            if (t.id == presetId) Icon(AppIcons.Done, contentDescription = "selected", tint = MatrixGreen, modifier = Modifier.size(16.dp))
+            IconButton(onClick = { editor = t to true }) {
+                Icon(AppIcons.Edit, contentDescription = "Edit theme", tint = MatrixGreen.copy(alpha = 0.8f), modifier = Modifier.size(18.dp))
+            }
+        }
+        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+    }
+    org.phioster.sanctumd.ui.common.SecondaryButton(
+        "new theme", icon = AppIcons.Add,
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp),
+    ) { editor = null to true }
+    editor?.let { (t, _) ->
+        // Starts from what is on screen right now, the background choice left out (it is applied on top).
+        val start = t?.palette() ?: org.phioster.sanctumd.ui.theme.CustomThemes.byId(context, presetId)?.palette()
+            ?: org.phioster.sanctumd.ui.theme.paletteById(presetId)
+        ThemeEditorDialog(
+            editing = t, startFrom = start, mode = background,
+            onDismiss = { editor = null },
+            onDone = {
+                customs = org.phioster.sanctumd.ui.theme.CustomThemes.all(context)
+                presetId = org.phioster.sanctumd.ui.theme.ThemeStore.paletteId(context)
+                editor = null
+            },
+        )
     }
 
     SettingsPickerRow(

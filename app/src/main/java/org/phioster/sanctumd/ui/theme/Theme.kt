@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontFamily
 
 /**
@@ -26,14 +27,17 @@ data class Palette(
 )
 
 /**
- * Fixed presets, no free colour picker on purpose.
+ * The built-in presets. Own themes come from the editor (CustomThemes.kt) and follow the same
+ * three-colour shape, checked by [Readability].
  *
  * NB for future additions: [Palette.background] doubles as the *ink* on the accent (chips, buttons,
  * FAB), so it has to stay dark enough to read on a bright accent. Nord was closest to that limit.
  */
 val PALETTES: List<Palette> = listOf(
     Palette("matrix", "Matrix", Color(0xFF00FF41), Color(0xFF141619), Color(0xFF1E2126), Color(0xFF262A30)),
-    Palette("ae86", "AE86 Panda", Color(0xFFEDEDED), Color(0xFF0A0A0A), Color(0xFF16181A), Color(0xFF202326)),
+    // Panda white ink on Initial D red: as strong as Japan Neon's surfaces, so the red survives
+    // "OLED black", which pulls cards most of the way to black.
+    Palette("ae86", "AE86 Panda", Color(0xFFEDEDED), Color(0xFF1C0507), Color(0xFF450A10), Color(0xFF570D15)),
     Palette("amber", "Amber CRT", Color(0xFFFFB000), Color(0xFF14100C), Color(0xFF1E1810), Color(0xFF282016)),
     Palette("ice", "Ice", Color(0xFF7DD3FC), Color(0xFF0B1220), Color(0xFF121C2E), Color(0xFF1A2740)),
     // Tinted surfaces: the base colour lives in the background and the cards, the accent stays the
@@ -87,7 +91,7 @@ enum class BackgroundMode(val id: String, val label: String) {
     }
 }
 
-private fun Color.mixWith(other: Color, fraction: Float): Color = Color(
+internal fun Color.mixWith(other: Color, fraction: Float): Color = Color(
     red = red + (other.red - red) * fraction,
     green = green + (other.green - green) * fraction,
     blue = blue + (other.blue - blue) * fraction,
@@ -157,3 +161,41 @@ internal val SanctumdColors
         onSurfaceVariant = MatrixGreen,
         outline = MatrixGreen.copy(alpha = 0.4f),
     )
+
+/** The second card level, derived for own themes: a small lift from the card colour, as the presets do. */
+internal fun liftedSurface(surface: Color): Color = surface.mixWith(Color.White, 0.06f)
+
+/**
+ * WCAG contrast between two colours: 4.5 reads comfortably, below 3 is hard to read. The same
+ * pairs the app actually draws are checked, in every background mode, since one can switch later.
+ */
+internal object Readability {
+    const val GOOD = 4.5
+    const val MIN = 3.0
+
+    fun contrast(a: Color, b: Color): Double {
+        val la = a.luminance().toDouble()
+        val lb = b.luminance().toDouble()
+        return (maxOf(la, lb) + 0.05) / (minOf(la, lb) + 0.05)
+    }
+
+    /** Worst contrast of text and muted text over background and cards, across the background modes. */
+    fun worst(p: Palette): Double = BackgroundMode.entries.minOf { mode ->
+        val q = p.withBackground(mode)
+        minOf(
+            contrast(q.accent, q.background),
+            contrast(q.accent, q.surfaceHi),
+            // Muted text is allowed to be quieter, so it is held to the lower bar.
+            contrast(q.dimInk(), q.surface) * GOOD / MIN,
+            // Error red and warning amber don't follow the theme; they need dark cards to read.
+            contrast(ErrRed, q.surface) * GOOD / MIN,
+            contrast(WarnAmber, q.surface) * GOOD / MIN,
+        )
+    }
+
+    fun level(ratio: Double): Int = when {
+        ratio >= GOOD -> 2
+        ratio >= MIN -> 1
+        else -> 0
+    }
+}

@@ -34,12 +34,27 @@ object ThemeStore {
         BackgroundMode.from(prefs(context).getString(KEY_BACKGROUND, null))
 
     /** The preset with the background choice already applied. What the UI should render. */
-    fun read(context: Context): Palette =
-        paletteById(paletteId(context)).withBackground(backgroundMode(context))
+    fun read(context: Context): Palette {
+        val id = paletteId(context)
+        val base = CustomThemes.byId(context, id)?.palette() ?: paletteById(id)
+        return base.withBackground(backgroundMode(context))
+    }
 
     fun writePreset(context: Context, id: String) {
         prefs(context).edit().putString(KEY_PALETTE, id).apply()
         apply(context)
+    }
+
+    /** Saves an own theme and makes it the active one. */
+    fun saveCustom(context: Context, theme: CustomTheme) {
+        CustomThemes.upsert(context, theme)
+        writePreset(context, theme.id)
+    }
+
+    /** Deleting the active own theme falls back to the default preset. */
+    fun deleteCustom(context: Context, id: String) {
+        CustomThemes.remove(context, id)
+        if (paletteId(context) == id) writePreset(context, DEFAULT_PALETTE_ID) else apply(context)
     }
 
     fun writeBackground(context: Context, mode: BackgroundMode) {

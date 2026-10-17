@@ -3,6 +3,19 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Theme editor, and red for the AE86 (v2.1.34)
+- **Make your own themes.** Settings, theme, "new theme": pick the three colours a preset row
+  shows (accent, background, cards), by hex or with hue, saturation and brightness sliders,
+  starting from any preset. A live preview shows a card, numbers, muted text, a chip and a
+  button in your colours; save as many named themes as you like, edit or delete them later.
+- **It tells you where it stays readable.** Under every slider a strip shows green where the
+  theme reads well, amber where it gets tight and red where it doesn't, checked the way the
+  app actually draws (text on background and cards, muted text, error red and warning amber)
+  and in every background mode, so switching to OLED or anthracite later can't break it.
+  "make readable" moves the colours into the green; unreadable themes can't be saved.
+- **AE86 Panda goes Initial D.** White ink stays, the background and cards are now a deep red,
+  strong enough to survive "OLED black".
+
 ## Demo mode, cleaner switch (v2.1.33)
 - **Switching shows the right world at once.** Turning demo mode on or off now drops the
   cards' cached data and reloads them, so the dashboard no longer shows the previous
