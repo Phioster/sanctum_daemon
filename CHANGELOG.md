@@ -3,6 +3,24 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Jellyfin server, transcoding and library settings (v2.1.35)
+- **Server settings** (new "Server" tile in the Jellyfin dashboard): server name, Quick Connect,
+  metadata language and country, chapter images, when something counts as watched or
+  resumable, library scan pacing, trickplay (hardware, key frames only, interval, widths,
+  quality) and how long logs and activity are kept.
+- **Transcoding** (new "Transcoding" tile): hardware acceleration (NVENC, Quick Sync, VA-API,
+  AMF, V4L2, Rockchip, VideoToolbox) with its device, which codecs decode in hardware, 10-bit
+  decoding, hardware/HEVC/AV1 encoding, tone mapping, encoder preset and quality, threads,
+  deinterlacing, downmix, throttling and segment deletion.
+- **Library options** ("options" in a library's dialog): enabled, real-time monitoring,
+  metadata refresh interval, language and country, NFO saving, embedded titles, series
+  grouping, chapter and trickplay images, subtitle downloads and languages, and the metadata
+  and image providers per item type: tick which run, arrows for their order.
+- Only what you touch changes: each page reads the server's whole settings object and sends
+  it back with just your edits, so fields the app doesn't show stay exactly as they were.
+  Changed fields are marked, the save button counts them, "undo changes" resets, and numbers
+  out of range are flagged before anything is sent. Saving goes through Safe Mode.
+
 ## Theme editor, and red for the AE86 (v2.1.34)
 - **Make your own themes.** Settings, theme, "new theme": pick the three colours a preset row
   shows (accent, background, cards), by hex or with hue, saturation and brightness sliders,

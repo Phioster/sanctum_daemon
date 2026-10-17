@@ -525,6 +525,20 @@ internal interface JellyfinApi {
     @DELETE("LiveTv/TunerHosts") suspend fun deleteTunerHost(@Query("id") id: String): Response<ResponseBody>
     @POST("LiveTv/ListingProviders") suspend fun addListingProvider(@Body body: JsonObject): Response<ResponseBody>
     @DELETE("LiveTv/ListingProviders") suspend fun deleteListingProvider(@Query("id") id: String): Response<ResponseBody>
+
+    // Settings, kept raw so a save sends back every field, known or not (see JellyfinSettings.kt).
+    @GET("System/Configuration") suspend fun serverConfiguration(): JsonObject
+    @POST("System/Configuration") suspend fun setServerConfiguration(@Body body: JsonObject): Response<ResponseBody>
+    @GET("System/Configuration/encoding") suspend fun encodingConfiguration(): JsonObject
+    @POST("System/Configuration/encoding") suspend fun setEncodingConfiguration(@Body body: JsonObject): Response<ResponseBody>
+    @GET("Library/VirtualFolders") suspend fun virtualFoldersRaw(): List<JsonObject>
+    @GET("Libraries/AvailableOptions") suspend fun availableLibraryOptions(
+        @Query("libraryContentType") type: String?,
+        @Query("isNewLibrary") isNew: Boolean,
+    ): JsonObject
+    @POST("Library/VirtualFolders/LibraryOptions") suspend fun setLibraryOptions(@Body body: JsonObject): Response<ResponseBody>
+    @GET("Localization/Cultures") suspend fun cultures(): List<JsonObject>
+    @GET("Localization/Countries") suspend fun countries(): List<JsonObject>
 }
 
 // ---- Radarr ----

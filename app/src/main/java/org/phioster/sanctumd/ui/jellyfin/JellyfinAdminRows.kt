@@ -463,6 +463,7 @@ internal fun JellyLibraryDialog(
     onAddPath: (String) -> Unit,
     onRemovePath: (String) -> Unit,
     onDelete: () -> Unit,
+    onOptions: () -> Unit,
 ) {
     var name by remember { mutableStateOf(library.name) }
     var newPath by remember { mutableStateOf("") }
@@ -501,6 +502,12 @@ internal fun JellyLibraryDialog(
                         TextButton(onClick = { onAddPath(newPath.trim()) }) { Text("Add", fontFamily = Mono, color = accent, fontSize = 12.sp) }
                     }
                 }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "options: monitoring, metadata, subtitles, providers",
+                    fontFamily = Mono, color = accent, fontSize = 13.sp,
+                    modifier = Modifier.fillMaxWidth().clickable { onOptions() }.padding(vertical = 6.dp),
+                )
                 Spacer(Modifier.height(10.dp))
                 Text(
                     if (confirmDelete) "Really delete this library? (media files stay on disk)" else "Delete library",
