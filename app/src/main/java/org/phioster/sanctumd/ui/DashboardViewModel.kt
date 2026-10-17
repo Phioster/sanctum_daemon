@@ -977,6 +977,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun nzbgetResume(config: ServiceConfig): String = runNzbgetResume(config)
 
     suspend fun queue(config: ServiceConfig): List<NzbQueueItem> = nzbgetQueue(config)
+    suspend fun nzbPauseState(config: ServiceConfig): org.phioster.sanctumd.model.NzbPauseState = org.phioster.sanctumd.net.nzbgetPauseState(config)
+    suspend fun nzbPauseFor(config: ServiceConfig, minutes: Int): String = org.phioster.sanctumd.net.runNzbPauseFor(config, minutes)
+    suspend fun nzbPostPause(config: ServiceConfig, pause: Boolean): String = org.phioster.sanctumd.net.runNzbPostPause(config, pause)
+    suspend fun nzbEditMany(config: ServiceConfig, command: String, ids: List<Int>): String =
+        org.phioster.sanctumd.net.runNzbEditMany(config, command, ids)
     suspend fun history(config: ServiceConfig, hidden: Boolean): List<NzbHistoryEntry> = nzbgetHistory(config, hidden)
     suspend fun nzbLog(config: ServiceConfig): List<org.phioster.sanctumd.model.NzbLogEntry> = org.phioster.sanctumd.net.nzbgetLog(config)
     suspend fun nzbItemLog(config: ServiceConfig, id: Int): List<org.phioster.sanctumd.model.NzbLogEntry> =
