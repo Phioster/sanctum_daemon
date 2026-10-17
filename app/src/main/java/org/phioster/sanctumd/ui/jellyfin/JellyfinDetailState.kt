@@ -56,6 +56,7 @@ internal class JellyfinDetailState {
     var refresh by mutableStateOf<JellyMediaDetail?>(null)
     var editMetadata by mutableStateOf<JellyMediaDetail?>(null)
     var images by mutableStateOf<JellyMediaDetail?>(null)
+    var collections by mutableStateOf<JellyMediaDetail?>(null)
     var delete by mutableStateOf<JellyMediaDetail?>(null)
     var cast by mutableStateOf<JellyMediaDetail?>(null)
 
@@ -76,6 +77,7 @@ internal class JellyfinDetailState {
         refresh = null
         editMetadata = null
         images = null
+        collections = null
         delete = null
         cast = null
         downloadQuality = null

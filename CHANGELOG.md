@@ -3,6 +3,15 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Collections, and buttons on pushes (v2.1.20)
+- **Jellyfin collections.** "Collections…" in a title's menu lists every collection with the
+  ones holding the title ticked; a tap adds or removes it, and a new collection can be started
+  from the title right there.
+- **ntfy action buttons.** A push that carries actions now shows them as buttons, up to three,
+  as the ntfy app does. "view" opens its address; "http" sends the request the publisher
+  described (method, headers, body) without opening the app, and can dismiss the notification
+  afterwards. Only http(s) addresses are accepted.
+
 ## NZBGet's log, and a request changed before approving (v2.1.19)
 - **NZBGet log.** "Log" in the NZBGet menu shows the server's last 200 messages, newest
   first, errors in red and warnings in amber, with a switch to hide everything else. "Show

@@ -568,6 +568,12 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun jellyfinRestartServer(config: ServiceConfig): String = jellyfinRestart(config)
     suspend fun jellyfinDeviceList(config: ServiceConfig): List<org.phioster.sanctumd.model.JellyDevice> =
         jellyfinDevices(config)
+    suspend fun jellyfinCollectionList(config: ServiceConfig, itemId: String): List<org.phioster.sanctumd.net.JellyCollection> =
+        org.phioster.sanctumd.net.jellyfinCollectionsFor(config, itemId)
+    suspend fun jellyfinNewCollection(config: ServiceConfig, name: String, itemId: String): String =
+        org.phioster.sanctumd.net.jellyfinCreateCollection(config, name, itemId)
+    suspend fun jellyfinToggleCollection(config: ServiceConfig, collectionId: String, itemId: String, add: Boolean): String =
+        org.phioster.sanctumd.net.jellyfinSetInCollection(config, collectionId, itemId, add)
     suspend fun jellyfinUpcomingList(config: ServiceConfig): List<org.phioster.sanctumd.net.JellyEpisodeLine> =
         org.phioster.sanctumd.net.jellyfinUpcoming(config)
     suspend fun jellyfinMissingList(config: ServiceConfig): List<org.phioster.sanctumd.net.JellyEpisodeLine> =

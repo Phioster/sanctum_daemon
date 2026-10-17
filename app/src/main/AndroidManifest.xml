@@ -71,6 +71,10 @@
         </service>
 
         <!-- Restart the live-push stream after a reboot. -->
+        <!-- Runs a notification's ntfy "http" action; only the app's own PendingIntents reach it. -->
+        <receiver
+            android:name=".notify.NtfyActionReceiver"
+            android:exported="false" />
         <receiver
             android:name=".notify.BootReceiver"
             android:exported="true">

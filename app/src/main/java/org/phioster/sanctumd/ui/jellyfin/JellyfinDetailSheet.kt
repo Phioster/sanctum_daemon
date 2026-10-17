@@ -318,6 +318,12 @@ internal fun JellyfinDetailSheet(
                         text = { Text("Images…", fontFamily = Mono) },
                         onClick = { state.menuOpen = false; state.images = d },
                     )
+                    if (d.kind != "BoxSet") {
+                        DropdownMenuItem(
+                            text = { Text("Collections…", fontFamily = Mono) },
+                            onClick = { state.menuOpen = false; state.collections = d },
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text("Refresh metadata…", fontFamily = Mono) },
                         onClick = { state.menuOpen = false; state.refresh = d },

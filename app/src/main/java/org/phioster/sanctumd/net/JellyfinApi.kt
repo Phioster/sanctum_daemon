@@ -363,6 +363,10 @@ internal interface JellyfinApi {
         @Query("Limit") limit: Int = 150,
     ): JfItemsResp
     @GET("Shows/Upcoming") suspend fun upcoming(@Query("userId") uid: String, @Query("limit") limit: Int = 60): JfItemsResp
+    @GET("Items/{id}/Collections") suspend fun itemCollections(@Path("id") id: String, @Query("userId") uid: String): JfItemsResp
+    @POST("Collections") suspend fun createCollection(@Query("name") name: String, @Query("ids") ids: String): Response<ResponseBody>
+    @POST("Collections/{id}/Items") suspend fun addToCollection(@Path("id") id: String, @Query("ids") ids: String): Response<ResponseBody>
+    @DELETE("Collections/{id}/Items") suspend fun removeFromCollection(@Path("id") id: String, @Query("ids") ids: String): Response<ResponseBody>
     @GET("Backup") suspend fun backups(): List<JsonObject>
     @POST("Backup/Create") suspend fun createBackup(@Body body: JsonObject): Response<ResponseBody>
     @POST("Backup/Restore") suspend fun restoreBackup(@Body body: JsonObject): Response<ResponseBody>
