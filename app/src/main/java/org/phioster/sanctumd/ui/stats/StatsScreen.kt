@@ -45,6 +45,7 @@ import org.phioster.sanctumd.model.StatChart
 import org.phioster.sanctumd.model.StatTile
 import org.phioster.sanctumd.model.StatsData
 import org.phioster.sanctumd.ui.DashboardViewModel
+import org.phioster.sanctumd.ui.common.RefreshBox
 import org.phioster.sanctumd.ui.common.Hint
 import org.phioster.sanctumd.ui.common.ChartTitle
 import org.phioster.sanctumd.ui.common.SectionHeader
@@ -98,104 +99,106 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
             d == null || (d.tiles.isEmpty() && d.charts.isEmpty()) -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Hint("no stats. Add services with data")
             }
-            else -> LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
-                if (d.tiles.isNotEmpty()) {
-                    item {
-                        Spacer(Modifier.height(10.dp))
-                        // Without this roof the charts below would hang there untitled, now that
-                        // their own titles sit one level down.
-                        SectionHeader("OVERVIEW")
-                        Spacer(Modifier.height(10.dp))
-                        // Tiles wrap two per row.
-                        d.tiles.chunked(2).forEach { pair ->
-                            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                pair.forEach { t -> StatTileView(t, Modifier.weight(1f)) }
-                                if (pair.size == 1) Spacer(Modifier.weight(1f))
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                    }
-                }
-                // The service charts had no parent heading, their own titles served as one.
-                // Now that those titles are subordinate they need one, or they float indented
-                // without a section.
-                if (d.charts.isNotEmpty()) {
-                    item {
-                        SectionHeader("SERVICES")
-                        Spacer(Modifier.height(10.dp))
-                    }
-                }
-                items(d.charts) { chart ->
-                    StatChartView(chart)
-                    Spacer(Modifier.height(18.dp))
-                }
-                // WIEDERGABE: what actually got watched, straight from the Playback Reporting
-                // plugin's own database. Loaded separately because it can be absent (the plugin
-                // is optional) and must not take the rest of the screen down with it.
-                playback?.let { pb ->
-                    // argbLong(), not value.toLong(): see ColorArgb.kt. That was the cause of
-                    // black labels and invisible bar fills in 1.50.1.
-                    val green = MatrixGreen.argbLong()
-                    val tiles = playbackTiles(pb, green, 0xFFFFAA00L)
-                    val charts = playbackCharts(pb, green, 0xFFFFAA00L)
-                    if (tiles.isNotEmpty()) {
+            else -> RefreshBox(loading, { reloadTick++ }, Modifier.fillMaxSize().padding(padding)) {
+                LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                    if (d.tiles.isNotEmpty()) {
                         item {
-                            Spacer(Modifier.height(6.dp))
-                            SectionHeader("PLAYBACK")
                             Spacer(Modifier.height(10.dp))
-                            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                tiles.forEach { t -> StatTileView(t, Modifier.weight(1f)) }
-                            }
-                            if (pb.since.isNotBlank()) {
-                                Text(
-                                    "since ${pb.since}",
-                                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 10.sp,
-                                )
-                            }
+                            // Without this roof the charts below would hang there untitled, now that
+                            // their own titles sit one level down.
+                            SectionHeader("OVERVIEW")
                             Spacer(Modifier.height(10.dp))
-                        }
-                        items(charts) { chart ->
-                            StatChartView(chart) { bar ->
-                                jellyfinServiceId?.let { sid ->
-                                    vm.setRoute(org.phioster.sanctumd.ui.PendingRoute("service", sid, bar.id))
+                            // Tiles wrap two per row.
+                            d.tiles.chunked(2).forEach { pair ->
+                                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    pair.forEach { t -> StatTileView(t, Modifier.weight(1f)) }
+                                    if (pair.size == 1) Spacer(Modifier.weight(1f))
                                 }
                             }
-                            Spacer(Modifier.height(18.dp))
+                            Spacer(Modifier.height(8.dp))
                         }
                     }
-                }
-
-                // TRENDS section: derived from the recorded stat history (grows over days).
-                item {
-                    Spacer(Modifier.height(6.dp))
-                    SectionHeader("TRENDS")
-                    Spacer(Modifier.height(10.dp))
-                    if (d.trendTiles.isEmpty() && d.trends.isEmpty()) {
-                        Text(
-                            "collecting data, check back in a few days",
-                            fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp,
-                        )
-                    } else if (d.trendTiles.isEmpty()) {
-                        // Figures need more history than charts do: Prowlarr produces none at
-                        // all, and the disk forecast needs three data points. Without this
-                        // sentence the section simply looks empty.
-                        Hint("Figures follow once more days are on record. The trends below are already growing.")
-                        Spacer(Modifier.height(8.dp))
-                    } else {
-                        d.trendTiles.chunked(2).forEach { pair ->
-                            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                pair.forEach { t -> StatTileView(t, Modifier.weight(1f)) }
-                                if (pair.size == 1) Spacer(Modifier.weight(1f))
+                    // The service charts had no parent heading, their own titles served as one.
+                    // Now that those titles are subordinate they need one, or they float indented
+                    // without a section.
+                    if (d.charts.isNotEmpty()) {
+                        item {
+                            SectionHeader("SERVICES")
+                            Spacer(Modifier.height(10.dp))
+                        }
+                    }
+                    items(d.charts) { chart ->
+                        StatChartView(chart)
+                        Spacer(Modifier.height(18.dp))
+                    }
+                    // WIEDERGABE: what actually got watched, straight from the Playback Reporting
+                    // plugin's own database. Loaded separately because it can be absent (the plugin
+                    // is optional) and must not take the rest of the screen down with it.
+                    playback?.let { pb ->
+                        // argbLong(), not value.toLong(): see ColorArgb.kt. That was the cause of
+                        // black labels and invisible bar fills in 1.50.1.
+                        val green = MatrixGreen.argbLong()
+                        val tiles = playbackTiles(pb, green, 0xFFFFAA00L)
+                        val charts = playbackCharts(pb, green, 0xFFFFAA00L)
+                        if (tiles.isNotEmpty()) {
+                            item {
+                                Spacer(Modifier.height(6.dp))
+                                SectionHeader("PLAYBACK")
+                                Spacer(Modifier.height(10.dp))
+                                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    tiles.forEach { t -> StatTileView(t, Modifier.weight(1f)) }
+                                }
+                                if (pb.since.isNotBlank()) {
+                                    Text(
+                                        "since ${pb.since}",
+                                        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.45f), fontSize = 10.sp,
+                                    )
+                                }
+                                Spacer(Modifier.height(10.dp))
+                            }
+                            items(charts) { chart ->
+                                StatChartView(chart) { bar ->
+                                    jellyfinServiceId?.let { sid ->
+                                        vm.setRoute(org.phioster.sanctumd.ui.PendingRoute("service", sid, bar.id))
+                                    }
+                                }
+                                Spacer(Modifier.height(18.dp))
                             }
                         }
-                        Spacer(Modifier.height(8.dp))
                     }
+
+                    // TRENDS section: derived from the recorded stat history (grows over days).
+                    item {
+                        Spacer(Modifier.height(6.dp))
+                        SectionHeader("TRENDS")
+                        Spacer(Modifier.height(10.dp))
+                        if (d.trendTiles.isEmpty() && d.trends.isEmpty()) {
+                            Text(
+                                "collecting data, check back in a few days",
+                                fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp,
+                            )
+                        } else if (d.trendTiles.isEmpty()) {
+                            // Figures need more history than charts do: Prowlarr produces none at
+                            // all, and the disk forecast needs three data points. Without this
+                            // sentence the section simply looks empty.
+                            Hint("Figures follow once more days are on record. The trends below are already growing.")
+                            Spacer(Modifier.height(8.dp))
+                        } else {
+                            d.trendTiles.chunked(2).forEach { pair ->
+                                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    pair.forEach { t -> StatTileView(t, Modifier.weight(1f)) }
+                                    if (pair.size == 1) Spacer(Modifier.weight(1f))
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                        }
+                    }
+                    items(d.trends) { chart ->
+                        StatChartView(chart)
+                        Spacer(Modifier.height(18.dp))
+                    }
+                    item { Spacer(Modifier.height(24.dp)) }
                 }
-                items(d.trends) { chart ->
-                    StatChartView(chart)
-                    Spacer(Modifier.height(18.dp))
-                }
-                item { Spacer(Modifier.height(24.dp)) }
             }
         }
     }

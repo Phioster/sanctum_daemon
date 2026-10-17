@@ -67,6 +67,8 @@ import androidx.compose.foundation.layout.aspectRatio
 import org.phioster.sanctumd.model.SeerrSearchItem
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.ui.DashboardViewModel
+import org.phioster.sanctumd.ui.common.AutoRefresh
+import org.phioster.sanctumd.ui.common.RefreshBox
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.ui.theme.MatrixGreen
@@ -215,6 +217,9 @@ internal fun SeerrScreen(
             mediaDetailLoading = false
         }
     }
+    fun pullRefresh() { actionMsg = null; scope.launch { refreshing = true; when (mode) { 0 -> loadRequests(); 1 -> loadIssues(); 3 -> loadWatchlist(); else -> if (discoverKind == "genres") loadGenreRows() else loadDiscover() }; refreshing = false } }
+    // New requests and status changes arrive without the app; discover lists don't change.
+    AutoRefresh(mode, reqFilter, periodMs = { if (mode == 0) 30_000L else null }) { loadRequests() }
     LaunchedEffect(mode, reqFilter, issueFilter, discoverKind, genreType) {
         when (mode) {
             0 -> loadRequests()
@@ -306,7 +311,7 @@ internal fun SeerrScreen(
                             }
                         }
                     }
-                    IconButton(enabled = !refreshing, onClick = { actionMsg = null; scope.launch { refreshing = true; when (mode) { 0 -> loadRequests(); 1 -> loadIssues(); 3 -> loadWatchlist(); else -> if (discoverKind == "genres") loadGenreRows() else loadDiscover() }; refreshing = false } }) {
+                    IconButton(enabled = !refreshing, onClick = { pullRefresh() }) {
                         if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), color = MatrixGreen, strokeWidth = 2.dp)
                         else Icon(AppIcons.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                     }
@@ -317,86 +322,88 @@ internal fun SeerrScreen(
                 }
             }
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
-            SwipeTabs(mode, 4, { mode = it }, Modifier.weight(1f).fillMaxWidth()) { page ->
-                if (listError != null) {
-                    Text(org.phioster.sanctumd.ui.services.friendlyStatusError(listError), fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
-                } else {
-                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                        when (page) {
-                            0 -> {
-                                val r = requests
-                                when {
-                                    r == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    r.isEmpty() -> item { Text("no requests", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(r) { req ->
-                                        SeerrRequestRow(req, accent) {
-                                            requestDetail = null
-                                            scope.launch {
-                                                requestDetail = runCatching { vm.seerrRequestDetailOf(config, req.id) }.getOrNull()
-                                                if (requestDetail == null) actionMsg = "could not load request ${req.id}"
+            RefreshBox(refreshing, { pullRefresh() }, Modifier.weight(1f).fillMaxWidth()) {
+                SwipeTabs(mode, 4, { mode = it }, Modifier.fillMaxSize()) { page ->
+                    if (listError != null) {
+                        Text(org.phioster.sanctumd.ui.services.friendlyStatusError(listError), fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
+                    } else {
+                        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                            when (page) {
+                                0 -> {
+                                    val r = requests
+                                    when {
+                                        r == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        r.isEmpty() -> item { Text("no requests", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        else -> items(r) { req ->
+                                            SeerrRequestRow(req, accent) {
+                                                requestDetail = null
+                                                scope.launch {
+                                                    requestDetail = runCatching { vm.seerrRequestDetailOf(config, req.id) }.getOrNull()
+                                                    if (requestDetail == null) actionMsg = "could not load request ${req.id}"
+                                                }
                                             }
                                         }
                                     }
                                 }
-                            }
-                            1 -> {
-                                val i = issues
-                                when {
-                                    i == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    i.isEmpty() -> item { Text("no issues", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(i) { iss ->
-                                        SeerrIssueRow(iss, accent) { issueDetailId = iss.id }
-                                    }
-                                }
-                            }
-                            3 -> {
-                                val w = watchlist
-                                when {
-                                    w == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    w.isEmpty() -> item { Text("watchlist is empty. Add titles from a title's page, or in Seerr itself", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(w) { di -> SeerrDiscoverRow(di, accent) { openDiscoverDetail(di) } }
-                                }
-                            }
-                            else -> if (discoverKind == "genres") {
-                                // media-type toggle for which genre catalogue to browse
-                                item {
-                                    Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        listOf("movies" to "movies", "tv" to "series").forEach { (key, label) ->
-                                            val sel = genreType == key
-                                            Text(
-                                                label, fontFamily = Mono, fontSize = 12.sp,
-                                                color = if (sel) Black else MatrixGreen,
-                                                modifier = Modifier.clip(RoundedCornerShape(6.dp))
-                                                    .background(if (sel) MatrixGreen else Surface)
-                                                    .clickable { genreType = key }
-                                                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                                            )
+                                1 -> {
+                                    val i = issues
+                                    when {
+                                        i == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        i.isEmpty() -> item { Text("no issues", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        else -> items(i) { iss ->
+                                            SeerrIssueRow(iss, accent) { issueDetailId = iss.id }
                                         }
                                     }
                                 }
-                                val gs = genres
-                                when {
-                                    gs == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    gs.isEmpty() -> item { Text("no genres", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> gs.forEach { (id, name) ->
-                                        val its = genreItems[id]
-                                        if (!its.isNullOrEmpty()) {
-                                            item(key = "genre-$id") {
-                                                SeerrGenreSection(
-                                                    name = name, items = its, accent = accent,
-                                                    onSeeAll = { category = Triple(id, name, genreType) },
-                                                    onOpen = { di -> openDiscoverDetail(di) },
+                                3 -> {
+                                    val w = watchlist
+                                    when {
+                                        w == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        w.isEmpty() -> item { Text("watchlist is empty. Add titles from a title's page, or in Seerr itself", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        else -> items(w) { di -> SeerrDiscoverRow(di, accent) { openDiscoverDetail(di) } }
+                                    }
+                                }
+                                else -> if (discoverKind == "genres") {
+                                    // media-type toggle for which genre catalogue to browse
+                                    item {
+                                        Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            listOf("movies" to "movies", "tv" to "series").forEach { (key, label) ->
+                                                val sel = genreType == key
+                                                Text(
+                                                    label, fontFamily = Mono, fontSize = 12.sp,
+                                                    color = if (sel) Black else MatrixGreen,
+                                                    modifier = Modifier.clip(RoundedCornerShape(6.dp))
+                                                        .background(if (sel) MatrixGreen else Surface)
+                                                        .clickable { genreType = key }
+                                                        .padding(horizontal = 12.dp, vertical = 6.dp),
                                                 )
                                             }
                                         }
                                     }
-                                }
-                            } else {
-                                val d = discover
-                                when {
-                                    d == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    d.isEmpty() -> item { Text("nothing to show", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(d) { di -> SeerrDiscoverRow(di, accent) { openDiscoverDetail(di) } }
+                                    val gs = genres
+                                    when {
+                                        gs == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        gs.isEmpty() -> item { Text("no genres", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        else -> gs.forEach { (id, name) ->
+                                            val its = genreItems[id]
+                                            if (!its.isNullOrEmpty()) {
+                                                item(key = "genre-$id") {
+                                                    SeerrGenreSection(
+                                                        name = name, items = its, accent = accent,
+                                                        onSeeAll = { category = Triple(id, name, genreType) },
+                                                        onOpen = { di -> openDiscoverDetail(di) },
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    val d = discover
+                                    when {
+                                        d == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        d.isEmpty() -> item { Text("nothing to show", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        else -> items(d) { di -> SeerrDiscoverRow(di, accent) { openDiscoverDetail(di) } }
+                                    }
                                 }
                             }
                         }

@@ -55,6 +55,7 @@ import org.phioster.sanctumd.model.ArrRelease
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
 import org.phioster.sanctumd.ui.DashboardViewModel
+import org.phioster.sanctumd.ui.common.RefreshBox
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.ui.theme.MatrixGreen
@@ -86,6 +87,7 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
     val context = androidx.compose.ui.platform.LocalContext.current
     var oldestFirst by remember { mutableStateOf(EpisodeOrder.oldestFirst(context)) }
     LaunchedEffect(itemId) { st.load(vm, config, itemId, isSonarr, isLidarr) }
+    var refreshing by remember { mutableStateOf(false) }
     fun openReleases(movieId: Int?, episodeId: Int?, title: String, albumId: Int? = null, seriesId: Int? = null, seasonNumber: Int? = null) {
         st.pickerTitle = title; st.releases = null; st.pickerOpen = true
         scope.launch {
@@ -143,207 +145,209 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
             Text(org.phioster.sanctumd.ui.services.friendlyStatusError(st.loadError), fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(padding).padding(16.dp))
             return@Scaffold
         }
-        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
-            item {
-                val d = st.detail
-                Spacer(Modifier.height(8.dp))
-                Row {
-                    if (!d?.posterUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = d!!.posterUrl,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .width(110.dp)
-                                .height(165.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Surface),
-                        )
-                        Spacer(Modifier.width(14.dp))
-                    }
-                    Column(Modifier.weight(1f)) {
-                        val chips = buildList {
-                            d?.year?.takeIf { it > 0 }?.let { add("year" to it.toString()) }
-                            d?.sizeMb?.takeIf { it > 0 }?.let { add("size" to if (it >= 1024) "%.1f GB".format(it / 1024.0) else "$it MB") }
-                            d?.facts?.let { addAll(it) }
+        RefreshBox(refreshing, { scope.launch { refreshing = true; st.load(vm, config, itemId, isSonarr, isLidarr); refreshing = false } }, Modifier.fillMaxSize().padding(padding)) {
+            LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                item {
+                    val d = st.detail
+                    Spacer(Modifier.height(8.dp))
+                    Row {
+                        if (!d?.posterUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = d!!.posterUrl,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .width(110.dp)
+                                    .height(165.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Surface),
+                            )
+                            Spacer(Modifier.width(14.dp))
                         }
-                        FactGrid(chips, accent)
-                    }
-                }
-                if (d != null) {
-                    Spacer(Modifier.height(10.dp))
-                    // Whole-item monitor toggle. For Lidarr this is essential: albums are only searched
-                    // when the artist itself is monitored.
-                    SecondaryButton(
-                        if (d.monitored) "monitored" else "not monitored, tap to monitor",
-                        Modifier.fillMaxWidth(),
-                        icon = if (d.monitored) AppIcons.Monitored else AppIcons.NotMonitored,
-                        accent = if (d.monitored) WarnAmber else accent,
-                    ) {
-                        scope.launch {
-                            st.actionMsg = vm.arrSetLibraryMonitored(config, itemId, !d.monitored)
-                            st.detail = runCatching { vm.arrDetailOf(config, itemId) }.getOrNull() ?: st.detail
+                        Column(Modifier.weight(1f)) {
+                            val chips = buildList {
+                                d?.year?.takeIf { it > 0 }?.let { add("year" to it.toString()) }
+                                d?.sizeMb?.takeIf { it > 0 }?.let { add("size" to if (it >= 1024) "%.1f GB".format(it / 1024.0) else "$it MB") }
+                                d?.facts?.let { addAll(it) }
+                            }
+                            FactGrid(chips, accent)
                         }
                     }
-                }
-                // Radarr: the movie's one file, tappable for the details.
-                if (!isSonarr && !isLidarr) {
-                    st.files?.values?.firstOrNull()?.let { f ->
+                    if (d != null) {
+                        Spacer(Modifier.height(10.dp))
+                        // Whole-item monitor toggle. For Lidarr this is essential: albums are only searched
+                        // when the artist itself is monitored.
+                        SecondaryButton(
+                            if (d.monitored) "monitored" else "not monitored, tap to monitor",
+                            Modifier.fillMaxWidth(),
+                            icon = if (d.monitored) AppIcons.Monitored else AppIcons.NotMonitored,
+                            accent = if (d.monitored) WarnAmber else accent,
+                        ) {
+                            scope.launch {
+                                st.actionMsg = vm.arrSetLibraryMonitored(config, itemId, !d.monitored)
+                                st.detail = runCatching { vm.arrDetailOf(config, itemId) }.getOrNull() ?: st.detail
+                            }
+                        }
+                    }
+                    // Radarr: the movie's one file, tappable for the details.
+                    if (!isSonarr && !isLidarr) {
+                        st.files?.values?.firstOrNull()?.let { f ->
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "file: ${fileSummary(f)}",
+                                fontFamily = Mono, color = if (f.cutoffNotMet) WarnAmber else accent, fontSize = 12.sp,
+                                modifier = Modifier.fillMaxWidth().clickable { st.fileOpen = f to (d?.title ?: "File") }.padding(vertical = 6.dp),
+                            )
+                        }
+                    }
+                    if (!d?.genres.isNullOrBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(d!!.genres, fontFamily = Mono, color = accent.copy(alpha = 0.85f), fontSize = 11.sp)
+                    }
+                    st.actionMsg?.let {
                         Spacer(Modifier.height(8.dp))
-                        Text(
-                            "file: ${fileSummary(f)}",
-                            fontFamily = Mono, color = if (f.cutoffNotMet) WarnAmber else accent, fontSize = 12.sp,
-                            modifier = Modifier.fillMaxWidth().clickable { st.fileOpen = f to (d?.title ?: "File") }.padding(vertical = 6.dp),
-                        )
+                        Text(it, fontFamily = Mono, color = if (it.startsWith("error")) ErrRed else MatrixGreen, fontSize = 12.sp)
                     }
-                }
-                if (!d?.genres.isNullOrBlank()) {
-                    Spacer(Modifier.height(6.dp))
-                    Text(d!!.genres, fontFamily = Mono, color = accent.copy(alpha = 0.85f), fontSize = 11.sp)
-                }
-                st.actionMsg?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Text(it, fontFamily = Mono, color = if (it.startsWith("error")) ErrRed else MatrixGreen, fontSize = 12.sp)
-                }
-                if (!d?.overview.isNullOrBlank()) {
-                    Spacer(Modifier.height(10.dp))
-                    Text(d!!.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp)
-                }
-                if (!st.availability.isEmpty) {
-                    Spacer(Modifier.height(14.dp))
-                    WatchProviderSection(st.availability, accent)
-                }
-                val cst = st.cast
-                if (!cst.isNullOrEmpty()) {
+                    if (!d?.overview.isNullOrBlank()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(d!!.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp)
+                    }
+                    if (!st.availability.isEmpty) {
+                        Spacer(Modifier.height(14.dp))
+                        WatchProviderSection(st.availability, accent)
+                    }
+                    val cst = st.cast
+                    if (!cst.isNullOrEmpty()) {
+                        Spacer(Modifier.height(12.dp))
+                        Text("CAST", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                        Spacer(Modifier.height(6.dp))
+                        Row(Modifier.horizontalScroll(rememberScrollState())) {
+                            cst.forEach { member ->
+                                Column(Modifier.width(84.dp).padding(end = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    if (member.profileUrl.isNotBlank()) {
+                                        AsyncImage(
+                                            model = member.profileUrl,
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.size(72.dp).clip(RoundedCornerShape(36.dp)).background(Surface),
+                                        )
+                                    } else {
+                                        Box(Modifier.size(72.dp).clip(RoundedCornerShape(36.dp)).background(Surface))
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(member.name, fontFamily = Mono, color = MatrixGreen, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                                    if (member.character.isNotBlank()) {
+                                        Text(member.character, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                                    }
+                                }
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(12.dp))
-                    Text("CAST", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                    Spacer(Modifier.height(6.dp))
-                    Row(Modifier.horizontalScroll(rememberScrollState())) {
-                        cst.forEach { member ->
-                            Column(Modifier.width(84.dp).padding(end = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                if (member.profileUrl.isNotBlank()) {
-                                    AsyncImage(
-                                        model = member.profileUrl,
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.size(72.dp).clip(RoundedCornerShape(36.dp)).background(Surface),
+                    HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
+                    if (isSonarr || isLidarr) {
+                        Spacer(Modifier.height(8.dp))
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                if (isLidarr) "ALBUMS" else "EPISODES",
+                                fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.weight(1f),
+                            )
+                            if (isSonarr) {
+                                Row(
+                                    Modifier.clickable {
+                                        oldestFirst = !oldestFirst
+                                        EpisodeOrder.setOldestFirst(context, oldestFirst)
+                                    }.padding(vertical = 6.dp, horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(
+                                        if (oldestFirst) AppIcons.MoveDown else AppIcons.MoveUp,
+                                        contentDescription = null, tint = accent, modifier = Modifier.size(14.dp),
                                     )
-                                } else {
-                                    Box(Modifier.size(72.dp).clip(RoundedCornerShape(36.dp)).background(Surface))
-                                }
-                                Spacer(Modifier.height(4.dp))
-                                Text(member.name, fontFamily = Mono, color = MatrixGreen, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-                                if (member.character.isNotBlank()) {
-                                    Text(member.character, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(if (oldestFirst) "episode 1 first" else "newest first", fontFamily = Mono, color = accent, fontSize = 11.sp)
                                 }
                             }
                         }
                     }
                 }
-                Spacer(Modifier.height(12.dp))
-                HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
-                if (isSonarr || isLidarr) {
-                    Spacer(Modifier.height(8.dp))
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            if (isLidarr) "ALBUMS" else "EPISODES",
-                            fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.weight(1f),
-                        )
-                        if (isSonarr) {
-                            Row(
-                                Modifier.clickable {
-                                    oldestFirst = !oldestFirst
-                                    EpisodeOrder.setOldestFirst(context, oldestFirst)
-                                }.padding(vertical = 6.dp, horizontal = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(
-                                    if (oldestFirst) AppIcons.MoveDown else AppIcons.MoveUp,
-                                    contentDescription = null, tint = accent, modifier = Modifier.size(14.dp),
+                if (isSonarr) {
+                    val eps = st.episodes
+                    when {
+                        eps == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
+                        eps.isEmpty() -> item { Text("no episodes", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
+                        else -> seasonsInOrder(eps, oldestFirst).forEach { (season, seasonEps) ->
+                            val open = season in st.openSeasons.orEmpty()
+                            // Fall back to the episodes when the series didn't list the season.
+                            val seasonMonitored = st.detail?.seasonMonitored?.get(season) ?: seasonEps.any { it.monitored }
+                            item(key = "season_$season") {
+                                SonarrSeasonHeader(
+                                    season = season,
+                                    episodeCount = seasonEps.size,
+                                    haveCount = seasonEps.count { it.hasFile },
+                                    accent = accent,
+                                    open = open,
+                                    monitored = seasonMonitored,
+                                    onToggleOpen = {
+                                        val now = st.openSeasons.orEmpty()
+                                        st.openSeasons = if (open) now - season else now + season
+                                    },
+                                    onToggleMonitor = {
+                                        scope.launch {
+                                            st.actionMsg = vm.arrSetSeasonMonitored(config, itemId, season, !seasonMonitored, seasonEps.map { it.id })
+                                            st.detail = runCatching { vm.arrDetailOf(config, itemId) }.getOrNull() ?: st.detail
+                                            st.episodes = runCatching { vm.arrEpisodesOf(config, itemId) }.getOrNull() ?: st.episodes
+                                        }
+                                    },
+                                    onAutoSearch = { scope.launch { st.actionMsg = vm.arrSearchSeason(config, itemId, season) } },
+                                    onSearch = {
+                                        openReleases(
+                                            movieId = null, episodeId = null,
+                                            seriesId = itemId, seasonNumber = season,
+                                            title = if (season == 0) "Specials" else "Season $season",
+                                        )
+                                    },
                                 )
-                                Spacer(Modifier.width(4.dp))
-                                Text(if (oldestFirst) "episode 1 first" else "newest first", fontFamily = Mono, color = accent, fontSize = 11.sp)
+                            }
+                            if (open) items(seasonEps, key = { it.id }) { ep ->
+                                ArrEpisodeRow(
+                                    ep, accent,
+                                    file = st.files?.get(ep.fileId),
+                                    onOpenFile = { f -> st.fileOpen = f to "S%02dE%02d %s".format(ep.seasonNumber, ep.episodeNumber, ep.title) },
+                                    onToggleMonitor = {
+                                        scope.launch {
+                                            vm.arrSetEpisodeMonitored(config, ep.id, !ep.monitored)
+                                            st.episodes = vm.arrEpisodesOf(config, itemId)
+                                        }
+                                    },
+                                ) {
+                                    openReleases(movieId = null, episodeId = ep.id, title = "S%02dE%02d %s".format(ep.seasonNumber, ep.episodeNumber, ep.title))
+                                }
                             }
                         }
                     }
                 }
-            }
-            if (isSonarr) {
-                val eps = st.episodes
-                when {
-                    eps == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
-                    eps.isEmpty() -> item { Text("no episodes", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
-                    else -> seasonsInOrder(eps, oldestFirst).forEach { (season, seasonEps) ->
-                        val open = season in st.openSeasons.orEmpty()
-                        // Fall back to the episodes when the series didn't list the season.
-                        val seasonMonitored = st.detail?.seasonMonitored?.get(season) ?: seasonEps.any { it.monitored }
-                        item(key = "season_$season") {
-                            SonarrSeasonHeader(
-                                season = season,
-                                episodeCount = seasonEps.size,
-                                haveCount = seasonEps.count { it.hasFile },
-                                accent = accent,
-                                open = open,
-                                monitored = seasonMonitored,
-                                onToggleOpen = {
-                                    val now = st.openSeasons.orEmpty()
-                                    st.openSeasons = if (open) now - season else now + season
-                                },
+                if (isLidarr) {
+                    val als = st.albums
+                    when {
+                        als == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
+                        als.isEmpty() -> item { Text("no albums", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
+                        else -> items(als, key = { it.id }) { al ->
+                            ArrAlbumRow(
+                                al, accent,
                                 onToggleMonitor = {
                                     scope.launch {
-                                        st.actionMsg = vm.arrSetSeasonMonitored(config, itemId, season, !seasonMonitored, seasonEps.map { it.id })
-                                        st.detail = runCatching { vm.arrDetailOf(config, itemId) }.getOrNull() ?: st.detail
-                                        st.episodes = runCatching { vm.arrEpisodesOf(config, itemId) }.getOrNull() ?: st.episodes
+                                        st.actionMsg = vm.arrSetAlbumMonitored(config, al.id, !al.monitored)
+                                        st.albums = runCatching { vm.arrAlbumsOf(config, itemId) }.getOrNull() ?: st.albums
                                     }
                                 },
-                                onAutoSearch = { scope.launch { st.actionMsg = vm.arrSearchSeason(config, itemId, season) } },
-                                onSearch = {
-                                    openReleases(
-                                        movieId = null, episodeId = null,
-                                        seriesId = itemId, seasonNumber = season,
-                                        title = if (season == 0) "Specials" else "Season $season",
-                                    )
+                                onQuickSearch = { scope.launch { st.actionMsg = vm.arrSearch(config, al.id) } },
+                                onOpen = {
+                                    st.trackAlbum = al; st.tracks = null
+                                    scope.launch { st.tracks = runCatching { vm.arrTracksOf(config, al.id) }.getOrDefault(emptyList()) }
                                 },
                             )
                         }
-                        if (open) items(seasonEps, key = { it.id }) { ep ->
-                            ArrEpisodeRow(
-                                ep, accent,
-                                file = st.files?.get(ep.fileId),
-                                onOpenFile = { f -> st.fileOpen = f to "S%02dE%02d %s".format(ep.seasonNumber, ep.episodeNumber, ep.title) },
-                                onToggleMonitor = {
-                                    scope.launch {
-                                        vm.arrSetEpisodeMonitored(config, ep.id, !ep.monitored)
-                                        st.episodes = vm.arrEpisodesOf(config, itemId)
-                                    }
-                                },
-                            ) {
-                                openReleases(movieId = null, episodeId = ep.id, title = "S%02dE%02d %s".format(ep.seasonNumber, ep.episodeNumber, ep.title))
-                            }
-                        }
-                    }
-                }
-            }
-            if (isLidarr) {
-                val als = st.albums
-                when {
-                    als == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
-                    als.isEmpty() -> item { Text("no albums", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp)) }
-                    else -> items(als, key = { it.id }) { al ->
-                        ArrAlbumRow(
-                            al, accent,
-                            onToggleMonitor = {
-                                scope.launch {
-                                    st.actionMsg = vm.arrSetAlbumMonitored(config, al.id, !al.monitored)
-                                    st.albums = runCatching { vm.arrAlbumsOf(config, itemId) }.getOrNull() ?: st.albums
-                                }
-                            },
-                            onQuickSearch = { scope.launch { st.actionMsg = vm.arrSearch(config, al.id) } },
-                            onOpen = {
-                                st.trackAlbum = al; st.tracks = null
-                                scope.launch { st.tracks = runCatching { vm.arrTracksOf(config, al.id) }.getOrDefault(emptyList()) }
-                            },
-                        )
                     }
                 }
             }

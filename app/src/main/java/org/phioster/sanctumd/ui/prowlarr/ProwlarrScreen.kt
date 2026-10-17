@@ -58,6 +58,7 @@ import org.phioster.sanctumd.model.ProwlarrIndexerItem
 import org.phioster.sanctumd.model.ProwlarrRelease
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.ui.DashboardViewModel
+import org.phioster.sanctumd.ui.common.RefreshBox
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.ui.theme.MatrixGreen
@@ -133,6 +134,7 @@ internal fun ProwlarrScreen(
             listError = t.message
         }
     }
+    fun pullRefresh() { actionMsg = null; scope.launch { refreshing = true; if (mode == 0) loadIndexers() else loadHistory(); refreshing = false } }
     LaunchedEffect(mode) {
         if (mode == 0 && indexers == null) loadIndexers()
         if (mode == 2 && history == null) loadHistory()
@@ -218,7 +220,7 @@ internal fun ProwlarrScreen(
                     FilterChip(selected = mode == 2, onClick = { mode = 2 }, label = { Text("History", fontFamily = Mono) })
                     Spacer(Modifier.weight(1f))
                     if (mode == 0 || mode == 2) {
-                        IconButton(enabled = !refreshing, onClick = { actionMsg = null; scope.launch { refreshing = true; if (mode == 0) loadIndexers() else loadHistory(); refreshing = false } }) {
+                        IconButton(enabled = !refreshing, onClick = { pullRefresh() }) {
                             if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), color = MatrixGreen, strokeWidth = 2.dp)
                             else Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                         }
@@ -251,54 +253,56 @@ internal fun ProwlarrScreen(
                 }
             }
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
-            SwipeTabs(mode, 3, { mode = it }, Modifier.weight(1f).fillMaxWidth()) { page ->
-                if (listError != null) {
-                    Text(org.phioster.sanctumd.ui.services.friendlyStatusError(listError), fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
-                } else {
-                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                        when (page) {
-                            0 -> {
-                                val ix = indexers
-                                when {
-                                    ix == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    ix.isEmpty() -> item { Text("no indexers", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(ix) { row ->
-                                        ProwlarrIndexerRow(
-                                            item = row,
-                                            accent = accent,
-                                            onTest = { act({ vm.prowlarrTest(config, row.id) }, false) },
-                                            onToggle = { act({ vm.prowlarrToggle(config, row.id, !row.enable) }, true) },
-                                            onEdit = {
-                                                editIndexer = row
-                                            },
-                                            onDelete = { confirmDelIndexer = row },
-                                        )
+            RefreshBox(refreshing, { pullRefresh() }, Modifier.weight(1f).fillMaxWidth()) {
+                SwipeTabs(mode, 3, { mode = it }, Modifier.fillMaxSize()) { page ->
+                    if (listError != null) {
+                        Text(org.phioster.sanctumd.ui.services.friendlyStatusError(listError), fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
+                    } else {
+                        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                            when (page) {
+                                0 -> {
+                                    val ix = indexers
+                                    when {
+                                        ix == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        ix.isEmpty() -> item { Text("no indexers", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        else -> items(ix) { row ->
+                                            ProwlarrIndexerRow(
+                                                item = row,
+                                                accent = accent,
+                                                onTest = { act({ vm.prowlarrTest(config, row.id) }, false) },
+                                                onToggle = { act({ vm.prowlarrToggle(config, row.id, !row.enable) }, true) },
+                                                onEdit = {
+                                                    editIndexer = row
+                                                },
+                                                onDelete = { confirmDelIndexer = row },
+                                            )
+                                        }
                                     }
                                 }
-                            }
-                            1 -> {
-                                val r = releases
-                                when {
-                                    searching -> item { Text("searching…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    r == null -> item { Text("enter a query and search", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    r.isEmpty() -> item { Text("no results", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(r) { rel ->
-                                        ProwlarrReleaseRow(
-                                            item = rel,
-                                            accent = accent,
-                                            arrTargets = arrTargets,
-                                            onGrab = { confirmGrab = rel },
-                                            onSendTo = { target -> scope.launch { actionMsg = vm.sendReleaseToArr(target, rel) } },
-                                        )
+                                1 -> {
+                                    val r = releases
+                                    when {
+                                        searching -> item { Text("searching…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        r == null -> item { Text("enter a query and search", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        r.isEmpty() -> item { Text("no results", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        else -> items(r) { rel ->
+                                            ProwlarrReleaseRow(
+                                                item = rel,
+                                                accent = accent,
+                                                arrTargets = arrTargets,
+                                                onGrab = { confirmGrab = rel },
+                                                onSendTo = { target -> scope.launch { actionMsg = vm.sendReleaseToArr(target, rel) } },
+                                            )
+                                        }
                                     }
                                 }
-                            }
-                            else -> {
-                                val h = history
-                                when {
-                                    h == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    h.isEmpty() -> item { Text("no history", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(h) { ev -> ProwlarrHistoryRow(ev, accent) }
+                                else -> {
+                                    val h = history
+                                    when {
+                                        h == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        h.isEmpty() -> item { Text("no history", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        else -> items(h) { ev -> ProwlarrHistoryRow(ev, accent) }
+                                    }
                                 }
                             }
                         }

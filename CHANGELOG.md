@@ -3,6 +3,18 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Pull to refresh, and lists that keep up by themselves (v2.1.25)
+- **Pull to refresh everywhere.** Sonarr/Radarr (list and detail), NZBGet, Prowlarr, Seerr,
+  Jellyfin, ntfy and the stats screen refresh with a pull down, like the home screen.
+- **Auto refresh where things move on their own,** and only while the screen is open; in the
+  background it stops:
+  - NZBGet queue every 3 s while downloading or unpacking, every 15 s when idle;
+  - Sonarr/Radarr queue and history every 10 s;
+  - Jellyfin Now Playing every 5 s, and the task list every 3 s while a task runs;
+  - Seerr requests every 30 s.
+  Libraries, settings and catalogs only refresh on a pull, since nothing changes there by
+  itself.
+
 ## Jellyfin admin: keys, remote, plugin updates (v2.1.24)
 - **Cancel a task.** A running scheduled task has "cancel" next to its progress.
 - **API keys.** A new "API keys" tile lists the server's keys with the app that uses them; a

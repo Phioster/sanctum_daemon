@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.ui.DashboardViewModel
+import org.phioster.sanctumd.ui.common.RefreshBox
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.MatrixGreen
 import org.phioster.sanctumd.ui.theme.Mono
@@ -88,9 +89,10 @@ internal fun NtfyScreen(
     var barMenu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
 
-    suspend fun load() {
+    /** [clear] shows "loading…" first; a pull keeps the list until the new one is there. */
+    suspend fun load(clear: Boolean = true) {
         listError = null
-        messages = null
+        if (clear) messages = null
         try {
             messages = vm.ntfyMessages(config, topic)
         } catch (c: kotlinx.coroutines.CancellationException) {
@@ -100,6 +102,7 @@ internal fun NtfyScreen(
         }
     }
     LaunchedEffect(topic) { if (topic.isNotBlank()) load() }
+    var refreshing by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = Black,
@@ -140,19 +143,21 @@ internal fun NtfyScreen(
                 listError != null -> Text("error: $listError", fontFamily = Mono, color = WarnAmber, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
                 msgs == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
                 msgs.isEmpty() -> Text("no cached messages (server keeps ~12 h)", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
-                else -> LazyColumn(Modifier.fillMaxSize()) {
-                    items(msgs) { m ->
-                        val time = if (m.time > 0) java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(m.time * 1000)) else ""
-                        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(m.title.ifBlank { m.topic }, fontFamily = Mono, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                                Text(time, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp)
+                else -> RefreshBox(refreshing, { scope.launch { refreshing = true; load(clear = false); refreshing = false } }, Modifier.fillMaxSize()) {
+                    LazyColumn(Modifier.fillMaxSize()) {
+                        items(msgs) { m ->
+                            val time = if (m.time > 0) java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(m.time * 1000)) else ""
+                            Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(m.title.ifBlank { m.topic }, fontFamily = Mono, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                    Text(time, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp)
+                                }
+                                Text(m.text, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.85f), fontSize = 12.sp)
                             }
-                            Text(m.text, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.85f), fontSize = 12.sp)
+                            HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
                         }
-                        HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
+                        item { Spacer(Modifier.height(24.dp)) }
                     }
-                    item { Spacer(Modifier.height(24.dp)) }
                 }
             }
         }
