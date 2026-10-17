@@ -33,6 +33,8 @@ import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -113,6 +115,7 @@ internal class JellyfinAdminState {
     var logView by mutableStateOf<String?>(null) // log file name being viewed
     var logText by mutableStateOf<String?>(null) // its content (null = loading)
     var editLibrary by mutableStateOf<JellyLibrary?>(null)
+    var libraryOptions by mutableStateOf<JellyLibrary?>(null)
     var showAddLibrary by mutableStateOf(false)
     var pluginDetail by mutableStateOf<JellyPlugin?>(null)
     var showCatalog by mutableStateOf(false)
@@ -212,6 +215,8 @@ internal fun LazyListScope.jellyfinDashboardTab(
                 DashCat("missing", "Missing", st.missing?.size, Icons.Filled.EventBusy),
                 DashCat("backups", "Backups", st.backups?.size, Icons.Filled.Backup),
                 DashCat("apikeys", "API keys", st.apiKeys?.size, Icons.Filled.Key),
+                DashCat("server", "Server", null, Icons.Filled.Settings),
+                DashCat("transcoding", "Transcoding", null, Icons.Filled.Memory),
             )
             cats.chunked(2).forEach { rowCats ->
                 Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -256,6 +261,7 @@ internal fun LazyListScope.jellyfinDashboardTab(
                     else -> items(ac) { e -> JellyActivityRow(e, accent) }
                 }
             }
+            "server", "transcoding" -> item { JellySettingsPage(vm, config, accent, st.section!!, onMessage) }
             "libraries" -> {
                 item {
                     Text(
@@ -475,7 +481,11 @@ internal fun JellyfinAdminDialogs(
                 st.editLibrary = null
                 scope.launch { onMessage(vm.jellyfinRemoveLibrary(config, lib.name)); onReload() }
             },
+            onOptions = { st.editLibrary = null; st.libraryOptions = lib },
         )
+    }
+    st.libraryOptions?.let { lib ->
+        JellyLibraryOptionsDialog(vm, config, lib, accent, onMessage) { st.libraryOptions = null }
     }
 
     // Closing reloads the catalog, since a changed repository changes what updates exist.

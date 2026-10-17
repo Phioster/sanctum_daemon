@@ -944,6 +944,15 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         jellyfinAddLibraryPath(config, libraryName, path)
     suspend fun jellyfinLibraryRemovePath(config: ServiceConfig, libraryName: String, path: String): String =
         jellyfinRemoveLibraryPath(config, libraryName, path)
+    suspend fun jfServerSettings(config: ServiceConfig) = org.phioster.sanctumd.net.jellyfinServerSettings(config)
+    suspend fun jfSaveServerSettings(config: ServiceConfig, s: kotlinx.serialization.json.JsonObject) = org.phioster.sanctumd.net.jellyfinSaveServerSettings(config, s)
+    suspend fun jfEncodingSettings(config: ServiceConfig) = org.phioster.sanctumd.net.jellyfinEncodingSettings(config)
+    suspend fun jfSaveEncodingSettings(config: ServiceConfig, s: kotlinx.serialization.json.JsonObject) = org.phioster.sanctumd.net.jellyfinSaveEncodingSettings(config, s)
+    suspend fun jfLibraryOptions(config: ServiceConfig, id: String, type: String) = org.phioster.sanctumd.net.jellyfinLibraryOptions(config, id, type)
+    suspend fun jfSaveLibraryOptions(config: ServiceConfig, id: String, name: String, o: kotlinx.serialization.json.JsonObject) =
+        org.phioster.sanctumd.net.jellyfinSaveLibraryOptions(config, id, name, o)
+    suspend fun jfChoiceSources(config: ServiceConfig, available: kotlinx.serialization.json.JsonObject? = null) =
+        org.phioster.sanctumd.net.jellyfinChoiceSources(config, available)
     suspend fun jellyfinPluginList(config: ServiceConfig): List<org.phioster.sanctumd.model.JellyPlugin> =
         jellyfinPlugins(config)
     suspend fun jellyfinPluginEnable(config: ServiceConfig, id: String, version: String, enabled: Boolean): String =
