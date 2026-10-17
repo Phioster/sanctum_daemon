@@ -1,5 +1,9 @@
 package org.phioster.sanctumd.ui.nzbget
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
@@ -141,6 +145,8 @@ internal fun NzbgetScreen(
     }) { loadQueue() }
 
     var showAdd by remember { mutableStateOf(false) }
+    var showServers by remember { mutableStateOf(false) }
+    var picked by remember { mutableStateOf<PendingNzb?>(null) }
     /** The log dialog: null closed, (null, _) the whole server log, (id, name) one download's. */
     var logTarget by remember { mutableStateOf<Pair<Int?, String>?>(null) }
     var addUrl by remember { mutableStateOf("") }
@@ -149,12 +155,20 @@ internal fun NzbgetScreen(
     var categoryFor by remember { mutableStateOf<Int?>(null) }
     var categoryText by remember { mutableStateOf("") }
     val context = LocalContext.current
+    val pickNzb = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch { picked = withContext(Dispatchers.IO) { readNzb(context, uri) } }
+    }
     fun act(action: suspend () -> String) {
         scope.launch {
             actionMsg = action()
             if (tab == 0) loadQueue() else loadHistory()
             vm.refreshAll()
         }
+    }
+
+    if (showServers) {
+        NzbServersScreen(vm, config, onBack = { showServers = false })
+        return
     }
 
     Scaffold(
@@ -178,8 +192,8 @@ internal fun NzbgetScreen(
                     ServiceMenuButton(
                         config = config,
                         primary = listOf(
-                            MenuAction("Add NZB", AppIcons.Add) { showAdd = true },
-                            MenuAction("Web UI", AppIcons.Open) { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(config.baseUrl))) } },
+                            MenuAction("Upload NZB", AppIcons.Add) { pickNzb.launch(arrayOf("application/x-nzb", "application/octet-stream", "text/xml", "application/xml")) },
+                            MenuAction("Add by URL", AppIcons.Download) { showAdd = true },
                         ),
                         sections = listOf(
                             MenuSection("Speed limit", listOf(
@@ -188,12 +202,14 @@ internal fun NzbgetScreen(
                                 MenuAction("10 MB/s", AppIcons.Speed) { act { vm.nzbRate(config, 10240) } },
                             )),
                             MenuSection("Server", listOf(
+                                MenuAction("News servers", AppIcons.Server) { showServers = true },
                                 if (postPaused) MenuAction("Resume post-processing", AppIcons.Play) { act { vm.nzbPostPause(config, false) } }
                                 else MenuAction("Pause post-processing", AppIcons.Pause) { act { vm.nzbPostPause(config, true) } },
                                 MenuAction("Server details", AppIcons.Server) {
                                     scope.launch { serverInfo = runCatching { vm.nzbServer(config) }.getOrNull() ?: listOf("error" to "could not load") }
                                 },
                                 MenuAction("Log", AppIcons.Logs) { logTarget = null to "Log" },
+                                MenuAction("Web UI", AppIcons.Open) { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(config.baseUrl))) } },
                             )),
                         ),
                         onEdit = onEdit,
@@ -310,6 +326,12 @@ internal fun NzbgetScreen(
         }
     }
 
+    picked?.let { file ->
+        NzbUploadDialog(vm, file, preselected = config) { msg ->
+            picked = null
+            if (msg != null) { actionMsg = msg; scope.launch { loadQueue() } }
+        }
+    }
     logTarget?.let { (id, title) ->
         NzbLogDialog(title = title, load = { if (id == null) vm.nzbLog(config) else vm.nzbItemLog(config, id) }) { logTarget = null }
     }

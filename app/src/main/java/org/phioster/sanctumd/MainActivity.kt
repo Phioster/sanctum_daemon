@@ -93,6 +93,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             }
         }
         vm.setRoute(routeFromIntent(intent)) // launcher shortcut, if any
+        if (savedInstanceState == null) takeSharedNzb(intent)
         // Before the first frame, or the app paints matrix green and then repaints.
         org.phioster.sanctumd.ui.theme.ThemeState.palette = org.phioster.sanctumd.ui.theme.ThemeStore.read(this)
         setContent {
@@ -106,6 +107,20 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         routeFromIntent(intent)?.let { vm.setRoute(it) }
+        takeSharedNzb(intent)
+    }
+
+    /** An .nzb shared to the app or opened with it: read now, uploaded once the user picks where. */
+    private fun takeSharedNzb(intent: android.content.Intent?) {
+        val uri = when (intent?.action) {
+            android.content.Intent.ACTION_SEND -> androidx.core.content.IntentCompat.getParcelableExtra(intent, android.content.Intent.EXTRA_STREAM, android.net.Uri::class.java)
+            android.content.Intent.ACTION_VIEW -> intent.data?.takeIf { it.scheme == "content" || it.scheme == "file" }
+            else -> null
+        } ?: return
+        lifecycleScope.launch {
+            val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { org.phioster.sanctumd.ui.nzbget.readNzb(this@MainActivity, uri) }
+            vm.setPendingNzb(file)
+        }
     }
 
     /** The only routes the app navigates to from an intent. It is exported, so any app can send one. */
@@ -226,6 +241,10 @@ internal fun SanctumdApp(vm: DashboardViewModel = viewModel()) {
     var statsOpen by remember { mutableStateOf(false) }
     var detailFromSearch by remember { mutableStateOf(false) } // service opened from search results
     var searchDeepLink by remember { mutableStateOf<SearchDeepLink?>(null) }
+    val sharedNzb by vm.pendingNzb.collectAsState()
+    sharedNzb?.let { file ->
+        org.phioster.sanctumd.ui.nzbget.NzbUploadDialog(vm, file) { vm.setPendingNzb(null) }
+    }
 
     // Back from a service returns to where it was opened from (search stays search).
     val closeDetail = {
