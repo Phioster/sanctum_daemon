@@ -109,6 +109,8 @@ internal fun ProwlarrScreen(
     var searching by remember { mutableStateOf(false) }
     var confirmGrab by remember { mutableStateOf<ProwlarrRelease?>(null) }
     var showSystem by remember { mutableStateOf(false) }
+    var showLogs by remember { mutableStateOf(false) }
+    var showBackups by remember { mutableStateOf(false) }
     var confirmDelIndexer by remember { mutableStateOf<ProwlarrIndexerItem?>(null) }
     var editIndexer by remember { mutableStateOf<ProwlarrIndexerItem?>(null) }
     var showAddSchema by remember { mutableStateOf(false) }
@@ -190,6 +192,8 @@ internal fun ProwlarrScreen(
                             DropdownMenuItem(text = { Text("System, apps & tasks", fontFamily = Mono) }, onClick = {
                                 barMenu = false; showSystem = true
                             })
+                            DropdownMenuItem(text = { Text("Logs", fontFamily = Mono) }, onClick = { barMenu = false; showLogs = true })
+                            DropdownMenuItem(text = { Text("Backups", fontFamily = Mono) }, onClick = { barMenu = false; showBackups = true })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
                         }
@@ -364,6 +368,8 @@ internal fun ProwlarrScreen(
     }
 
     if (showSystem) ProwlarrSystemDialog(vm, config) { showSystem = false }
+    if (showLogs) org.phioster.sanctumd.ui.arr.ArrLogsDialog(vm, config) { showLogs = false }
+    if (showBackups) org.phioster.sanctumd.ui.arr.ArrBackupsDialog(vm, config, accent) { showBackups = false }
 }
 
 @Composable

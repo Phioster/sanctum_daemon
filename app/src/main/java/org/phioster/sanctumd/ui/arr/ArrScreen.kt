@@ -122,6 +122,9 @@ internal fun ArrScreen(
     var showIndexers by remember { mutableStateOf(false) }
     var showProfiles by remember { mutableStateOf(false) }
     var showBlocklist by remember { mutableStateOf(false) }
+    var showLogs by remember { mutableStateOf(false) }
+    var showBackups by remember { mutableStateOf(false) }
+    var showExclusions by remember { mutableStateOf(false) }
     val prowlarr = remember { vm.prowlarrService() }
     var prowlarrSearchFor by remember { mutableStateOf<String?>(null) }
     var importAt by remember { mutableStateOf<ArrImportStart?>(null) }
@@ -262,6 +265,12 @@ internal fun ArrScreen(
                             DropdownMenuItem(text = { Text("Indexers", fontFamily = Mono) }, onClick = { barMenu = false; showIndexers = true })
                             DropdownMenuItem(text = { Text("Quality profiles", fontFamily = Mono) }, onClick = { barMenu = false; showProfiles = true })
                             DropdownMenuItem(text = { Text("Blocklist", fontFamily = Mono) }, onClick = { barMenu = false; showBlocklist = true })
+                            // Lidarr keeps exclusions under another route and shape; only Sonarr and Radarr here.
+                            if (config.type == ServiceType.SONARR || config.type == ServiceType.RADARR) {
+                                DropdownMenuItem(text = { Text("Import exclusions", fontFamily = Mono) }, onClick = { barMenu = false; showExclusions = true })
+                            }
+                            DropdownMenuItem(text = { Text("Logs", fontFamily = Mono) }, onClick = { barMenu = false; showLogs = true })
+                            DropdownMenuItem(text = { Text("Backups", fontFamily = Mono) }, onClick = { barMenu = false; showBackups = true })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono) }, onClick = { barMenu = false; onDelete() })
                         }
@@ -440,6 +449,9 @@ internal fun ArrScreen(
         }
     }
 
+    if (showLogs) ArrLogsDialog(vm, config) { showLogs = false }
+    if (showBackups) ArrBackupsDialog(vm, config, accent) { showBackups = false }
+    if (showExclusions) ArrExclusionsDialog(vm, config, accent) { showExclusions = false }
     if (showBlocklist) {
         ArrBlocklistDialog(vm, config, accent, onDismiss = { showBlocklist = false }) { actionMsg = it }
     }

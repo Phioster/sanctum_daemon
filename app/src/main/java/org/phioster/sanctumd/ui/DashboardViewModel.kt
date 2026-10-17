@@ -574,6 +574,12 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.net.jellyfinCreateCollection(config, name, itemId)
     suspend fun jellyfinToggleCollection(config: ServiceConfig, collectionId: String, itemId: String, add: Boolean): String =
         org.phioster.sanctumd.net.jellyfinSetInCollection(config, collectionId, itemId, add)
+    suspend fun arrLogLines(config: ServiceConfig, level: String): List<org.phioster.sanctumd.net.ArrLogLine> = org.phioster.sanctumd.net.arrLogs(config, level)
+    suspend fun arrBackupList(config: ServiceConfig): List<org.phioster.sanctumd.net.ArrBackup> = org.phioster.sanctumd.net.arrBackups(config)
+    suspend fun arrBackupNow(config: ServiceConfig): String = org.phioster.sanctumd.net.arrCreateBackup(config)
+    suspend fun arrBackupDelete(config: ServiceConfig, id: Int): String = org.phioster.sanctumd.net.arrDeleteBackup(config, id)
+    suspend fun arrExclusionList(config: ServiceConfig): List<org.phioster.sanctumd.net.ArrExclusion> = org.phioster.sanctumd.net.arrExclusions(config)
+    suspend fun arrExclusionRemove(config: ServiceConfig, id: Int): String = org.phioster.sanctumd.net.arrRemoveExclusion(config, id)
     suspend fun jellyfinCancelTaskById(config: ServiceConfig, taskId: String): String = org.phioster.sanctumd.net.jellyfinCancelTask(config, taskId)
     suspend fun jellyfinApiKeyList(config: ServiceConfig): List<org.phioster.sanctumd.net.JellyApiKey> = org.phioster.sanctumd.net.jellyfinApiKeys(config)
     suspend fun jellyfinNewApiKey(config: ServiceConfig, app: String): String = org.phioster.sanctumd.net.jellyfinCreateApiKey(config, app)
