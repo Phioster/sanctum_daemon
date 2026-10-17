@@ -972,6 +972,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun queue(config: ServiceConfig): List<NzbQueueItem> = nzbgetQueue(config)
     suspend fun history(config: ServiceConfig, hidden: Boolean): List<NzbHistoryEntry> = nzbgetHistory(config, hidden)
+    suspend fun nzbLog(config: ServiceConfig): List<org.phioster.sanctumd.model.NzbLogEntry> = org.phioster.sanctumd.net.nzbgetLog(config)
+    suspend fun nzbItemLog(config: ServiceConfig, id: Int): List<org.phioster.sanctumd.model.NzbLogEntry> =
+        org.phioster.sanctumd.net.nzbgetItemLog(config, id)
     suspend fun nzbEdit(config: ServiceConfig, command: String, id: Int, editText: String = ""): String =
         runNzbEditQueue(config, command, id, editText)
     suspend fun nzbRate(config: ServiceConfig, kbps: Int): String = runNzbRate(config, kbps)
@@ -1192,6 +1195,18 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun seerrRequestDetailOf(config: ServiceConfig, id: Int): org.phioster.sanctumd.model.SeerrRequestDetail =
         org.phioster.sanctumd.net.seerrRequestDetail(config, id)
     suspend fun seerrRetryReq(config: ServiceConfig, id: Int): String = org.phioster.sanctumd.net.seerrRetryRequest(config, id)
+    suspend fun seerrUpdateReq(
+        config: ServiceConfig,
+        d: org.phioster.sanctumd.model.SeerrRequestDetail,
+        serverId: Int?,
+        profileId: Int?,
+        rootFolder: String?,
+        seasons: List<Int>,
+    ): String = org.phioster.sanctumd.net.seerrUpdateRequest(config, d.id, d.mediaType, d.is4k, serverId, profileId, rootFolder, seasons)
+    suspend fun seerrOptionsFor(config: ServiceConfig, mediaType: String): org.phioster.sanctumd.model.SeerrServiceOptions =
+        org.phioster.sanctumd.net.seerrServiceOptions(config, mediaType)
+    suspend fun seerrSeasonsOf(config: ServiceConfig, tmdbId: Int): List<org.phioster.sanctumd.model.SeerrSeason> =
+        org.phioster.sanctumd.net.seerrSeasons(config, tmdbId)
     suspend fun seerrMarkAvailable(config: ServiceConfig, mediaId: Int, is4k: Boolean): String =
         org.phioster.sanctumd.net.seerrMarkAvailable(config, mediaId, is4k)
     suspend fun seerrResetMedia(config: ServiceConfig, mediaId: Int): String = org.phioster.sanctumd.net.seerrResetMedia(config, mediaId)

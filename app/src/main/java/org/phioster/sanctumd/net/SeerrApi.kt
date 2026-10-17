@@ -44,6 +44,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -142,6 +143,7 @@ internal interface SeerrApi {
     @GET("api/v1/request/{id}") suspend fun requestDetail(@Path("id") id: Int): JsonObject
     @GET("api/v1/issue/{id}") suspend fun issueDetail(@Path("id") id: Int): JsonObject
     @DELETE("api/v1/request/{id}") suspend fun deleteRequest(@Path("id") id: Int): Response<ResponseBody>
+    @PUT("api/v1/request/{id}") suspend fun updateRequest(@Path("id") id: Int, @Body body: JsonObject): Response<ResponseBody>
     @POST("api/v1/request/{id}/retry") suspend fun retryRequest(@Path("id") id: Int): Response<ResponseBody>
     @POST("api/v1/media/{id}/{status}") suspend fun setMediaStatus(
         @Path("id") id: Int,
@@ -512,11 +514,57 @@ suspend fun seerrRequestDetail(config: ServiceConfig, id: Int): SeerrRequestDeta
             pending = status == 1,
             tmdbId = tmdb,
             tvdbId = jsInt(media, "tvdbId") ?: 0,
+            serverId = jsInt(o, "serverId"),
+            profileId = profileId,
+            rootFolderPath = jsStr(o, "rootFolder")?.takeIf { it.isNotBlank() },
+            seasons = (o["seasons"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.let { s -> jsInt(s, "seasonNumber") } }.sorted(),
             failed = status == 4,
             mediaId = jsInt(media, "id") ?: 0,
             mediaStatus = seerrMediaStatusText(jsInt(media, if (jsBool(o, "is4k") == true) "status4k" else "status") ?: 0),
         )
     }
+
+/**
+ * The body of `PUT /request/{id}`. Seerr replaces what it is given, so a TV request always
+ * carries its seasons: leaving them out would drop every requested season.
+ */
+internal fun requestUpdateBody(
+    mediaType: String,
+    is4k: Boolean,
+    serverId: Int?,
+    profileId: Int?,
+    rootFolder: String?,
+    seasons: List<Int>,
+): JsonObject = buildJsonObject {
+    put("mediaType", mediaType)
+    put("is4k", is4k)
+    serverId?.let { put("serverId", it) }
+    profileId?.let { put("profileId", it) }
+    rootFolder?.let { put("rootFolder", it) }
+    if (mediaType == "tv") putJsonArray("seasons") { seasons.sorted().forEach { add(it) } }
+}
+
+/** Changes a pending request's profile, folder or seasons before it is approved. */
+suspend fun seerrUpdateRequest(
+    config: ServiceConfig,
+    id: Int,
+    mediaType: String,
+    is4k: Boolean,
+    serverId: Int?,
+    profileId: Int?,
+    rootFolder: String?,
+    seasons: List<Int>,
+): String = destructive("edit Seerr request $id") {
+    withContext(Dispatchers.IO) {
+        try {
+            val r = apiFor<SeerrApi>(config, apiKeyHeader(config))
+                .updateRequest(id, requestUpdateBody(mediaType, is4k, serverId, profileId, rootFolder, seasons))
+            if (r.code() == 409) "error: only pending requests can be changed" else okOr(r, "updated")
+        } catch (t: Throwable) {
+            "error: ${t.message ?: t.javaClass.simpleName}"
+        }
+    }
+}
 
 /** Sends a failed request to Radarr/Sonarr again. Older Seerr builds lack the route (404). */
 suspend fun seerrRetryRequest(config: ServiceConfig, id: Int): String =
