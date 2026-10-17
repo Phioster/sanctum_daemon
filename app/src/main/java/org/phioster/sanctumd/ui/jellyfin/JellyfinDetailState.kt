@@ -57,6 +57,7 @@ internal class JellyfinDetailState {
     var editMetadata by mutableStateOf<JellyMediaDetail?>(null)
     var images by mutableStateOf<JellyMediaDetail?>(null)
     var collections by mutableStateOf<JellyMediaDetail?>(null)
+    var uploadSubtitle by mutableStateOf<JellyMediaDetail?>(null)
     var delete by mutableStateOf<JellyMediaDetail?>(null)
     var cast by mutableStateOf<JellyMediaDetail?>(null)
 

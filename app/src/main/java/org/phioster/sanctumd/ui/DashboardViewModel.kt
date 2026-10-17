@@ -574,6 +574,16 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.net.jellyfinCreateCollection(config, name, itemId)
     suspend fun jellyfinToggleCollection(config: ServiceConfig, collectionId: String, itemId: String, add: Boolean): String =
         org.phioster.sanctumd.net.jellyfinSetInCollection(config, collectionId, itemId, add)
+    suspend fun jellyfinCancelTaskById(config: ServiceConfig, taskId: String): String = org.phioster.sanctumd.net.jellyfinCancelTask(config, taskId)
+    suspend fun jellyfinApiKeyList(config: ServiceConfig): List<org.phioster.sanctumd.net.JellyApiKey> = org.phioster.sanctumd.net.jellyfinApiKeys(config)
+    suspend fun jellyfinNewApiKey(config: ServiceConfig, app: String): String = org.phioster.sanctumd.net.jellyfinCreateApiKey(config, app)
+    suspend fun jellyfinRevokeKey(config: ServiceConfig, token: String): String = org.phioster.sanctumd.net.jellyfinRevokeApiKey(config, token)
+    suspend fun jellyfinRemoteCmd(config: ServiceConfig, sessionId: String, command: String): String =
+        org.phioster.sanctumd.net.jellyfinRemote(config, sessionId, command)
+    suspend fun jellyfinSplit(config: ServiceConfig, itemId: String): String = org.phioster.sanctumd.net.jellyfinSplitVersions(config, itemId)
+    suspend fun jellyfinSubtitleUpload(
+        config: ServiceConfig, itemId: String, language: String, format: String, forced: Boolean, hearingImpaired: Boolean, bytes: ByteArray,
+    ): String = org.phioster.sanctumd.net.jellyfinUploadSubtitle(config, itemId, language, format, forced, hearingImpaired, bytes)
     suspend fun jellyfinUpcomingList(config: ServiceConfig): List<org.phioster.sanctumd.net.JellyEpisodeLine> =
         org.phioster.sanctumd.net.jellyfinUpcoming(config)
     suspend fun jellyfinMissingList(config: ServiceConfig): List<org.phioster.sanctumd.net.JellyEpisodeLine> =

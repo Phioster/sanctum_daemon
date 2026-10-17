@@ -207,11 +207,17 @@ internal fun JellyPodium(stats: List<org.phioster.sanctumd.model.JellyWatchStat>
 }
 
 @Composable
-internal fun JellyTaskRow(item: org.phioster.sanctumd.model.JellyTask, accent: Color, onRun: () -> Unit) {
+internal fun JellyTaskRow(item: org.phioster.sanctumd.model.JellyTask, accent: Color, onCancel: () -> Unit = {}, onRun: () -> Unit) {
     val running = item.state.equals("Running", true)
     Column(Modifier.fillMaxWidth().clickable(enabled = !running) { onRun() }.padding(vertical = 8.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            if (running) {
+                Text(
+                    "cancel", fontFamily = Mono, color = ErrRed, fontSize = 11.sp,
+                    modifier = Modifier.clickable { onCancel() }.padding(horizontal = 8.dp, vertical = 2.dp),
+                )
+            }
             Text(
                 if (running) "${item.progress}%" else if (item.state.isNotBlank()) "running" else "",
                 fontFamily = Mono,
@@ -614,6 +620,7 @@ internal fun JellySessionRow(
     onPlayPause: () -> Unit,
     onStop: () -> Unit,
     onMessage: () -> Unit,
+    onRemote: () -> Unit = {},
 ) {
     val playing = item.nowPlaying.isNotEmpty()
     Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
@@ -664,6 +671,10 @@ internal fun JellySessionRow(
                 Spacer(Modifier.height(4.dp))
                 Text("no remote control", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.4f), fontSize = 10.sp)
             }
+        }
+        // Navigation and volume work on an idle TV too, so this isn't tied to playback.
+        if (item.canControl) {
+            TextButton(onClick = onRemote) { Text("remote", fontFamily = Mono, color = accent, fontSize = 12.sp) }
         }
         Spacer(Modifier.height(8.dp))
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))

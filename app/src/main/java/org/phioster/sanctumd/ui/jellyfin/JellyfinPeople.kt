@@ -48,6 +48,7 @@ internal class JellyfinPeopleState {
     var newUserPass by mutableStateOf("")
     /** Session id a message is being composed for. */
     var messageFor by mutableStateOf<String?>(null)
+    var remoteFor by mutableStateOf<org.phioster.sanctumd.model.JellySession?>(null)
     var messageText by mutableStateOf("")
 
     /** Returns an error message, or null when it worked. */
@@ -91,6 +92,7 @@ internal fun LazyListScope.jellyfinSessionsTab(
                 onPlayPause = { onAct { vm.jellyfinControl(config, sess.id, if (sess.paused) "Unpause" else "Pause") } },
                 onStop = { onAct { vm.jellyfinControl(config, sess.id, "Stop") } },
                 onMessage = { st.messageFor = sess.id; st.messageText = "" },
+                onRemote = { st.remoteFor = sess },
             )
         }
     }
@@ -129,6 +131,7 @@ internal fun JellyfinPeopleDialogs(
     onMessage: (String) -> Unit,
     onReloadUsers: suspend () -> Unit,
 ) {
+    st.remoteFor?.let { sess -> JellyRemoteDialog(vm, config, sess) { st.remoteFor = null } }
     st.messageFor?.let { sid ->
         AlertDialog(
             onDismissRequest = { st.messageFor = null },

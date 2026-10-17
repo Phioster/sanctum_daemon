@@ -367,6 +367,13 @@ internal interface JellyfinApi {
     @POST("Collections") suspend fun createCollection(@Query("name") name: String, @Query("ids") ids: String): Response<ResponseBody>
     @POST("Collections/{id}/Items") suspend fun addToCollection(@Path("id") id: String, @Query("ids") ids: String): Response<ResponseBody>
     @DELETE("Collections/{id}/Items") suspend fun removeFromCollection(@Path("id") id: String, @Query("ids") ids: String): Response<ResponseBody>
+    @DELETE("ScheduledTasks/Running/{id}") suspend fun cancelTask(@Path("id") id: String): Response<ResponseBody>
+    @GET("Auth/Keys") suspend fun apiKeys(): JsonObject
+    @POST("Auth/Keys") suspend fun createApiKey(@Query("app") app: String): Response<ResponseBody>
+    @DELETE("Auth/Keys/{key}") suspend fun revokeApiKey(@Path("key") key: String): Response<ResponseBody>
+    @POST("Sessions/{id}/Command/{command}") suspend fun sessionCommand(@Path("id") id: String, @Path("command") command: String): Response<ResponseBody>
+    @DELETE("Videos/{id}/AlternateSources") suspend fun splitVersions(@Path("id") id: String): Response<ResponseBody>
+    @POST("Videos/{id}/Subtitles") suspend fun uploadSubtitle(@Path("id") id: String, @Body body: JsonObject): Response<ResponseBody>
     @GET("Backup") suspend fun backups(): List<JsonObject>
     @POST("Backup/Create") suspend fun createBackup(@Body body: JsonObject): Response<ResponseBody>
     @POST("Backup/Restore") suspend fun restoreBackup(@Body body: JsonObject): Response<ResponseBody>

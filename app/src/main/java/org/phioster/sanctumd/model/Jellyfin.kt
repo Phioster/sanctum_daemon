@@ -260,6 +260,8 @@ data class JellyMediaDetail(
     val fileInfo: JellyFileInfo? = null, // null for folders (Series/Season) and anything without a media source
     /** Tmdb/Imdb/Tvdb ids. How a Jellyfin item is matched to its Radarr/Sonarr entry exactly. */
     val providerIds: Map<String, String> = emptyMap(),
+    /** How many files Jellyfin merged into this item; above 1 it can be split again. */
+    val versionCount: Int = 1,
 )
 
 /**

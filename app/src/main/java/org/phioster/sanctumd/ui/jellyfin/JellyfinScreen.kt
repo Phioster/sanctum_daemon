@@ -227,6 +227,13 @@ internal fun JellyfinScreen(
         }
     }
 
+    ds.uploadSubtitle?.let { target ->
+        JellyfinUploadSubtitleDialog(vm, config, target, accent, onDismiss = { ds.uploadSubtitle = null }) { msg ->
+            ds.uploadSubtitle = null
+            actionMsg = msg
+        }
+    }
+
     ds.collections?.let { target ->
         JellyfinCollectionsDialog(vm, config, target, accent, onDismiss = { ds.collections = null }) { msg -> actionMsg = msg }
     }
