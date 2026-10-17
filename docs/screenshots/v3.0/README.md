@@ -4,8 +4,8 @@ Taken on the real phone (Nothing Phone 3, 1260 px wide) with v2.1.39 in demo mod
 adb: the DEMO chip hidden by a long press, the status bar cropped off (162 px). No real names,
 addresses, topics or tokens; the only hosts shown are `demo.sanctumd.invalid` and `*.example`.
 
-`demo-raw.mp4` is the emulator recording from CI; it stutters and opens on the launcher, so it is
-not used. The demo video will be recorded on the phone instead.
+`demo-raw.mp4` is the phone recording the demo video is made from (seven scenes joined, no
+captions yet); see `docs/promo/v3.0/video.md`. The earlier emulator take stuttered and was replaced.
 
 ## What replaces what
 
