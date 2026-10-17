@@ -6,6 +6,13 @@ set -u
 out=docs/screenshots/v3.0
 mkdir -p "$out" shots
 adb wait-for-device
+# The showcase flow starts with clearState: it wipes the app's data on the device. On a
+# real phone that is the user's whole setup, so it only runs there when asked for.
+if [ "$(adb shell getprop ro.kernel.qemu | tr -d '\r')" != "1" ] && [ "${CONFIRM_WIPE:-}" != "1" ]; then
+  echo "not an emulator: this wipes Sanctumd's data on the device. Export your config first,"
+  echo "then run again with CONFIRM_WIPE=1."
+  exit 1
+fi
 adb shell getprop ro.product.cpu.abilist
 adb install -r app/build/outputs/apk/phone/debug/app-phone-debug.apk || { echo "install failed"; exit 1; }
 

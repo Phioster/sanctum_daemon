@@ -86,6 +86,8 @@ jobs:
           git add docs/screenshots/v3.0
           if git diff --cached --quiet; then echo "nothing new"; exit 0; fi
           git commit -m "Screenshots aus dem Demo-Modus (Emulator, ${GITHUB_SHA::7})"
+          # The branch may have moved on while the emulator ran; the captures only add files.
+          git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"
 
       - name: Upload raw output
