@@ -1,0 +1,54 @@
+# The 45-second demo video: one evening with the stack, not a tour of every screen.
+# Recorded by .github/workflows/screenshots.yml with adb screenrecord around this flow.
+# Pauses are "wait for something that never appears", maestro has no plain sleep.
+appId: org.phioster.nexarr
+name: v3 demo video
+---
+- launchApp
+- longPressOn:
+    text: "DEMO"
+    optional: true
+- extendedWaitUntil: { notVisible: "pause-marker-never-shown", timeout: 3500 }
+# 1. the dashboard: what is coming, who is watching
+- swipe: { direction: UP, duration: 1400 }
+- extendedWaitUntil: { notVisible: "pause-marker-never-shown", timeout: 2500 }
+- swipe: { direction: DOWN, duration: 900 }
+# 2. every service at a glance
+- tapOn: "Services"
+- extendedWaitUntil: { notVisible: "pause-marker-never-shown", timeout: 3000 }
+# 3. Radarr: the library, and everything else behind one menu
+- tapOn: "Radarr"
+- extendedWaitUntil: { notVisible: "pause-marker-never-shown", timeout: 3000 }
+- tapOn: "More"
+- extendedWaitUntil: { notVisible: "pause-marker-never-shown", timeout: 3500 }
+- back
+- back
+# 4. NZBGet: what each news server delivered
+- tapOn: "NZBGet"
+- extendedWaitUntil: { notVisible: "pause-marker-never-shown", timeout: 2500 }
+- tapOn: "More"
+- tapOn: "News servers"
+- extendedWaitUntil: { notVisible: "pause-marker-never-shown", timeout: 3500 }
+- back
+- back
+# 5. Jellyfin: who is watching, and the server's own settings
+- tapOn: "Jellyfin"
+- tapOn:
+    text: "Now Playing"
+    optional: true
+- extendedWaitUntil: { notVisible: "pause-marker-never-shown", timeout: 3500 }
+- tapOn:
+    text: "Dashboard"
+    optional: true
+- extendedWaitUntil: { notVisible: "pause-marker-never-shown", timeout: 2500 }
+- scrollUntilVisible:
+    element: "Transcoding"
+    optional: true
+- tapOn:
+    text: "Transcoding"
+    optional: true
+- extendedWaitUntil: { notVisible: "pause-marker-never-shown", timeout: 3500 }
+- back
+- back
+# 6. back home
+- extendedWaitUntil: { notVisible: "pause-marker-never-shown", timeout: 2000 }
