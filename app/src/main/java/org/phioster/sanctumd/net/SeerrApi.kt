@@ -125,7 +125,7 @@ internal interface SeerrApi {
     @DELETE("api/v1/blocklist/{tmdbId}") suspend fun removeFromBlocklist(@Path("tmdbId") tmdbId: Int, @Query("mediaType") mediaType: String): Response<ResponseBody>
     @DELETE("api/v1/media/{id}/file") suspend fun deleteMediaFile(@Path("id") id: Int, @Query("is4k") is4k: Boolean): Response<ResponseBody>
     @GET("api/v1/user/{id}/quota") suspend fun quota(@Path("id") id: Int): JsonObject
-    @GET("api/v1/settings/logs") suspend fun logs(@Query("take") take: Int = 100, @Query("filter") filter: String): List<JsonObject>
+    @GET("api/v1/settings/logs") suspend fun logs(@Query("take") take: Int = 100, @Query("filter") filter: String): kotlinx.serialization.json.JsonElement
 
     @GET("api/v1/issue") suspend fun issues(
         @Query("take") take: Int,
