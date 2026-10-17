@@ -60,7 +60,7 @@ your own setup is touched. Tap the amber **DEMO** chip to leave.
 - **Your own themes**, with a readability check that keeps text legible in every background mode.
 - **One menu per service** instead of a list taller than the screen; removing a service asks first.
 - Pull to refresh everywhere, and lists that refresh themselves while they are open.
-- On the TV: audio and subtitle tracks from the remote.
+- Switch the audio and subtitle track on the TV from the phone's remote.
 
 The full list, version by version, is in [CHANGELOG.md](https://github.com/Phioster/sanctum_daemon/blob/master/CHANGELOG.md).
 

@@ -41,9 +41,22 @@ Repo and APK: https://github.com/Phioster/sanctum_daemon
 >
 > #selfhosted #homelab #jellyfin #android
 
-(Attach `docs/promo/v3.0/graphics/social-preview.png` or the demo clip.)
+(Attach the demo video `sanctumd-3.0-demo.mp4` from this folder, or `graphics/social-preview.png`.
+Mastodon and Bluesky both play vertical video inline; the video is silent with captions.)
 
 ---
+
+## What to attach, per place
+
+| Place | Best attachment | Why |
+|---|---|---|
+| r/selfhosted, r/jellyfin | the demo video, or 3–4 screenshots as a gallery post | Reddit plays vertical video inline; a gallery of `docs/screenshots/` works where video is not allowed |
+| Lemmy | 2–3 screenshots (`services.png`, `jellyfin-admin.png`, `news-servers.png`) | video support varies by instance |
+| Mastodon / Bluesky | the demo video | moves in the timeline |
+| TikTok / Reels / Shorts | the clips in `clips/`, one a day, see `clips/clips.md` | made for it |
+| GitHub release | `graphics/feature-showcase.png` at the top, link the video | the release page renders images |
+
+All of it comes from demo mode: no real names, addresses or tokens anywhere.
 
 ## Long version
 
