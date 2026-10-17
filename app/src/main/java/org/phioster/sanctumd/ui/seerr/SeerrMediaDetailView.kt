@@ -27,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -83,12 +84,19 @@ internal fun SeerrMediaDetailView(
     onBack: () -> Unit,
     onRequest: (SeerrSearchItem) -> Unit,
     onReportIssue: (Int, String) -> Unit,
+    onOpenOther: (org.phioster.sanctumd.model.SeerrDiscoverItem) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     BackHandler(onBack = onBack)
     var onWatchlist by remember(d.tmdbId) { mutableStateOf(d.onWatchlist) }
     var watchlistBusy by remember(d.tmdbId) { mutableStateOf(false) }
+    var recommended by remember(d.tmdbId) { mutableStateOf<List<org.phioster.sanctumd.model.SeerrDiscoverItem>>(emptyList()) }
+    var similar by remember(d.tmdbId) { mutableStateOf<List<org.phioster.sanctumd.model.SeerrDiscoverItem>>(emptyList()) }
+    LaunchedEffect(d.tmdbId) {
+        recommended = runCatching { vm.seerrRelatedOf(config, d.tmdbId, d.mediaType, "recommendations") }.getOrDefault(emptyList())
+        similar = runCatching { vm.seerrRelatedOf(config, d.tmdbId, d.mediaType, "similar") }.getOrDefault(emptyList())
+    }
     Box(Modifier.fillMaxSize().background(Black)) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             // ── Banner: blurred poster backdrop + sharp poster + title ──
@@ -175,6 +183,17 @@ internal fun SeerrMediaDetailView(
                         modifier = Modifier.clickable { onReportIssue(d.mediaId, d.title) }.padding(vertical = 4.dp),
                     )
                 }
+                // Keeps the title out of discover and stops it being requested; undone in the Blocklist.
+                Text(
+                    "block from discover",
+                    fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp,
+                    modifier = Modifier.clickable {
+                        scope.launch {
+                            val res = vm.seerrBlockTitle(config, d.tmdbId, d.mediaType, d.title)
+                            android.widget.Toast.makeText(context, res, android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }.padding(vertical = 4.dp),
+                )
                 if (d.overview.isNotBlank()) {
                     Spacer(Modifier.height(12.dp))
                     Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp, lineHeight = 17.sp)
@@ -203,6 +222,8 @@ internal fun SeerrMediaDetailView(
                         }
                     }
                 }
+                SeerrPosterRow("RECOMMENDED", recommended, accent, onOpenOther)
+                SeerrPosterRow("SIMILAR", similar, accent, onOpenOther)
                 Spacer(Modifier.height(24.dp))
             }
             Spacer(Modifier.navigationBarsPadding())

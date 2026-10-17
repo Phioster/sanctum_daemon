@@ -59,6 +59,7 @@ internal fun SeerrRequestDetailDialog(
     // Resetting drops the title's requests too, so it takes a second tap.
     var confirmReset by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
+    var confirmDeleteFile by remember { mutableStateOf(false) }
 
     if (editing) {
         SeerrEditRequestDialog(vm, config, detail, accent, onDismiss = { editing = false }) { msg ->
@@ -152,6 +153,14 @@ internal fun SeerrRequestDetailDialog(
                             if (confirmReset) act("reset") { vm.seerrResetMedia(config, detail.mediaId) } else confirmReset = true
                         }) {
                             Text(if (confirmReset) "Tap again to reset" else "Reset media", fontFamily = Mono, color = ErrRed)
+                        }
+                    }
+                    // Only once there is something on disk; Seerr forwards it to Radarr/Sonarr.
+                    if (detail.mediaStatus == "available" || detail.mediaStatus == "partially available") {
+                        TextButton(enabled = !busy, onClick = {
+                            if (confirmDeleteFile) act("delete file") { vm.seerrDeleteMediaFile(config, detail.mediaId, detail.is4k) } else confirmDeleteFile = true
+                        }) {
+                            Text(if (confirmDeleteFile) "Tap again to delete the file" else "Delete file", fontFamily = Mono, color = ErrRed)
                         }
                     }
                     if (confirmReset) {

@@ -233,6 +233,8 @@ internal fun SeerrStatsDialog(
 ) {
     var stats by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
     var users by remember { mutableStateOf<List<org.phioster.sanctumd.model.SeerrUserInfo>?>(null) }
+    var openUser by remember { mutableStateOf<org.phioster.sanctumd.model.SeerrUserInfo?>(null) }
+    openUser?.let { u -> SeerrUserDialog(vm, config, u, accent) { openUser = null } }
     LaunchedEffect(Unit) {
         stats = runCatching { vm.seerrStats(config) }.getOrDefault(emptyList())
         users = runCatching { vm.seerrUserList(config) }.getOrDefault(emptyList())
@@ -270,7 +272,7 @@ internal fun SeerrStatsDialog(
                     us == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                     us.isEmpty() -> Text("no users", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                     else -> us.forEach { u ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().clickable { openUser = u }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(u.name, fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 if (u.email.isNotBlank()) Text(u.email, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)

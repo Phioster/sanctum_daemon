@@ -1201,6 +1201,20 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun seerrRequestDetailOf(config: ServiceConfig, id: Int): org.phioster.sanctumd.model.SeerrRequestDetail =
         org.phioster.sanctumd.net.seerrRequestDetail(config, id)
     suspend fun seerrRetryReq(config: ServiceConfig, id: Int): String = org.phioster.sanctumd.net.seerrRetryRequest(config, id)
+    suspend fun seerrRelatedOf(config: ServiceConfig, tmdbId: Int, mediaType: String, kind: String): List<org.phioster.sanctumd.model.SeerrDiscoverItem> =
+        org.phioster.sanctumd.net.seerrRelated(config, tmdbId, mediaType, kind).let { if (hideAdult.value) it.filterNot { d -> d.adult } else it }
+    suspend fun seerrBlocklistOf(config: ServiceConfig): List<org.phioster.sanctumd.net.SeerrBlockedItem> = org.phioster.sanctumd.net.seerrBlocklist(config)
+    suspend fun seerrBlockTitle(config: ServiceConfig, tmdbId: Int, mediaType: String, title: String): String =
+        org.phioster.sanctumd.net.seerrBlock(config, tmdbId, mediaType, title)
+    suspend fun seerrUnblockTitle(config: ServiceConfig, tmdbId: Int, mediaType: String): String =
+        org.phioster.sanctumd.net.seerrUnblock(config, tmdbId, mediaType)
+    suspend fun seerrDeleteMediaFile(config: ServiceConfig, mediaId: Int, is4k: Boolean): String =
+        org.phioster.sanctumd.net.seerrDeleteFile(config, mediaId, is4k)
+    suspend fun seerrQuotaOf(config: ServiceConfig, userId: Int): org.phioster.sanctumd.net.SeerrQuota = org.phioster.sanctumd.net.seerrQuota(config, userId)
+    suspend fun seerrRequestsBy(config: ServiceConfig, userId: Int): List<org.phioster.sanctumd.model.SeerrRequestItem> =
+        org.phioster.sanctumd.net.seerrRequests(config, "all", userId)
+    suspend fun seerrLogLines(config: ServiceConfig, filter: String): List<org.phioster.sanctumd.net.SeerrLogLine> =
+        org.phioster.sanctumd.net.seerrLogs(config, filter)
     suspend fun seerrUpdateReq(
         config: ServiceConfig,
         d: org.phioster.sanctumd.model.SeerrRequestDetail,
