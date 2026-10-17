@@ -583,7 +583,7 @@ internal fun JellyfinScreen(
     }
 
     if (nowPlayingOpen) {
-        NowPlayingScreen(state = musicState, accent = accent, onClose = { nowPlayingOpen = false })
+        NowPlayingScreen(state = musicState, accent = accent, onClose = { nowPlayingOpen = false }, vm = vm, config = config)
     }
 
     playRequest?.let { pr ->

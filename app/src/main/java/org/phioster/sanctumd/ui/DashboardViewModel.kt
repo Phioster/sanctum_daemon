@@ -737,6 +737,22 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.ui.player.MusicController.play(getApplication<Application>(), tracks, from, config.customHeaders, shuffle = shuffle)
     }
 
+    suspend fun jellyfinLyricsOf(config: ServiceConfig, trackId: String) = org.phioster.sanctumd.net.jellyfinLyrics(config, trackId)
+    suspend fun jellyfinSimilarOf(config: ServiceConfig, itemId: String) = org.phioster.sanctumd.net.jellyfinSimilar(config, itemId)
+
+    /** Replaces the queue with Jellyfin's Instant Mix from [itemId] (a track, album or artist). */
+    fun playJellyfinInstantMix(config: ServiceConfig, itemId: String) = viewModelScope.launch {
+        val ctx = getApplication<Application>()
+        runCatching { org.phioster.sanctumd.net.jellyfinInstantMix(config, itemId) }
+            .onSuccess { tracks ->
+                if (tracks.isEmpty()) org.phioster.sanctumd.ui.player.MusicController.report(ctx, "music: Jellyfin found nothing to mix with this")
+                else org.phioster.sanctumd.ui.player.MusicController.play(ctx, tracks, 0, config.customHeaders)
+            }
+            .onFailure {
+                org.phioster.sanctumd.ui.player.MusicController.report(ctx, "music: ${it.message ?: it.javaClass.simpleName}", it)
+            }
+    }
+
     fun playJellyfinAlbum(
         config: ServiceConfig,
         albumId: String,

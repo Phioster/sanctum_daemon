@@ -3,6 +3,16 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Lyrics, Instant Mix and "more like this" (v2.1.39)
+- **Lyrics** ("lyrics" in now playing): whatever lyrics Jellyfin has for the song. Timed lyrics
+  follow along: the line being sung lights up and stays in view, and tapping a line jumps
+  there. Plain lyrics read like a page. The cover shrinks while they are open so more lines fit.
+- **Instant Mix**: "instant mix" in now playing starts Jellyfin's mix from the song that is
+  playing, "mix" next to play and shuffle does it from a whole album. The mix replaces the queue,
+  with covers taken from each song's album.
+- **More like this**: under an album's running order, a row of albums Jellyfin finds close to
+  it; a tap opens that album.
+
 ## Volume per news server, and NZB files from the share menu (v2.1.38)
 - **News servers** (NZBGet menu): how much each provider delivered today, in 7 and 30 days and
   in total, the last 30 days as bars, and how many articles it actually had, green, amber or red.
