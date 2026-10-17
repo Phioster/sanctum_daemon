@@ -125,6 +125,8 @@ internal fun ArrScreen(
     var showLogs by remember { mutableStateOf(false) }
     var showBackups by remember { mutableStateOf(false) }
     var showExclusions by remember { mutableStateOf(false) }
+    var showTags by remember { mutableStateOf(false) }
+    var providers by remember { mutableStateOf<String?>(null) }
     val prowlarr = remember { vm.prowlarrService() }
     var prowlarrSearchFor by remember { mutableStateOf<String?>(null) }
     var importAt by remember { mutableStateOf<ArrImportStart?>(null) }
@@ -269,6 +271,9 @@ internal fun ArrScreen(
                             if (config.type == ServiceType.SONARR || config.type == ServiceType.RADARR) {
                                 DropdownMenuItem(text = { Text("Import exclusions", fontFamily = Mono) }, onClick = { barMenu = false; showExclusions = true })
                             }
+                            DropdownMenuItem(text = { Text("Tags", fontFamily = Mono) }, onClick = { barMenu = false; showTags = true })
+                            DropdownMenuItem(text = { Text("Import lists", fontFamily = Mono) }, onClick = { barMenu = false; providers = "importlists" })
+                            DropdownMenuItem(text = { Text("Download clients", fontFamily = Mono) }, onClick = { barMenu = false; providers = "downloadclients" })
                             DropdownMenuItem(text = { Text("Logs", fontFamily = Mono) }, onClick = { barMenu = false; showLogs = true })
                             DropdownMenuItem(text = { Text("Backups", fontFamily = Mono) }, onClick = { barMenu = false; showBackups = true })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
@@ -452,6 +457,8 @@ internal fun ArrScreen(
     if (showLogs) ArrLogsDialog(vm, config) { showLogs = false }
     if (showBackups) ArrBackupsDialog(vm, config, accent) { showBackups = false }
     if (showExclusions) ArrExclusionsDialog(vm, config, accent) { showExclusions = false }
+    if (showTags) ArrTagsDialog(vm, config, accent) { showTags = false }
+    providers?.let { ArrProvidersDialog(vm, config, it, accent) { providers = null } }
     if (showBlocklist) {
         ArrBlocklistDialog(vm, config, accent, onDismiss = { showBlocklist = false }) { actionMsg = it }
     }

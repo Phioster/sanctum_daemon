@@ -110,6 +110,9 @@ internal fun ProwlarrScreen(
     var confirmGrab by remember { mutableStateOf<ProwlarrRelease?>(null) }
     var showSystem by remember { mutableStateOf(false) }
     var showLogs by remember { mutableStateOf(false) }
+    var showTags by remember { mutableStateOf(false) }
+    var showProxies by remember { mutableStateOf(false) }
+    var tagsFor by remember { mutableStateOf<ProwlarrIndexerItem?>(null) }
     var showBackups by remember { mutableStateOf(false) }
     var confirmDelIndexer by remember { mutableStateOf<ProwlarrIndexerItem?>(null) }
     var editIndexer by remember { mutableStateOf<ProwlarrIndexerItem?>(null) }
@@ -192,6 +195,8 @@ internal fun ProwlarrScreen(
                             DropdownMenuItem(text = { Text("System, apps & tasks", fontFamily = Mono) }, onClick = {
                                 barMenu = false; showSystem = true
                             })
+                            DropdownMenuItem(text = { Text("Tags", fontFamily = Mono) }, onClick = { barMenu = false; showTags = true })
+                            DropdownMenuItem(text = { Text("Indexer proxies", fontFamily = Mono) }, onClick = { barMenu = false; showProxies = true })
                             DropdownMenuItem(text = { Text("Logs", fontFamily = Mono) }, onClick = { barMenu = false; showLogs = true })
                             DropdownMenuItem(text = { Text("Backups", fontFamily = Mono) }, onClick = { barMenu = false; showBackups = true })
                             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
@@ -279,6 +284,7 @@ internal fun ProwlarrScreen(
                                                     editIndexer = row
                                                 },
                                                 onDelete = { confirmDelIndexer = row },
+                                                onTags = { tagsFor = row },
                                             )
                                         }
                                     }
@@ -369,6 +375,9 @@ internal fun ProwlarrScreen(
 
     if (showSystem) ProwlarrSystemDialog(vm, config) { showSystem = false }
     if (showLogs) org.phioster.sanctumd.ui.arr.ArrLogsDialog(vm, config) { showLogs = false }
+    if (showTags) org.phioster.sanctumd.ui.arr.ArrTagsDialog(vm, config, accent) { showTags = false }
+    if (showProxies) org.phioster.sanctumd.ui.arr.ArrProvidersDialog(vm, config, "proxies", accent) { showProxies = false }
+    tagsFor?.let { ix -> org.phioster.sanctumd.ui.arr.ArrItemTagsDialog(vm, config, ix.id, ix.name, accent) { tagsFor = null } }
     if (showBackups) org.phioster.sanctumd.ui.arr.ArrBackupsDialog(vm, config, accent) { showBackups = false }
 }
 
@@ -408,7 +417,7 @@ internal fun ProwlarrFieldInput(f: org.phioster.sanctumd.model.ProwlarrField, va
 }
 
 @Composable
-internal fun ProwlarrIndexerRow(item: ProwlarrIndexerItem, accent: Color, onTest: () -> Unit, onToggle: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
+internal fun ProwlarrIndexerRow(item: ProwlarrIndexerItem, accent: Color, onTest: () -> Unit, onToggle: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit, onTags: () -> Unit = {}) {
     var menu by remember { mutableStateOf(false) }
     val stateColor = when {
         item.failing -> ErrRed
@@ -444,6 +453,7 @@ internal fun ProwlarrIndexerRow(item: ProwlarrIndexerItem, accent: Color, onTest
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(text = { Text("Test", fontFamily = Mono) }, onClick = { menu = false; onTest() })
             DropdownMenuItem(text = { Text("Edit", fontFamily = Mono) }, onClick = { menu = false; onEdit() })
+            DropdownMenuItem(text = { Text("Tags", fontFamily = Mono) }, onClick = { menu = false; onTags() })
             DropdownMenuItem(text = { Text(if (item.enable) "Disable" else "Enable", fontFamily = Mono) }, onClick = { menu = false; onToggle() })
             DropdownMenuItem(text = { Text("Delete", fontFamily = Mono, color = ErrRed) }, onClick = { menu = false; onDelete() })
         }

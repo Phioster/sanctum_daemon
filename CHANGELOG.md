@@ -3,6 +3,19 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Renaming, tags, import lists, download clients and proxies (v2.1.36)
+- **Rename files** (a title's menu in Sonarr, Radarr and Lidarr): shows which files the naming
+  scheme would rename, old name above new, all ticked; untick what should stay and rename the rest.
+- **Tags**: the service menu lists every tag with where it is used ("3 series · 1 download
+  client"), to add, rename or delete; a title's menu sets its tags, and a tag typed there is
+  created and picked in one go. Prowlarr has the same for its indexers (indexer menu, Tags).
+- **Import lists**: what is set up, whether each adds automatically and how often it refreshes,
+  and "Sync now".
+- **Download clients**: protocol, priority, enabled, and "Test all", which shows per client
+  whether the *arr can reach it and, if not, why.
+- **Prowlarr indexer proxies** (FlareSolverr, SOCKS…): which exist, whether any indexer uses them
+  through a tag, and "Test all".
+
 ## Jellyfin server, transcoding and library settings (v2.1.35)
 - **Server settings** (new "Server" tile in the Jellyfin dashboard): server name, Quick Connect,
   metadata language and country, chapter images, when something counts as watched or
