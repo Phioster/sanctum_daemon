@@ -1250,6 +1250,12 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun seerrRequestDetailOf(config: ServiceConfig, id: Int): org.phioster.sanctumd.model.SeerrRequestDetail =
         org.phioster.sanctumd.net.seerrRequestDetail(config, id)
     suspend fun seerrRetryReq(config: ServiceConfig, id: Int): String = org.phioster.sanctumd.net.seerrRetryRequest(config, id)
+    suspend fun seerrEpisodesOf(config: ServiceConfig, tmdbId: Int, season: Int): List<org.phioster.sanctumd.net.SeerrEpisode> =
+        org.phioster.sanctumd.net.seerrSeasonEpisodes(config, tmdbId, season)
+    suspend fun seerrPersonOf(config: ServiceConfig, personId: Int): org.phioster.sanctumd.net.SeerrPerson =
+        org.phioster.sanctumd.net.seerrPerson(config, personId).let { p ->
+            if (hideAdult.value) p.copy(credits = p.credits.filterNot { it.adult }) else p
+        }
     suspend fun seerrRelatedOf(config: ServiceConfig, tmdbId: Int, mediaType: String, kind: String): List<org.phioster.sanctumd.model.SeerrDiscoverItem> =
         org.phioster.sanctumd.net.seerrRelated(config, tmdbId, mediaType, kind).let { if (hideAdult.value) it.filterNot { d -> d.adult } else it }
     suspend fun seerrBlocklistOf(config: ServiceConfig): List<org.phioster.sanctumd.net.SeerrBlockedItem> = org.phioster.sanctumd.net.seerrBlocklist(config)

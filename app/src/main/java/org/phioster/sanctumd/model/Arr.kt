@@ -98,6 +98,8 @@ data class ArrCastMember(
     val name: String,
     val character: String,
     val profileUrl: String,
+    /** TMDb person id, from Seerr; 0 where the source has none. */
+    val personId: Int = 0,
 )
 
 /** A candidate file from a manual-import scan; [rawJson] is reused to build the import command. */
