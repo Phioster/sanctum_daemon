@@ -389,11 +389,14 @@ internal fun SeerrJobsDialog(
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var jobs by remember { mutableStateOf<List<org.phioster.sanctumd.model.SeerrJob>?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
+    /** The job whose schedule is open for editing, and the "every N" typed so far. */
+    var editing by remember { mutableStateOf<String?>(null) }
+    var every by remember { mutableStateOf("") }
     LaunchedEffect(Unit) { jobs = runCatching { vm.seerrJobList(config) }.getOrDefault(emptyList()) }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Surface,
-        title = { Text("Jobs", fontFamily = Mono, color = MatrixGreen) },
+        title = { Text("Jobs & cache", fontFamily = Mono, color = MatrixGreen) },
         text = {
             Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
                 message?.let {
@@ -405,6 +408,8 @@ internal fun SeerrJobsDialog(
                     js == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                     js.isEmpty() -> Text("no jobs", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                     else -> js.forEach { job ->
+                        // Only interval jobs: a fixed one runs when Seerr decides.
+                        val unit = when (job.interval) { "seconds" -> "s"; "minutes" -> "min"; "hours" -> "h"; else -> null }
                         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(job.name, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
@@ -413,15 +418,51 @@ internal fun SeerrJobsDialog(
                                     fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 10.sp,
                                 )
                             }
-                            TextButton(enabled = !job.running, onClick = {
-                                scope.launch {
-                                    message = "${job.name}: ${vm.seerrRunJob(config, job.id)}"
-                                    jobs = runCatching { vm.seerrJobList(config) }.getOrNull() ?: jobs
-                                }
-                            }) { Text("run", fontFamily = Mono, color = accent) }
+                            if (unit != null && !job.running) {
+                                TextButton(onClick = {
+                                    editing = if (editing == job.id) null else job.id
+                                    every = org.phioster.sanctumd.net.jobEvery(job.cron)?.toString().orEmpty()
+                                }) { Text("edit", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f)) }
+                            }
+                            if (job.running) {
+                                TextButton(onClick = {
+                                    scope.launch {
+                                        message = "${job.name}: ${vm.seerrJobCancel(config, job.id)}"
+                                        jobs = runCatching { vm.seerrJobList(config) }.getOrNull() ?: jobs
+                                    }
+                                }) { Text("cancel", fontFamily = Mono, color = ErrRed) }
+                            } else {
+                                TextButton(onClick = {
+                                    scope.launch {
+                                        message = "${job.name}: ${vm.seerrRunJob(config, job.id)}"
+                                        jobs = runCatching { vm.seerrJobList(config) }.getOrNull() ?: jobs
+                                    }
+                                }) { Text("run", fontFamily = Mono, color = accent) }
+                            }
+                        }
+                        if (editing == job.id && unit != null) {
+                            Row(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Text("every", fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
+                                androidx.compose.material3.OutlinedTextField(
+                                    value = every, onValueChange = { every = it.filter(Char::isDigit).take(3) }, singleLine = true,
+                                    textStyle = androidx.compose.ui.text.TextStyle(fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp),
+                                    modifier = Modifier.width(80.dp).padding(horizontal = 8.dp),
+                                )
+                                Text(unit, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                                val n = every.toIntOrNull()
+                                TextButton(enabled = n != null && n > 0, onClick = {
+                                    val cron = org.phioster.sanctumd.net.jobCron(job.interval, n ?: return@TextButton) ?: return@TextButton
+                                    editing = null
+                                    scope.launch {
+                                        message = "${job.name}: ${vm.seerrJobSchedule(config, job.id, cron)}"
+                                        jobs = runCatching { vm.seerrJobList(config) }.getOrNull() ?: jobs
+                                    }
+                                }) { Text("save", fontFamily = Mono, color = accent) }
+                            }
                         }
                     }
                 }
+                SeerrCacheSection(vm, config, accent) { message = it }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close", fontFamily = Mono, color = MatrixGreen) } },

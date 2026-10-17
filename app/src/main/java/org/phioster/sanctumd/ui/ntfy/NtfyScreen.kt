@@ -83,6 +83,7 @@ internal fun NtfyScreen(
 ) {
     val accent = Color(config.type.accent)
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
     var topic by remember { mutableStateOf(config.topics.firstOrNull() ?: "") }
     var messages by remember { mutableStateOf<List<org.phioster.sanctumd.model.NtfyMessage>?>(null) }
     var listError by remember { mutableStateOf<String?>(null) }
@@ -120,6 +121,16 @@ internal fun NtfyScreen(
                     IconButton(onClick = { scope.launch { load() } }) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen) }
                     IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "Menu", tint = MatrixGreen) }
                     DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
+                        if (topic.isNotBlank()) {
+                            DropdownMenuItem(text = { Text("Send test message", fontFamily = Mono) }, onClick = {
+                                barMenu = false
+                                scope.launch {
+                                    val r = org.phioster.sanctumd.net.ntfyPublishTest(config, topic)
+                                    android.widget.Toast.makeText(context, r, android.widget.Toast.LENGTH_SHORT).show()
+                                    if (!r.startsWith("error")) { kotlinx.coroutines.delay(1500); load(clear = false) }
+                                }
+                            })
+                        }
                         DropdownMenuItem(text = { Text("Edit service", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                         DropdownMenuItem(text = { Text("Delete service", fontFamily = Mono) }, onClick = { barMenu = false; confirmDelete = true })
                     }
@@ -146,14 +157,7 @@ internal fun NtfyScreen(
                 else -> RefreshBox(refreshing, { scope.launch { refreshing = true; load(clear = false); refreshing = false } }, Modifier.fillMaxSize()) {
                     LazyColumn(Modifier.fillMaxSize()) {
                         items(msgs) { m ->
-                            val time = if (m.time > 0) java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(m.time * 1000)) else ""
-                            Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(m.title.ifBlank { m.topic }, fontFamily = Mono, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                                    Text(time, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 11.sp)
-                                }
-                                Text(m.text, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.85f), fontSize = 12.sp)
-                            }
+                            NtfyMessageRow(m, config, accent)
                             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
                         }
                         item { Spacer(Modifier.height(24.dp)) }

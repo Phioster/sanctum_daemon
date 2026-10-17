@@ -1250,6 +1250,15 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun seerrRequestDetailOf(config: ServiceConfig, id: Int): org.phioster.sanctumd.model.SeerrRequestDetail =
         org.phioster.sanctumd.net.seerrRequestDetail(config, id)
     suspend fun seerrRetryReq(config: ServiceConfig, id: Int): String = org.phioster.sanctumd.net.seerrRetryRequest(config, id)
+    suspend fun seerrMain(config: ServiceConfig): org.phioster.sanctumd.net.SeerrMainSettings = org.phioster.sanctumd.net.seerrMainSettings(config)
+    suspend fun seerrMainSave(config: ServiceConfig, s: org.phioster.sanctumd.net.SeerrMainSettings): String =
+        org.phioster.sanctumd.net.seerrSaveMainSettings(config, s)
+    suspend fun seerrRegionList(config: ServiceConfig): List<org.phioster.sanctumd.net.SeerrOption> = org.phioster.sanctumd.net.seerrRegions(config)
+    suspend fun seerrLanguageList(config: ServiceConfig): List<org.phioster.sanctumd.net.SeerrOption> = org.phioster.sanctumd.net.seerrLanguages(config)
+    suspend fun seerrCacheList(config: ServiceConfig): List<org.phioster.sanctumd.net.SeerrCache> = org.phioster.sanctumd.net.seerrCaches(config)
+    suspend fun seerrCacheFlush(config: ServiceConfig, id: String): String = org.phioster.sanctumd.net.seerrFlushCache(config, id)
+    suspend fun seerrJobSchedule(config: ServiceConfig, id: String, cron: String): String = org.phioster.sanctumd.net.seerrScheduleJob(config, id, cron)
+    suspend fun seerrJobCancel(config: ServiceConfig, id: String): String = org.phioster.sanctumd.net.seerrCancelJob(config, id)
     suspend fun seerrEpisodesOf(config: ServiceConfig, tmdbId: Int, season: Int): List<org.phioster.sanctumd.net.SeerrEpisode> =
         org.phioster.sanctumd.net.seerrSeasonEpisodes(config, tmdbId, season)
     suspend fun seerrPersonOf(config: ServiceConfig, personId: Int): org.phioster.sanctumd.net.SeerrPerson =

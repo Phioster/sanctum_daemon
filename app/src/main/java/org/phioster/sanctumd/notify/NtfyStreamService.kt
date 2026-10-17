@@ -138,7 +138,7 @@ class NtfyStreamService : Service() {
                     val source = resp.body?.source() ?: return@use
                     while (!source.exhausted() && currentCoroutineContext().isActive) {
                         val line = source.readUtf8Line() ?: break
-                        if (line.isNotBlank()) handleLine(line, store, cursorScope, mainTopic)
+                        if (line.isNotBlank()) handleLine(line, store, cursorScope, mainTopic, sub)
                     }
                 }
             } catch (c: CancellationException) {
@@ -151,11 +151,12 @@ class NtfyStreamService : Service() {
         }
     }
 
-    private suspend fun handleLine(line: String, store: NotifyStore, cursorScope: String, mainTopic: String) {
+    private suspend fun handleLine(line: String, store: NotifyStore, cursorScope: String, mainTopic: String, sub: Sub) {
         val msg = parseNtfyLine(line) ?: return
         val (_, recentIds) = store.ntfyCursor(cursorScope)
         if (msg.id.isNotEmpty() && msg.id in recentIds) return // duplicate at the ?since= boundary
-        val base = msg.title.ifBlank { "Sanctumd" }
+        // Tag emojis lead the title like in the ntfy app; Markdown is shown as plain text here.
+        val base = ntfyTagEmoji(msg.tags) + msg.title.ifBlank { "Sanctumd" }
         // Process-wide dedup across ALL streams (the persisted cursor is per-server only): the same
         // message can arrive twice when the live-push topic and an NTFY service point at the same
         // server, or when a reconnect re-delivers past the trimmed recent-id list. Also collapses a
@@ -169,7 +170,11 @@ class NtfyStreamService : Service() {
         val title = if (msg.topic.isNotBlank() && msg.topic != mainTopic) "[${maskTopic(msg.topic)}] $base" else base
         val id = remoteNotificationId(msg.topic + "|" + msg.id.ifEmpty { msg.text })
         if (!collapseHealthPair(parseHealthEvent(base, msg.text), msg.topic, id, title, msg.time)) {
-            postNotification(id, title, msg.text, msg.time, jellyfinItemIdFromClick(msg.click), msg.priority, msg.actions)
+            val labels = ntfyPlainTags(msg.tags)
+            val text = (if (msg.markdown) stripMarkdown(msg.text) else msg.text) +
+                if (labels.isEmpty()) "" else "\n" + labels.joinToString(" ") { "#$it" }
+            val picture = if (msg.imageUrl.isBlank()) null else fetchNtfyImage(msg.imageUrl, sub.server, sub.token)
+            postNotification(id, title, text, msg.time, jellyfinItemIdFromClick(msg.click), msg.priority, msg.actions, picture)
         }
         if (msg.time > 0) store.saveNtfyCursor(msg.time, recentIds + msg.id, cursorScope)
     }
@@ -217,6 +222,7 @@ class NtfyStreamService : Service() {
         jellyfinItemId: String? = null,
         priority: Int = 3,
         actions: List<org.phioster.sanctumd.model.NtfyAction> = emptyList(),
+        picture: android.graphics.Bitmap? = null,
     ) {
         if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) return
         val launch = packageManager.getLaunchIntentForPackage(packageName)?.apply {
@@ -234,7 +240,15 @@ class NtfyStreamService : Service() {
             .setColor(android.graphics.Color.parseColor("#14532D"))
             .setContentTitle(title)
             .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            // A poster shows large when expanded and as the thumbnail when not.
+            .apply {
+                if (picture != null) {
+                    setLargeIcon(picture)
+                    setStyle(NotificationCompat.BigPictureStyle().bigPicture(picture).bigLargeIcon(null as android.graphics.Bitmap?).setSummaryText(text))
+                } else {
+                    setStyle(NotificationCompat.BigTextStyle().bigText(text))
+                }
+            }
             .setContentIntent(pi)
             .setAutoCancel(true)
             .apply { actions.forEachIndexed { i, a -> NtfyActionReceiver.button(this@NtfyStreamService, id, i, a)?.let { addAction(it) } } }

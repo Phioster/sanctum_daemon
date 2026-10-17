@@ -3,6 +3,22 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Pictures in pushes, and Seerr's settings (v2.1.31)
+- **Pictures in pushes.** A ntfy message with an image attached (a webhook's poster) shows it
+  large in the expanded notification and as its thumbnail; the topic list shows it too. The
+  login token only goes along when the image sits on the ntfy server itself.
+- **Tags and Markdown.** Tags that stand for an emoji ("warning", "tada", …) lead the title like
+  in the ntfy app, the rest show as #labels; Markdown messages are bold/italic/code in the app
+  and plain text in the shade.
+- **Test message.** "Send test message" in the ntfy menu publishes to the topic, to check the
+  whole push path end to end.
+- **Seerr settings.** "Settings" in the Seerr menu edits the General page: title and URL,
+  display language, image caching, discover and streaming region, discover language, the
+  blocklist-by-tag options, hide available/blocklisted, partial and special requests, the
+  YouTube URL. Only these fields change; everything else is sent back as it was.
+- **Jobs & cache.** Interval jobs get "edit" (every N minutes/hours), a running job "cancel",
+  and below the jobs the API caches with hits, keys and size, each with "flush".
+
 ## Episodes before requesting, and actors' pages (v2.1.30)
 - **Season details when requesting.** In the request dialog of a series every season opens
   into its episode list with air dates; dates still ahead are marked, so a half-aired season

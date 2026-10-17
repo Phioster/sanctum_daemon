@@ -166,6 +166,14 @@ internal interface SeerrApi {
     @DELETE("api/v1/media/{id}") suspend fun deleteMedia(@Path("id") id: Int): Response<ResponseBody>
     @GET("api/v1/settings/jobs") suspend fun jobs(): List<JsonObject>
     @POST("api/v1/settings/jobs/{id}/run") suspend fun runJob(@Path("id") id: String): Response<ResponseBody>
+    @POST("api/v1/settings/jobs/{id}/cancel") suspend fun cancelJob(@Path("id") id: String): Response<ResponseBody>
+    @POST("api/v1/settings/jobs/{id}/schedule") suspend fun scheduleJob(@Path("id") id: String, @Body body: JsonObject): Response<ResponseBody>
+    @GET("api/v1/settings/main") suspend fun mainSettings(): JsonObject
+    @POST("api/v1/settings/main") suspend fun saveMainSettings(@Body body: JsonObject): Response<ResponseBody>
+    @GET("api/v1/regions") suspend fun regions(): List<JsonObject>
+    @GET("api/v1/languages") suspend fun languages(): List<JsonObject>
+    @GET("api/v1/settings/cache") suspend fun caches(): JsonObject
+    @POST("api/v1/settings/cache/{id}/flush") suspend fun flushCache(@Path("id") id: String): Response<ResponseBody>
     @POST("api/v1/issue") suspend fun createIssue(@Body body: JsonObject): Response<ResponseBody>
     @POST("api/v1/issue/{id}/comment") suspend fun addComment(@Path("id") id: Int, @Body body: JsonObject): Response<ResponseBody>
     @POST("api/v1/issue/{id}/{status}") suspend fun setIssueStatus(@Path("id") id: Int, @Path("status") status: String): Response<ResponseBody>
@@ -630,6 +638,8 @@ suspend fun seerrJobs(config: ServiceConfig): List<org.phioster.sanctumd.model.S
             name = jsStr(o, "name") ?: jsStr(o, "id").orEmpty(),
             nextRun = jsStr(o, "nextExecutionTime").orEmpty().take(16).replace('T', ' '),
             running = jsBool(o, "running") == true,
+            interval = jsStr(o, "interval").orEmpty(),
+            cron = jsStr(o, "cronSchedule").orEmpty(),
         )
     }.filter { it.id.isNotBlank() }
 }

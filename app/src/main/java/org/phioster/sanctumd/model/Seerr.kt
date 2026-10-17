@@ -138,6 +138,9 @@ data class SeerrJob(
     val name: String,
     val nextRun: String,
     val running: Boolean,
+    /** "seconds", "minutes", "hours" or "fixed"; only the first three can be rescheduled. */
+    val interval: String = "",
+    val cron: String = "",
 )
 
 /** A Seerr user, for the admin user list. */

@@ -13,6 +13,11 @@ data class NtfyMessage(
     val priority: Int = 3,
     /** Buttons the publisher attached, at most three of them shown. */
     val actions: List<NtfyAction> = emptyList(),
+    /** An attached image (e.g. a poster), else the message icon; blank when neither. */
+    val imageUrl: String = "",
+    val tags: List<String> = emptyList(),
+    /** The publisher asked for Markdown ("Markdown: yes"). */
+    val markdown: Boolean = false,
 )
 
 /** One ntfy action button: "view" opens [url], "http" sends a request to it. */
