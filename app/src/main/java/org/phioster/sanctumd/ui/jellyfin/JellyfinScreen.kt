@@ -374,6 +374,10 @@ internal fun JellyfinScreen(
         play = { m -> playRequest = PlayRequest(m.id, m.name) },
         playDownload = ::playDownload,
         toggleFolder = ::toggleFolder,
+        playQueue = { i, pl ->
+            val (queue, start) = org.phioster.sanctumd.net.videoQueue(pl.entries, i)
+            queue.getOrNull(start)?.let { first -> playRequest = PlayRequest(first.id, first.name, queue = queue) }
+        },
         manageDownloads = { downloadsManagerOpen = true },
         message = { actionMsg = it },
     )
@@ -592,6 +596,8 @@ internal fun JellyfinScreen(
             title = pr.title,
             onClose = { playRequest = null },
             localFileUri = pr.localFileUri,
+            queue = pr.queue,
+            queueStart = if (pr.queue.isEmpty()) -1 else pr.queue.indexOfFirst { it.id == pr.itemId },
         )
     }
 }

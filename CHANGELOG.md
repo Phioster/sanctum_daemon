@@ -3,6 +3,13 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## Video playlists play on (v2.1.29)
+- **Up next in a playlist.** A film or episode started from a playlist (by a tap, or "play all")
+  runs on through the list: near the end the same card as for episodes shows what comes next
+  and where ("UP NEXT · 3/12"), counts down when autoplay is on, and "play now" jumps right
+  away. Songs in a mixed list are skipped; at the list's end playback stops instead of jumping
+  into a series.
+
 ## Playlists, picking several titles, merging versions (v2.1.28)
 - **Playlists.** The Jellyfin media home has a PLAYLISTS row with every playlist and "+ new".
   An opened playlist shows its running order: move titles up and down, remove them, rename

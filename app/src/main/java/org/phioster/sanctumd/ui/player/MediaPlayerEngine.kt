@@ -4,7 +4,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
 /** What the player overlay should play: a Jellyfin item (streamed) or a downloaded local file. */
-internal data class PlayRequest(val itemId: String, val title: String, val localFileUri: String? = null)
+/** [queue] is a playlist in order (this item included); empty for a single title. */
+internal data class PlayRequest(
+    val itemId: String,
+    val title: String,
+    val localFileUri: String? = null,
+    val queue: List<org.phioster.sanctumd.net.NextEpisode> = emptyList(),
+)
 
 /** A selectable audio or subtitle track. [id] is opaque (engine-specific); [selected] is the current pick. */
 data class TrackOption(val id: String, val label: String, val selected: Boolean)

@@ -96,6 +96,8 @@ internal fun BoxScope.SkipSegmentButton(isOutro: Boolean, bottomPadding: Dp, onS
 /** The card that offers the next episode, with its countdown when one is running. */
 @Composable
 internal fun BoxScope.NextEpisodeCard(
+    /** "NEXT EPISODE", or the playlist position when running through one. */
+    header: String,
     next: NextEpisode,
     countdown: Int,
     bottomPadding: Dp,
@@ -112,7 +114,7 @@ internal fun BoxScope.NextEpisodeCard(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
             Text(
-                if (countdown > 0) "NEXT IN ${countdown}s" else "NEXT EPISODE",
+                if (countdown > 0) "$header · in ${countdown}s" else header,
                 fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp, fontWeight = FontWeight.Bold,
             )
             Spacer(Modifier.height(4.dp))

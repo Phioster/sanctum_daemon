@@ -111,6 +111,20 @@ class JellyfinPlaylistsTest {
         assertEquals("POST /Videos/MergeVersions?ids=m1%2Cm2", line())
     }
 
+    private fun entry(id: String, audio: Boolean) = JellyPlaylistEntry(
+        "e-$id", org.phioster.sanctumd.model.JellyMediaItem(id, id, if (audio) "Audio" else "Movie", "", "", false, 0f), 0L, audio,
+    )
+
+    @Test fun `the video queue skips songs and starts at the tapped film`() {
+        val entries = listOf(entry("m1", false), entry("s1", true), entry("m2", false), entry("m3", false))
+        val (queue, start) = videoQueue(entries, tapped = 2)
+        assertEquals(listOf("m1", "m2", "m3"), queue.map { it.id })
+        assertEquals(1, start)
+        assertEquals("m3", queueAfter(queue, start)?.id)
+        assertEquals(null, queueAfter(queue, 2))
+        assertEquals(null, queueAfter(queue, -1))
+    }
+
     @Test fun `safe mode keeps every write off the network`() = runBlocking {
         SafeMode.enabled = true
         jellyfinCreatePlaylist(config(), "x", emptyList())

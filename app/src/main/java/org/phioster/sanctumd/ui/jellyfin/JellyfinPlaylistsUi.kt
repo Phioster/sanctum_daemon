@@ -231,6 +231,8 @@ internal fun LazyListScope.jellyfinPlaylistLevel(
             if (pl != null && pl.tracks.isNotEmpty()) {
                 BrowseChip("play all", MatrixGreen, AppIcons.Play) { vm.playJellyfinTracks(config, pl.tracks, 0, shuffle = false) }
                 BrowseChip("shuffle", MatrixGreen, AppIcons.Shuffle) { vm.playJellyfinTracks(config, pl.tracks, 0, shuffle = true) }
+            } else if (pl != null && pl.entries.any { !it.isAudio }) {
+                BrowseChip("play all", MatrixGreen, AppIcons.Play) { act.playQueue(pl.entries.indexOfFirst { !it.isAudio }, pl) }
             }
             BrowseChip("rename", MatrixGreen.copy(alpha = 0.85f), AppIcons.Edit) { rename = true }
             if (pl != null) BrowseChip("share", MatrixGreen.copy(alpha = 0.85f), AppIcons.Open) { share = true }
@@ -271,7 +273,12 @@ internal fun LazyListScope.jellyfinPlaylistLevel(
             val playing = e.item.id == playingId
             Row(
                 Modifier.fillMaxWidth().clickable {
-                    if (pl.tracks.isNotEmpty()) vm.playJellyfinTracks(config, pl.tracks, i, shuffle = false) else act.open(e.item)
+                    when {
+                        pl.tracks.isNotEmpty() -> vm.playJellyfinTracks(config, pl.tracks, i, shuffle = false)
+                        e.isAudio -> act.open(e.item)
+                        // Films and episodes run on through the rest of the list.
+                        else -> act.playQueue(i, pl)
+                    }
                 }.padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

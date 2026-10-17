@@ -171,6 +171,9 @@ internal fun PlayerScreen(
     onClose: () -> Unit,
     /** When set, plays this local file offline (no PlaybackInfo/reporting). */
     localFileUri: String? = null,
+    /** A playlist to run through; what comes next is taken from here instead of the series. */
+    queue: List<org.phioster.sanctumd.net.NextEpisode> = emptyList(),
+    queueStart: Int = -1,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -236,6 +239,8 @@ internal fun PlayerScreen(
     var nextUp by remember { mutableStateOf<org.phioster.sanctumd.net.NextEpisode?>(null) }
     var nextCardVisible by remember { mutableStateOf(false) }
     var nextCountdown by remember { mutableStateOf(-1) } // seconds left, <0 = no countdown (manual)
+    // Position in [queue]; by index, since a playlist may hold the same title twice.
+    var queuePos by remember { mutableStateOf(queueStart) }
     // Sleep timer: minutes chosen, and the deadline it maps to (null = off). "episode" ends at EOF.
     var sleepMinutes by remember { mutableStateOf(0) }
     var sleepAtEpisodeEnd by remember { mutableStateOf(false) }
@@ -335,7 +340,9 @@ internal fun PlayerScreen(
                 if (ask) resumeAsk = src.startPositionMs
                 // Both are optional extras: no plugin, no segments; not an episode, no next up.
                 segments = runCatching { vm.jellyfinSegments(config, curItem) }.getOrDefault(emptyList())
-                nextUp = runCatching { vm.jellyfinNextEpisode(config, curItem) }.getOrNull()
+                // In a playlist the list decides, also at its end: no jumping into a series from there.
+                nextUp = if (queuePos >= 0) org.phioster.sanctumd.net.queueAfter(queue, queuePos)
+                else runCatching { vm.jellyfinNextEpisode(config, curItem) }.getOrNull()
             }
         } catch (t: Throwable) {
             loadError = t.message ?: t.javaClass.simpleName
@@ -352,6 +359,7 @@ internal fun PlayerScreen(
         lastGoodPos = 0
         nextCardVisible = false
         nextCountdown = -1
+        if (queuePos >= 0) queuePos += 1
         curTitle = next.name
         curItem = next.id
     }
@@ -678,6 +686,7 @@ internal fun PlayerScreen(
         val next = nextUp
         if (nextCardVisible && next != null && !inPip) {
             NextEpisodeCard(
+                header = if (queuePos >= 0) "UP NEXT · ${queuePos + 2}/${queue.size}" else "NEXT EPISODE",
                 next = next,
                 countdown = nextCountdown,
                 bottomPadding = if (controlsVisible) 76.dp else 28.dp,

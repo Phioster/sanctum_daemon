@@ -165,6 +165,8 @@ internal class JellyfinMediaActions(
     val play: (JellyMediaItem) -> Unit,
     val playDownload: (DownloadEntry) -> Unit,
     val toggleFolder: (JellyMediaItem) -> Unit,
+    /** Plays a playlist's entry at this index and runs on through the videos after it. */
+    val playQueue: (Int, org.phioster.sanctumd.net.JellyPlaylistDetail) -> Unit,
     val manageDownloads: () -> Unit,
     val message: (String) -> Unit,
 )
