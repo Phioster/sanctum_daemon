@@ -33,7 +33,14 @@ class ServiceStore(private val context: Context) {
     private val _decryptFailed = MutableStateFlow(false)
     val decryptFailed: StateFlow<Boolean> = _decryptFailed.asStateFlow()
 
-    val services: Flow<List<ServiceConfig>> = context.dataStore.data.map { prefs ->
+    /** What the screens show: the demo's services while demo mode is on, else the user's. */
+    val services: Flow<List<ServiceConfig>> get() =
+        kotlinx.coroutines.flow.combine(realServices, org.phioster.sanctumd.demo.DemoMode.enabled) { real, demo ->
+            if (demo) org.phioster.sanctumd.demo.DemoMode.services else real
+        }
+
+    /** The user's own services, always; background work and widgets use these. */
+    val realServices: Flow<List<ServiceConfig>> = context.dataStore.data.map { prefs ->
         prefs[SERVICES_KEY]?.let { stored ->
             val plain = runCatching { Crypto.decrypt(stored) }.getOrElse {
                 _decryptFailed.value = true
@@ -49,6 +56,8 @@ class ServiceStore(private val context: Context) {
     }
 
     suspend fun save(list: List<ServiceConfig>) {
+        // An edit in demo mode would replace the user's services with the demo's.
+        if (org.phioster.sanctumd.demo.DemoMode.isOn) return
         val encrypted = Crypto.encrypt(json.encodeToString(list))
         context.dataStore.edit { it[SERVICES_KEY] = encrypted }
         _decryptFailed.value = false

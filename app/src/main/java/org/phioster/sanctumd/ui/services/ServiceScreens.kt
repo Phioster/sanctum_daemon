@@ -440,6 +440,8 @@ internal fun AddServiceScreen(
     onCancel: () -> Unit,
     onSave: (ServiceConfig) -> Unit,
     onTest: suspend (ServiceConfig) -> ServiceStatus,
+    /** Shown under the form when adding a new service; null hides it (editing an existing one). */
+    onTryDemo: (() -> Unit)? = null,
 ) {
     var type by remember { mutableStateOf(existing?.type ?: ServiceType.JELLYFIN) }
     var label by remember { mutableStateOf(existing?.label ?: ServiceType.JELLYFIN.label) }
@@ -623,6 +625,11 @@ internal fun AddServiceScreen(
             testResult?.let {
                 Spacer(Modifier.height(12.dp))
                 Text(it, fontFamily = Mono, color = if (it.startsWith("ok")) MatrixGreen else WarnAmber, fontSize = 13.sp)
+            }
+            onTryDemo?.let {
+                Spacer(Modifier.height(28.dp))
+                org.phioster.sanctumd.ui.common.TryDemoButton(onStarted = it)
+                Spacer(Modifier.height(24.dp))
             }
         }
     }

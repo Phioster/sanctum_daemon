@@ -125,6 +125,12 @@ internal fun SettingsScreen(vm: DashboardViewModel, onBack: () -> Unit, onShowIn
                     SettingsCategoryRow("backup / data", "Export or import your config (encrypted)") { section = "backup / data" }
                     SettingsCategoryRow("about", "Version & project info") { section = "about" }
                     SettingsCategoryRow("welcome intro", "Replay the first-run walkthrough") { onShowIntro() }
+                    val demoOn by org.phioster.sanctumd.demo.DemoMode.enabled.collectAsState()
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                    SettingsCategoryRow(
+                        if (demoOn) "leave demo mode" else "demo mode",
+                        if (demoOn) "Back to your own services" else "A busy made-up server; your own setup stays untouched",
+                    ) { org.phioster.sanctumd.demo.DemoMode.set(ctx, !demoOn); onBack() }
                 }
                 "notifications" -> NotifyPollingSection(vm)
                 "live push (ntfy)" -> LivePushSection(vm)

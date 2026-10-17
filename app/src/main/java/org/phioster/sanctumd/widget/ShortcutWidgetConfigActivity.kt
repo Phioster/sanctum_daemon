@@ -84,7 +84,7 @@ class ShortcutWidgetConfigActivity : ComponentActivity() {
         var chosen by remember { mutableStateOf<Pair<ServiceConfig, HttpShortcut>?>(null) }
 
         LaunchedEffect(Unit) {
-            val services = runCatching { ServiceStore(ctx).services.first() }.getOrDefault(emptyList())
+            val services = runCatching { ServiceStore(ctx).realServices.first() }.getOrDefault(emptyList())
             entries = services
                 .filter { it.type == ServiceType.SHORTCUTS }
                 .flatMap { svc -> svc.shortcuts.map { svc to it } }

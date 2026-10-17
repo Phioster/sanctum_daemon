@@ -164,7 +164,7 @@ class DownloadService : Service() {
         // For episodes the subtitle holds "SeriesName · S01E02". Prefix it so the notification names the show.
         val display = if (entry.subtitle.isNotBlank()) "${entry.subtitle} · ${entry.name}" else entry.name
         if (id in cancelled) { cancelled -= id; return }
-        val config = runCatching { ServiceStore(this).services.first().firstOrNull { it.id == entry.serverId } }.getOrNull()
+        val config = runCatching { ServiceStore(this).realServices.first().firstOrNull { it.id == entry.serverId } }.getOrNull()
         if (config == null) {
             store.update(id) { it.copy(state = DownloadEntry.STATE_FAILED, error = "server not found") }
             return

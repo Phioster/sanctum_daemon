@@ -44,6 +44,8 @@ internal fun jellyfinAuth(token: String) =
 // One shared client so every per-call client below reuses the same dispatcher and
 // connection pool (newBuilder() shares them) instead of spawning a pool per request.
 internal val baseOkClient = OkHttpClient.Builder()
+    // First, so a demo request never reaches the network; it passes everything else through.
+    .addInterceptor(org.phioster.sanctumd.demo.DemoInterceptor)
     .connectTimeout(15, TimeUnit.SECONDS)
     .readTimeout(20, TimeUnit.SECONDS)
     .build()

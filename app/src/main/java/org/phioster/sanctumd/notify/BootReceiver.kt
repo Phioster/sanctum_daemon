@@ -19,7 +19,7 @@ class BootReceiver : BroadcastReceiver() {
                 val app = context.applicationContext
                 val s = NotifyStore(app).currentSettings()
                 val hasNtfyService = runCatching {
-                    org.phioster.sanctumd.data.ServiceStore(app).services.first()
+                    org.phioster.sanctumd.data.ServiceStore(app).realServices.first()
                         .any { it.type == org.phioster.sanctumd.model.ServiceType.NTFY && it.topics.isNotEmpty() }
                 }.getOrDefault(false)
                 if ((s.live && s.ntfyServer.isNotBlank() && s.ntfyTopic.isNotBlank()) || hasNtfyService) {

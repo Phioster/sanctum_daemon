@@ -27,7 +27,7 @@ class SanctumdNotificationWorker(ctx: Context, params: WorkerParameters) : Corou
         val settings = store.currentSettings()
         if (!settings.enabled) return Result.success()
 
-        val services = runCatching { ServiceStore(ctx).services.first() }.getOrDefault(emptyList())
+        val services = runCatching { ServiceStore(ctx).realServices.first() }.getOrDefault(emptyList())
         val seen = store.seen().toMutableMap()
         var nid = ((System.currentTimeMillis() / 1000) % 1_000_000).toInt()
 
