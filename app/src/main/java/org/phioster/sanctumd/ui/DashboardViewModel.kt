@@ -944,6 +944,22 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         jellyfinAddLibraryPath(config, libraryName, path)
     suspend fun jellyfinLibraryRemovePath(config: ServiceConfig, libraryName: String, path: String): String =
         jellyfinRemoveLibraryPath(config, libraryName, path)
+    suspend fun arrRenameList(config: ServiceConfig, id: Int) = org.phioster.sanctumd.net.arrRenamePreview(config, id)
+    suspend fun arrRenameRun(config: ServiceConfig, id: Int, files: List<Int>) = org.phioster.sanctumd.net.arrRenameFiles(config, id, files)
+    suspend fun arrTagList(config: ServiceConfig) = org.phioster.sanctumd.net.arrTags(config)
+    suspend fun arrTagCreate(config: ServiceConfig, label: String) = org.phioster.sanctumd.net.arrCreateTag(config, label)
+    suspend fun arrTagRename(config: ServiceConfig, id: Int, label: String) = org.phioster.sanctumd.net.arrRenameTag(config, id, label)
+    suspend fun arrTagDelete(config: ServiceConfig, id: Int) = org.phioster.sanctumd.net.arrDeleteTag(config, id)
+    suspend fun arrItemTagIds(config: ServiceConfig, id: Int) = org.phioster.sanctumd.net.arrItemTags(config, id)
+    suspend fun arrItemTagsSet(config: ServiceConfig, id: Int, tags: List<Int>) = org.phioster.sanctumd.net.arrSetItemTags(config, listOf(id), tags)
+    suspend fun arrImportListSyncNow(config: ServiceConfig) = org.phioster.sanctumd.net.arrImportListSync(config)
+    suspend fun arrProviders(config: ServiceConfig, which: String) = when (which) {
+        "importlists" -> org.phioster.sanctumd.net.arrImportLists(config)
+        "proxies" -> org.phioster.sanctumd.net.prowlarrProxies(config)
+        else -> org.phioster.sanctumd.net.arrDownloadClients(config)
+    }
+    suspend fun arrProvidersTest(config: ServiceConfig, which: String) =
+        if (which == "proxies") org.phioster.sanctumd.net.prowlarrTestProxies(config) else org.phioster.sanctumd.net.arrTestDownloadClients(config)
     suspend fun jfServerSettings(config: ServiceConfig) = org.phioster.sanctumd.net.jellyfinServerSettings(config)
     suspend fun jfSaveServerSettings(config: ServiceConfig, s: kotlinx.serialization.json.JsonObject) = org.phioster.sanctumd.net.jellyfinSaveServerSettings(config, s)
     suspend fun jfEncodingSettings(config: ServiceConfig) = org.phioster.sanctumd.net.jellyfinEncodingSettings(config)

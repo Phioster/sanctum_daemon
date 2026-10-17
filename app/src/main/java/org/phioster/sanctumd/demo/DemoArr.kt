@@ -147,6 +147,7 @@ internal object DemoArr {
         if (!r.path.startsWith(v)) return DemoAnswer.NotFound
         val p = r.path.removePrefix(v)
         val seg = p.split('/')
+        DemoArrTools.handle(kind, p, r)?.let { return it }
         if (!r.isRead) return ok()
         return when {
             p == "movie" -> json(arr(DemoWorld.movies.map(::movie)))

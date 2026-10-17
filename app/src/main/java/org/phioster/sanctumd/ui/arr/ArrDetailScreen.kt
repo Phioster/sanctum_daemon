@@ -88,6 +88,8 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
     var oldestFirst by remember { mutableStateOf(EpisodeOrder.oldestFirst(context)) }
     LaunchedEffect(itemId) { st.load(vm, config, itemId, isSonarr, isLidarr) }
     var refreshing by remember { mutableStateOf(false) }
+    var renameOpen by remember { mutableStateOf(false) }
+    var tagsOpen by remember { mutableStateOf(false) }
     fun openReleases(movieId: Int?, episodeId: Int?, title: String, albumId: Int? = null, seriesId: Int? = null, seasonNumber: Int? = null) {
         st.pickerTitle = title; st.releases = null; st.pickerOpen = true
         scope.launch {
@@ -123,6 +125,8 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
                             DropdownMenuItem(text = { Text("Refresh & scan", fontFamily = Mono) }, onClick = {
                                 st.barMenu = false; scope.launch { st.actionMsg = vm.arrRefresh(config, itemId) }
                             })
+                            DropdownMenuItem(text = { Text("Rename files", fontFamily = Mono) }, onClick = { st.barMenu = false; renameOpen = true })
+                            DropdownMenuItem(text = { Text("Tags", fontFamily = Mono) }, onClick = { st.barMenu = false; tagsOpen = true })
                             DropdownMenuItem(text = { Text("History", fontFamily = Mono) }, onClick = {
                                 st.barMenu = false; st.history = null; st.historyOpen = true
                                 scope.launch { st.history = runCatching { vm.arrHistoryOf(config, itemId) }.getOrDefault(emptyList()) }
@@ -357,6 +361,8 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
     ArrDetailDialogs(st, vm, config, itemId, accent, onBack) { albumId, title ->
         openReleases(movieId = null, episodeId = null, albumId = albumId, title = title)
     }
+    if (renameOpen) ArrRenameDialog(vm, config, itemId, accent) { renameOpen = false }
+    if (tagsOpen) ArrItemTagsDialog(vm, config, itemId, st.detail?.title.orEmpty(), accent) { tagsOpen = false }
 }
 
 @Composable

@@ -62,6 +62,7 @@ internal object DemoProwlarr {
 
     fun handle(r: DemoRequest): DemoAnswer {
         val p = r.path.removePrefix("api/v1/")
+        DemoArrTools.handle("prowlarr", p, r)?.let { return it }
         if (!r.isRead) return ok()
         return when (p) {
             "indexer" -> json(arr(names.mapIndexed { i, n -> obj("id" to i + 1, "name" to n, "protocol" to "usenet", "enable" to true, "priority" to 25, "privacy" to "private") }))
