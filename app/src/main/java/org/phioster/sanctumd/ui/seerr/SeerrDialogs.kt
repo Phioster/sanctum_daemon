@@ -408,6 +408,8 @@ internal fun SeerrJobsDialog(
                     js == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                     js.isEmpty() -> Text("no jobs", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                     else -> js.forEach { job ->
+                        // Only interval jobs: a fixed one runs when Seerr decides.
+                        val unit = when (job.interval) { "seconds" -> "s"; "minutes" -> "min"; "hours" -> "h"; else -> null }
                         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(job.name, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp)
@@ -416,8 +418,6 @@ internal fun SeerrJobsDialog(
                                     fontFamily = Mono, color = accent.copy(alpha = 0.7f), fontSize = 10.sp,
                                 )
                             }
-                            // Only interval jobs: a fixed one runs when Seerr decides.
-                            val unit = when (job.interval) { "seconds" -> "s"; "minutes" -> "min"; "hours" -> "h"; else -> null }
                             if (unit != null && !job.running) {
                                 TextButton(onClick = {
                                     editing = if (editing == job.id) null else job.id
