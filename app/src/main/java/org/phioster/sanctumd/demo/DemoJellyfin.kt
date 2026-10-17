@@ -315,6 +315,7 @@ internal object DemoJellyfin {
             return playbackQuery(sql)
         }
         if (!r.isRead) return ok()
+        DemoJellyfinSettings.handle(r)?.let { return it }
         return when {
             p == "Items/Counts" -> json(obj("MovieCount" to DemoWorld.libraryMovies.size, "SeriesCount" to DemoWorld.libraryShows.size,
                 "EpisodeCount" to DemoWorld.allEpisodes.count { it.hasFile }, "SongCount" to DemoWorld.libraryAlbums.sumOf { it.tracks.size } * 9))
@@ -324,7 +325,8 @@ internal object DemoJellyfin {
             p == "UserViews" -> items(views)
             p == "Library/VirtualFolders" -> json(arr(views.map { v ->
                 val id = v["Id"].toString().trim('"')
-                obj("Name" to v["Name"], "ItemId" to id, "CollectionType" to v["CollectionType"], "Locations" to listOf("/media/${id.removePrefix("lib-")}"))
+                obj("Name" to v["Name"], "ItemId" to id, "CollectionType" to v["CollectionType"], "Locations" to listOf("/media/${id.removePrefix("lib-")}"),
+                    "LibraryOptions" to DemoJellyfinSettings.libraryOptions(v["CollectionType"].toString().trim('"')))
             }))
             p == "Items/Latest" -> json(arr(when (r.q("ParentId")) {
                 "lib-movies" -> DemoWorld.libraryMovies.sortedByDescending { it.date }.take(16).map { movieItem(it) }
