@@ -3,6 +3,14 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 2.1.
 
+## A tidier service menu (v2.1.37)
+- **The ⋮ menu is a sheet now.** Radarr, Sonarr and Lidarr had grown a dropdown of fifteen
+  plain lines, taller than the screen. It opens as a sheet from the bottom instead: the main
+  actions as buttons on top ("Search & add", "Manual import"), the rest as tiles with icons in
+  groups (Library, Connections, System). Prowlarr, NZBGet, Seerr and Jellyfin use the same sheet.
+- **Removing a service asks first.** "remove" sits apart at the bottom, in red, and needs a
+  second tap. Before, "Delete" was one slip below "Edit" and removed the service at once.
+
 ## Renaming, tags, import lists, download clients and proxies (v2.1.36)
 - **Rename files** (a title's menu in Sonarr, Radarr and Lidarr): shows which files the naming
   scheme would rename, old name above new, all ticked; untick what should stay and rename the rest.
