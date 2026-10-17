@@ -61,6 +61,8 @@ import org.phioster.sanctumd.model.NzbHistoryEntry
 import org.phioster.sanctumd.model.NzbQueueItem
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.ui.DashboardViewModel
+import org.phioster.sanctumd.ui.common.AutoRefresh
+import org.phioster.sanctumd.ui.common.RefreshBox
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.ui.theme.MatrixGreen
@@ -132,6 +134,12 @@ internal fun NzbgetScreen(
         }
     }
     LaunchedEffect(tab, showHidden) { if (tab == 0) loadQueue() else loadHistory() }
+    fun pullRefresh() { actionMsg = null; scope.launch { refreshing = true; if (tab == 0) loadQueue() else loadHistory(); refreshing = false } }
+    // Speed and progress change by the second while downloading; an idle queue only needs a glance.
+    AutoRefresh(tab, periodMs = {
+        val busy = (pauseState?.rateBytesPerSec ?: 0L) > 0 || queue.orEmpty().any { it.postInfo.isNotBlank() }
+        if (tab != 0) null else if (busy) 3_000L else 15_000L
+    }) { loadQueue() }
 
     var barMenu by remember { mutableStateOf(false) }
     var showAdd by remember { mutableStateOf(false) }
@@ -218,7 +226,7 @@ internal fun NzbgetScreen(
                             }
                         }
                     }
-                    IconButton(enabled = !refreshing, onClick = { actionMsg = null; scope.launch { refreshing = true; if (tab == 0) loadQueue() else loadHistory(); refreshing = false } }) {
+                    IconButton(enabled = !refreshing, onClick = { pullRefresh() }) {
                         if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), color = MatrixGreen, strokeWidth = 2.dp)
                         else Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                     }
@@ -265,33 +273,35 @@ internal fun NzbgetScreen(
             }
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
-            SwipeTabs(tab, 2, { tab = it }, Modifier.weight(1f).fillMaxWidth()) { page ->
-                if (listError != null) {
-                    Text(org.phioster.sanctumd.ui.services.friendlyStatusError(listError), fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
-                } else {
-                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                        if (page == 0) {
-                            val q = queue
-                            when {
-                                q == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                q.isEmpty() -> item { Text("queue is empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                else -> items(q) { qi ->
-                                    QueueRow(
-                                        item = qi,
-                                        selected = qi.id in selected,
-                                        selecting = selected.isNotEmpty(),
-                                        onToggleSelect = { selected = if (qi.id in selected) selected - qi.id else selected + qi.id },
-                                        onAction = { cmd, txt -> act { vm.nzbEdit(config, cmd, qi.id, txt) } },
-                                        onCategory = { categoryText = ""; categoryFor = qi.id },
-                                    )
+            RefreshBox(refreshing, { pullRefresh() }, Modifier.weight(1f).fillMaxWidth()) {
+                SwipeTabs(tab, 2, { tab = it }, Modifier.fillMaxSize()) { page ->
+                    if (listError != null) {
+                        Text(org.phioster.sanctumd.ui.services.friendlyStatusError(listError), fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
+                    } else {
+                        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                            if (page == 0) {
+                                val q = queue
+                                when {
+                                    q == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    q.isEmpty() -> item { Text("queue is empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    else -> items(q) { qi ->
+                                        QueueRow(
+                                            item = qi,
+                                            selected = qi.id in selected,
+                                            selecting = selected.isNotEmpty(),
+                                            onToggleSelect = { selected = if (qi.id in selected) selected - qi.id else selected + qi.id },
+                                            onAction = { cmd, txt -> act { vm.nzbEdit(config, cmd, qi.id, txt) } },
+                                            onCategory = { categoryText = ""; categoryFor = qi.id },
+                                        )
+                                    }
                                 }
-                            }
-                        } else {
-                            val h = history
-                            when {
-                                h == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                h.isEmpty() -> item { Text("no history", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                else -> items(h) { hi -> HistoryRow(hi, onShowLog = { logTarget = hi.id to hi.name }) { cmd -> act { vm.nzbEdit(config, cmd, hi.id) } } }
+                            } else {
+                                val h = history
+                                when {
+                                    h == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    h.isEmpty() -> item { Text("no history", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                    else -> items(h) { hi -> HistoryRow(hi, onShowLog = { logTarget = hi.id to hi.name }) { cmd -> act { vm.nzbEdit(config, cmd, hi.id) } } }
+                                }
                             }
                         }
                     }

@@ -59,6 +59,8 @@ import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.net.MusicTrack
 import org.phioster.sanctumd.service.DownloadService
 import org.phioster.sanctumd.ui.DashboardViewModel
+import org.phioster.sanctumd.ui.common.AutoRefresh
+import org.phioster.sanctumd.ui.common.RefreshBox
 import org.phioster.sanctumd.ui.arr.*
 import org.phioster.sanctumd.ui.common.*
 import org.phioster.sanctumd.ui.dashboard.*
@@ -151,6 +153,27 @@ internal fun JellyfinScreen(
     suspend fun loadMedia() {
         listError = if (bs.stack.isEmpty()) bs.loadHome(vm, config).also { sweepWatchedDownloads() }
         else bs.loadFolder(vm, config, bs.stack.last())
+    }
+    fun pullRefresh() {
+        actionMsg = null
+        scope.launch {
+            refreshing = true
+            when (mode) {
+                0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv()
+                else -> loadMedia()
+            }
+            refreshing = false
+        }
+    }
+    // Now Playing follows playback; the task list only while something runs, and only that list.
+    AutoRefresh(mode, ad.section, periodMs = {
+        when {
+            mode == 0 -> 5_000L
+            mode == 2 && ad.section == "tasks" && ad.tasks.orEmpty().any { it.state.equals("Running", true) } -> 3_000L
+            else -> null
+        }
+    }) {
+        if (mode == 0) loadSessions() else ad.tasks = runCatching { vm.jellyfinTaskList(config) }.getOrNull() ?: ad.tasks
     }
     LaunchedEffect(mode) { ad.section = null; when (mode) { 0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv(); else -> {} } }
     // System back from an open dashboard category returns to the tile overview.
@@ -421,17 +444,7 @@ internal fun JellyfinScreen(
                     }
                     IconButton(
                         enabled = !refreshing,
-                        onClick = {
-                            actionMsg = null
-                            scope.launch {
-                                refreshing = true
-                                when (mode) {
-                                    0 -> loadSessions(); 1 -> loadUsers(); 2 -> loadDashboard(); 4 -> loadLiveTv()
-                                    else -> loadMedia()
-                                }
-                                refreshing = false
-                            }
-                        },
+                        onClick = { pullRefresh() },
                     ) {
                         if (refreshing) {
                             CircularProgressIndicator(Modifier.size(20.dp), color = MatrixGreen, strokeWidth = 2.dp)
@@ -449,33 +462,35 @@ internal fun JellyfinScreen(
             // Chip order isn't the raw mode order, and swipe must not fight nested nav (Media browse /
             // Dashboard section). Swipe walks the visual order; disabled while inside a sub-navigation.
             val jfOrder = listOf(3, 0, 1, 2, 4)
-            SwipeTabs(
-                tab = jfOrder.indexOf(mode).coerceAtLeast(0),
-                count = jfOrder.size,
-                onChange = { mode = jfOrder[it] },
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                enabled = bs.stack.isEmpty() && ad.section == null,
-            ) { jfPage ->
-                val pageMode = jfOrder[jfPage]
-                // The media tab still renders when offline. Downloads are local and must stay reachable.
-                if (listError != null && pageMode != 3) {
-                    Text(org.phioster.sanctumd.ui.services.friendlyStatusError(listError), fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
-                } else {
-                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                        when (pageMode) {
-                            0 -> jellyfinSessionsTab(ps, vm, config, accent, ::act)
-                            1 -> jellyfinUsersTab(ps, accent)
-                            3 -> if (bs.stack.isEmpty()) {
-                                jellyfinMediaHome(bs, config, accent, context, downloads, hiddenSet, mediaStyles, listError, mediaActions)
-                            } else {
-                                jellyfinFolderLevel(bs, vm, config, accent, context, scope, downloads, mediaActions, musicState.currentMediaId)
+            RefreshBox(refreshing, { pullRefresh() }, Modifier.weight(1f).fillMaxWidth()) {
+                SwipeTabs(
+                    tab = jfOrder.indexOf(mode).coerceAtLeast(0),
+                    count = jfOrder.size,
+                    onChange = { mode = jfOrder[it] },
+                    modifier = Modifier.fillMaxSize(),
+                    enabled = bs.stack.isEmpty() && ad.section == null,
+                ) { jfPage ->
+                    val pageMode = jfOrder[jfPage]
+                    // The media tab still renders when offline. Downloads are local and must stay reachable.
+                    if (listError != null && pageMode != 3) {
+                        Text(org.phioster.sanctumd.ui.services.friendlyStatusError(listError), fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
+                    } else {
+                        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                            when (pageMode) {
+                                0 -> jellyfinSessionsTab(ps, vm, config, accent, ::act)
+                                1 -> jellyfinUsersTab(ps, accent)
+                                3 -> if (bs.stack.isEmpty()) {
+                                    jellyfinMediaHome(bs, config, accent, context, downloads, hiddenSet, mediaStyles, listError, mediaActions)
+                                } else {
+                                    jellyfinFolderLevel(bs, vm, config, accent, context, scope, downloads, mediaActions, musicState.currentMediaId)
+                                }
+                                2 -> jellyfinDashboardTab(ad, vm, config, accent, scope, { actionMsg = it }) { loadDashboard() }
+                                4 -> jellyfinLiveTvTab(
+                                    tvState, vm, config, accent, scope,
+                                    onMessage = { actionMsg = it },
+                                    onReload = { scope.launch { listError = tvState.reload(vm, config) } },
+                                )
                             }
-                            2 -> jellyfinDashboardTab(ad, vm, config, accent, scope, { actionMsg = it }) { loadDashboard() }
-                            4 -> jellyfinLiveTvTab(
-                                tvState, vm, config, accent, scope,
-                                onMessage = { actionMsg = it },
-                                onReload = { scope.launch { listError = tvState.reload(vm, config) } },
-                            )
                         }
                     }
                 }

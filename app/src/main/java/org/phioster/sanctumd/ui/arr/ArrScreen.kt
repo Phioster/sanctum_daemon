@@ -65,6 +65,8 @@ import org.phioster.sanctumd.model.ArrHistoryItem
 import org.phioster.sanctumd.model.ServiceConfig
 import org.phioster.sanctumd.model.ServiceType
 import org.phioster.sanctumd.ui.DashboardViewModel
+import org.phioster.sanctumd.ui.common.AutoRefresh
+import org.phioster.sanctumd.ui.common.RefreshBox
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.ErrRed
 import org.phioster.sanctumd.ui.theme.MatrixGreen
@@ -193,6 +195,8 @@ internal fun ArrScreen(
         0 -> loadLibrary(); 1 -> loadMissing(); 2 -> loadCutoff(); 3 -> loadQueue(); else -> loadHistory()
     }
     LaunchedEffect(tab) { reload() }
+    fun pullRefresh() { actionMsg = null; scope.launch { refreshing = true; reload(); refreshing = false } }
+    AutoRefresh(tab, periodMs = { if (tab == 3 || tab == 4) 10_000L else null }) { reload() }
     fun act(action: suspend () -> String) {
         scope.launch {
             actionMsg = action()
@@ -287,7 +291,7 @@ internal fun ArrScreen(
                         else -> {}
                     }
                     Spacer(Modifier.weight(1f))
-                    IconButton(enabled = !refreshing, onClick = { actionMsg = null; scope.launch { refreshing = true; reload(); refreshing = false } }) {
+                    IconButton(enabled = !refreshing, onClick = { pullRefresh() }) {
                         if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), color = MatrixGreen, strokeWidth = 2.dp)
                         else Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen)
                     }
@@ -332,88 +336,90 @@ internal fun ArrScreen(
             }
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.2f))
-            SwipeTabs(tab, 5, { tab = it }, Modifier.weight(1f).fillMaxWidth()) { page ->
-                if (listError != null) {
-                    Text(org.phioster.sanctumd.ui.services.friendlyStatusError(listError), fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
-                } else {
-                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                        when (page) {
-                            0 -> {
-                                val filtered = library?.filter { it.title.contains(query, ignoreCase = true) }?.let { l ->
-                                    when (sortBy) {
-                                        1 -> l.sortedByDescending { it.year }
-                                        2 -> l.sortedByDescending { it.sizeMb }
-                                        else -> l.sortedBy { it.title.lowercase() }
-                                    }
-                                }
-                                when {
-                                    filtered == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    filtered.isEmpty() -> item { Text(if (query.isBlank()) "library is empty" else "no matches", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(filtered) { li ->
-                                        ArrLibraryRow(
-                                            item = li,
-                                            accent = accent,
-                                            onOpen = if (supportsDetail) ({ detailId = li.id }) else null,
-                                            onSearch = { act { vm.arrLibSearch(config, li.id) } },
-                                        )
-                                    }
-                                }
-                            }
-                            1, 2 -> {
-                                val m = if (page == 1) missing else cutoff
-                                when {
-                                    m == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    m.isEmpty() -> item { Text(if (page == 1) "nothing missing" else "nothing below cutoff", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(m) { mi ->
-                                        ArrMissingRow(
-                                            item = mi,
-                                            accent = accent,
-                                            onSearch = { act { vm.arrSearch(config, mi.id) } },
-                                            onCustomSearch = { pickFor = mi },
-                                            onProwlarrSearch = prowlarr?.let { { prowlarrSearchFor = mi.title } },
-                                        )
-                                    }
-                                }
-                            }
-                            3 -> {
-                                val q = queue
-                                when {
-                                    q == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    q.isEmpty() -> item { Text("queue is empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> {
-                                        val statuses = q.map { it.status }.filter { it.isNotBlank() }.distinct()
-                                        // Ignore a filter whose status no longer exists in the queue (download finished etc.).
-                                        val activeFilter = if (queueFilter in statuses) queueFilter else ""
-                                        if (statuses.size > 1) {
-                                            item {
-                                                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                    FilterChip(selected = activeFilter == "", onClick = { queueFilter = "" }, label = { Text("all", fontFamily = Mono) })
-                                                    statuses.forEach { s ->
-                                                        Spacer(Modifier.width(6.dp))
-                                                        FilterChip(selected = activeFilter == s, onClick = { queueFilter = if (activeFilter == s) "" else s }, label = { Text(s, fontFamily = Mono) })
-                                                    }
-                                                }
-                                            }
+            RefreshBox(refreshing, { pullRefresh() }, Modifier.weight(1f).fillMaxWidth()) {
+                SwipeTabs(tab, 5, { tab = it }, Modifier.fillMaxSize()) { page ->
+                    if (listError != null) {
+                        Text(org.phioster.sanctumd.ui.services.friendlyStatusError(listError), fontFamily = Mono, color = ErrRed, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
+                    } else {
+                        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                            when (page) {
+                                0 -> {
+                                    val filtered = library?.filter { it.title.contains(query, ignoreCase = true) }?.let { l ->
+                                        when (sortBy) {
+                                            1 -> l.sortedByDescending { it.year }
+                                            2 -> l.sortedByDescending { it.sizeMb }
+                                            else -> l.sortedBy { it.title.lowercase() }
                                         }
-                                        val shown = q.filter { activeFilter.isEmpty() || it.status == activeFilter }
-                                        items(shown) { qi ->
-                                            ArrQueueRow(
-                                                qi,
-                                                onRemove = { act { vm.arrRemove(config, qi.id) } },
-                                                onBlocklist = { act { vm.arrRemoveAndBlock(config, qi.id) } },
-                                                onImport = { importAt = ArrImportStart(qi.outputPath, scan = true) },
+                                    }
+                                    when {
+                                        filtered == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        filtered.isEmpty() -> item { Text(if (query.isBlank()) "library is empty" else "no matches", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        else -> items(filtered) { li ->
+                                            ArrLibraryRow(
+                                                item = li,
+                                                accent = accent,
+                                                onOpen = if (supportsDetail) ({ detailId = li.id }) else null,
+                                                onSearch = { act { vm.arrLibSearch(config, li.id) } },
                                             )
                                         }
                                     }
                                 }
-                            }
-                            else -> {
-                                val h = history
-                                when {
-                                    h == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    h.isEmpty() -> item { Text("no history", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(h) { ev ->
-                                        ArrHistoryRow(ev, accent) { act { vm.arrBlockFromHistory(config, ev.id) } }
+                                1, 2 -> {
+                                    val m = if (page == 1) missing else cutoff
+                                    when {
+                                        m == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        m.isEmpty() -> item { Text(if (page == 1) "nothing missing" else "nothing below cutoff", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        else -> items(m) { mi ->
+                                            ArrMissingRow(
+                                                item = mi,
+                                                accent = accent,
+                                                onSearch = { act { vm.arrSearch(config, mi.id) } },
+                                                onCustomSearch = { pickFor = mi },
+                                                onProwlarrSearch = prowlarr?.let { { prowlarrSearchFor = mi.title } },
+                                            )
+                                        }
+                                    }
+                                }
+                                3 -> {
+                                    val q = queue
+                                    when {
+                                        q == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        q.isEmpty() -> item { Text("queue is empty", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        else -> {
+                                            val statuses = q.map { it.status }.filter { it.isNotBlank() }.distinct()
+                                            // Ignore a filter whose status no longer exists in the queue (download finished etc.).
+                                            val activeFilter = if (queueFilter in statuses) queueFilter else ""
+                                            if (statuses.size > 1) {
+                                                item {
+                                                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                        FilterChip(selected = activeFilter == "", onClick = { queueFilter = "" }, label = { Text("all", fontFamily = Mono) })
+                                                        statuses.forEach { s ->
+                                                            Spacer(Modifier.width(6.dp))
+                                                            FilterChip(selected = activeFilter == s, onClick = { queueFilter = if (activeFilter == s) "" else s }, label = { Text(s, fontFamily = Mono) })
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            val shown = q.filter { activeFilter.isEmpty() || it.status == activeFilter }
+                                            items(shown) { qi ->
+                                                ArrQueueRow(
+                                                    qi,
+                                                    onRemove = { act { vm.arrRemove(config, qi.id) } },
+                                                    onBlocklist = { act { vm.arrRemoveAndBlock(config, qi.id) } },
+                                                    onImport = { importAt = ArrImportStart(qi.outputPath, scan = true) },
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                else -> {
+                                    val h = history
+                                    when {
+                                        h == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        h.isEmpty() -> item { Text("no history", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
+                                        else -> items(h) { ev ->
+                                            ArrHistoryRow(ev, accent) { act { vm.arrBlockFromHistory(config, ev.id) } }
+                                        }
                                     }
                                 }
                             }
