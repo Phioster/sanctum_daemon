@@ -6,7 +6,8 @@ set -u
 out=docs/screenshots/v3.0
 mkdir -p "$out" shots
 adb wait-for-device
-adb install -r app/build/outputs/apk/phone/debug/app-phone-debug.apk
+adb shell getprop ro.product.cpu.abilist
+adb install -r app/build/outputs/apk/phone/debug/app-phone-debug.apk || { echo "install failed"; exit 1; }
 
 # A tidy status bar: 12:00, full battery, no notification icons.
 adb shell settings put global sysui_demo_allowed 1
@@ -30,4 +31,6 @@ adb shell pkill -INT screenrecord || true
 wait $rec || true
 sleep 2
 adb pull /sdcard/demo.mp4 "$out/demo-raw.mp4" || true
+# A recording of a flow that never started is a few KB of black; don't keep it.
+[ -f "$out/demo-raw.mp4" ] && [ "$(stat -c %s "$out/demo-raw.mp4")" -lt 500000 ] && rm -f "$out/demo-raw.mp4"
 ls -la "$out"

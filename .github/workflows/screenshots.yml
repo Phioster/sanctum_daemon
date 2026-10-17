@@ -65,7 +65,9 @@ jobs:
       - name: Capture on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 33
+          # 30, like ui-smoke.yml: its x86_64 image translates arm64, and the phone APK carries
+          # arm64-v8a libraries only. The API 33 image refuses it (INSTALL_FAILED_NO_MATCHING_ABIS).
+          api-level: 30
           arch: x86_64
           target: google_apis
           profile: pixel_5
