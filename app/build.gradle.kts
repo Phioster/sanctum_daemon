@@ -18,6 +18,7 @@ val keystoreProps = Properties().apply {
 fun releaseSigning(key: String, env: String): String? =
     (keystoreProps.getProperty(key) ?: System.getenv(env))?.takeIf { it.isNotBlank() }
 val hasReleaseKeystore = releaseSigning("storeFile", "RELEASE_STORE_FILE") != null
+val unsignedRelease = project.hasProperty("unsignedRelease")
 
 android {
     namespace = "org.phioster.sanctumd"
@@ -78,6 +79,12 @@ android {
         }
     }
 
+    // AGP otherwise embeds a dependency report encrypted for Google Play; F-Droid rejects that block.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -88,9 +95,13 @@ android {
             // can build an update that Android accepts in place of such a build. Inheriting its
             // data directory and its Keystore alias. It stays buildable, but it is marked: a
             // release nobody can tell apart from a signed one is the dangerous version.
-            signingConfig = if (hasReleaseKeystore) signingConfigs.getByName("release")
-                            else signingConfigs.getByName("debug")
-            if (!hasReleaseKeystore) {
+            // `-PunsignedRelease` (F-Droid's recipe) leaves the APK unsigned: F-Droid signs it itself.
+            signingConfig = when {
+                hasReleaseKeystore -> signingConfigs.getByName("release")
+                unsignedRelease -> null
+                else -> signingConfigs.getByName("debug")
+            }
+            if (!hasReleaseKeystore && !unsignedRelease) {
                 versionNameSuffix = "-UNSIGNED-debugkey"
                 logger.warn("sanctumd: no release keystore, signing with the PUBLIC debug key. Not for distribution.")
             }

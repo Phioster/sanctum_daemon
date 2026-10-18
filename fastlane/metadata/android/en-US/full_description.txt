@@ -1,0 +1,27 @@
+<p>Sanctumd is one Android app for a self-hosted media stack: <b>Jellyfin, Radarr, Sonarr, Lidarr, Prowlarr, Seerr, NZBGet and ntfy</b>. It talks to each service through its own API, straight from the phone. There is no backend, no account, no analytics and no crash reporting. API keys are stored encrypted with a key in the Android Keystore.</p>
+
+<p><b>No server at hand?</b> Tap <i>try the demo</i> on the first screen: a busy made-up homelab runs inside the app, nothing reaches a server.</p>
+
+<p><b>Jellyfin</b></p>
+<ul>
+<li>Dashboard: active sessions with remote control (including audio and subtitle tracks), scheduled tasks, activity, devices, storage, backups, API keys, plugins and their updates</li>
+<li>Users and per-library access, Quick Connect approval</li>
+<li>Server, transcoding and library settings, sending back only what you changed</li>
+<li>Browse and play films, shows and music; metadata and artwork editing, collections, playlists; timed lyrics and Instant Mix</li>
+</ul>
+
+<p><b>Radarr, Sonarr, Lidarr, Prowlarr</b></p>
+<ul>
+<li>Library, calendar, queue, history, manual import and search</li>
+<li>Rename files to the naming scheme, tags, quality profiles, indexers, download clients, import lists and exclusions, blocklist, logs, backups</li>
+</ul>
+
+<p><b>Seerr</b>: approve, edit and retry requests, discover, per-user quotas, settings.</p>
+
+<p><b>NZBGet</b>: the queue with ETAs, why a download failed and what to do about it, volume per news server, upload .nzb files from the share menu.</p>
+
+<p><b>ntfy</b>: subscribe to your topics and get the *arr webhooks as Android notifications, with images, priorities and action buttons.</p>
+
+<p>Also: one calendar across Radarr, Sonarr and Lidarr, home-screen widgets, a stats screen, nine themes plus your own, and Cloudflare Access headers for services behind a tunnel.</p>
+
+<p>Built and tested against one homelab; the README lists the server versions it runs on daily. Reports with your version numbers are welcome on the issue tracker.</p>

@@ -1,0 +1,73 @@
+name: F-Droid build check
+
+# Builds the phone release the way F-Droid's recipe does (no keystore, -PunsignedRelease) and
+# checks what F-Droid's scanner would reject: a signature, a version suffix, the Google
+# dependency block.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'app/build.gradle.kts'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle/**'
+      - 'fastlane/**'
+      - '.github/workflows/fdroid-check.yml'
+
+jobs:
+  fdroid:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Build like F-Droid
+        run: gradle assemblePhoneRelease -PunsignedRelease --no-daemon
+
+      - name: Check the APK
+        run: |
+          apk=$(ls app/build/outputs/apk/phone/release/*.apk)
+          echo "built: $apk"
+          aapt=$(ls "$ANDROID_HOME"/build-tools/*/aapt | tail -1)
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | tail -1)
+          "$aapt" dump badging "$apk" | head -1
+          "$aapt" dump badging "$apk" | head -1 | grep -q "versionName='[0-9.]*'" \
+            || { echo "::error::version name carries a suffix"; exit 1; }
+          if "$apksigner" verify "$apk" >/dev/null 2>&1; then
+            echo "::error::APK is signed, F-Droid needs it unsigned"; exit 1
+          fi
+          if unzip -l "$apk" | grep -q 'META-INF/.*\.\(RSA\|DSA\|EC\)$'; then
+            echo "::error::v1 signature files present"; exit 1
+          fi
+          # The dependency report sits in the APK signing block, so an unsigned APK has none;
+          # still make sure the build setting is there.
+          grep -q 'includeInApk = false' app/build.gradle.kts
+          echo "ok: unsigned, plain version name, no dependency block"
+
+      - name: Check fastlane metadata
+        run: |
+          d=fastlane/metadata/android/en-US
+          for f in title.txt short_description.txt full_description.txt images/icon.png; do
+            test -s "$d/$f" || { echo "::error::missing $d/$f"; exit 1; }
+          done
+          n=$(wc -m < "$d/short_description.txt"); echo "short description: $n chars"
+          test "$n" -le 80 || { echo "::error::short description over 80 chars"; exit 1; }
+          n=$(wc -m < "$d/full_description.txt"); echo "full description: $n chars"
+          test "$n" -le 4000 || { echo "::error::full description over 4000 chars"; exit 1; }
+          for c in "$d"/changelogs/*.txt; do
+            n=$(wc -m < "$c"); echo "$c: $n chars"
+            test "$n" -le 500 || { echo "::error::$c over 500 chars"; exit 1; }
+          done
+          ls "$d"/images/phoneScreenshots
