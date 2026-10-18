@@ -3,6 +3,14 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 3.0.
 
+## F-Droid groundwork (v3.0.1)
+Nothing changes in the app. The build can now be reproduced from source by F-Droid, so a future
+F-Droid listing can ship the same signed APK as this release page and updates work across both.
+- Release builds no longer embed Google's encrypted dependency report.
+- The Gradle version is pinned in `gradle/wrapper/gradle-wrapper.properties`.
+- Store texts, icon and screenshots live in `fastlane/metadata`.
+- Get it through Obtainium with the badge in the README.
+
 ## Sanctumd 3.0 (v3.0.0)
 The first public release since 2.1.6. It collects the thirty-three versions below (2.1.7 to
 2.1.39), which were only built for testing: **the app went from watching your stack to running it.**
