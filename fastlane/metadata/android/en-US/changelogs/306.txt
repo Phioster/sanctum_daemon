@@ -1,0 +1,1 @@
+No change in the app. The build is now reproducible from source, which prepares the F-Droid listing.
