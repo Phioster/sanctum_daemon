@@ -61,6 +61,7 @@ release's strength (a lot to show) and its main risk (none of it has been throug
    sharing any unknown file type; non-NZBs are refused with a message. If that annoys in
    daily use, drop the octet-stream line from the `SEND` filter; "open with" and the in-app
    picker keep working.
+   **Done (after v3.0.1):** the octet-stream line is gone from the `SEND` filter.
 8. **Posters in public material.** Demo screenshots show real film and series artwork
    (TMDb) and real actors' photos. That is how every media app presents itself and the
    README already says where it comes from, but for paid ads or a store listing it would

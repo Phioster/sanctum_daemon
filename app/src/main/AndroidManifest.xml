@@ -47,9 +47,8 @@
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="application/x-nzb" />
-                <!-- Android has no type for .nzb, so most apps share it as a generic file;
-                     anything that isn't an NZB is turned away with a message. -->
-                <data android:mimeType="application/octet-stream" />
+                <!-- No application/octet-stream here: it put Sanctumd in the share sheet for every
+                     generic file. Untyped .nzb files come in through "open with" or the file picker. -->
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

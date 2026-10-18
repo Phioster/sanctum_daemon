@@ -132,7 +132,7 @@ visitor@homelab:~$ ./sanctumd --whoami
   why a download failed
   speed limit · post-processing
   volume per news server
-  .nzb from the share menu
+  .nzb via "open with" / share
   log, per download too
 ```
 </details>

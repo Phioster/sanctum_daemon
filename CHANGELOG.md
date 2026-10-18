@@ -3,6 +3,11 @@
 All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 3.0.
 
+## Unreleased
+- Sanctumd no longer shows up in the share menu for every unknown file type. An .nzb still
+  arrives through "open with", the file picker in NZBGet, or sharing from apps that know the
+  NZB type.
+
 ## F-Droid groundwork (v3.0.1)
 Nothing changes in the app. The build can now be reproduced from source by F-Droid, so a future
 F-Droid listing can ship the same signed APK as this release page and updates work across both.
