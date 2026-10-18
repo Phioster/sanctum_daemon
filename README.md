@@ -17,6 +17,8 @@ No server at hand? The app has a **demo mode**: a busy made-up homelab, built in
 
 <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22org.phioster.nexarr%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FPhioster%2Fsanctum_daemon%22%2C%22author%22%3A%22Phioster%22%2C%22name%22%3A%22Sanctumd%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%20%5C%22%5Esanctumd-v%5B0-9.%5D%2B%5C%5C%5C%5C.apk%24%5C%22%2C%20%5C%22includePrereleases%5C%22%3A%20false%7D%22%7D"><img src="site/assets/obtainium.png" alt="Get it on Obtainium" height="48"></a>
 
+<a href="https://www.opensourcealternatives.to"><img src="https://www.opensourcealternatives.to/badge-osa.svg" alt="As seen on Open Source Alternatives" width="270" height="20"></a>
+
 </div>
 
 ```console
