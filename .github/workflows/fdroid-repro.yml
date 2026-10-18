@@ -57,6 +57,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # apksigcopier calls apksigner, which lives in build-tools
+          export PATH="$ANDROID_HOME/build-tools/35.0.0:$PATH"
           python3 -m venv /tmp/v && /tmp/v/bin/pip install -q apksigcopier
           mkdir -p /tmp/signed
           wget -q https://github.com/cli/cli/releases/download/v2.63.2/gh_2.63.2_linux_amd64.tar.gz -O /tmp/gh.tgz
