@@ -1,0 +1,32 @@
+name: Commit hygiene
+
+# Fails a pull request whose commits are authored by an AI assistant identity or carry
+# co-author / session trailers, so they never reach master (see CLAUDE.md).
+on:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check authors and trailers
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          bad=0
+          for c in $(git rev-list "$BASE..$HEAD"); do
+            who=$(git log -1 --format='%an <%ae> / %cn <%ce>' "$c")
+            if echo "$who" | grep -qiE 'noreply@anthropic\.com|^claude '; then
+              echo "::error::$c is authored or committed as an AI assistant: $who"; bad=1
+            fi
+            if git log -1 --format=%B "$c" | grep -qiE '^(co-authored-by|claude-session):|generated with \[?claude'; then
+              echo "::error::$c carries an attribution trailer"; bad=1
+            fi
+          done
+          [ "$bad" = 0 ] && echo "ok: $(git rev-list --count "$BASE..$HEAD") commits checked"
+          exit $bad

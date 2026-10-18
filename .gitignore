@@ -21,4 +21,6 @@ signing.properties
 # Other secrets
 google-services.json
 secrets.properties
-.claude/
+# Local Claude Code state and worktrees stay out; the shared project settings go in.
+.claude/*
+!.claude/settings.json
