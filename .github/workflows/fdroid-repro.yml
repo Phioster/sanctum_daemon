@@ -1,0 +1,76 @@
+name: F-Droid reproducibility
+
+# Builds the phone release unsigned the way F-Droid's buildserver does (Debian trixie, its
+# default JDK, -PunsignedRelease) and compares it with the signed APK of release.yml from the same
+# commit. F-Droid only ships our signature if the two are identical apart from the signature.
+on:
+  workflow_dispatch:
+    inputs:
+      signed_run:
+        description: 'release.yml run id with the signed APK of the same commit (empty: build only)'
+        required: false
+
+jobs:
+  fdroid-build:
+    runs-on: ubuntu-latest
+    container: debian:trixie
+    steps:
+      # git before checkout, or the action falls back to a tarball and the APK loses its VCS info
+      - name: Base packages
+        run: |
+          apt-get update -q
+          apt-get install -yq --no-install-recommends default-jdk-headless git wget unzip ca-certificates python3-pip python3-venv
+          java -version
+
+      - uses: actions/checkout@v7
+
+      - name: Android SDK
+        run: |
+          export ANDROID_HOME=/opt/android-sdk
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/clt.zip
+          unzip -q /tmp/clt.zip -d $ANDROID_HOME/cmdline-tools
+          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;35.0.0" >/dev/null
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+
+      - name: Gradle from the wrapper properties
+        run: |
+          url=$(sed -n 's/^distributionUrl=//p' gradle/wrapper/gradle-wrapper.properties | sed 's/\\//g')
+          wget -q "$url" -O /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /opt
+          echo "$(ls -d /opt/gradle-*)/bin" >> $GITHUB_PATH
+
+      - name: Build like F-Droid
+        working-directory: app
+        run: gradle assemblePhoneRelease -PunsignedRelease --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fdroid-unsigned
+          retention-days: 1
+          path: app/build/outputs/apk/phone/release/*.apk
+
+      - name: Compare with the signed release
+        if: inputs.signed_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -m venv /tmp/v && /tmp/v/bin/pip install -q apksigcopier
+          mkdir -p /tmp/signed
+          wget -q https://github.com/cli/cli/releases/download/v2.63.2/gh_2.63.2_linux_amd64.tar.gz -O /tmp/gh.tgz
+          tar -xzf /tmp/gh.tgz -C /tmp
+          /tmp/gh_2.63.2_linux_amd64/bin/gh run download ${{ inputs.signed_run }} -R ${{ github.repository }} -n sanctumd-release-apk -D /tmp/signed
+          signed=$(ls /tmp/signed/sanctumd-*.apk | grep -v -- '-tv-')
+          unsigned=$(ls app/build/outputs/apk/phone/release/*.apk)
+          echo "signed:   $signed"; echo "unsigned: $unsigned"
+          if /tmp/v/bin/apksigcopier compare "$signed" --unsigned "$unsigned"; then
+            echo "REPRODUCIBLE: F-Droid can ship our signature"
+          else
+            echo "::error::not reproducible, listing the differing entries"
+            mkdir -p /tmp/a /tmp/b
+            unzip -q -o "$signed" -d /tmp/a; unzip -q -o "$unsigned" -d /tmp/b
+            diff -rq /tmp/a /tmp/b | grep -v META-INF/ | head -50 || true
+            exit 1
+          fi
