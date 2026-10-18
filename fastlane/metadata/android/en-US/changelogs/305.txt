@@ -1,0 +1,6 @@
+Sanctumd 3.0: the app went from watching your stack to running it.
+- Jellyfin: server, transcoding and library settings, remote control with audio and subtitle tracks, metadata and artwork, lyrics and Instant Mix
+- Radarr/Sonarr/Lidarr/Prowlarr: rename files, tags, quality profiles, indexers, download clients, logs, backups
+- Seerr: edit, retry and fix requests
+- NZBGet: why a download failed, volume per news server
+- Demo mode, your own themes

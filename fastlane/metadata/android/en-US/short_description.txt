@@ -1,0 +1,1 @@
+Jellyfin and the *arr stack in one app: admin, downloads, requests, pushes
