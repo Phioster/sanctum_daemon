@@ -18,7 +18,7 @@
 
 <p><b>Seerr</b>: approve, edit and retry requests, discover, per-user quotas, settings.</p>
 
-<p><b>NZBGet</b>: the queue with ETAs, why a download failed and what to do about it, volume per news server, upload .nzb files from the share menu.</p>
+<p><b>NZBGet</b>: the queue with ETAs, why a download failed and what to do about it, volume per news server, upload .nzb files with "open with" or the file picker.</p>
 
 <p><b>ntfy</b>: subscribe to your topics and get the *arr webhooks as Android notifications, with images, priorities and action buttons.</p>
 
