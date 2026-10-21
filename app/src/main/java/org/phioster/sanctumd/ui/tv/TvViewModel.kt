@@ -60,6 +60,11 @@ class TvViewModel(app: Application) : AndroidViewModel(app) {
 
     fun open(route: TvRoute) { stack = stack + route }
 
+    /** Started by a launcher for one item: its page on top of home. */
+    fun openFromLauncher(itemId: String, title: String) {
+        stack = listOf(TvRoute.Home, TvRoute.Detail(itemId, title))
+    }
+
     /** Returns false when there is nothing left to pop (the caller should let the system handle back). */
     fun back(): Boolean {
         if (stack.size <= 1) return false
