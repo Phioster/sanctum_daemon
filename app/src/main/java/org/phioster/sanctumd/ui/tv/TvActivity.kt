@@ -1,5 +1,6 @@
 package org.phioster.sanctumd.ui.tv
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -36,5 +37,21 @@ class TvActivity : ComponentActivity() {
                 TvApp(vm = vm, onExit = { finish() })
             }
         }
+        // Only on a fresh start: a recreated activity keeps its own back stack.
+        if (savedInstanceState == null) openFromLauncher(intent)
+    }
+
+    /**
+     * The Glenn launcher hands over a Jellyfin item id, so a "Weiterschauen" tile lands on that item's
+     * page instead of this app's home. Back from there still goes through home, as if browsed to it.
+     */
+    private fun openFromLauncher(intent: Intent?) {
+        val id = intent?.getStringExtra(EXTRA_ITEM_ID)?.takeIf { it.isNotBlank() } ?: return
+        vm.openFromLauncher(id, intent.getStringExtra(EXTRA_ITEM_NAME).orEmpty())
+    }
+
+    private companion object {
+        const val EXTRA_ITEM_ID = "org.phioster.glenn.ITEM_ID"
+        const val EXTRA_ITEM_NAME = "org.phioster.glenn.ITEM_NAME"
     }
 }
