@@ -41,6 +41,8 @@ class MpvPlayerEngine(
     @Volatile private var eof = false
     private var lastError: String? = null
 
+    @Volatile private var pendingSubs: List<org.phioster.sanctumd.net.ExternalSubtitle> = emptyList()
+
     private val observer = object : MPVLib.EventObserver {
         override fun eventProperty(property: String) {}
         override fun eventProperty(property: String, value: Long) {}
@@ -55,7 +57,15 @@ class MpvPlayerEngine(
             }
         }
         override fun eventProperty(property: String, value: String) {}
-        override fun event(eventId: Int) {}
+        override fun event(eventId: Int) {
+            // sub-add only works on a loaded file. The http-header-fields set for the video apply
+            // to these fetches too, so they carry the same auth. "auto" leaves selection to the
+            // track preferences instead of switching the subtitle on.
+            if (eventId == MPV_EVENT_FILE_LOADED && !released) {
+                val subs = pendingSubs; pendingSubs = emptyList()
+                subs.forEach { s -> runCatching { mpv.command(arrayOf("sub-add", s.url, "auto", s.label, s.language)) } }
+            }
+        }
     }
 
     init {
@@ -129,8 +139,15 @@ class MpvPlayerEngine(
         }
     }
 
-    override fun prepare(url: String, isHls: Boolean, startPositionMs: Long, headers: Map<String, String>) {
+    override fun prepare(
+        url: String,
+        isHls: Boolean,
+        startPositionMs: Long,
+        headers: Map<String, String>,
+        externalSubs: List<org.phioster.sanctumd.net.ExternalSubtitle>,
+    ) {
         if (released) return
+        pendingSubs = externalSubs
         lastError = null; eof = false; posSec = 0.0; durSec = 0.0
         // Each header goes in on its own, through the list option's `-append` form. The plain
         // option is a comma-separated list and a Jellyfin Authorization header is made of commas;
@@ -307,3 +324,6 @@ class MpvPlayerEngine(
  */
 internal fun headerLines(headers: Map<String, String>): List<String> =
     headers.entries.map { (k, v) -> "$k: $v" }
+
+/** mpv_event_id MPV_EVENT_FILE_LOADED (client.h); the file is open and its tracks are known. */
+private const val MPV_EVENT_FILE_LOADED = 8

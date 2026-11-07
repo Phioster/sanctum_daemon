@@ -34,7 +34,13 @@ class ExoPlayerEngine(private val context: Context) : MediaPlayerEngine {
         })
     }
 
-    override fun prepare(url: String, isHls: Boolean, startPositionMs: Long, headers: Map<String, String>) {
+    override fun prepare(
+        url: String,
+        isHls: Boolean,
+        startPositionMs: Long,
+        headers: Map<String, String>,
+        externalSubs: List<org.phioster.sanctumd.net.ExternalSubtitle>,
+    ) {
         lastError = null
         val http = url.startsWith("http")
         val dataSourceFactory = if (http) {
@@ -44,7 +50,23 @@ class ExoPlayerEngine(private val context: Context) : MediaPlayerEngine {
         } else {
             DefaultDataSource.Factory(context)
         }
-        val item = MediaItem.fromUri(url)
+        val item = MediaItem.Builder().setUri(url)
+            .setSubtitleConfigurations(
+                externalSubs.map { s ->
+                    MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(s.url))
+                        .setMimeType(
+                            when (s.format) {
+                                "ass" -> androidx.media3.common.MimeTypes.TEXT_SSA
+                                "vtt" -> androidx.media3.common.MimeTypes.TEXT_VTT
+                                else -> androidx.media3.common.MimeTypes.APPLICATION_SUBRIP
+                            },
+                        )
+                        .setLanguage(s.language.ifBlank { null })
+                        .setLabel(s.label)
+                        .build()
+                },
+            )
+            .build()
         val source = if (isHls) {
             HlsMediaSource.Factory(dataSourceFactory).createMediaSource(item)
         } else {

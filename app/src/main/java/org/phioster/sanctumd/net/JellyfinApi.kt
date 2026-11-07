@@ -262,6 +262,8 @@ internal data class JfCounts(
     val IsDefault: Boolean = false,
     val IsForced: Boolean = false,
     val IsExternal: Boolean = false,
+    val Index: Int? = null,
+    val DeliveryUrl: String? = null, // only when a device profile asked for External delivery
 )
 /** The media source as it comes with the item detail, no extra PlaybackInfo round trip needed. */
 @Serializable internal data class JfDetailMediaSource(
