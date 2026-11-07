@@ -249,6 +249,8 @@ internal fun MediaGridCard(
     onSetWatched: ((Boolean) -> Boolean)? = null,
     selected: Boolean = false,
     onLongClick: (() -> Unit)? = null,
+    /** Starts playback straight from the grid; null hides the button. */
+    onPlay: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     Column(
@@ -270,6 +272,7 @@ internal fun MediaGridCard(
                 )
             }
             WatchedMarker(item, accent, Modifier.align(Alignment.TopEnd), onSetWatched = onSetWatched)
+            if (onPlay != null) PosterPlayButton(accent, Modifier.align(Alignment.BottomEnd).padding(6.dp), onClick = onPlay)
         }
         Spacer(Modifier.height(4.dp))
         Text(item.name, fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -507,5 +510,29 @@ internal fun ExpandableFolderRow(
             }
         }
         HorizontalDivider(color = MatrixGreen.copy(alpha = 0.1f))
+    }
+}
+
+/**
+ * The round play button on a poster or episode thumbnail. Plays without opening the detail page
+ * first, which is what Jellyfin's own clients offer and what was missing here.
+ */
+@Composable
+internal fun PosterPlayButton(
+    accent: Color,
+    modifier: Modifier = Modifier,
+    size: androidx.compose.ui.unit.Dp = 34.dp,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier
+            .size(size)
+            .clip(androidx.compose.foundation.shape.CircleShape)
+            .background(Black.copy(alpha = 0.6f))
+            .border(1.5.dp, accent, androidx.compose.foundation.shape.CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(AppIcons.Play, contentDescription = "play", tint = accent, modifier = Modifier.size(size * 0.62f))
     }
 }

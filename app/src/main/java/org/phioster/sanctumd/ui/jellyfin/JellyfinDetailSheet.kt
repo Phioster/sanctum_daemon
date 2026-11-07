@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.jellyfin
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -142,6 +144,25 @@ internal fun JellyfinDetailSheet(
             // ── Body ──
             Column(Modifier.padding(horizontal = 16.dp)) {
                 Spacer(Modifier.height(14.dp))
+                if (d.kind in FOLDER_PLAY_KINDS) {
+                    // Starts the run at the first unwatched episode, so a season plays straight
+                    // from its page instead of opening episode one first.
+                    var starting by remember(d.id) { mutableStateOf(false) }
+                    PrimaryButton(if (starting) "starting…" else if (d.kind == "Season") "play season" else "play series", Modifier.fillMaxWidth(), icon = AppIcons.Play) {
+                        if (starting) return@PrimaryButton
+                        starting = true
+                        scope.launch {
+                            runCatching { vm.jellyfinFolderQueue(config, d.id, d.kind, d.number) }
+                                .onSuccess { (queue, start) ->
+                                    val first = queue.getOrNull(start)
+                                    if (first == null) { onMessage("nothing to play"); starting = false }
+                                    else { state.closeAll(); onPlay(org.phioster.sanctumd.ui.player.PlayRequest(first.id, first.name, queue = queue)) }
+                                }
+                                .onFailure { onMessage("error: ${errorText(it)}"); starting = false }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
                 if (d.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS) {
                     PrimaryButton("play", Modifier.fillMaxWidth(), icon = AppIcons.Play) {
                         state.closeAll(); onPlay(org.phioster.sanctumd.ui.player.PlayRequest(d.id, d.name))
@@ -230,7 +251,7 @@ internal fun JellyfinDetailSheet(
                     Text(d.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp, lineHeight = 17.sp)
                 }
                 if (opensAsDetail(d.kind)) {
-                    DetailChildren(d, vm, config, accent, downloads, onMessage) { child ->
+                    DetailChildren(d, vm, config, accent, downloads, onMessage, onPlay = { state.closeAll(); onPlay(it) }) { child ->
                         scope.launch {
                             runCatching { vm.jellyfinMediaDetail(config, child.id) }.getOrNull()?.let { state.open(it) }
                         }

@@ -229,6 +229,7 @@ internal data class JfCounts(
     val UserData: JfUserData? = null,
     val PlaylistItemId: String? = null, // only on playlist entries
     val ChildCount: Int? = null,
+    val Overview: String? = null, // only when asked for via Fields
 )
 @Serializable internal data class JfItemsResp(val Items: List<JfItem> = emptyList())
 @Serializable internal data class JfPerson(

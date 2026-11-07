@@ -497,7 +497,9 @@ internal fun LazyListScope.jellyfinFolderLevel(
                         rowItems.forEach { it2 ->
                             MediaGridCard(
                                 it2, config, accent, Modifier.weight(1f), { want -> act.setWatched(it2, want) },
-                                selected = it2.id in st.selected, onLongClick = { st.toggle(it2.id) }, onClick = tapOf(it2),
+                                selected = it2.id in st.selected, onLongClick = { st.toggle(it2.id) },
+                                onPlay = if (canPlayFromGrid(it2.kind)) ({ act.play(it2) }) else null,
+                                onClick = tapOf(it2),
                             )
                         }
                         repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }

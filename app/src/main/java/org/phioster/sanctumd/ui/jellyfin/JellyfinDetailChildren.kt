@@ -3,6 +3,19 @@ package org.phioster.sanctumd.ui.jellyfin
 import org.phioster.sanctumd.net.errorText
 
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import org.phioster.sanctumd.ui.theme.Black
+import org.phioster.sanctumd.ui.theme.Surface
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -55,6 +68,7 @@ internal fun DetailChildren(
     accent: Color,
     downloads: Map<String, org.phioster.sanctumd.model.DownloadEntry>,
     onMessage: (String) -> Unit,
+    onPlay: (org.phioster.sanctumd.ui.player.PlayRequest) -> Unit,
     onOpen: (JellyMediaItem) -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -77,6 +91,19 @@ internal fun DetailChildren(
 
     val list = children
     if (list != null && list.isEmpty() && error == null) return
+
+    // A season tile on a series page plays that season; a film in a collection plays itself.
+    fun playFrom(c: JellyMediaItem) {
+        if (c.kind !in FOLDER_PLAY_KINDS) { onPlay(org.phioster.sanctumd.ui.player.PlayRequest(c.id, c.name)); return }
+        scope.launch {
+            runCatching { vm.jellyfinFolderQueue(config, c.id, c.kind, c.number) }
+                .onSuccess { (queue, start) ->
+                    queue.getOrNull(start)?.let { onPlay(org.phioster.sanctumd.ui.player.PlayRequest(it.id, it.name, queue = queue)) }
+                        ?: onMessage("nothing to play")
+                }
+                .onFailure { onMessage("error: ${errorText(it)}") }
+        }
+    }
 
     Spacer(Modifier.height(16.dp))
     MediaSectionHeader(childSectionTitle(d.kind), accent)
@@ -110,10 +137,26 @@ internal fun DetailChildren(
     when {
         error != null -> Text(error!!, fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp)
         list == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+        // Episodes read as a list: a wide still, the title and what happens. Tiles cut the
+        // titles to a few letters and hid the synopsis behind a tap.
+        d.kind == "Season" -> Column {
+            val queue = list.filter { it.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS }
+                .map { org.phioster.sanctumd.net.NextEpisode(it.id, it.name, it.subtitle) }
+            list.forEach { c ->
+                EpisodeListRow(c, config, accent, onPlay = {
+                    onPlay(org.phioster.sanctumd.ui.player.PlayRequest(c.id, c.name, queue = queue))
+                }) { onOpen(c) }
+            }
+        }
         else -> Column {
             list.chunked(3).forEach { rowItems ->
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    rowItems.forEach { c -> MediaGridCard(c, config, accent, Modifier.weight(1f)) { onOpen(c) } }
+                    rowItems.forEach { c ->
+                        MediaGridCard(
+                            c, config, accent, Modifier.weight(1f),
+                            onPlay = if (canPlayFromGrid(c.kind)) ({ playFrom(c) }) else null,
+                        ) { onOpen(c) }
+                    }
                     repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
@@ -135,3 +178,61 @@ internal fun nextUnwatched(
     downloaded: Set<String>,
     limit: Int = 3,
 ): List<JellyMediaItem> = pendingDownloads(children, downloaded).filter { !it.played }.take(limit)
+
+/** Folders whose play button starts a run of episodes rather than one file. */
+internal val FOLDER_PLAY_KINDS = setOf("Series", "Season")
+
+/** Whether a grid tile gets a play button: anything that plays, or a run of episodes. */
+internal fun canPlayFromGrid(kind: String): Boolean =
+    kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS || kind in FOLDER_PLAY_KINDS
+
+/** One episode in a season's list: still with play button and progress, title, runtime, synopsis. */
+@Composable
+internal fun EpisodeListRow(
+    item: JellyMediaItem,
+    config: ServiceConfig,
+    accent: Color,
+    onPlay: () -> Unit,
+    onOpen: () -> Unit,
+) {
+    Column(
+        Modifier.fillMaxWidth().padding(top = 12.dp).clickable(onClick = onOpen),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.width(150.dp).aspectRatio(16f / 9f)
+                    .clip(RoundedCornerShape(6.dp)).background(Surface),
+            ) {
+                if (item.posterUrl.isNotBlank()) {
+                    JellyPoster(item.posterUrl, config, Modifier.matchParentSize(), RoundedCornerShape(6.dp), ContentScale.Crop)
+                }
+                if (item.progressPct > 0.01f) {
+                    LinearProgressIndicator(
+                        progress = { item.progressPct },
+                        modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter),
+                        color = accent, trackColor = Black.copy(alpha = 0.6f),
+                    )
+                }
+                WatchedMarker(item, accent, Modifier.align(Alignment.TopEnd))
+                PosterPlayButton(accent, Modifier.align(Alignment.Center), size = 38.dp, onClick = onPlay)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    listOfNotNull(item.number?.let { "$it." }, item.name).joinToString(" "),
+                    fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                )
+                if (item.runtimeMin > 0) {
+                    Text("${item.runtimeMin} min", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 10.sp)
+                }
+            }
+        }
+        if (item.overview.isNotBlank()) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                item.overview, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.75f), fontSize = 11.sp,
+                lineHeight = 15.sp, maxLines = 4, overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}

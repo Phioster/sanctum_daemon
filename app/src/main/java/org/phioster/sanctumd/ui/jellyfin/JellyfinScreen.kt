@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.jellyfin
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -367,7 +369,20 @@ internal fun JellyfinScreen(
     val mediaActions = JellyfinMediaActions(
         open = ::openMedia,
         setWatched = setWatched,
-        play = { m -> playRequest = PlayRequest(m.id, m.name) },
+        play = { m ->
+            if (m.kind in FOLDER_PLAY_KINDS) {
+                scope.launch {
+                    runCatching { vm.jellyfinFolderQueue(config, m.id, m.kind, m.number) }
+                        .onSuccess { (queue, start) ->
+                            queue.getOrNull(start)?.let { first -> playRequest = PlayRequest(first.id, first.name, queue = queue) }
+                                ?: run { actionMsg = "nothing to play" }
+                        }
+                        .onFailure { actionMsg = "error: ${errorText(it)}" }
+                }
+            } else {
+                playRequest = PlayRequest(m.id, m.name)
+            }
+        },
         playDownload = ::playDownload,
         toggleFolder = ::toggleFolder,
         playQueue = { i, pl ->
