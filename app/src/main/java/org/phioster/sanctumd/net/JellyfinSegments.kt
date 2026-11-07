@@ -100,3 +100,30 @@ suspend fun jellyfinNextEpisode(config: ServiceConfig, itemId: String): NextEpis
         NextEpisode(next.Id, next.Name, jfSubtitle(next))
     }.getOrNull()
 }
+
+/**
+ * What a play button on a series or season starts: its episodes in order, as a play queue, and
+ * where in it to begin, at the first one not yet watched, like Jellyfin's own clients. Specials
+ * (season 0) stay out of a series run. Everything watched starts again from the top.
+ */
+suspend fun jellyfinFolderQueue(
+    config: ServiceConfig,
+    id: String,
+    kind: String,
+    seasonNumber: Int?,
+): Pair<List<NextEpisode>, Int> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val api = jfApi(config, token)
+    val uid = jellyfinResolveUserId(config, api)
+    val episodes = when (kind) {
+        "Season" -> api.items(uid, id, sortBy = "SortName").Items
+            .filter { it.Type == "Episode" && (seasonNumber == null || it.ParentIndexNumber == seasonNumber) }
+        else -> jfSegmentsApi(config, token).seriesEpisodes(id, uid).Items
+            .filter { (it.ParentIndexNumber ?: 1) > 0 }
+    }.filter { it.LocationType != "Virtual" }
+    episodes.map { NextEpisode(it.Id, it.Name, jfSubtitle(it)) } to
+        queueStart(episodes.map { it.UserData?.Played == true })
+}
+
+/** Index of the first unwatched entry, or 0 when there is none (all watched, or empty). */
+internal fun queueStart(played: List<Boolean>): Int = played.indexOfFirst { !it }.coerceAtLeast(0)

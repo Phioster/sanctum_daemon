@@ -65,6 +65,8 @@ internal fun JfItem.toMediaItem(config: ServiceConfig, token: String) = JellyMed
     played = UserData?.Played == true,
     unplayedCount = UserData?.UnplayedItemCount ?: 0,
     favorite = UserData?.IsFavorite == true,
+    overview = Overview.orEmpty(),
+    runtimeMin = ((RunTimeTicks ?: 0L) / 600_000_000L).toInt(),
 )
 
 /** The user's libraries (Movies, Shows, Music, …). */
@@ -115,6 +117,8 @@ suspend fun jellyfinItems(
         sortBy = sortBy,
         sortOrder = if (descending) "Descending" else "Ascending",
         filters = if (unwatchedOnly) "IsUnplayed" else null,
+        // A season's episodes are shown as a list with their synopsis; nowhere else needs it.
+        fields = if (seasonNumber != null) "PrimaryImageAspectRatio,OfficialRating,Overview" else "PrimaryImageAspectRatio,OfficialRating",
     ).Items
         .filter { it.LocationType != "Virtual" }
         .filter { seasonNumber == null || it.Type != "Episode" || it.ParentIndexNumber == seasonNumber }
