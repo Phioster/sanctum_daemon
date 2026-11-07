@@ -810,7 +810,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun statsForService(
         svc: ServiceConfig,
     ): Triple<List<org.phioster.sanctumd.model.StatTile>, List<org.phioster.sanctumd.model.StatChart>, Map<String, Long>> = kotlinx.coroutines.coroutineScope {
-        val accent = svc.type.accent
+        val accent = svc.type.brand
         val id = svc.id
         val tiles = mutableListOf<org.phioster.sanctumd.model.StatTile>()
         val charts = mutableListOf<org.phioster.sanctumd.model.StatChart>()
