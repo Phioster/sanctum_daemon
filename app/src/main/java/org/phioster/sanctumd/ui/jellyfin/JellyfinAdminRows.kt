@@ -318,6 +318,7 @@ internal fun JellyStorageRow(item: org.phioster.sanctumd.model.JellyStorageFolde
 }
 
 /** Approve the code another client shows, e.g. the TV during its sign-in. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 internal fun JellyQuickConnectDialog(
     users: List<org.phioster.sanctumd.model.JellyUser>?,
@@ -342,17 +343,21 @@ internal fun JellyQuickConnectDialog(
                 Field("Code", code) { code = it.trim() }
                 Spacer(Modifier.height(10.dp))
                 Text("USER", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                when {
-                    users == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
-                    else -> users.forEach { u ->
-                        Row(
-                            Modifier.fillMaxWidth().clickable { picked = u.id }.padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            androidx.compose.material3.RadioButton(selected = picked == u.id, onClick = { picked = u.id })
-                            Text(
-                                u.name + if (u.id == ownUserId) "  (you)" else "",
-                                fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp,
+                var open by remember { mutableStateOf(false) }
+                val name = users?.firstOrNull { it.id == picked }?.let { it.name + if (it.id == ownUserId) "  (you)" else "" }
+                androidx.compose.material3.ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = it && users != null }) {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = name ?: if (users == null) "loading…" else "",
+                        onValueChange = {}, readOnly = true, singleLine = true,
+                        trailingIcon = { androidx.compose.material3.ExposedDropdownMenuDefaults.TrailingIcon(expanded = open) },
+                        textStyle = androidx.compose.ui.text.TextStyle(fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp),
+                        modifier = Modifier.menuAnchor(androidx.compose.material3.MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
+                    )
+                    androidx.compose.material3.ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                        users.orEmpty().forEach { u ->
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(u.name + if (u.id == ownUserId) "  (you)" else "", fontFamily = Mono) },
+                                onClick = { picked = u.id; open = false },
                             )
                         }
                     }
