@@ -10,6 +10,8 @@ data class NotifySettings(
     val imports: Boolean = true, // Radarr/Sonarr/Lidarr: download imported
     val requests: Boolean = true, // Seerr: new pending requests
     val health: Boolean = false, // Radarr/Sonarr/Lidarr: health warnings/errors
+    val lowDisk: Boolean = true, // a media disk drops below [lowDiskGb] free
+    val lowDiskGb: Int = 15,
     val intervalMin: Int = 15, // background check interval (WorkManager min is 15)
 
     // Live push: Sanctumd subscribes directly to a topic on the user's ntfy server.
