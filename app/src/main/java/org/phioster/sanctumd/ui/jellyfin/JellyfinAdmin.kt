@@ -551,9 +551,15 @@ internal fun JellyfinAdminDialogs(
     }
 
     if (st.showQuickConnect) {
-        JellyQuickConnectDialog(onDismiss = { st.showQuickConnect = false }) { code ->
+        var users by remember { mutableStateOf<List<org.phioster.sanctumd.model.JellyUser>?>(null) }
+        var me by remember { mutableStateOf("") }
+        LaunchedEffect(Unit) {
+            me = runCatching { vm.jellyfinOwnUserId(config) }.getOrDefault("")
+            users = runCatching { vm.jellyfinUserList(config) }.getOrDefault(emptyList()).filterNot { it.disabled }
+        }
+        JellyQuickConnectDialog(users, me, onDismiss = { st.showQuickConnect = false }) { code, userId ->
             st.showQuickConnect = false
-            scope.launch { onMessage(vm.jellyfinApproveCode(config, code)) }
+            scope.launch { onMessage(vm.jellyfinApproveCode(config, code, userId)) }
         }
     }
 
