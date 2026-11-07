@@ -23,6 +23,10 @@ private val TAG_EMOJI = mapOf(
     "red_circle" to "🔴", "green_circle" to "🟢", "yellow_circle" to "🟡", "large_blue_circle" to "🔵",
     "cloud" to "☁️", "sunny" to "☀️", "house" to "🏠", "globe_with_meridians" to "🌐",
     "mailbox" to "📫", "email" to "📧", "speech_balloon" to "💬", "trophy" to "🏆",
+    // Media controls, which Jellyfin's webhook uses for playback started/stopped.
+    "arrow_forward" to "▶️", "stop_button" to "⏹️", "pause_button" to "⏸️", "play_or_pause_button" to "⏯️",
+    "fast_forward" to "⏩", "rewind" to "⏪", "record_button" to "⏺️", "eject_button" to "⏏️",
+    "next_track_button" to "⏭️", "previous_track_button" to "⏮️", "repeat" to "🔁", "twisted_rightwards_arrows" to "🔀",
 )
 
 /** The emojis of the tags that have one, in order, e.g. "⚠️🔥 ". Blank when none. */

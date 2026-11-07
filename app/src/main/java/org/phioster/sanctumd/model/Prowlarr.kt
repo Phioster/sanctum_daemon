@@ -12,6 +12,7 @@ data class ProwlarrIndexerItem(
     val grabs: Int,
     val failRate: Int, // percent 0..100
     val failing: Boolean, // currently disabled by failures
+    val failingUntil: String = "", // local HH:mm when Prowlarr retries it; blank if unknown
 )
 
 /** A search result (release) from Prowlarr. */

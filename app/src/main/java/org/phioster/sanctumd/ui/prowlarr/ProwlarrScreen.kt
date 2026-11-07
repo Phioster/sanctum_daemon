@@ -444,7 +444,11 @@ internal fun ProwlarrIndexerRow(item: ProwlarrIndexerItem, accent: Color, onTest
             }
             Spacer(Modifier.height(2.dp))
             Text(
-                "prio ${item.priority} · ${item.grabs} grabs · ${item.queries} q · ${item.failRate}% fail",
+                // The fail rate counts failed queries over all time, so a dead indexer can still read
+                // "0%". While Prowlarr has it paused, say that instead.
+                "prio ${item.priority} · ${item.grabs} grabs · ${item.queries} q · " +
+                    if (item.failing) "paused" + (if (item.failingUntil.isNotBlank()) " till ${item.failingUntil}" else "")
+                    else "${item.failRate}% failed",
                 fontFamily = Mono, color = accent.copy(alpha = 0.8f), fontSize = 11.sp,
             )
             Spacer(Modifier.height(8.dp))
