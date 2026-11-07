@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.jellyfin
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -69,7 +71,7 @@ internal fun DetailChildren(
         } catch (c: kotlinx.coroutines.CancellationException) {
             throw c
         } catch (t: Throwable) {
-            error = t.message; null
+            error = errorText(t); null
         }
     }
 

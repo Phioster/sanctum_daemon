@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.nzbget
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -86,7 +88,7 @@ internal fun NzbServersScreen(vm: DashboardViewModel, config: ServiceConfig, onB
     suspend fun load() {
         runCatching { vm.nzbVolumes(config) }
             .onSuccess { list = it; error = null }
-            .onFailure { error = it.message ?: it.javaClass.simpleName }
+            .onFailure { error = errorText(it) }
     }
     LaunchedEffect(config.id) { load() }
 
@@ -331,6 +333,6 @@ internal fun readNzb(context: android.content.Context, uri: android.net.Uri): Pe
         } ?: return PendingNzb(name, null, "error: could not open the file")
         if (org.phioster.sanctumd.net.looksLikeNzb(bytes)) PendingNzb(name, bytes) else PendingNzb(name, null, "error: that is not an NZB file")
     } catch (t: Throwable) {
-        PendingNzb(name, null, "error: ${t.message ?: t.javaClass.simpleName}")
+        PendingNzb(name, null, "error: ${errorText(t)}")
     }
 }

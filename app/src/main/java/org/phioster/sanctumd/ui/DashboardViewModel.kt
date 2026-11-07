@@ -1242,8 +1242,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.net.arrBlockedQueueItems(config)
     suspend fun arrBrowsePath(config: ServiceConfig, path: String): org.phioster.sanctumd.model.ArrFsListing =
         org.phioster.sanctumd.net.arrBrowse(config, path)
-    suspend fun arrManualScan(config: ServiceConfig, folder: String): List<org.phioster.sanctumd.model.ArrImportItem> =
-        arrManualImportScan(config, folder)
+    suspend fun arrManualScan(config: ServiceConfig, folder: String, downloadId: String = ""): List<org.phioster.sanctumd.model.ArrImportItem> =
+        arrManualImportScan(config, folder, downloadId)
     suspend fun arrManualImport(config: ServiceConfig, rawItems: List<String>): String =
         arrManualImportExecute(config, rawItems)
     /** Patches a scanned manual-import row to target [movieId] (Radarr, unmatched files). */

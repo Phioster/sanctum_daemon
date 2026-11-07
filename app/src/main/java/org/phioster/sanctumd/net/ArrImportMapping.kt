@@ -53,6 +53,15 @@ internal fun importFileBody(type: ServiceType, o: JsonObject): JsonObject = buil
     jsStr(o, "path")?.let { put("path", it) }
     jsStr(o, "folderName")?.let { put("folderName", it) }
     o["quality"]?.let { put("quality", it) }
+    // Without the downloadId the service cannot tie the file to its queue entry, which then
+    // stays on importBlocked although the file went in.
+    jsStr(o, "downloadId")?.takeIf { it.isNotBlank() }?.let { put("downloadId", it) }
+    if (type != ServiceType.LIDARR) {
+        o["languages"]?.let { put("languages", it) }
+        jsStr(o, "releaseGroup")?.let { put("releaseGroup", it) }
+        jsInt(o, "indexerFlags")?.let { put("indexerFlags", it) }
+    }
+    if (type == ServiceType.SONARR) jsStr(o, "releaseType")?.let { put("releaseType", it) }
     when (type) {
         ServiceType.SONARR -> {
             sub(o, "series")?.let { s -> jsInt(s, "id")?.let { put("seriesId", it) } }
@@ -89,3 +98,30 @@ internal fun importAllowed(type: ServiceType, rejections: List<String>): Boolean
     }
 
 private const val LIDARR_PER_FILE_WARNING = "Has missing tracks"
+
+/** What the user is told once the ManualImport command has finished. */
+internal fun importVerdict(status: String, message: String?, files: Int): String = when (status) {
+    "completed" -> message?.takeIf { it.isNotBlank() } ?: "imported $files file(s)"
+    "failed", "aborted", "cancelled" -> "error: ${redactSecrets(message?.takeIf { it.isNotBlank() } ?: "import $status")}"
+    else -> "importing $files file(s) in the background"
+}
+
+/**
+ * Polls a Servarr command until it finishes. Returns status and message, or null if it is still
+ * running after [timeoutMs] (a big file copied across filesystems takes a while).
+ */
+internal suspend fun awaitCommand(
+    id: Int,
+    timeoutMs: Long = 30_000,
+    stepMs: Long = 1_500,
+    fetch: suspend () -> JsonObject,
+): Pair<String, String?>? {
+    val end = System.currentTimeMillis() + timeoutMs
+    while (true) {
+        val o = runCatching { fetch() }.getOrNull()
+        val status = o?.let { jsStr(it, "status") }.orEmpty()
+        if (status in setOf("completed", "failed", "aborted", "cancelled")) return status to o?.let { jsStr(it, "message") }
+        if (System.currentTimeMillis() >= end) return null
+        kotlinx.coroutines.delay(stepMs)
+    }
+}

@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.arr
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -148,7 +150,7 @@ internal fun ArrReleasePicker(
                 ServiceType.LIDARR -> vm.arrReleasesFor(config, movieId = null, episodeId = null, albumId = item.id)
                 else -> vm.arrReleasesFor(config, movieId = item.id, episodeId = null)
             }
-        }.getOrElse { onMessage("error: ${it.message}"); onDismiss(); emptyList() }
+        }.getOrElse { onMessage("error: ${errorText(it)}"); onDismiss(); emptyList() }
     }
     AlertDialog(
         onDismissRequest = onDismiss,

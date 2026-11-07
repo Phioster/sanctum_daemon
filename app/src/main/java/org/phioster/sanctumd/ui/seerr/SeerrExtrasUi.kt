@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.seerr
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -178,7 +180,7 @@ internal fun SeerrLogsDialog(vm: DashboardViewModel, config: ServiceConfig, onDi
     var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(level) {
         lines = null; error = null
-        runCatching { vm.seerrLogLines(config, level) }.onSuccess { lines = it }.onFailure { error = it.message ?: "failed" }
+        runCatching { vm.seerrLogLines(config, level) }.onSuccess { lines = it }.onFailure { error = errorText(it) }
     }
     AlertDialog(
         onDismissRequest = onDismiss,

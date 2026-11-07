@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.arr
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -57,7 +59,7 @@ internal fun ArrLogsDialog(vm: DashboardViewModel, config: ServiceConfig, onDism
     var open by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(level) {
         lines = null; error = null; open = null
-        runCatching { vm.arrLogLines(config, level) }.onSuccess { lines = it }.onFailure { error = it.message ?: "failed" }
+        runCatching { vm.arrLogLines(config, level) }.onSuccess { lines = it }.onFailure { error = errorText(it) }
     }
     AlertDialog(
         onDismissRequest = onDismiss,

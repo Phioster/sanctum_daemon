@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.jellyfin
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -91,7 +93,7 @@ internal fun JellyfinMetadataDialog(
                 genres = m.genres.joinToString(", "); tags = m.tags.joinToString(", ")
                 rating = m.officialRating; locked = m.locked
             }
-            .onFailure { error = it.message ?: "failed" }
+            .onFailure { error = errorText(it) }
     }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },

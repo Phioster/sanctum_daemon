@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.tv
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -82,7 +84,7 @@ internal fun TvHomeScreen(
                 val libraries = jellyfinLibraryViews(config) // the one that must work
                 TvHomeData(resume.await(), nextUp.await(), latest.await(), favorites.await(), libraries)
             }
-        }.onSuccess { data = it }.onFailure { error = it.message ?: it.javaClass.simpleName }
+        }.onSuccess { data = it }.onFailure { error = errorText(it) }
         loading = false
     }
 

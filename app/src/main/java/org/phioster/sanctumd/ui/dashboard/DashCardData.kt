@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.dashboard
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -108,7 +110,7 @@ internal class DashCardData {
             } catch (c: CancellationException) {
                 throw c
             } catch (t: Throwable) {
-                error = t.message
+                error = errorText(t)
                 attempt++
                 if (attempt < 3) delay(1200)
             }

@@ -168,7 +168,7 @@ suspend fun runNzbgetPause(config: ServiceConfig): String = destructive("pause t
             val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpc(NzbRpcReq("pausedownload"))
             if (r.result) "paused" else "error: NZBGet did not accept pause"
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -179,7 +179,7 @@ suspend fun runNzbgetResume(config: ServiceConfig): String = destructive("resume
             val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpc(NzbRpcReq("resumedownload"))
             if (r.result) "resumed" else "error: NZBGet did not accept resume"
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -243,7 +243,7 @@ suspend fun runNzbPauseFor(config: ServiceConfig, minutes: Int): String = destru
             ).result
             if (ok) "paused for $minutes min" else "error: paused, but the timer was refused"
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -255,7 +255,7 @@ suspend fun runNzbPostPause(config: ServiceConfig, pause: Boolean): String = des
             val ok = apiFor<NzbgetApi>(config, basicHeader(config)).rpc(NzbRpcReq(if (pause) "pausepost" else "resumepost")).result
             if (ok) (if (pause) "post-processing paused" else "post-processing resumed") else "error: refused"
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -268,7 +268,7 @@ suspend fun runNzbEditMany(config: ServiceConfig, command: String, ids: List<Int
                 val ok = apiFor<NzbgetApi>(config, basicHeader(config)).rpcJson(editqueueBody(command, editText, ids)).result
                 if (ok) "done (${ids.size})" else "error: refused"
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -315,7 +315,7 @@ suspend fun runNzbEditQueue(config: ServiceConfig, command: String, id: Int, edi
                 val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpcJson(editqueueBody(command, editText, id))
                 if (r.result) "ok" else "error: NZBGet rejected $command"
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -327,7 +327,7 @@ suspend fun runNzbRate(config: ServiceConfig, kbps: Int): String = destructive("
             val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpcJson(rateBody(kbps))
             if (r.result) (if (kbps == 0) "no speed limit" else "limit ${kbps / 1024} MB/s") else "error"
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -340,7 +340,7 @@ suspend fun runNzbAppendUrl(config: ServiceConfig, url: String, category: String
                 val r = apiFor<NzbgetApi>(config, basicHeader(config)).rpcInt(appendUrlBody(url.trim(), category.trim()))
                 if (r.result > 0) "added (id ${r.result})" else "error: NZBGet rejected the URL"
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }

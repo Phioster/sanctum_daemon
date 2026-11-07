@@ -258,7 +258,7 @@ suspend fun jellyfinServerSettings(config: ServiceConfig): JsonObject = withCont
 suspend fun jellyfinSaveServerSettings(config: ServiceConfig, settings: JsonObject): String = destructive("change Jellyfin server settings") {
     withContext(Dispatchers.IO) {
         runCatching { okOr(jfApi(config, jellyfinAccessToken(config)).setServerConfiguration(settings), "server settings saved") }
-            .getOrElse { "error: ${it.message ?: it.javaClass.simpleName}" }
+            .getOrElse { "error: ${errorText(it)}" }
     }
 }
 
@@ -269,7 +269,7 @@ suspend fun jellyfinEncodingSettings(config: ServiceConfig): JsonObject = withCo
 suspend fun jellyfinSaveEncodingSettings(config: ServiceConfig, settings: JsonObject): String = destructive("change Jellyfin transcoding settings") {
     withContext(Dispatchers.IO) {
         runCatching { okOr(jfApi(config, jellyfinAccessToken(config)).setEncodingConfiguration(settings), "transcoding settings saved") }
-            .getOrElse { "error: ${it.message ?: it.javaClass.simpleName}" }
+            .getOrElse { "error: ${errorText(it)}" }
     }
 }
 
@@ -290,7 +290,7 @@ suspend fun jellyfinSaveLibraryOptions(config: ServiceConfig, libraryId: String,
             runCatching {
                 val body = buildJsonObject { put("Id", libraryId); put("LibraryOptions", options) }
                 okOr(jfApi(config, jellyfinAccessToken(config)).setLibraryOptions(body), "library options saved")
-            }.getOrElse { "error: ${it.message ?: it.javaClass.simpleName}" }
+            }.getOrElse { "error: ${errorText(it)}" }
         }
     }
 

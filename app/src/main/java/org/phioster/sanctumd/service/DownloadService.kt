@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.service
 
+import org.phioster.sanctumd.net.errorText
+
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
@@ -227,7 +229,7 @@ class DownloadService : Service() {
             removeEntryAndFiles(id) // user cancelled: clear the entry + any partial files for this id
             cancelled -= id
         } catch (t: Throwable) {
-            store.update(id) { it.copy(state = DownloadEntry.STATE_FAILED, error = t.message ?: t.javaClass.simpleName) }
+            store.update(id) { it.copy(state = DownloadEntry.STATE_FAILED, error = errorText(t)) }
             notifyDone(id, display, "Download failed")
         }
     }

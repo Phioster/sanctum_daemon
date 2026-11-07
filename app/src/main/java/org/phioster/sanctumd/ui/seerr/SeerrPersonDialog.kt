@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.seerr
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -56,7 +58,7 @@ internal fun SeerrPersonDialog(
     var error by remember(personId) { mutableStateOf<String?>(null) }
     var bioOpen by remember(personId) { mutableStateOf(false) }
     LaunchedEffect(personId) {
-        runCatching { vm.seerrPersonOf(config, personId) }.onSuccess { person = it }.onFailure { error = it.message ?: "failed" }
+        runCatching { vm.seerrPersonOf(config, personId) }.onSuccess { person = it }.onFailure { error = errorText(it) }
     }
     AlertDialog(
         onDismissRequest = onDismiss,

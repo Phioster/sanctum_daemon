@@ -98,7 +98,7 @@ suspend fun runJellyfinScan(config: ServiceConfig): String = destructive("trigge
             val resp = apiFor<JellyfinApi>(config, jellyfinAuth(token)).refreshLibrary()
             if (resp.isSuccessful) "library scan started" else "error: HTTP ${resp.code()}"
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -174,7 +174,7 @@ suspend fun jellyfinCreateUser(config: ServiceConfig, name: String, password: St
             }
             okOr(jfApi(config, token).createUser(body), "user created")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -185,7 +185,7 @@ suspend fun jellyfinDeleteUser(config: ServiceConfig, userId: String): String = 
             val token = jellyfinAccessToken(config)
             okOr(jfApi(config, token).deleteUser(userId), "user deleted")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -218,7 +218,7 @@ suspend fun jellyfinSetPolicy(
             }
             okOr(api.setPolicy(userId, body), "policy saved")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -237,7 +237,7 @@ suspend fun jellyfinSetPassword(config: ServiceConfig, userId: String, newPasswo
             }
             okOr(api.setPassword(userId, body), "password reset")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -287,7 +287,7 @@ suspend fun jellyfinRunTask(config: ServiceConfig, taskId: String): String = des
             val token = jellyfinAccessToken(config)
             okOr(jfApi(config, token).runTask(taskId), "started")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -325,7 +325,7 @@ suspend fun jellyfinDeleteDevice(config: ServiceConfig, deviceId: String): Strin
             val token = jellyfinAccessToken(config)
             okOr(jfApi(config, token).deleteDevice(deviceId), "device removed")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -366,7 +366,7 @@ suspend fun jellyfinApproveQuickConnect(config: ServiceConfig, code: String): St
                 else -> okOr(resp, "approved")
             }
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -377,7 +377,7 @@ suspend fun jellyfinRestart(config: ServiceConfig): String = destructive("restar
             val token = jellyfinAccessToken(config)
             okOr(jfApi(config, token).restartServer(), "restarting")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -404,7 +404,7 @@ suspend fun jellyfinLogContent(config: ServiceConfig, name: String, maxLines: In
         if (lines.size <= maxLines) text
         else "… (${lines.size - maxLines} earlier lines truncated)\n" + lines.takeLast(maxLines).joinToString("\n")
     } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+        "error: ${errorText(t)}"
     }
 }
 
@@ -414,7 +414,7 @@ suspend fun jellyfinAddLibrary(config: ServiceConfig, name: String, collectionTy
             val token = jellyfinAccessToken(config)
             okOr(jfApi(config, token).addVirtualFolder(name, collectionType.ifBlank { null }, listOf(path)), "library added")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -425,7 +425,7 @@ suspend fun jellyfinDeleteLibrary(config: ServiceConfig, name: String): String =
             val token = jellyfinAccessToken(config)
             okOr(jfApi(config, token).deleteVirtualFolder(name), "library deleted")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -436,7 +436,7 @@ suspend fun jellyfinRenameLibrary(config: ServiceConfig, name: String, newName: 
             val token = jellyfinAccessToken(config)
             okOr(jfApi(config, token).renameVirtualFolder(name, newName), "library renamed")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -447,7 +447,7 @@ suspend fun jellyfinAddLibraryPath(config: ServiceConfig, libraryName: String, p
             val token = jellyfinAccessToken(config)
             okOr(jfApi(config, token).addLibraryPath(JfMediaPath(Name = libraryName, PathInfo = JfMediaPathInfo(Path = path))), "path added")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -458,7 +458,7 @@ suspend fun jellyfinRemoveLibraryPath(config: ServiceConfig, libraryName: String
             val token = jellyfinAccessToken(config)
             okOr(jfApi(config, token).removeLibraryPath(libraryName, path), "path removed")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -484,7 +484,7 @@ suspend fun jellyfinSetPluginEnabled(config: ServiceConfig, id: String, version:
             val api = jfApi(config, token)
             okOr(if (enabled) api.enablePlugin(id, version) else api.disablePlugin(id, version), if (enabled) "plugin enabled (restart server to apply)" else "plugin disabled (restart server to apply)")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -495,7 +495,7 @@ suspend fun jellyfinUninstallPlugin(config: ServiceConfig, id: String, version: 
             val token = jellyfinAccessToken(config)
             okOr(jfApi(config, token).uninstallPlugin(id, version), "plugin uninstalled (restart server to apply)")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -522,7 +522,7 @@ suspend fun jellyfinInstallPackage(config: ServiceConfig, name: String, guid: St
             val token = jellyfinAccessToken(config)
             okOr(jfApi(config, token).installPackage(name, guid), "installing… (restart server when done)")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -572,7 +572,7 @@ suspend fun jellyfinAddTuner(config: ServiceConfig, type: String, url: String): 
             val body = buildJsonObject { put("Type", type); put("Url", url) }
             okOr(jfApi(config, token).addTunerHost(body), "tuner added")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -583,7 +583,7 @@ suspend fun jellyfinDeleteTuner(config: ServiceConfig, id: String): String = des
             val token = jellyfinAccessToken(config)
             okOr(jfApi(config, token).deleteTunerHost(id), "tuner removed")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -596,7 +596,7 @@ suspend fun jellyfinAddXmltvProvider(config: ServiceConfig, path: String): Strin
             val body = buildJsonObject { put("Type", "xmltv"); put("Path", path) }
             okOr(jfApi(config, token).addListingProvider(body), "guide provider added")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -607,7 +607,7 @@ suspend fun jellyfinDeleteProvider(config: ServiceConfig, id: String): String = 
             val token = jellyfinAccessToken(config)
             okOr(jfApi(config, token).deleteListingProvider(id), "guide provider removed")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }

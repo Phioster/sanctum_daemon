@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.widget
 
+import org.phioster.sanctumd.net.errorText
+
 import android.content.Context
 import android.widget.Toast
 import androidx.glance.GlanceId
@@ -19,7 +21,7 @@ class RunShortcutAction : ActionCallback {
         val services = runCatching { ServiceStore(context).realServices.first() }.getOrDefault(emptyList())
         val config = services.firstOrNull { it.id == serviceId } ?: return
         val sc = config.shortcuts.firstOrNull { it.name == name } ?: return
-        val result = runCatching { runHttpShortcut(config, sc) }.getOrElse { "error: ${it.message ?: "failed"}" }
+        val result = runCatching { runHttpShortcut(config, sc) }.getOrElse { "error: ${errorText(it)}" }
         withContext(Dispatchers.Main) {
             Toast.makeText(context, result, Toast.LENGTH_SHORT).show()
         }

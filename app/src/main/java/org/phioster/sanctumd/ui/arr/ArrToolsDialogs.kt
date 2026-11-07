@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.arr
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -76,7 +78,7 @@ internal fun ArrRenameDialog(vm: DashboardViewModel, config: ServiceConfig, item
     LaunchedEffect(itemId) {
         runCatching { vm.arrRenameList(config, itemId) }
             .onSuccess { l -> list = l; picked = l.map { it.fileId }.toSet() }
-            .onFailure { message = "error: ${it.message}"; list = emptyList() }
+            .onFailure { message = "error: ${errorText(it)}"; list = emptyList() }
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -129,7 +131,7 @@ internal fun ArrTagsDialog(vm: DashboardViewModel, config: ServiceConfig, accent
     var editing by remember { mutableStateOf<Int?>(null) }
     var editText by remember { mutableStateOf("") }
     var confirmDelete by remember { mutableStateOf<Int?>(null) }
-    suspend fun reload() { list = runCatching { vm.arrTagList(config) }.getOrElse { message = "error: ${it.message}"; list ?: emptyList() } }
+    suspend fun reload() { list = runCatching { vm.arrTagList(config) }.getOrElse { message = "error: ${errorText(it)}"; list ?: emptyList() } }
     LaunchedEffect(Unit) { reload() }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -211,7 +213,7 @@ internal fun ArrItemTagsDialog(vm: DashboardViewModel, config: ServiceConfig, it
             all = vm.arrTagList(config)
             original = vm.arrItemTagIds(config, itemId).toSet()
             picked = original
-        }.onFailure { message = "error: ${it.message}"; all = all ?: emptyList(); picked = picked ?: emptySet() }
+        }.onFailure { message = "error: ${errorText(it)}"; all = all ?: emptyList(); picked = picked ?: emptySet() }
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -277,7 +279,7 @@ internal fun ArrProvidersDialog(vm: DashboardViewModel, config: ServiceConfig, w
     var message by remember { mutableStateOf<String?>(null) }
     var testing by remember { mutableStateOf(false) }
     LaunchedEffect(which) {
-        list = runCatching { vm.arrProviders(config, which) }.getOrElse { message = "error: ${it.message}"; emptyList() }
+        list = runCatching { vm.arrProviders(config, which) }.getOrElse { message = "error: ${errorText(it)}"; emptyList() }
     }
     val title = when (which) { "importlists" -> "Import lists"; "proxies" -> "Indexer proxies"; else -> "Download clients" }
     AlertDialog(
@@ -323,7 +325,7 @@ internal fun ArrProvidersDialog(vm: DashboardViewModel, config: ServiceConfig, w
                     TextButton(enabled = !testing, onClick = {
                         scope.launch {
                             testing = true; message = null
-                            results = runCatching { vm.arrProvidersTest(config, which) }.getOrElse { message = "error: ${it.message}"; null }
+                            results = runCatching { vm.arrProvidersTest(config, which) }.getOrElse { message = "error: ${errorText(it)}"; null }
                             testing = false
                         }
                     }) { Text("Test all", fontFamily = Mono, color = accent) }

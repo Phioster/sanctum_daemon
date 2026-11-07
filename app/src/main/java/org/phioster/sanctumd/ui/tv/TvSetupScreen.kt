@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.tv
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -255,7 +257,7 @@ private fun ManualServerStep(onBack: () -> Unit, onResolved: (String, String) ->
             var lastError: String? = null
             for (url in candidateUrls(input)) {
                 val info = runCatching { jellyfinTvPublicInfo(url) }
-                    .onFailure { lastError = it.message ?: it.javaClass.simpleName }
+                    .onFailure { lastError = errorText(it) }
                     .getOrNull()
                 if (info != null) {
                     checking = false
@@ -347,7 +349,7 @@ private fun AuthStep(
             if (jellyfinQuickConnectApproved(baseUrl, started.secret)) {
                 runCatching { jellyfinQuickConnectFinish(baseUrl, started.secret) }
                     .onSuccess { finish(it.accessToken, it.userId, it.userName) }
-                    .onFailure { error = it.message ?: it.javaClass.simpleName }
+                    .onFailure { error = errorText(it) }
                 return@LaunchedEffect
             }
         }

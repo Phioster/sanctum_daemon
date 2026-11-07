@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.arr
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -110,7 +112,7 @@ internal fun ArrLookupScreen(
         scope.launch {
             runCatching { vm.arrLookupList(config, t) }
                 .onSuccess { results = it }
-                .onFailure { error = it.message; results = emptyList() }
+                .onFailure { error = errorText(it); results = emptyList() }
             searching = false
         }
     }

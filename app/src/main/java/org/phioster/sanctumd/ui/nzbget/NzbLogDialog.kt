@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.nzbget
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
@@ -38,7 +40,7 @@ internal fun NzbLogDialog(title: String, load: suspend () -> List<NzbLogEntry>, 
     var error by remember { mutableStateOf<String?>(null) }
     var onlyProblems by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        runCatching { load() }.onSuccess { entries = it }.onFailure { error = it.message ?: "failed" }
+        runCatching { load() }.onSuccess { entries = it }.onFailure { error = errorText(it) }
     }
     AlertDialog(
         onDismissRequest = onDismiss,

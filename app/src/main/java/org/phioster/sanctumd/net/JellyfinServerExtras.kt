@@ -74,7 +74,7 @@ suspend fun jellyfinCreateBackup(config: ServiceConfig, metadata: Boolean, trick
                 }
                 okOr(api.createBackup(body), "backup created")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -87,7 +87,7 @@ suspend fun jellyfinRestoreBackup(config: ServiceConfig, path: String): String =
                 val body = buildJsonObject { put("ArchiveFileName", path) }
                 okOr(jfApi(config, jellyfinAccessToken(config)).restoreBackup(body), "restoring, the server restarts")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }

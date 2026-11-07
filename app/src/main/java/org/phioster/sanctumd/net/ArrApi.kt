@@ -115,6 +115,9 @@ internal fun arrParentId(seriesId: Int, movieId: Int, artistId: Int): Int =
     val trackedDownloadState: String? = null,
     // Where the download actually landed. What a manual import needs to be pointed at.
     val outputPath: String? = null,
+    // The download client's id for this entry. Scanning by it lets the service use its grab
+    // history, which identifies German release names that a folder scan cannot.
+    val downloadId: String? = null,
     // The work this entry belongs to. The record's own id addresses the queue entry, not the
     // series/movie/artist, so opening a detail needs these. Exactly one is set per service.
     val seriesId: Int = 0,
@@ -441,7 +444,7 @@ suspend fun arrCloneProfileUnrestricted(
             }
             okOr(api.add("$base/qualityprofile", body), "created")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -526,7 +529,7 @@ suspend fun arrAdd(
             val r = apiFor<ArrApi>(config, apiKeyHeader(config)).add("$base/$path", body)
             if (r.isSuccessful) "added" else "error: HTTP ${r.code()}"
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -611,6 +614,7 @@ suspend fun arrQueue(config: ServiceConfig): List<ArrQueueItem> = withContext(Di
             progress = prog,
             blocked = r.trackedDownloadState == "importBlocked",
             outputPath = r.outputPath.orEmpty(),
+            downloadId = r.downloadId.orEmpty(),
             itemId = arrParentId(r.seriesId, r.movieId, r.artistId),
         )
     }
@@ -632,7 +636,7 @@ suspend fun arrSearchItem(config: ServiceConfig, id: Int): String = destructive(
             val r = apiFor<ArrApi>(config, apiKeyHeader(config)).command("$base/command", body)
             if (r.isSuccessful) "search started" else "error: HTTP ${r.code()}"
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -655,7 +659,7 @@ suspend fun arrRefreshItem(config: ServiceConfig, id: Int): String = destructive
             }
             okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).command("${arrBase(config.type)}/command", body), "refresh started")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -672,7 +676,7 @@ suspend fun arrSeasonSearch(config: ServiceConfig, seriesId: Int, seasonNumber: 
                 }
                 okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).command("${arrBase(config.type)}/command", body), "search started")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -733,7 +737,7 @@ suspend fun arrBlocklistFromHistory(config: ServiceConfig, id: Int): String =
                 val base = arrBase(config.type)
                 okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).postEmpty("$base/history/failed/$id"), "blocklisted")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -747,7 +751,7 @@ suspend fun arrBlocklistRemove(config: ServiceConfig, id: Int): String =
                 val r = apiFor<ArrApi>(config, apiKeyHeader(config)).deleteQueue("$base/blocklist/$id")
                 if (r.isSuccessful) "removed" else "error: HTTP ${r.code()}"
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -764,7 +768,7 @@ suspend fun arrQueueRemove(
                 .deleteQueue("$base/queue/$id?removeFromClient=true&blocklist=$blocklist")
             if (r.isSuccessful) "removed" else "error: HTTP ${r.code()}"
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -840,7 +844,7 @@ suspend fun arrMoveToRootFolder(
             }
             okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).putUrl("$base/$path/editor", body), "moved")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -861,7 +865,7 @@ suspend fun arrLibrarySearch(config: ServiceConfig, id: Int): String = destructi
             val r = apiFor<ArrApi>(config, apiKeyHeader(config)).command("$base/command", body)
             if (r.isSuccessful) "search started" else "error: HTTP ${r.code()}"
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -898,7 +902,7 @@ suspend fun arrSetLibraryMonitored(config: ServiceConfig, id: Int, monitored: Bo
                 val body = JsonObject(raw.toMutableMap().apply { put("monitored", JsonPrimitive(monitored)) })
                 okOr(api.putUrl("$base/$path/$id", body), if (monitored) "monitoring" else "unmonitored")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -1006,7 +1010,7 @@ suspend fun arrDeleteFile(config: ServiceConfig, fileId: Int): String = destruct
             val kind = if (config.type == ServiceType.SONARR) "episodefile" else "moviefile"
             okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).deleteItem("${arrBase(config.type)}/$kind/$fileId"), "file deleted")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -1039,7 +1043,7 @@ suspend fun arrUpdateItem(
             )
             okOr(api.putUrl("$base/$path/$id", body), "saved")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -1062,7 +1066,7 @@ suspend fun arrSetEpisodeMonitored(config: ServiceConfig, episodeId: Int, monito
         }
         okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).putUrl("$base/episode/monitor", body), if (monitored) "monitoring" else "unmonitored")
     } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+        "error: ${errorText(t)}"
     }
 }
 
@@ -1100,7 +1104,7 @@ suspend fun arrSetSeasonMonitored(
             }
             okOr(res, if (monitored) "monitoring" else "unmonitored")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -1131,7 +1135,7 @@ suspend fun arrSetAlbumMonitored(config: ServiceConfig, albumIds: List<Int>, mon
         }
         okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).putUrl("$base/album/monitor", body), if (monitored) "monitoring" else "unmonitored")
     } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+        "error: ${errorText(t)}"
     }
 }
 
@@ -1299,11 +1303,19 @@ suspend fun arrParseRelease(config: ServiceConfig, title: String): ArrParsedRele
         )
     }
 
-/** Scans a folder for manually-importable files (Radarr/Sonarr). */
-suspend fun arrManualImportScan(config: ServiceConfig, folder: String): List<ArrImportItem> = withContext(Dispatchers.IO) {
+/**
+ * Scans for manually-importable files. With a [downloadId] (a queue entry) the service scans that
+ * download and matches it through its grab history; a folder scan only has the file name, and a
+ * German release name like "Pippi.geht.von.Bord" never matches "Pippi Goes on Board".
+ */
+suspend fun arrManualImportScan(config: ServiceConfig, folder: String, downloadId: String = ""): List<ArrImportItem> = withContext(Dispatchers.IO) {
     val base = arrBase(config.type)
-    val encoded = java.net.URLEncoder.encode(folder, "UTF-8")
-    apiFor<ArrApi>(config, apiKeyHeader(config)).manualImport("$base/manualimport?folder=$encoded&filterExistingFiles=false").map { o ->
+    val query = if (downloadId.isNotBlank()) "downloadId=${java.net.URLEncoder.encode(downloadId, "UTF-8")}"
+    else "folder=${java.net.URLEncoder.encode(folder, "UTF-8")}"
+    apiFor<ArrApi>(config, apiKeyHeader(config)).manualImport("$base/manualimport?$query&filterExistingFiles=false").map { scanned ->
+        // The import must name the download too, or the queue entry stays behind as blocked.
+        val o = if (downloadId.isNotBlank() && jsStr(scanned, "downloadId").isNullOrBlank())
+            JsonObject(scanned + ("downloadId" to JsonPrimitive(downloadId))) else scanned
         val quality = ((o["quality"] as? JsonObject)?.get("quality") as? JsonObject)?.let { jsStr(it, "name") } ?: ""
         val matched = importMatchLabel(config.type, o)
         val rejections = (o["rejections"] as? JsonArray)?.mapNotNull { (it as? JsonObject)?.let { r -> jsStr(r, "reason") } } ?: emptyList()
@@ -1332,9 +1344,18 @@ suspend fun arrManualImportExecute(config: ServiceConfig, rawItems: List<String>
                 put("importMode", "move")
                 put("files", JsonArray(files))
             }
-            okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).command("$base/command", body), "importing ${files.size} file(s)")
+            val api = apiFor<ArrApi>(config, apiKeyHeader(config))
+            val resp = api.command("$base/command", body)
+            if (!resp.isSuccessful) return@withContext "error: HTTP ${resp.code()}"
+            // An accepted command is not an import: the service can still refuse every file
+            // afterwards, and "importing" on screen then reads as success. Wait for the verdict.
+            val id = runCatching { jsInt(json.parseToJsonElement(resp.body()!!.string()).jsonObject, "id") }.getOrNull()
+                ?: return@withContext "importing ${files.size} file(s)"
+            awaitCommand(id) { api.itemDetail("$base/command/$id") }
+                ?.let { (status, message) -> importVerdict(status, message, files.size) }
+                ?: "importing ${files.size} file(s) in the background"
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -1382,7 +1403,7 @@ suspend fun arrGrab(config: ServiceConfig, guid: String, indexerId: Int): String
             val base = arrBase(config.type)
             okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).downloadRelease("$base/release", ArrGrabReq(guid, indexerId)), "grabbed")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -1401,7 +1422,7 @@ suspend fun arrDelete(
                 .deleteItem("$base/$path/$id?deleteFiles=$deleteFiles&addImportExclusion=$addImportExclusion")
             if (r.isSuccessful) "deleted" else "error: HTTP ${r.code()}"
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -1429,7 +1450,7 @@ suspend fun arrRssSync(config: ServiceConfig): String = destructive("RSS sync on
             val body = buildJsonObject { put("name", "RssSync") }
             okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).command("${arrBase(config.type)}/command", body), "RSS sync started")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -1446,7 +1467,7 @@ suspend fun arrSearchAll(config: ServiceConfig, cutoff: Boolean): String = destr
             val body = buildJsonObject { put("name", name) }
             okOr(apiFor<ArrApi>(config, apiKeyHeader(config)).command("$base/command", body), "search started")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -1465,7 +1486,7 @@ suspend fun runSearchMissing(config: ServiceConfig): String = destructive("searc
             }
             okOr(resp, "search started")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -1498,7 +1519,7 @@ suspend fun arrPushRelease(arrConfig: ServiceConfig, release: ProwlarrRelease): 
             val resp = api.releasePush(url, body)
             reportArrPush(resp, arrConfig.label)
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -1585,7 +1606,7 @@ suspend fun arrTestAllIndexers(config: ServiceConfig): String = withContext(Disp
             "tested",
         )
     } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+        "error: ${errorText(t)}"
     }
 }
 

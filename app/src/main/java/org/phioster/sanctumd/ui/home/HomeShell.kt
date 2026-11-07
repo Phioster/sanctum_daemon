@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.home
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -621,7 +623,7 @@ private fun ServiceQuickActionsSheet(
                         modifier = Modifier.fillMaxWidth().clickable(enabled = running == null) {
                             running = action.label
                             scope.launch {
-                                result = runCatching { action.run(vm, config) }.getOrElse { "error: ${it.message}" }
+                                result = runCatching { action.run(vm, config) }.getOrElse { "error: ${errorText(it)}" }
                                 running = null
                             }
                         }.padding(vertical = 10.dp),

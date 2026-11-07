@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.tv
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -79,7 +81,7 @@ internal fun TvDetailScreen(
         error = null
         runCatching { jellyfinItemDetail(config, itemId) }
             .onSuccess { detail = it }
-            .onFailure { error = it.message ?: it.javaClass.simpleName }
+            .onFailure { error = errorText(it) }
     }
 
     // A folder's play button needs a target episode before it can do anything.

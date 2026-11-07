@@ -32,6 +32,8 @@ data class ArrQueueItem(
      * there is nothing to open. The manual-import shortcut must not be offered.
      */
     val outputPath: String = "",
+    /** The download client's id. Lets a manual import match through the grab history. */
+    val downloadId: String = "",
     /** The library item this row belongs to (series / movie / artist). 0 when unknown. */
     val itemId: Int = 0,
 )

@@ -19,7 +19,7 @@ private suspend fun call(op: String, success: String, block: suspend () -> retro
             try {
                 okOr(block(), success)
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }

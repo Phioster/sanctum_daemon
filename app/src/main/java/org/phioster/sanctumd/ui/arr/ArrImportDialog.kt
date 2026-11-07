@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.arr
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -57,8 +59,11 @@ import org.phioster.sanctumd.ui.settings.*
 import org.phioster.sanctumd.ui.shortcuts.*
 import org.phioster.sanctumd.ui.theme.*
 
-/** Where the manual import opens: a folder, and whether to scan it straight away. */
-internal data class ArrImportStart(val path: String, val scan: Boolean)
+/**
+ * Where the manual import opens: a folder, and whether to scan it straight away. A [downloadId]
+ * (from a queue entry) makes the first scan go by download instead of by folder.
+ */
+internal data class ArrImportStart(val path: String, val scan: Boolean, val downloadId: String = "")
 
 /**
  * The manual import, end to end: browse or jump to a folder, scan it, tick what should go in,
@@ -78,6 +83,9 @@ internal fun ArrImportDialog(
     val scope = rememberCoroutineScope()
     var wizardOpen by remember { mutableStateOf(true) }
     var importFolder by remember { mutableStateOf(start.path) }
+    // Only valid while the folder is still the queue entry's own; browsing elsewhere drops it.
+    var importDownload by remember { mutableStateOf(start.downloadId) }
+    var importDownloadFolder by remember { mutableStateOf(start.path) }
     // A counter, not a flag: a LaunchedEffect is cancelled the moment its key changes, so an
     // effect that cleared its own boolean key killed the very scan it had just started.
     var scanRequest by remember { mutableStateOf(if (start.scan) 1 else 0) }
@@ -93,8 +101,9 @@ internal fun ArrImportDialog(
 
     suspend fun runImportScan() {
         importScanning = true; importItems = null; importSelected = emptySet()
-        importItems = runCatching { vm.arrManualScan(config, importFolder.trim()) }.getOrElse {
-            onMessage("error: ${it.message}"); emptyList()
+        val dl = if (importFolder.trim() == importDownloadFolder.trim()) importDownload else ""
+        importItems = runCatching { vm.arrManualScan(config, importFolder.trim(), dl) }.getOrElse {
+            onMessage("error: ${errorText(it)}"); emptyList()
         }
         importSelected = importItems!!.mapIndexedNotNull { i, it -> if (it.importable) i else null }.toSet()
         importScanning = false
@@ -128,9 +137,11 @@ internal fun ArrImportDialog(
                             items.isEmpty() -> Text("no importable files", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
                             else -> items.forEachIndexed { i, it ->
                                 val checked = i in importSelected
-                                val unmatched = !it.importable && config.type == ServiceType.RADARR
+                                val unmatched = !it.importable && config.type in setOf(ServiceType.RADARR, ServiceType.SONARR)
                                 Row(
-                                    Modifier.fillMaxWidth().clickable {
+                                    // A row the service could not match imports nothing ("Movie with ID 0"),
+                                    // so it only becomes tickable once it has been assigned.
+                                    Modifier.fillMaxWidth().clickable(enabled = it.importable || checked) {
                                         importSelected = if (checked) importSelected - i else importSelected + i
                                     }.padding(vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -176,12 +187,18 @@ internal fun ArrImportDialog(
                     onClick = {
                         val chosen = items!!.filterIndexed { i, _ -> i in importSelected }.map { it.rawJson }
                         wizardOpen = false
+                        val dl = if (importFolder.trim() == importDownloadFolder.trim()) importDownload else ""
                         scope.launch {
-                            onMessage(vm.arrManualImport(config, chosen))
+                            onMessage("importing ${chosen.size} file(s)…")
+                            val result = vm.arrManualImport(config, chosen)
+                            onMessage(result)
                             vm.refreshAll()
                             // A hand-assigned import leaves its queue entry on importBlocked and the
                             // source file on disk twice; surface those rather than leaving them to rot.
+                            // The entry just imported is left out: the service clears it a moment later,
+                            // and showing it again made a working import look like it had done nothing.
                             blockedQueue = runCatching { vm.arrBlockedQueue(config) }.getOrDefault(emptyList())
+                                .filter { result.startsWith("error") || dl.isBlank() || it.downloadId != dl }
                             // Nothing left behind means nothing left to show.
                             if (blockedQueue.isEmpty()) onDismiss()
                         }
@@ -215,6 +232,7 @@ internal fun ArrImportDialog(
                                 TextButton(onClick = {
                                     blockedQueue = emptyList()
                                     importFolder = q.outputPath; importItems = null; importSelected = emptySet()
+                                    importDownload = q.downloadId; importDownloadFolder = q.outputPath
                                     wizardOpen = true; scanRequest++
                                 }) {
                                     Text("import", fontFamily = Mono, color = accent, fontSize = 11.sp)
