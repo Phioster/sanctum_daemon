@@ -14,7 +14,12 @@ data class HttpShortcut(
 
 /** Which kind of service a config points at. */
 @Serializable
-enum class ServiceType(val label: String, val accent: Long) {
+/**
+ * [brand] is the service's own colour. It only marks *which* service something is where several
+ * are mixed (calendar dots, stats charts, the calendar widget). Inside a service's screens
+ * everything follows the theme ([accent]), so a red theme stays red in Jellyfin too (2026-11-07).
+ */
+enum class ServiceType(val label: String, val brand: Long) {
     JELLYFIN("Jellyfin", 0xFF00A4DCL),
     RADARR("Radarr", 0xFFFFC230L),
     SONARR("Sonarr", 0xFF35C5F4L),
@@ -24,6 +29,10 @@ enum class ServiceType(val label: String, val accent: Long) {
     SEERR("Seerr", 0xFF818CF8L),
     NTFY("ntfy", 0xFF57C462L),
     SHORTCUTS("Shortcuts", 0xFF4F9BF5L);
+
+    /** The active theme's accent as ARGB, what a service screen is drawn in. */
+    val accent: Long
+        get() = org.phioster.sanctumd.ui.theme.ThemeState.palette.accent.toArgbLong()
 
     /** Services that authenticate with a Servarr/Overseerr-style X-Api-Key header. */
     val usesApiKeyHeader: Boolean
@@ -79,3 +88,6 @@ data class ServiceStatus(
         val Loading = ServiceStatus(ok = false, error = null)
     }
 }
+
+private fun androidx.compose.ui.graphics.Color.toArgbLong(): Long =
+    (alpha * 255).toLong().shl(24) or (red * 255).toLong().shl(16) or (green * 255).toLong().shl(8) or (blue * 255).toLong()

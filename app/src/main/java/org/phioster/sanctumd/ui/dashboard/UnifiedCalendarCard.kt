@@ -167,7 +167,7 @@ internal fun UnifiedCalendarCard(
                                 if (items.isNotEmpty()) {
                                     Row {
                                         items.map { it.first.type }.distinct().take(3).forEach { t ->
-                                            Box(Modifier.padding(horizontal = 1.dp).size(4.dp).background(Color(t.accent), androidx.compose.foundation.shape.CircleShape))
+                                            Box(Modifier.padding(horizontal = 1.dp).size(4.dp).background(Color(t.brand), androidx.compose.foundation.shape.CircleShape))
                                         }
                                     }
                                 }

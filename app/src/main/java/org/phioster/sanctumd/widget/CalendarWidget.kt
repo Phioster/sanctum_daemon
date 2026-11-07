@@ -142,7 +142,7 @@ class CalendarWidget : GlanceAppWidget() {
     @Composable
     private fun ItemRow(ctx: Context, snap: CalendarSnap) {
         val type = typeOf(snap.serviceType)
-        val accent = type?.let { Color(it.accent) } ?: Green
+        val accent = type?.let { Color(it.brand) } ?: Green
         Row(
             modifier = GlanceModifier.fillMaxWidth().padding(vertical = 4.dp).clickable(
                 actionStartActivity(

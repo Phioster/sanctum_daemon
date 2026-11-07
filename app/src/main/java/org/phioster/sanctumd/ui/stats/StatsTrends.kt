@@ -54,7 +54,7 @@ internal fun buildTrends(services: List<ServiceConfig>, history: List<StatsSnaps
     val charts = mutableListOf<StatChart>()
     services.forEach { svc ->
         val id = svc.id
-        val accent = svc.type.accent
+        val accent = svc.type.brand
         when (svc.type) {
             ServiceType.JELLYFIN -> {
                 val pts = seriesFor(history, "$id|episodes")
