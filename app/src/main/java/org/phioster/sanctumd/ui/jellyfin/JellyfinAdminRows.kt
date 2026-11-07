@@ -319,8 +319,15 @@ internal fun JellyStorageRow(item: org.phioster.sanctumd.model.JellyStorageFolde
 
 /** Approve the code another client shows, e.g. the TV during its sign-in. */
 @Composable
-internal fun JellyQuickConnectDialog(onDismiss: () -> Unit, onApprove: (String) -> Unit) {
+internal fun JellyQuickConnectDialog(
+    users: List<org.phioster.sanctumd.model.JellyUser>?,
+    ownUserId: String,
+    onDismiss: () -> Unit,
+    onApprove: (code: String, userId: String?) -> Unit,
+) {
     var code by remember { mutableStateOf("") }
+    // Like Jellyfin's own page: sign the other device in as anyone, preselecting yourself.
+    var picked by remember(ownUserId) { mutableStateOf(ownUserId) }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Surface,
@@ -328,15 +335,32 @@ internal fun JellyQuickConnectDialog(onDismiss: () -> Unit, onApprove: (String) 
         text = {
             Column {
                 Text(
-                    "Enter the code the other device shows. It signs in as your Jellyfin user.",
+                    "Enter the code the other device shows and pick who it signs in as.",
                     fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp,
                 )
                 Spacer(Modifier.height(8.dp))
                 Field("Code", code) { code = it.trim() }
+                Spacer(Modifier.height(10.dp))
+                Text("USER", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
+                when {
+                    users == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)
+                    else -> users.forEach { u ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable { picked = u.id }.padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            androidx.compose.material3.RadioButton(selected = picked == u.id, onClick = { picked = u.id })
+                            Text(
+                                u.name + if (u.id == ownUserId) "  (you)" else "",
+                                fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp,
+                            )
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
-            TextButton(enabled = code.isNotBlank(), onClick = { onApprove(code) }) { Text("Approve", fontFamily = Mono, color = MatrixGreen) }
+            TextButton(enabled = code.isNotBlank(), onClick = { onApprove(code, picked.ifBlank { null }) }) { Text("Approve", fontFamily = Mono, color = MatrixGreen) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
     )

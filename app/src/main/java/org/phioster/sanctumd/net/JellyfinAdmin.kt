@@ -353,13 +353,14 @@ internal fun storageFolders(s: JfSystemStorage): List<org.phioster.sanctumd.mode
 }
 
 /** Approves the Quick Connect code another client (e.g. the TV) is showing. */
-suspend fun jellyfinApproveQuickConnect(config: ServiceConfig, code: String): String = destructive("approve Jellyfin Quick Connect code") {
+suspend fun jellyfinApproveQuickConnect(config: ServiceConfig, code: String, asUserId: String? = null): String = destructive("approve Jellyfin Quick Connect code") {
     withContext(Dispatchers.IO) {
         try {
             val token = jellyfinAccessToken(config)
             val api = jfApi(config, token)
             // With an API key there is no user behind the token, so name the one to sign in as.
-            val userId = jellyfinResolveUserId(config, api).ifBlank { null }
+            // The other device signs in as [asUserId] when one was picked (an admin may do that).
+            val userId = asUserId?.takeIf { it.isNotBlank() } ?: jellyfinResolveUserId(config, api).ifBlank { null }
             val resp = api.quickConnectAuthorize(code.trim(), userId)
             when (resp.code()) {
                 404 -> "error: no pending request with that code (expired?)"
@@ -610,4 +611,10 @@ suspend fun jellyfinDeleteProvider(config: ServiceConfig, id: String): String = 
             "error: ${errorText(t)}"
         }
     }
+}
+
+/** The Jellyfin user this app is signed in as (the one an API key resolves to). */
+suspend fun jellyfinOwnUserId(config: ServiceConfig): String = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    jellyfinResolveUserId(config, jfApi(config, token))
 }

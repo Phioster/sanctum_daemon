@@ -638,8 +638,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         org.phioster.sanctumd.net.jellyfinDeleteDevice(config, deviceId)
     suspend fun jellyfinStorageList(config: ServiceConfig): List<org.phioster.sanctumd.model.JellyStorageFolder> =
         org.phioster.sanctumd.net.jellyfinStorage(config)
-    suspend fun jellyfinApproveCode(config: ServiceConfig, code: String): String =
-        org.phioster.sanctumd.net.jellyfinApproveQuickConnect(config, code)
+    suspend fun jellyfinApproveCode(config: ServiceConfig, code: String, asUserId: String? = null): String =
+        org.phioster.sanctumd.net.jellyfinApproveQuickConnect(config, code, asUserId)
+    suspend fun jellyfinOwnUserId(config: ServiceConfig): String = org.phioster.sanctumd.net.jellyfinOwnUserId(config)
     suspend fun jellyfinMetadataOf(config: ServiceConfig, itemId: String): org.phioster.sanctumd.net.JellyMetadata =
         org.phioster.sanctumd.net.jellyfinMetadata(config, itemId)
     suspend fun jellyfinSaveMeta(config: ServiceConfig, itemId: String, m: org.phioster.sanctumd.net.JellyMetadata): String =
