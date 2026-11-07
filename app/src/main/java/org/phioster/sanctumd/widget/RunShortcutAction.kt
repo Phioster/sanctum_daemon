@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.widget
 
+import org.phioster.sanctumd.net.errorText
+
 import android.content.Context
 import android.widget.Toast
 import androidx.glance.GlanceId

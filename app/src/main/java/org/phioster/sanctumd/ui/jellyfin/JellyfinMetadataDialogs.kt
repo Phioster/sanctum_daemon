@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.jellyfin
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable

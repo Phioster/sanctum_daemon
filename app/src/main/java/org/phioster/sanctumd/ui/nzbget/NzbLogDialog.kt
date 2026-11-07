@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.nzbget
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn

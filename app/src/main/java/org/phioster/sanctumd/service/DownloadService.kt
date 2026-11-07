@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.service
 
+import org.phioster.sanctumd.net.errorText
+
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context

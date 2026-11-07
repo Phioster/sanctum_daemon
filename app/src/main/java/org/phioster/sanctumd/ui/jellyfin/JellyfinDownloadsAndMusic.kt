@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.jellyfin
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box

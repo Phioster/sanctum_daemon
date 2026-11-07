@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.nzbget
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border

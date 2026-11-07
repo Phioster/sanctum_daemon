@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.widget
 
+import org.phioster.sanctumd.net.errorText
+
 import org.phioster.sanctumd.ui.theme.ThemeState
 import org.phioster.sanctumd.ui.theme.ThemeStore
 import org.phioster.sanctumd.ui.theme.dimInk

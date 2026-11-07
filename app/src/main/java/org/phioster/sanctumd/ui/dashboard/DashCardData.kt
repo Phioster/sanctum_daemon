@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.dashboard
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf

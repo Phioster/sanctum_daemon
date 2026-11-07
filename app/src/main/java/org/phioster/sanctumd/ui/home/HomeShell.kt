@@ -1,5 +1,7 @@
 package org.phioster.sanctumd.ui.home
 
+import org.phioster.sanctumd.net.errorText
+
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.detectDragGestures
