@@ -209,7 +209,7 @@ internal fun JellyfinRowDialogs(
             title = { Text("customize rows", fontFamily = Mono, color = MatrixGreen) },
             text = {
                 Column {
-                    listOf("resume" to "Continue Watching", "recent" to "Recently Added", "libraries" to "Libraries").forEach { (key, label) ->
+                    listOf("resume" to "Continue Watching", "nextup" to "Next Up", "recent" to "Recently Added", "libraries" to "Libraries").forEach { (key, label) ->
                         Row(
                             Modifier.fillMaxWidth().clickable { onRowPicker(false); onConfigRow(key) }.padding(vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
