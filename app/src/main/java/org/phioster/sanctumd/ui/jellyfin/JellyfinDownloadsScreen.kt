@@ -329,6 +329,10 @@ internal fun DownloadsScreen(
     onDelete: (String) -> Unit,
     /** Deletes finished downloads the server counts as watched; returns how many went. */
     onDeleteWatchedNow: suspend () -> Int,
+    smartOn: Boolean,
+    onSmart: (Boolean) -> Unit,
+    smartCount: Int,
+    onSmartCount: (Int) -> Unit,
     onClearAll: () -> Unit,
     onClose: () -> Unit,
 ) {
@@ -409,6 +413,19 @@ internal fun DownloadsScreen(
                 Text("Download settings", fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 SettingSwitch("Only download on Wi-Fi", "Waits for Wi-Fi instead of using mobile data.", wifiOnly, onWifiOnly)
                 SettingSwitch("Delete after watching", "Removes a finished download once the server counts it as watched.", deleteWatched, onDeleteWatched)
+                SettingSwitch(
+                    "Smart downloads",
+                    "Keeps the next $smartCount unwatched episodes of every downloaded series on the phone. Watched ones are deleted, the next ones load, also in the background.",
+                    smartOn, onSmart,
+                )
+                if (smartOn) {
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Episodes to keep", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        RoundAction(AppIcons.Remove, "Fewer", MatrixGreen) { if (smartCount > 1) onSmartCount(smartCount - 1) }
+                        Text("$smartCount", fontFamily = Mono, color = MatrixGreen, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 14.dp))
+                        RoundAction(AppIcons.Add, "More", MatrixGreen) { if (smartCount < 10) onSmartCount(smartCount + 1) }
+                    }
+                }
                 Text(
                     "Delete watched downloads now",
                     fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp,
