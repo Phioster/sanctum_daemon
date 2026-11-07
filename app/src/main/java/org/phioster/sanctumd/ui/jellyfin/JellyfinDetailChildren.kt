@@ -143,7 +143,7 @@ internal fun DetailChildren(
             val queue = list.filter { it.kind in org.phioster.sanctumd.ui.player.PLAYABLE_VIDEO_KINDS }
                 .map { org.phioster.sanctumd.net.NextEpisode(it.id, it.name, it.subtitle) }
             list.forEach { c ->
-                EpisodeListRow(c, config, accent, onPlay = {
+                EpisodeListRow(c, config, accent, download = downloads[c.id], onPlay = {
                     onPlay(org.phioster.sanctumd.ui.player.PlayRequest(c.id, c.name, queue = queue))
                 }) { onOpen(c) }
             }
@@ -192,6 +192,7 @@ internal fun EpisodeListRow(
     item: JellyMediaItem,
     config: ServiceConfig,
     accent: Color,
+    download: org.phioster.sanctumd.model.DownloadEntry? = null,
     onPlay: () -> Unit,
     onOpen: () -> Unit,
 ) {
@@ -214,6 +215,7 @@ internal fun EpisodeListRow(
                     )
                 }
                 WatchedMarker(item, accent, Modifier.align(Alignment.TopEnd))
+                download?.let { DownloadBadge(it, accent, Modifier.align(Alignment.TopStart).padding(6.dp)) }
                 PosterPlayButton(accent, Modifier.align(Alignment.Center), size = 38.dp, onClick = onPlay)
             }
             Spacer(Modifier.width(12.dp))
@@ -234,5 +236,37 @@ internal fun EpisodeListRow(
                 lineHeight = 15.sp, maxLines = 4, overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+}
+
+/**
+ * Small mark on an episode still, opposite the watched tick: a ring while it downloads, a faint
+ * arrow while it waits or is paused, a filled arrow once it is on the phone.
+ */
+@Composable
+internal fun DownloadBadge(entry: org.phioster.sanctumd.model.DownloadEntry, accent: Color, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 22.dp) {
+    val done = entry.done
+    val failed = entry.state == org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED
+    val running = entry.state == org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING
+    Box(
+        modifier.size(size).clip(androidx.compose.foundation.shape.CircleShape)
+            .background(if (done) accent else Black.copy(alpha = 0.65f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (running) {
+            androidx.compose.material3.CircularProgressIndicator(
+                progress = { entry.progress },
+                modifier = Modifier.size(size - 4.dp),
+                color = accent, trackColor = accent.copy(alpha = 0.25f), strokeWidth = 2.dp,
+            )
+        }
+        androidx.compose.material3.Icon(
+            if (failed) org.phioster.sanctumd.ui.theme.AppIcons.Failed else org.phioster.sanctumd.ui.theme.AppIcons.Download,
+            contentDescription = when {
+                done -> "Downloaded"; running -> "Downloading"; failed -> "Download failed"; else -> "Waiting to download"
+            },
+            tint = when { done -> Black; failed -> org.phioster.sanctumd.ui.theme.ErrRed; running -> accent; else -> accent.copy(alpha = 0.6f) },
+            modifier = Modifier.size(if (running) size * 0.45f else size * 0.62f),
+        )
     }
 }
