@@ -170,9 +170,9 @@ suspend fun prowlarrIndexers(config: ServiceConfig): List<ProwlarrIndexerItem> =
     val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
     val indexers = api.indexers()
     val statById = runCatching { api.statsFull().indexers.associateBy { it.indexerId } }.getOrDefault(emptyMap())
-    val failingIds = runCatching {
-        api.indexerStatus().filter { it.disabledTill != null }.map { it.indexerId }.toSet()
-    }.getOrDefault(emptySet())
+    val disabledTill = runCatching {
+        api.indexerStatus().filter { it.disabledTill != null }.associate { it.indexerId to it.disabledTill!! }
+    }.getOrDefault(emptyMap())
     indexers.map { ix ->
         val s = statById[ix.id]
         val q = s?.numberOfQueries ?: 0
@@ -188,7 +188,8 @@ suspend fun prowlarrIndexers(config: ServiceConfig): List<ProwlarrIndexerItem> =
             queries = q,
             grabs = s?.numberOfGrabs ?: 0,
             failRate = rate,
-            failing = ix.id in failingIds,
+            failing = ix.id in disabledTill,
+            failingUntil = disabledTill[ix.id]?.let(::localClock).orEmpty(),
         )
     }.sortedByDescending { it.grabs }
 }
@@ -476,3 +477,9 @@ internal suspend fun prowlarrStatus(config: ServiceConfig): ServiceStatus {
         ),
     )
 }
+
+/** "2026-11-07T08:12:00Z" -> "09:12" in the phone's zone; blank when it doesn't parse. */
+internal fun localClock(iso: String): String = runCatching {
+    java.time.Instant.parse(iso).atZone(java.time.ZoneId.systemDefault()).toLocalTime()
+        .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+}.getOrDefault("")

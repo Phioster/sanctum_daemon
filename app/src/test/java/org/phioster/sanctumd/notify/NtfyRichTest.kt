@@ -59,4 +59,9 @@ class NtfyRichTest {
         assertEquals(2, sampleSizeFor(4000, 3000))
         assertEquals(4, sampleSizeFor(8000, 6000))
     }
+
+    @Test fun `jellyfin playback tags show as media emojis`() {
+        org.junit.Assert.assertEquals("▶️ ", ntfyTagEmoji(listOf("arrow_forward")))
+        org.junit.Assert.assertEquals("⏹️ ", ntfyTagEmoji(listOf("stop_button")))
+    }
 }
