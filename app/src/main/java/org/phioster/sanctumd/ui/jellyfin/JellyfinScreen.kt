@@ -107,6 +107,18 @@ internal fun JellyfinScreen(
     val ds = rememberJellyfinDetailState()
     val bs = rememberJellyfinBrowseState()
     var playRequest by remember { mutableStateOf<PlayRequest?>(null) }
+    val syncGroup by org.phioster.sanctumd.net.SyncPlay.group.collectAsState()
+    var syncDialogOpen by remember { mutableStateOf(false) }
+    // The group started something (here or on another device): open it, once per queue entry.
+    LaunchedEffect(config.id) {
+        org.phioster.sanctumd.net.SyncPlay.queue.collect { q ->
+            if (q.playlistItemId == lastSyncOpened || org.phioster.sanctumd.net.SyncPlay.group.value == null) return@collect
+            lastSyncOpened = q.playlistItemId
+            val name = runCatching { vm.jellyfinMediaDetail(config, q.itemId).name }.getOrDefault("SyncPlay")
+            playRequest = PlayRequest(q.itemId, name, sync = true, syncStartMs = q.startMs)
+        }
+    }
+    LaunchedEffect(Unit) { org.phioster.sanctumd.net.SyncPlay.notice.collect { actionMsg = it } }
     val downloads by vm.downloads.collectAsState(initial = emptyMap())
     val wifiOnly by vm.downloadsWifiOnly.collectAsState()
     val deleteWatched by vm.downloadsDeleteWatched.collectAsState()
@@ -422,6 +434,12 @@ internal fun JellyfinScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
                 },
                 actions = {
+                    IconButton(onClick = { syncDialogOpen = true }) {
+                        Icon(
+                            AppIcons.Group, contentDescription = "SyncPlay",
+                            tint = if (syncGroup != null) accent else MatrixGreen.copy(alpha = 0.8f),
+                        )
+                    }
                     DownloadsHeaderButton(downloads.values.filter { it.serverId == config.id }, accent) { downloadsManagerOpen = true }
                     ServiceMenuButton(
                         config = config,
@@ -605,11 +623,24 @@ internal fun JellyfinScreen(
         )
     }
 
+    if (syncDialogOpen) SyncPlayDialog(config, accent, syncGroup) { syncDialogOpen = false }
+
     if (nowPlayingOpen) {
         NowPlayingScreen(state = musicState, accent = accent, onClose = { nowPlayingOpen = false }, vm = vm, config = config)
     }
 
-    playRequest?.let { pr ->
+    // In a group, starting something here asks the group instead; the player opens for everyone
+    // when the server sends the queue back (collected above).
+    val pending = playRequest
+    if (pending != null && syncGroup != null && !pending.sync && pending.localFileUri == null) {
+        LaunchedEffect(pending) {
+            playRequest = null
+            val start = runCatching { org.phioster.sanctumd.net.jellyfinResumeMs(config, pending.itemId) }.getOrDefault(0L)
+            org.phioster.sanctumd.net.SyncPlay.requestPlay(pending.itemId, start)
+            actionMsg = "starting for the group…"
+        }
+    }
+    playRequest?.takeIf { syncGroup == null || it.sync || it.localFileUri != null }?.let { pr ->
         PlayerScreen(
             vm = vm,
             config = config,
@@ -619,8 +650,13 @@ internal fun JellyfinScreen(
             localFileUri = pr.localFileUri,
             queue = pr.queue,
             queueStart = if (pr.queue.isEmpty()) -1 else pr.queue.indexOfFirst { it.id == pr.itemId },
+            sync = pr.sync,
+            syncStartMs = pr.syncStartMs,
         )
     }
 }
 
 /** A card in the offline DOWNLOADS row: cached poster, progress/state, tap to play (when done). */
+
+/** The queue entry the screen last opened for the group, so a replayed update doesn't reopen it. */
+private var lastSyncOpened: String = ""

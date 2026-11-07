@@ -324,3 +324,10 @@ suspend fun jellyfinReportStopped(config: ServiceConfig, src: PlaybackSource, po
     }
     Unit
 }
+
+/** Where the user left off in [itemId], 0 when nowhere. What a group starts from. */
+suspend fun jellyfinResumeMs(config: ServiceConfig, itemId: String): Long = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val uid = jellyfinResolveUserId(config, jfApi(config, token))
+    (jfPlaybackApi(config, token).playItem(id = itemId, uid = uid).UserData?.PlaybackPositionTicks ?: 0L) / TICKS_PER_MS
+}

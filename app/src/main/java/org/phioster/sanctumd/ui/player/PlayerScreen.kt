@@ -174,14 +174,18 @@ internal fun PlayerScreen(
     /** A playlist to run through; what comes next is taken from here instead of the series. */
     queue: List<org.phioster.sanctumd.net.NextEpisode> = emptyList(),
     queueStart: Int = -1,
+    /** Playing for a SyncPlay group; see [SyncPlayEngine]. */
+    sync: Boolean = false,
+    syncStartMs: Long = 0,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     // libmpv plays everything (any codec, PGS/ASS subs, no server transcode); if its native lib can't
     // load, fall back to ExoPlayer so playback still works.
-    val engine: MediaPlayerEngine = remember {
-        runCatching { MpvPlayerEngine(context) }.getOrElse { ExoPlayerEngine(context) }
+    val engine = remember {
+        SyncPlayEngine(runCatching { MpvPlayerEngine(context) }.getOrElse { ExoPlayerEngine(context) })
     }
+    engine.grouped = sync
     val activity = remember(context) { findActivity(context) }
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val maxVol = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1) }
@@ -332,8 +336,9 @@ internal fun PlayerScreen(
                 source = src
                 // Asking about the resume point means starting at 0 and offering the jump, starting
                 // mid-file and then rewinding would waste a seek and look broken.
-                val ask = askResume && src.startPositionMs > 5_000
-                val start = if (ask) 0L else src.startPositionMs
+                // In a group the group's queue says where to start, and nobody is asked.
+                val ask = !sync && askResume && src.startPositionMs > 5_000
+                val start = if (sync) syncStartMs else if (ask) 0L else src.startPositionMs
                 resumeTarget = start
                 resumeApplied = start <= 0
                 engine.prepare(src.url, src.isHls, start, src.authHeaders, src.externalSubs)
@@ -342,7 +347,8 @@ internal fun PlayerScreen(
                 // Both are optional extras: no plugin, no segments; not an episode, no next up.
                 segments = runCatching { vm.jellyfinSegments(config, curItem) }.getOrDefault(emptyList())
                 // In a playlist the list decides, also at its end: no jumping into a series from there.
-                nextUp = if (queuePos >= 0) org.phioster.sanctumd.net.queueAfter(queue, queuePos)
+                // Autoplay would leave the group behind; in a group the next item is everyone's choice.
+                nextUp = if (sync) null else if (queuePos >= 0) org.phioster.sanctumd.net.queueAfter(queue, queuePos)
                 else runCatching { vm.jellyfinNextEpisode(config, curItem) }.getOrNull()
             }
         } catch (t: Throwable) {
@@ -705,9 +711,11 @@ internal fun PlayerScreen(
             )
         }
 
+        SyncPlayBinding(engine, sync, itemKey = curItem, onStop = { leave() })
+
         if (controlsVisible && !inPip) {
             PlayerControls(
-                title = curTitle,
+                title = if (sync) "SyncPlay · $curTitle" else curTitle,
                 state = state,
                 scrubbing = scrubbing,
                 scrubPos = scrubPos,

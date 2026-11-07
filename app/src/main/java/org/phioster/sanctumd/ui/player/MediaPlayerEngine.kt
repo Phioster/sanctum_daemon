@@ -10,6 +10,9 @@ internal data class PlayRequest(
     val title: String,
     val localFileUri: String? = null,
     val queue: List<org.phioster.sanctumd.net.NextEpisode> = emptyList(),
+    /** Started by the SyncPlay group: play only on the group's commands, from [syncStartMs]. */
+    val sync: Boolean = false,
+    val syncStartMs: Long = 0,
 )
 
 /** A selectable audio or subtitle track. [id] is opaque (engine-specific); [selected] is the current pick. */
