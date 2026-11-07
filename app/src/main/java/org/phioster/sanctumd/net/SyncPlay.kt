@@ -119,10 +119,10 @@ object SyncPlay {
     val active: Boolean get() = _group.value != null
 
     /** Keep the player on the group's clock while playing (like Jellyfin's "sync correction"). */
-    @Volatile var correction: Boolean = true
+    @Volatile var correction: Boolean = false
         private set
     fun loadPrefs(context: android.content.Context) {
-        correction = context.getSharedPreferences("syncplay", 0).getBoolean("correction", true)
+        correction = context.getSharedPreferences("syncplay", 0).getBoolean("correction", false)
     }
     fun setCorrection(context: android.content.Context, on: Boolean) {
         correction = on
