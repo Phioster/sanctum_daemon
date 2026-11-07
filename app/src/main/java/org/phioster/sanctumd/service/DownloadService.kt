@@ -46,6 +46,11 @@ private object DownloadCancelled : Exception() {
     private fun readResolve(): Any = DownloadCancelled
 }
 
+/** The user paused a running download: keep the partial file, stop reading. */
+private object DownloadPaused : Exception() {
+    private fun readResolve(): Any = DownloadPaused
+}
+
 /**
  * Downloads Jellyfin media to the app's private storage for offline playback. Runs one download at a
  * time (a serial queue re-read from [DownloadStore] each step so newly enqueued items are picked up)
@@ -58,6 +63,7 @@ class DownloadService : Service() {
     private val store by lazy { DownloadStore(this) }
     private val mutex = Mutex()
     private val cancelled = ConcurrentHashMap.newKeySet<String>()
+    private val pausing = ConcurrentHashMap.newKeySet<String>()
     private var wifiCallback: android.net.ConnectivityManager.NetworkCallback? = null
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -86,6 +92,28 @@ class DownloadService : Service() {
             ACTION_CANCEL -> {
                 val id = intent.getStringExtra(EXTRA_ITEM_ID)
                 if (id != null) { cancelled += id; scope.launch { removeEntryAndFiles(id) } }
+            }
+            ACTION_PAUSE -> {
+                val id = intent.getStringExtra(EXTRA_ITEM_ID)
+                if (id != null) scope.launch {
+                    val e = store.read()[id]
+                    when (e?.state) {
+                        // The running loop notices this and parks the entry itself.
+                        DownloadEntry.STATE_RUNNING -> pausing += id
+                        DownloadEntry.STATE_QUEUED -> store.update(id) { it.copy(state = DownloadEntry.STATE_PAUSED) }
+                        else -> {}
+                    }
+                    if (noActiveWork()) stopNow()
+                }
+            }
+            ACTION_RESUME_ITEM -> {
+                val id = intent.getStringExtra(EXTRA_ITEM_ID)
+                scope.launch {
+                    if (id != null) store.update(id) {
+                        if (it.state == DownloadEntry.STATE_PAUSED || it.state == DownloadEntry.STATE_FAILED) it.copy(state = DownloadEntry.STATE_QUEUED, error = "") else it
+                    }
+                    pump()
+                }
             }
             ACTION_DELETE -> {
                 val id = intent.getStringExtra(EXTRA_ITEM_ID)
@@ -174,6 +202,11 @@ class DownloadService : Service() {
         store.update(id) { it.copy(state = DownloadEntry.STATE_RUNNING, error = "") }
 
         val dir = File(filesDir, "downloads").apply { mkdirs() }
+        // The poster first, so the list shows the cover while the file is still coming in.
+        if (entry.posterFile.startsWith("http")) {
+            val poster = cachePoster(config, entry, dir)
+            if (poster.isNotBlank()) store.update(id) { it.copy(posterFile = poster) }
+        }
         try {
             val plan = if (entry.mediaType == "Audio") jellyfinAudioDownloadPlan(config, id) else jellyfinDownloadPlan(config, id, entry.maxBitrate)
             val file = File(dir, downloadFileName(id, plan.container))
@@ -184,19 +217,25 @@ class DownloadService : Service() {
             }
             val reqB = Request.Builder().url(plan.url)
             plan.headers.forEach { (k, v) -> if (v.isNotBlank()) reqB.header(k, v) }
+            // Continue a paused download where it stopped. Only the original file can do that; a
+            // transcode answers 200 to a range request and simply starts over, which is handled.
+            val have = if (file.exists()) file.length() else 0L
+            if (have > 0) reqB.header("Range", "bytes=$have-")
             client.newCall(reqB.build()).execute().use { resp ->
                 if (!resp.isSuccessful) throw IOException("HTTP ${resp.code}")
                 val body = resp.body ?: throw IOException("empty response")
-                val total = if (plan.sizeBytes > 0) plan.sizeBytes else body.contentLength()
+                val resumed = have > 0 && resp.code == 206
+                val total = if (plan.sizeBytes > 0) plan.sizeBytes else body.contentLength().let { if (it > 0 && resumed) it + have else it }
                 store.update(id) { it.copy(sizeBytes = if (total > 0) total else it.sizeBytes) }
                 body.byteStream().use { input ->
-                    FileOutputStream(file).use { output ->
+                    FileOutputStream(file, resumed).use { output ->
                         val buf = ByteArray(64 * 1024)
-                        var got = 0L
+                        var got = if (resumed) have else 0L
                         var lastUi = 0L
                         var lastNotif = 0L
                         while (true) {
                             if (id in cancelled) throw DownloadCancelled
+                            if (id in pausing) { store.update(id) { it.copy(downloadedBytes = got) }; throw DownloadPaused }
                             val n = input.read(buf)
                             if (n < 0) break
                             output.write(buf, 0, n)
@@ -218,13 +257,17 @@ class DownloadService : Service() {
                     }
                 }
             }
-            val poster = cachePoster(config, entry, dir)
+            val cached = store.read()[id]?.posterFile.orEmpty()
+            val poster = if (cached.startsWith("/")) cached else cachePoster(config, entry, dir)
             store.update(id) {
                 it.copy(state = DownloadEntry.STATE_DONE, filePath = file.absolutePath, downloadedBytes = it.sizeBytes.coerceAtLeast(file.length()), posterFile = poster)
             }
             notifyDone(id, display, "Download complete")
         } catch (c: CancellationException) {
             throw c // real coroutine cancellation (service destroyed), don't swallow
+        } catch (p: DownloadPaused) {
+            pausing -= id
+            store.update(id) { it.copy(state = DownloadEntry.STATE_PAUSED) }
         } catch (d: DownloadCancelled) {
             removeEntryAndFiles(id) // user cancelled: clear the entry + any partial files for this id
             cancelled -= id
@@ -332,6 +375,8 @@ class DownloadService : Service() {
         private const val ACTION_ENQUEUE = "org.phioster.sanctumd.download.ENQUEUE"
         private const val ACTION_CANCEL = "org.phioster.sanctumd.download.CANCEL"
         private const val ACTION_DELETE = "org.phioster.sanctumd.download.DELETE"
+        private const val ACTION_PAUSE = "org.phioster.sanctumd.download.PAUSE"
+        private const val ACTION_RESUME_ITEM = "org.phioster.sanctumd.download.RESUME_ITEM"
         private const val ACTION_CLEAR_DONE = "org.phioster.sanctumd.download.CLEAR_DONE"
         private const val ACTION_CLEAR_ALL = "org.phioster.sanctumd.download.CLEAR_ALL"
         private const val EXTRA_ENTRY = "entry"
@@ -354,6 +399,9 @@ class DownloadService : Service() {
 
         fun cancel(context: Context, itemId: String) = send(context, ACTION_CANCEL, itemId)
         fun delete(context: Context, itemId: String) = send(context, ACTION_DELETE, itemId)
+        fun pause(context: Context, itemId: String) = send(context, ACTION_PAUSE, itemId)
+        /** Continues a paused (or retries a failed) download, from where the partial file ends. */
+        fun resumeItem(context: Context, itemId: String) = send(context, ACTION_RESUME_ITEM, itemId)
         fun clearCompleted(context: Context) = sendAction(context, ACTION_CLEAR_DONE)
         fun clearAll(context: Context) = sendAction(context, ACTION_CLEAR_ALL)
         /** Nudge the queue (e.g. from a foreground screen), resumes Wi-Fi-parked downloads. */

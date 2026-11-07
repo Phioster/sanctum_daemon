@@ -186,41 +186,24 @@ internal fun LazyListScope.jellyfinMediaHome(
     val myDownloads = downloads.values
         .filter { it.serverId == config.id }
         .sortedByDescending { it.addedAt }
-    if (myDownloads.isNotEmpty()) {
-        item {
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("DOWNLOADS  ·  offline", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
-                Spacer(Modifier.weight(1f))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(accent.copy(alpha = 0.18f))
-                        .border(1.dp, accent.copy(alpha = 0.7f), RoundedCornerShape(6.dp))
-                        .clickable { act.manageDownloads() }
-                        .padding(horizontal = 10.dp, vertical = 5.dp),
-                ) {
-                    Icon(Icons.Filled.Settings, contentDescription = null, tint = accent, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(5.dp))
-                    Text("manage", fontFamily = Mono, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
+    if (listError != null) {
+        // Server out of reach: this is when the downloads are wanted, so they fill the page.
+        // Online they live behind the header button only.
+        val ready = myDownloads.filter { it.done }
+        if (ready.isNotEmpty()) {
+            item {
+                Spacer(Modifier.height(8.dp))
+                Text("OFFLINE · ${ready.size} ready", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
             }
-            Spacer(Modifier.height(6.dp))
-            Row(Modifier.horizontalScroll(rememberScrollState())) {
-                myDownloads.forEach { e ->
-                    DownloadCard(
-                        entry = e, accent = accent,
-                        onPlay = { if (e.done) act.playDownload(e) },
-                        onDelete = { DownloadService.delete(context, e.itemId) },
-                    )
-                }
+            items(ready, key = { "off-" + it.itemId }) { e ->
+                ReadyDownloadRow(
+                    e, config, accent, title = e.name,
+                    detail = listOf(e.subtitle, fmtBytes(e.sizeBytes)).filter { it.isNotBlank() }.joinToString(" · "),
+                    onPlay = { act.playDownload(e) }, onDelete = { DownloadService.delete(context, e.itemId) },
+                )
             }
         }
-    }
-    if (listError != null) {
-        // Offline / server unreachable: downloads above still play; the rest needs the server.
-        if (myDownloads.isEmpty()) {
+        if (ready.isEmpty()) {
             item {
                 Spacer(Modifier.height(24.dp))
                 Text("nothing downloaded for offline use", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 12.sp)

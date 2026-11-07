@@ -176,6 +176,8 @@ internal fun JellyfinDetailSheet(
                             SecondaryButton("${(dl.progress * 100).toInt()}%  ·  cancel", Modifier.fillMaxWidth(), icon = AppIcons.Download) { org.phioster.sanctumd.service.DownloadService.cancel(context, d.id) }
                         org.phioster.sanctumd.model.DownloadEntry.STATE_FAILED ->
                             SecondaryButton("download failed, retry", Modifier.fillMaxWidth(), icon = AppIcons.Failed, accent = ErrRed) { startDownload() }
+                        org.phioster.sanctumd.model.DownloadEntry.STATE_PAUSED ->
+                            SecondaryButton("paused at ${(dl.progress * 100).toInt()}%  ·  continue", Modifier.fillMaxWidth(), icon = AppIcons.Download) { org.phioster.sanctumd.service.DownloadService.resumeItem(context, d.id) }
                         else ->
                             SecondaryButton("download", Modifier.fillMaxWidth(), icon = AppIcons.Download) { startDownload() }
                     }
