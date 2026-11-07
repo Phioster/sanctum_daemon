@@ -353,7 +353,7 @@ internal fun JellyQuickConnectDialog(
                         textStyle = androidx.compose.ui.text.TextStyle(fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp),
                         modifier = Modifier.menuAnchor(androidx.compose.material3.MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
                     )
-                    androidx.compose.material3.ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                    ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
                         users.orEmpty().forEach { u ->
                             androidx.compose.material3.DropdownMenuItem(
                                 text = { Text(u.name + if (u.id == ownUserId) "  (you)" else "", fontFamily = Mono) },
