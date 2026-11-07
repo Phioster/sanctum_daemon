@@ -536,7 +536,7 @@ suspend fun arrAdd(
 
 suspend fun arrMissing(config: ServiceConfig): List<ArrMissingItem> = withContext(Dispatchers.IO) {
     val base = arrBase(config.type)
-    apiFor<ArrApi>(config, apiKeyHeader(config)).missing("$base/wanted/missing?pageSize=100").records.map { r ->
+    apiFor<ArrApi>(config, apiKeyHeader(config)).missing("$base/wanted/missing?pageSize=100&includeSeries=true&includeArtist=true").records.map { r ->
         when (config.type) {
             ServiceType.SONARR -> ArrMissingItem(
                 r.id,
@@ -853,15 +853,7 @@ suspend fun arrLibrarySearch(config: ServiceConfig, id: Int): String = destructi
     withContext(Dispatchers.IO) {
         try {
             val base = arrBase(config.type)
-            val (name, field) = when (config.type) {
-                ServiceType.SONARR -> "SeriesSearch" to "seriesIds"
-                ServiceType.LIDARR -> "ArtistSearch" to "artistIds"
-                else -> "MoviesSearch" to "movieIds"
-            }
-            val body = buildJsonObject {
-                put("name", name)
-                putJsonArray(field) { add(id) }
-            }
+            val body = librarySearchBody(config.type, id)
             val r = apiFor<ArrApi>(config, apiKeyHeader(config)).command("$base/command", body)
             if (r.isSuccessful) "search started" else "error: HTTP ${r.code()}"
         } catch (t: Throwable) {
@@ -873,7 +865,7 @@ suspend fun arrLibrarySearch(config: ServiceConfig, id: Int): String = destructi
 /** Cutoff-unmet wanted list (quality below cutoff). Same shape as [arrMissing]. */
 suspend fun arrCutoff(config: ServiceConfig): List<ArrMissingItem> = withContext(Dispatchers.IO) {
     val base = arrBase(config.type)
-    apiFor<ArrApi>(config, apiKeyHeader(config)).missing("$base/wanted/cutoff?pageSize=100").records.map { r ->
+    apiFor<ArrApi>(config, apiKeyHeader(config)).missing("$base/wanted/cutoff?pageSize=100&includeSeries=true&includeArtist=true").records.map { r ->
         when (config.type) {
             ServiceType.SONARR -> ArrMissingItem(
                 r.id,
@@ -1419,7 +1411,7 @@ suspend fun arrDelete(
             val base = arrBase(config.type)
             val path = arrItemPath(config.type)
             val r = apiFor<ArrApi>(config, apiKeyHeader(config))
-                .deleteItem("$base/$path/$id?deleteFiles=$deleteFiles&addImportExclusion=$addImportExclusion")
+                .deleteItem("$base/$path/$id?deleteFiles=$deleteFiles&${exclusionParam(config.type)}=$addImportExclusion")
             if (r.isSuccessful) "deleted" else "error: HTTP ${r.code()}"
         } catch (t: Throwable) {
             "error: ${errorText(t)}"
@@ -1617,3 +1609,20 @@ suspend fun arrTestAllIndexers(config: ServiceConfig): String = withContext(Disp
  */
 suspend fun arrRepairIndexers(configs: List<ServiceConfig>): List<Pair<String, String>> =
     configs.map { it.label to arrTestAllIndexers(it) }
+
+/**
+ * The "search this whole item" command. Sonarr's SeriesSearch and Lidarr's ArtistSearch take ONE
+ * id in a singular field; a `seriesIds` list is silently ignored and Sonarr searches series 0
+ * ("Series with ID 0 does not exist" in its log). Only Radarr's MoviesSearch takes a list.
+ */
+internal fun librarySearchBody(type: ServiceType, id: Int): JsonObject = buildJsonObject {
+    when (type) {
+        ServiceType.SONARR -> { put("name", "SeriesSearch"); put("seriesId", id) }
+        ServiceType.LIDARR -> { put("name", "ArtistSearch"); put("artistId", id) }
+        else -> { put("name", "MoviesSearch"); putJsonArray("movieIds") { add(id) } }
+    }
+}
+
+/** Radarr calls the "don't re-add from lists" flag addImportExclusion; Sonarr and Lidarr addImportListExclusion. */
+internal fun exclusionParam(type: ServiceType): String =
+    if (type == ServiceType.RADARR) "addImportExclusion" else "addImportListExclusion"

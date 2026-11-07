@@ -55,6 +55,7 @@ internal class ArrDetailState {
     var moving by mutableStateOf(false)
     var confirmDelete by mutableStateOf(false)
     var deleteFiles by mutableStateOf(false)
+    var addExclusion by mutableStateOf(false)
     /** Release picker: open with [releases] null while the list is still being fetched. */
     var pickerOpen by mutableStateOf(false)
     var releases by mutableStateOf<List<ArrRelease>?>(null)

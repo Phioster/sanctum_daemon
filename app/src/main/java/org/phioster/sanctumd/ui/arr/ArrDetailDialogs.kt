@@ -194,17 +194,25 @@ internal fun ArrDetailDialogs(
             containerColor = Surface,
             title = { Text("Delete ${st.detail?.title ?: ""}?", fontFamily = Mono, color = MatrixGreen) },
             text = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Also delete files", fontFamily = Mono, color = MatrixGreen, modifier = Modifier.weight(1f))
-                    Switch(checked = st.deleteFiles, onCheckedChange = { st.deleteFiles = it })
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Also delete files", fontFamily = Mono, color = MatrixGreen, modifier = Modifier.weight(1f))
+                        Switch(checked = st.deleteFiles, onCheckedChange = { st.deleteFiles = it })
+                    }
+                    // Without it an import list adds the same item straight back on its next sync.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Add list exclusion", fontFamily = Mono, color = MatrixGreen, modifier = Modifier.weight(1f))
+                        Switch(checked = st.addExclusion, onCheckedChange = { st.addExclusion = it })
+                    }
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
                     val df = st.deleteFiles
+                    val ex = st.addExclusion
                     st.confirmDelete = false
                     scope.launch {
-                        val r = vm.arrDeleteItem(config, itemId, df)
+                        val r = vm.arrDeleteItem(config, itemId, df, ex)
                         if (!r.startsWith("error")) onBack() else st.actionMsg = r
                     }
                 }) { Text("Delete", fontFamily = Mono, color = ErrRed) }
