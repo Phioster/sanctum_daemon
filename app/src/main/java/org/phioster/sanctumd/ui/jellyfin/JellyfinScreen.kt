@@ -110,6 +110,8 @@ internal fun JellyfinScreen(
     val downloads by vm.downloads.collectAsState(initial = emptyMap())
     val wifiOnly by vm.downloadsWifiOnly.collectAsState()
     val deleteWatched by vm.downloadsDeleteWatched.collectAsState()
+    val smartOn by vm.smartDownloads.collectAsState()
+    val smartCount by vm.smartDownloadCount.collectAsState()
     var downloadsManagerOpen by remember { mutableStateOf(false) }
     val hiddenLibs by vm.hiddenLibraries.collectAsState()
     val hiddenSet = hiddenLibs[config.id].orEmpty().toSet()
@@ -158,7 +160,7 @@ internal fun JellyfinScreen(
     suspend fun loadDashboard() { listError = ad.reload(vm, config) }
     suspend fun loadLiveTv() { listError = tvState.reload(vm, config) }
     suspend fun loadMedia() {
-        listError = if (bs.stack.isEmpty()) bs.loadHome(vm, config).also { sweepWatchedDownloads() }
+        listError = if (bs.stack.isEmpty()) bs.loadHome(vm, config).also { sweepWatchedDownloads(); vm.runSmartDownloads() }
         else bs.loadFolder(vm, config, bs.stack.last())
     }
     fun pullRefresh() {
@@ -586,9 +588,19 @@ internal fun JellyfinScreen(
             onPlay = { e -> downloadsManagerOpen = false; playDownload(e) },
             onPause = { id -> DownloadService.pause(context, id) },
             onResume = { id -> DownloadService.resumeItem(context, id) },
-            onDelete = { id -> DownloadService.delete(context, id) },
+            onDelete = { id ->
+                val gone = downloads[id]
+                DownloadService.delete(context, id)
+                // Deleting the last download of a series by hand ends smart downloads for it.
+                val sid = gone?.seriesId.orEmpty()
+                if (sid.isNotBlank() && downloads.values.none { it.itemId != id && it.seriesId == sid }) vm.forgetSmartSeries(config.id, sid)
+            },
             onDeleteWatchedNow = { deleteWatchedNow() },
-            onClearAll = { DownloadService.clearAll(context); downloadsManagerOpen = false },
+            smartOn = smartOn,
+            onSmart = { vm.setSmartDownloads(it) },
+            smartCount = smartCount,
+            onSmartCount = { vm.setSmartDownloadCount(it) },
+            onClearAll = { DownloadService.clearAll(context); vm.forgetSmartServer(config.id); downloadsManagerOpen = false },
             onClose = { downloadsManagerOpen = false },
         )
     }

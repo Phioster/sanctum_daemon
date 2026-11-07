@@ -20,6 +20,8 @@ data class DownloadEntry(
     val state: String = STATE_QUEUED,
     val error: String = "",
     val addedAt: Long = 0,
+    /** The series an episode belongs to; how smart downloads know what to keep stocked. */
+    val seriesId: String = "",
 ) {
     val progress: Float get() = if (sizeBytes > 0) (downloadedBytes.toFloat() / sizeBytes).coerceIn(0f, 1f) else 0f
     val done: Boolean get() = state == STATE_DONE

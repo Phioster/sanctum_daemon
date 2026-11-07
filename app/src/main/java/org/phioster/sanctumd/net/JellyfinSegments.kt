@@ -127,3 +127,26 @@ suspend fun jellyfinFolderQueue(
 
 /** Index of the first unwatched entry, or 0 when there is none (all watched, or empty). */
 internal fun queueStart(played: List<Boolean>): Int = played.indexOfFirst { !it }.coerceAtLeast(0)
+
+/** One episode of a series, as smart downloads need it. */
+data class SmartEpisode(val id: String, val name: String, val subtitle: String, val posterUrl: String, val played: Boolean, val runTimeTicks: Long)
+
+/** The series [itemId] (an episode) belongs to, or null. */
+suspend fun jellyfinSeriesIdOf(config: ServiceConfig, itemId: String): String? = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val api = jfApi(config, token)
+    api.itemDetail(id = itemId, uid = jellyfinResolveUserId(config, api)).SeriesId
+}
+
+/** A series' real episodes in order, specials left out, with whether each is watched. */
+suspend fun jellyfinSmartEpisodes(config: ServiceConfig, seriesId: String): List<SmartEpisode> = withContext(Dispatchers.IO) {
+    val token = jellyfinAccessToken(config)
+    val uid = jellyfinResolveUserId(config, jfApi(config, token))
+    jfSegmentsApi(config, token).seriesEpisodes(seriesId, uid).Items
+        .filter { it.LocationType != "Virtual" && (it.ParentIndexNumber ?: 1) > 0 }
+        .map { SmartEpisode(it.Id, it.Name, jfSubtitle(it), jellyImageUrl(config, it.Id, it.ImageTags?.get("Primary"), token), it.UserData?.Played == true, it.RunTimeTicks ?: 0L) }
+}
+
+/** The next [count] unwatched episodes, in order. What smart downloads keep on the phone. */
+internal fun smartTargets(episodes: List<SmartEpisode>, count: Int): List<SmartEpisode> =
+    episodes.filter { !it.played }.take(count)

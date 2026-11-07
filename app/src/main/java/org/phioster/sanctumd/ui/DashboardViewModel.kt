@@ -343,6 +343,26 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun jellyfinNextEpisode(config: ServiceConfig, itemId: String) =
         org.phioster.sanctumd.net.jellyfinNextEpisode(config, itemId)
     fun setDownloadsWifiOnly(enabled: Boolean) = viewModelScope.launch { dashStore.setDownloadsWifiOnly(enabled) }
+    val smartDownloads: StateFlow<Boolean> =
+        dashStore.smartDownloads.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
+    val smartDownloadCount: StateFlow<Int> =
+        dashStore.smartDownloadCount.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, 3)
+    fun setSmartDownloads(enabled: Boolean) = viewModelScope.launch {
+        dashStore.setSmartDownloads(enabled)
+        if (enabled) runSmartDownloadsNow()
+    }
+    fun setSmartDownloadCount(n: Int) = viewModelScope.launch { dashStore.setSmartDownloadCount(n); runSmartDownloadsNow() }
+    /** One smart-downloads pass, in the view model's scope so leaving the screen doesn't cut it off. */
+    fun runSmartDownloads() = viewModelScope.launch { runSmartDownloadsNow() }
+    private suspend fun runSmartDownloadsNow() = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        runCatching { org.phioster.sanctumd.service.SmartDownloads.run(getApplication()) }
+    }
+    fun forgetSmartSeries(serverId: String, seriesId: String) = viewModelScope.launch {
+        org.phioster.sanctumd.service.SmartDownloads.untrack(getApplication(), serverId, seriesId)
+    }
+    fun forgetSmartServer(serverId: String) = viewModelScope.launch {
+        org.phioster.sanctumd.service.SmartDownloads.untrackServer(getApplication(), serverId)
+    }
     val downloadsDeleteWatched: StateFlow<Boolean> =
         dashStore.downloadsDeleteWatched.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
     fun setDownloadsDeleteWatched(enabled: Boolean) = viewModelScope.launch { dashStore.setDownloadsDeleteWatched(enabled) }

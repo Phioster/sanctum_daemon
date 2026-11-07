@@ -28,6 +28,9 @@ private val DRAWER_BAND_KEY = floatPreferencesKey("drawer_band")
 private val SAFE_MODE_KEY = booleanPreferencesKey("safe_mode")
 private val DOWNLOADS_WIFI_ONLY_KEY = booleanPreferencesKey("downloads_wifi_only")
 private val DOWNLOADS_DELETE_WATCHED_KEY = booleanPreferencesKey("downloads_delete_watched")
+private val SMART_DOWNLOADS_KEY = booleanPreferencesKey("smart_downloads")
+private val SMART_DOWNLOADS_COUNT_KEY = intPreferencesKey("smart_downloads_count")
+private val SMART_SERIES_KEY = stringPreferencesKey("smart_series_json")
 private val HIDDEN_LIBRARIES_KEY = stringPreferencesKey("hidden_libraries_json")
 private val MEDIA_ROW_STYLES_KEY = stringPreferencesKey("media_row_styles_json")
 private val PLAYER_SWIPE_MAG_KEY = floatPreferencesKey("player_swipe_magnitude")
@@ -196,6 +199,21 @@ class DashboardStore(private val context: Context) {
     val downloadsDeleteWatched: Flow<Boolean> = context.dashboardDataStore.data.map { it[DOWNLOADS_DELETE_WATCHED_KEY] ?: false }
     suspend fun setDownloadsDeleteWatched(enabled: Boolean) {
         context.dashboardDataStore.edit { it[DOWNLOADS_DELETE_WATCHED_KEY] = enabled }
+    }
+
+    /** Smart downloads: keep the next [smartDownloadCount] unwatched episodes of each downloaded series. */
+    val smartDownloads: Flow<Boolean> = context.dashboardDataStore.data.map { it[SMART_DOWNLOADS_KEY] ?: false }
+    suspend fun setSmartDownloads(enabled: Boolean) { context.dashboardDataStore.edit { it[SMART_DOWNLOADS_KEY] = enabled } }
+    val smartDownloadCount: Flow<Int> = context.dashboardDataStore.data.map { it[SMART_DOWNLOADS_COUNT_KEY] ?: 3 }
+    suspend fun setSmartDownloadCount(n: Int) { context.dashboardDataStore.edit { it[SMART_DOWNLOADS_COUNT_KEY] = n.coerceIn(1, 10) } }
+
+    /** Series smart downloads look after, as "serverId|seriesId". Kept so a series stays stocked
+     *  even after all its downloads were watched and deleted. */
+    val smartSeries: Flow<Set<String>> = context.dashboardDataStore.data.map { prefs ->
+        prefs[SMART_SERIES_KEY]?.let { runCatching { json.decodeFromString<Set<String>>(it) }.getOrNull() } ?: emptySet()
+    }
+    suspend fun setSmartSeries(keys: Set<String>) {
+        context.dashboardDataStore.edit { it[SMART_SERIES_KEY] = json.encodeToString(keys) }
     }
 
     // Per Jellyfin service: library-view ids the user chose to hide from the media tab (e.g. Live TV).

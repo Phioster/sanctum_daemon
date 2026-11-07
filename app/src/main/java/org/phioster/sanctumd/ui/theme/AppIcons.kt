@@ -7,6 +7,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowRight
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Backup
@@ -95,6 +96,7 @@ internal object AppIcons {
     val Copy: ImageVector = Icons.Filled.ContentCopy
     val Download: ImageVector = Icons.Filled.Download
     val Add: ImageVector = Icons.Filled.Add
+    val Remove: ImageVector = Icons.Filled.Remove
     val Search: ImageVector = Icons.Filled.Search
     val Refresh: ImageVector = Icons.Filled.Refresh
     val Edit: ImageVector = Icons.Filled.Edit
