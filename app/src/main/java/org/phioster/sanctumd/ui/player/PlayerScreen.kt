@@ -335,7 +335,7 @@ internal fun PlayerScreen(
                 val start = if (ask) 0L else src.startPositionMs
                 resumeTarget = start
                 resumeApplied = start <= 0
-                engine.prepare(src.url, src.isHls, start, src.authHeaders)
+                engine.prepare(src.url, src.isHls, start, src.authHeaders, src.externalSubs)
                 vm.jellyfinReportStart(config, src, start)
                 if (ask) resumeAsk = src.startPositionMs
                 // Both are optional extras: no plugin, no segments; not an episode, no next up.
@@ -498,7 +498,7 @@ internal fun PlayerScreen(
                 source = src
                 resumeTarget = resumeMs
                 resumeApplied = resumeMs <= 0
-                engine.prepare(src.url, src.isHls, resumeMs, src.authHeaders)
+                engine.prepare(src.url, src.isHls, resumeMs, src.authHeaders, src.externalSubs)
                 engine.setSpeed(speed)
             } catch (t: Throwable) {
                 loadError = t.message ?: t.javaClass.simpleName

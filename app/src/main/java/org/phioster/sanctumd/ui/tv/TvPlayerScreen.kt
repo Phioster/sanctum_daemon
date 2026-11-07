@@ -245,7 +245,7 @@ internal fun TvPlayerScreen(
                 displayInfo = displayInfo.copy(currentHz = currentRefreshRate(activity))
             }
 
-            engine.prepare(src.url, src.isHls, src.startPositionMs, src.authHeaders)
+            engine.prepare(src.url, src.isHls, src.startPositionMs, src.authHeaders, src.externalSubs)
             jellyfinReportStart(config, src, src.startPositionMs)
         }.onFailure { loadError = it.message ?: it.javaClass.simpleName }
         segments = runCatching { jellyfinMediaSegments(config, curItem) }.getOrDefault(emptyList())

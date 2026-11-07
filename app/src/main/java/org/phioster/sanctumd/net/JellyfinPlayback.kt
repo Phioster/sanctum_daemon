@@ -73,7 +73,31 @@ data class PlaybackSource(
     /** The video's frame rate as the server reports it, 0 when unknown. Known *before* playback
      *  begins, which is what lets a TV switch its display mode without disturbing the decoder. */
     val videoFps: Float = 0f,
+    /** Subtitle files lying next to the video (e.g. `Film.de.srt`). They are not inside the
+     *  stream, so the player has to load each one itself or it never lists them. */
+    val externalSubs: List<ExternalSubtitle> = emptyList(),
 )
+
+/** One sidecar subtitle file the server serves separately from the video. */
+data class ExternalSubtitle(val url: String, val label: String, val language: String, val format: String)
+
+/** The sidecar subtitles of [ms] as URLs the player can fetch (with the same auth headers). */
+internal fun externalSubtitles(base: String, itemId: String, ms: JfMediaSource): List<ExternalSubtitle> =
+    ms.MediaStreams.filter { it.Type == "Subtitle" && it.IsExternal && it.Index != null }.map { s ->
+        val format = when (s.Codec?.lowercase()) {
+            "ass", "ssa" -> "ass"
+            "vtt", "webvtt" -> "vtt"
+            else -> "srt"
+        }
+        val url = s.DeliveryUrl?.takeIf { it.isNotBlank() }?.let { base.trimEnd('/') + "/" + it.trimStart('/') }
+            ?: "${base}Videos/$itemId/${ms.Id}/Subtitles/${s.Index}/0/Stream.$format"
+        ExternalSubtitle(
+            url = url,
+            label = s.DisplayTitle ?: s.DisplayLanguage ?: s.Language ?: "external",
+            language = s.Language.orEmpty(),
+            format = format,
+        )
+    }
 
 private const val TICKS_PER_MS = 10_000L
 
@@ -176,6 +200,9 @@ suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String, maxBit
         authHeaders = jellyfinAuth(token) + config.customHeaders,
         videoFps = ms.MediaStreams.firstOrNull { it.Type == "Video" }
             ?.let { it.RealFrameRate ?: it.AverageFrameRate }?.toFloat() ?: 0f,
+        // A transcode is HLS and carries what it carries; sidecar files only make sense next to
+        // the original file.
+        externalSubs = if (isHls) emptyList() else externalSubtitles(base, itemId, ms),
     )
 }
 

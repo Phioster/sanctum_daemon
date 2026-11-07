@@ -100,7 +100,13 @@ data class PlaybackStats(
 interface MediaPlayerEngine {
     /** Load and start a stream. [isHls] selects the HLS source (transcoded) vs. a progressive/local
      *  file. [headers] carries auth for HTTP sources (empty for local files). */
-    fun prepare(url: String, isHls: Boolean, startPositionMs: Long, headers: Map<String, String>)
+    fun prepare(
+        url: String,
+        isHls: Boolean,
+        startPositionMs: Long,
+        headers: Map<String, String>,
+        externalSubs: List<org.phioster.sanctumd.net.ExternalSubtitle> = emptyList(),
+    )
     fun play()
     fun pause()
     fun togglePlay()
