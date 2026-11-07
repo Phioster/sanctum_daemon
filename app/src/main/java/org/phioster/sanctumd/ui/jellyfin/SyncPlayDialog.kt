@@ -76,6 +76,16 @@ internal fun SyncPlayDialog(config: ServiceConfig, accent: Color, group: SyncGro
                         "Start anything and it plays for everyone. Pause and seeking work for all.",
                         fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.55f), fontSize = 11.sp,
                     )
+                    Spacer(Modifier.height(10.dp))
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                    var corr by remember { SyncPlay.loadPrefs(ctx); mutableStateOf(SyncPlay.correction) }
+                    Row(Modifier.fillMaxWidth().clickable { corr = !corr; SyncPlay.setCorrection(ctx, corr) }, verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Sync correction", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp)
+                            Text("Catches up small drift by playing slightly faster or slower, jumps on big gaps.", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 10.sp)
+                        }
+                        androidx.compose.material3.Switch(checked = corr, onCheckedChange = { corr = it; SyncPlay.setCorrection(ctx, it) })
+                    }
                 } else {
                     Text("Groups on the server", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp)
                     Spacer(Modifier.height(4.dp))

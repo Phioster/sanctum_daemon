@@ -3,6 +3,9 @@ package org.phioster.sanctumd.ui.player
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberUpdatedState
 import kotlinx.coroutines.delay
 import org.phioster.sanctumd.net.SyncPlay
@@ -64,6 +67,10 @@ private suspend fun awaitLoaded(engine: MediaPlayerEngine, target: Long? = null)
 internal fun SyncPlayBinding(engine: SyncPlayEngine, active: Boolean, itemKey: String, onStop: () -> Unit) {
     if (!active) return
     val stop by rememberUpdatedState(onStop)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // Where the group says playback is: this position at this moment. Null while paused/seeking.
+    var anchor by remember { mutableStateOf<Pair<Long, Long>?>(null) }
+    LaunchedEffect(Unit) { SyncPlay.loadPrefs(context) }
     LaunchedEffect(itemKey) {
         awaitLoaded(engine)
         SyncPlay.ready(engine.snapshot().positionMs, false)
@@ -74,17 +81,22 @@ internal fun SyncPlayBinding(engine: SyncPlayEngine, active: Boolean, itemKey: S
             if (c.playlistItemId.isNotBlank() && SyncPlay.playlistItemId.isNotBlank() && c.playlistItemId != SyncPlay.playlistItemId) return@collect
             val wait = c.atLocalMs - System.currentTimeMillis()
             when (c.type) {
-                "Unpause" -> if (wait > 0) {
-                    engine.localSeek(c.positionMs); delay(wait); engine.localPlay()
-                } else {
-                    // Late: join in where the others already are.
-                    engine.localSeek(c.positionMs - wait); engine.localPlay()
+                "Unpause" -> {
+                    if (wait > 0) {
+                        engine.localSeek(c.positionMs); delay(wait); engine.localPlay()
+                    } else {
+                        // Late: join in where the others already are.
+                        engine.localSeek(c.positionMs - wait); engine.localPlay()
+                    }
+                    anchor = c.positionMs to c.atLocalMs
                 }
                 "Pause" -> {
+                    anchor = null
                     if (wait > 0) delay(wait)
                     engine.localPause(); engine.localSeek(c.positionMs)
                 }
                 "Seek" -> {
+                    anchor = null
                     engine.localPause(); engine.localSeek(c.positionMs)
                     awaitLoaded(engine, c.positionMs)
                     SyncPlay.ready(engine.snapshot().positionMs, false)
@@ -93,4 +105,32 @@ internal fun SyncPlayBinding(engine: SyncPlayEngine, active: Boolean, itemKey: S
             }
         }
     }
+    // Sync correction: every few seconds compare with where the group is. A small drift is
+    // caught up by playing a little faster or slower for two seconds (Jellyfin's SpeedToSync),
+    // a big one by jumping there (SkipToSync).
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(3_000)
+            val a = anchor ?: continue
+            if (!SyncPlay.correction) continue
+            val s = engine.snapshot()
+            if (!s.isPlaying || s.isBuffering) continue
+            val drift = syncDrift(s.positionMs, a.first, a.second, System.currentTimeMillis())
+            when {
+                kotlin.math.abs(drift) > 3_000 -> engine.localSeek(a.first + (System.currentTimeMillis() - a.second))
+                kotlin.math.abs(drift) > 120 -> {
+                    engine.setSpeed(catchUpSpeed(drift))
+                    delay(2_000)
+                    engine.setSpeed(1f)
+                }
+            }
+        }
+    }
 }
+
+/** How far this player is ahead (+) or behind (-) of the group, in ms. */
+internal fun syncDrift(positionMs: Long, anchorPos: Long, anchorAt: Long, now: Long): Long =
+    positionMs - (anchorPos + (now - anchorAt))
+
+/** Speed that removes [driftMs] over two seconds, kept within what still sounds like speech. */
+internal fun catchUpSpeed(driftMs: Long): Float = (1f - driftMs / 2_000f).coerceIn(0.5f, 1.5f)

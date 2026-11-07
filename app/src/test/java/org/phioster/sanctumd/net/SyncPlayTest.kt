@@ -26,3 +26,17 @@ class SyncPlayTest {
         assertEquals(SyncGroup("g", "Kino", listOf("SekVII", "Missi"), "Idle"), g)
     }
 }
+
+class SyncCorrectionTest {
+    @Test fun `drift is measured against where the group is now`() {
+        // Group unpaused at 10 s position at t=1000; at t=4000 it is at 13 s.
+        org.junit.Assert.assertEquals(500L, org.phioster.sanctumd.ui.player.syncDrift(13_500, 10_000, 1_000, 4_000))
+        org.junit.Assert.assertEquals(-1_000L, org.phioster.sanctumd.ui.player.syncDrift(12_000, 10_000, 1_000, 4_000))
+    }
+
+    @Test fun `ahead slows down, behind speeds up, within limits`() {
+        org.junit.Assert.assertEquals(0.75f, org.phioster.sanctumd.ui.player.catchUpSpeed(500), 0.001f)
+        org.junit.Assert.assertEquals(1.5f, org.phioster.sanctumd.ui.player.catchUpSpeed(-1_000), 0.001f)
+        org.junit.Assert.assertEquals(1.5f, org.phioster.sanctumd.ui.player.catchUpSpeed(-2_500), 0.001f)
+    }
+}

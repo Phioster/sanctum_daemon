@@ -118,6 +118,17 @@ object SyncPlay {
 
     val active: Boolean get() = _group.value != null
 
+    /** Keep the player on the group's clock while playing (like Jellyfin's "sync correction"). */
+    @Volatile var correction: Boolean = true
+        private set
+    fun loadPrefs(context: android.content.Context) {
+        correction = context.getSharedPreferences("syncplay", 0).getBoolean("correction", true)
+    }
+    fun setCorrection(context: android.content.Context, on: Boolean) {
+        correction = on
+        context.getSharedPreferences("syncplay", 0).edit().putBoolean("correction", on).apply()
+    }
+
     private fun api(): SyncPlayApi = apiFor(config!!, jellyfinAuth(token))
 
     fun serverNowIso(): String = java.time.Instant.ofEpochMilli(System.currentTimeMillis() + offsetMs).toString()
