@@ -64,15 +64,17 @@ fun PlayerSeekBar(
             val left = thumb
             val right = size.width - thumb
             val x = left + (right - left).coerceAtLeast(0f) * fraction.coerceIn(0f, 1f)
-            drawLine(
-                MatrixGreen.copy(alpha = 0.22f), Offset(left, cy), Offset(right, cy),
-                strokeWidth = line, cap = StrokeCap.Round,
-            )
-            drawLine(MatrixGreen, Offset(left, cy), Offset(x, cy), strokeWidth = line, cap = StrokeCap.Round)
-            val gap = 2.dp.toPx()
-            marks.filter { it > 0.002f && it < 0.998f }.forEach { m ->
-                val mx = left + (right - left) * m
-                drawLine(androidx.compose.ui.graphics.Color.Black, Offset(mx, cy - line), Offset(mx, cy + line), strokeWidth = gap)
+            // Chapters split the line into pieces with small gaps instead of marks drawn over it.
+            val gap = 3.dp.toPx()
+            val cuts = marks.filter { it > 0.004f && it < 0.996f }.sorted().map { left + (right - left) * it }
+            val edges = listOf(left) + cuts + listOf(right)
+            for (i in 0 until edges.size - 1) {
+                val a = edges[i] + if (i > 0) gap / 2 else 0f
+                val b = edges[i + 1] - if (i < edges.size - 2) gap / 2 else 0f
+                if (b <= a) continue
+                val cap = if (cuts.isEmpty()) StrokeCap.Round else StrokeCap.Butt
+                drawLine(MatrixGreen.copy(alpha = 0.22f), Offset(a, cy), Offset(b, cy), strokeWidth = line, cap = cap)
+                if (x > a) drawLine(MatrixGreen, Offset(a, cy), Offset(minOf(x, b), cy), strokeWidth = line, cap = cap)
             }
             drawCircle(MatrixGreen, radius = thumb, center = Offset(x, cy))
         }
