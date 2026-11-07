@@ -690,6 +690,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     /** A series' or season's episodes as a play queue, starting at the first unwatched one. */
     suspend fun jellyfinFolderQueue(config: ServiceConfig, id: String, kind: String, seasonNumber: Int?) =
         org.phioster.sanctumd.net.jellyfinFolderQueue(config, id, kind, seasonNumber)
+    /** The next unwatched episode of each series in progress (phone media home). */
+    suspend fun jellyfinNextUpList(config: ServiceConfig): List<org.phioster.sanctumd.model.JellyMediaItem> =
+        noAdult(org.phioster.sanctumd.net.jellyfinNextUp(config))
     suspend fun jellyfinFavoriteList(config: ServiceConfig): List<org.phioster.sanctumd.model.JellyMediaItem> =
         noAdult(org.phioster.sanctumd.net.jellyfinFavorites(config))
     suspend fun jellyfinSetFavorite(config: ServiceConfig, itemId: String, favorite: Boolean) =

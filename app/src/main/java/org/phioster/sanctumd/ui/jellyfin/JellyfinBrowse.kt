@@ -64,6 +64,7 @@ internal class JellyfinBrowseState {
     var contents by mutableStateOf<List<JellyMediaItem>?>(null)
     var resume by mutableStateOf<List<JellyMediaItem>?>(null)
     var latest by mutableStateOf<List<JellyMediaItem>?>(null)
+    var nextUp by mutableStateOf<List<JellyMediaItem>?>(null)
     var favorites by mutableStateOf<List<JellyMediaItem>?>(null)
     var playlists by mutableStateOf<List<org.phioster.sanctumd.net.JellyPlaylist>?>(null)
     /** The playlist at the current level, when it is one; it gets its own view like an album. */
@@ -99,6 +100,7 @@ internal class JellyfinBrowseState {
         views = vm.jellyfinViews(config)
         resume = vm.jellyfinContinue(config)
         latest = vm.jellyfinRecent(config, null)
+        nextUp = runCatching { vm.jellyfinNextUpList(config) }.getOrDefault(emptyList())
         favorites = runCatching { vm.jellyfinFavoriteList(config) }.getOrDefault(emptyList())
         playlists = runCatching { vm.jellyfinPlaylistList(config) }.getOrDefault(emptyList())
     }
@@ -236,6 +238,7 @@ internal fun LazyListScope.jellyfinMediaHome(
             }
         }
         val sResume = mediaStyles["resume"] ?: MediaRowStyle()
+        val sNext = mediaStyles["nextup"] ?: MediaRowStyle()
         val sRecent = mediaStyles["recent"] ?: MediaRowStyle()
         val sLibs = mediaStyles["libraries"] ?: MediaRowStyle()
         fun styleAccent(argb: Long) = if (argb != 0L) Color(argb) else accent
@@ -243,12 +246,23 @@ internal fun LazyListScope.jellyfinMediaHome(
         // duplicate, and with a single item to resume the whole row was just that duplicate.
         val resRow = res?.filterNot { it.id == hero?.id }
         val latRow = lat?.filterNot { it.id == hero?.id }
+        // Next Up holds the in-progress episode too; that one already sits in Continue Watching.
+        val resumeIds = res.orEmpty().map { it.id }.toSet()
+        val nextRow = st.nextUp?.filterNot { it.id in resumeIds || it.id == hero?.id }
         if (!resRow.isNullOrEmpty() && !sResume.hidden) {
             item {
                 Spacer(Modifier.height(16.dp))
                 MediaSectionHeader("CONTINUE WATCHING", styleAccent(sResume.accent))
                 Spacer(Modifier.height(8.dp))
                 MediaPosterRow(resRow, config, styleAccent(sResume.accent), sResume, act.setWatched) { act.open(it) }
+            }
+        }
+        if (!nextRow.isNullOrEmpty() && !sNext.hidden) {
+            item {
+                Spacer(Modifier.height(16.dp))
+                MediaSectionHeader("NEXT UP", styleAccent(sNext.accent))
+                Spacer(Modifier.height(8.dp))
+                MediaPosterRow(nextRow, config, styleAccent(sNext.accent), sNext, act.setWatched) { act.open(it) }
             }
         }
         val favs = st.favorites

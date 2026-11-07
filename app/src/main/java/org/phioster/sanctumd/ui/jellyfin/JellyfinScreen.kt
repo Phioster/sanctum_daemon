@@ -565,12 +565,12 @@ internal fun JellyfinScreen(
     )
 
     configRow?.let { rowKey ->
-        val title = when (rowKey) { "resume" -> "Continue Watching"; "recent" -> "Recently Added"; else -> "Libraries" }
+        val title = when (rowKey) { "resume" -> "Continue Watching"; "nextup" -> "Next Up"; "recent" -> "Recently Added"; else -> "Libraries" }
         MediaRowConfigDialog(
             title = title,
             style = mediaStyles[rowKey] ?: MediaRowStyle(),
             serviceColor = accent,
-            posterOptions = rowKey == "resume" || rowKey == "recent",
+            posterOptions = rowKey == "resume" || rowKey == "nextup" || rowKey == "recent",
             onSave = { vm.setMediaRowStyle(rowKey, it) },
             onDismiss = { configRow = null },
         )
