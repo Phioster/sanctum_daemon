@@ -97,6 +97,7 @@ internal object AppIcons {
     val Download: ImageVector = Icons.Filled.Download
     val Add: ImageVector = Icons.Filled.Add
     val Remove: ImageVector = Icons.Filled.Remove
+    val Chapters: ImageVector = Icons.AutoMirrored.Filled.List
     val Search: ImageVector = Icons.Filled.Search
     val Refresh: ImageVector = Icons.Filled.Refresh
     val Edit: ImageVector = Icons.Filled.Edit

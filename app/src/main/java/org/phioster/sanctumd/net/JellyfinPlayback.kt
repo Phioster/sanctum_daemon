@@ -39,7 +39,23 @@ import retrofit2.http.Query
 @Serializable internal data class JfPlayItem(
     val RunTimeTicks: Long? = null,
     val UserData: JfUserData? = null,
+    val Chapters: List<JfChapter> = emptyList(),
 )
+@Serializable internal data class JfChapter(val StartPositionTicks: Long = 0, val Name: String? = null)
+
+/** One chapter mark of the playing item. */
+data class PlayerChapter(val startMs: Long, val name: String)
+
+/**
+ * Chapters worth showing: in order, de-duplicated, and none when there is just one (a file
+ * with a single "Chapter 1" has nothing to jump between).
+ */
+internal fun playerChapters(raw: List<JfChapter>): List<PlayerChapter> {
+    val list = raw.map { PlayerChapter(it.StartPositionTicks / TICKS_PER_MS, it.Name?.takeIf { n -> n.isNotBlank() } ?: "") }
+        .sortedBy { it.startMs }.distinctBy { it.startMs }
+        .mapIndexed { i, c -> if (c.name.isBlank()) c.copy(name = "Chapter ${i + 1}") else c }
+    return if (list.size > 1) list else emptyList()
+}
 
 internal interface JellyfinPlaybackApi {
     @POST("Items/{id}/PlaybackInfo")
@@ -76,6 +92,7 @@ data class PlaybackSource(
     /** Subtitle files lying next to the video (e.g. `Film.de.srt`). They are not inside the
      *  stream, so the player has to load each one itself or it never lists them. */
     val externalSubs: List<ExternalSubtitle> = emptyList(),
+    val chapters: List<PlayerChapter> = emptyList(),
 )
 
 /** One sidecar subtitle file the server serves separately from the video. */
@@ -171,7 +188,8 @@ suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String, maxBit
     val jfApiClient = jfApi(config, token)
     val uid = jellyfinResolveUserId(config, jfApiClient)
 
-    val resumeTicks = runCatching { api.playItem(id = itemId, uid = uid).UserData?.PlaybackPositionTicks }.getOrNull() ?: 0L
+    val playItem = runCatching { api.playItem(id = itemId, uid = uid) }.getOrNull()
+    val resumeTicks = playItem?.UserData?.PlaybackPositionTicks ?: 0L
     val info = api.playbackInfo(itemId, uid, playbackInfoBody(uid, maxBitrate))
     val ms = info.MediaSources.firstOrNull()
         ?: error("no media sources for item $itemId")
@@ -203,6 +221,7 @@ suspend fun jellyfinPlaybackSource(config: ServiceConfig, itemId: String, maxBit
         // A transcode is HLS and carries what it carries; sidecar files only make sense next to
         // the original file.
         externalSubs = if (isHls) emptyList() else externalSubtitles(base, itemId, ms),
+        chapters = playerChapters(playItem?.Chapters.orEmpty()),
     )
 }
 

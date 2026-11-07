@@ -30,6 +30,8 @@ fun PlayerSeekBar(
     onScrub: (Float) -> Unit,
     onScrubEnd: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    /** Chapter starts as fractions of the length; each cuts a small gap into the line. */
+    marks: List<Float> = emptyList(),
 ) {
     val thumbDp by animateFloatAsState(if (scrubbing) 7f else 4.5f, label = "seekThumb")
     Box(
@@ -67,6 +69,11 @@ fun PlayerSeekBar(
                 strokeWidth = line, cap = StrokeCap.Round,
             )
             drawLine(MatrixGreen, Offset(left, cy), Offset(x, cy), strokeWidth = line, cap = StrokeCap.Round)
+            val gap = 2.dp.toPx()
+            marks.filter { it > 0.002f && it < 0.998f }.forEach { m ->
+                val mx = left + (right - left) * m
+                drawLine(androidx.compose.ui.graphics.Color.Black, Offset(mx, cy - line), Offset(mx, cy + line), strokeWidth = gap)
+            }
             drawCircle(MatrixGreen, radius = thumb, center = Offset(x, cy))
         }
     }
