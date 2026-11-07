@@ -29,5 +29,7 @@ data class DownloadEntry(
         const val STATE_RUNNING = "RUNNING"
         const val STATE_DONE = "DONE"
         const val STATE_FAILED = "FAILED"
+        /** Stopped by the user; the partial file stays and the download continues from there. */
+        const val STATE_PAUSED = "PAUSED"
     }
 }

@@ -141,6 +141,15 @@ internal fun JellyfinScreen(
         watched.forEach { DownloadService.delete(context, it) }
     }
 
+    /** The settings sheet's "delete watched now": the same sweep, without asking for the setting. */
+    suspend fun deleteWatchedNow(): Int {
+        val done = downloads.values.filter { it.serverId == config.id && it.state == DownloadEntry.STATE_DONE }
+        if (done.isEmpty()) return 0
+        val watched = runCatching { vm.jellyfinPlayedIds(config, done.map { it.itemId }) }.getOrDefault(emptySet())
+        watched.forEach { DownloadService.delete(context, it) }
+        return watched.size
+    }
+
     suspend fun loadSessions() { listError = ps.loadSessions(vm, config) }
     suspend fun loadUsers() {
         listError = ps.loadUsers(vm, config)
@@ -411,23 +420,7 @@ internal fun JellyfinScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MatrixGreen) }
                 },
                 actions = {
-                    // Live download indicator, visible from any Jellyfin tab while something downloads.
-                    val activeDl = downloads.values.filter {
-                        it.serverId == config.id &&
-                            (it.state == DownloadEntry.STATE_RUNNING ||
-                                it.state == DownloadEntry.STATE_QUEUED)
-                    }
-                    if (activeDl.isNotEmpty()) {
-                        val label = if (activeDl.size == 1) "${(activeDl.first().progress * 100).toInt()}%" else "${activeDl.size}"
-                        Row(
-                            Modifier.clickable { mode = 3; bs.stack = emptyList() }.padding(horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(AppIcons.Download, contentDescription = "Downloads", tint = accent, modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(label, fontFamily = Mono, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
+                    DownloadsHeaderButton(downloads.values.filter { it.serverId == config.id }, accent) { downloadsManagerOpen = true }
                     ServiceMenuButton(
                         config = config,
                         primary = listOf(
@@ -582,16 +575,19 @@ internal fun JellyfinScreen(
     }
 
     if (downloadsManagerOpen) {
-        DownloadsManager(
+        DownloadsScreen(
             entries = downloads.values.filter { it.serverId == config.id }.sortedByDescending { it.addedAt },
+            config = config,
             accent = accent,
             wifiOnly = wifiOnly,
             onWifiOnly = { vm.setDownloadsWifiOnly(it) },
             deleteWatched = deleteWatched,
             onDeleteWatched = { vm.setDownloadsDeleteWatched(it); if (it) scope.launch { sweepWatchedDownloads() } },
             onPlay = { e -> downloadsManagerOpen = false; playDownload(e) },
+            onPause = { id -> DownloadService.pause(context, id) },
+            onResume = { id -> DownloadService.resumeItem(context, id) },
             onDelete = { id -> DownloadService.delete(context, id) },
-            onClearCompleted = { DownloadService.clearCompleted(context) },
+            onDeleteWatchedNow = { deleteWatchedNow() },
             onClearAll = { DownloadService.clearAll(context); downloadsManagerOpen = false },
             onClose = { downloadsManagerOpen = false },
         )
