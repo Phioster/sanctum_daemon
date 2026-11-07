@@ -239,12 +239,16 @@ internal fun LazyListScope.jellyfinMediaHome(
         val sRecent = mediaStyles["recent"] ?: MediaRowStyle()
         val sLibs = mediaStyles["libraries"] ?: MediaRowStyle()
         fun styleAccent(argb: Long) = if (argb != 0L) Color(argb) else accent
-        if (!res.isNullOrEmpty() && !sResume.hidden) {
+        // The hero is already the first of its row; showing it again right below read as a
+        // duplicate, and with a single item to resume the whole row was just that duplicate.
+        val resRow = res?.filterNot { it.id == hero?.id }
+        val latRow = lat?.filterNot { it.id == hero?.id }
+        if (!resRow.isNullOrEmpty() && !sResume.hidden) {
             item {
                 Spacer(Modifier.height(16.dp))
                 MediaSectionHeader("CONTINUE WATCHING", styleAccent(sResume.accent))
                 Spacer(Modifier.height(8.dp))
-                MediaPosterRow(res, config, styleAccent(sResume.accent), sResume, act.setWatched) { act.open(it) }
+                MediaPosterRow(resRow, config, styleAccent(sResume.accent), sResume, act.setWatched) { act.open(it) }
             }
         }
         val favs = st.favorites
@@ -265,12 +269,12 @@ internal fun LazyListScope.jellyfinMediaHome(
                 PlaylistRow(pls, accent, onOpen = { act.open(it.asMediaItem()) }, onNew = { st.showNewPlaylist = true })
             }
         }
-        if (!lat.isNullOrEmpty() && !sRecent.hidden) {
+        if (!latRow.isNullOrEmpty() && !sRecent.hidden) {
             item {
                 Spacer(Modifier.height(16.dp))
                 MediaSectionHeader("RECENTLY ADDED", styleAccent(sRecent.accent))
                 Spacer(Modifier.height(8.dp))
-                MediaPosterRow(lat, config, styleAccent(sRecent.accent), sRecent, act.setWatched) { act.open(it) }
+                MediaPosterRow(latRow, config, styleAccent(sRecent.accent), sRecent, act.setWatched) { act.open(it) }
             }
         }
         if (!sLibs.hidden) {
