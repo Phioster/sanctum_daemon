@@ -95,7 +95,7 @@ internal fun JellySettingsPage(
     LaunchedEffect(which, reloadTick) {
         error = null
         runCatching { if (which == "server") vm.jfServerSettings(config) else vm.jfEncodingSettings(config) }
-            .onSuccess { original = it }.onFailure { error = it.message ?: it.javaClass.simpleName }
+            .onSuccess { original = it }.onFailure { error = errorText(it) }
         if (which == "server") sources = runCatching { vm.jfChoiceSources(config) }.getOrDefault(sources)
     }
     val o = original
@@ -141,7 +141,7 @@ internal fun JellyLibraryOptionsDialog(
     LaunchedEffect(library.id) {
         runCatching { vm.jfLibraryOptions(config, library.id, library.collectionType) }
             .onSuccess { d -> data = d; sources = runCatching { vm.jfChoiceSources(config, d.available) }.getOrDefault(sources) }
-            .onFailure { error = it.message ?: it.javaClass.simpleName }
+            .onFailure { error = errorText(it) }
     }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(Modifier.fillMaxSize().background(Black).verticalScroll(rememberScrollState()).padding(16.dp)) {

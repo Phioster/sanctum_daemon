@@ -36,7 +36,7 @@ private suspend fun write(op: String, success: String, block: suspend () -> Resp
             try {
                 okOr(block(), success)
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }

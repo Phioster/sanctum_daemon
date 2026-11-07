@@ -57,7 +57,7 @@ internal fun ArrLogsDialog(vm: DashboardViewModel, config: ServiceConfig, onDism
     var open by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(level) {
         lines = null; error = null; open = null
-        runCatching { vm.arrLogLines(config, level) }.onSuccess { lines = it }.onFailure { error = it.message ?: "failed" }
+        runCatching { vm.arrLogLines(config, level) }.onSuccess { lines = it }.onFailure { error = errorText(it) }
     }
     AlertDialog(
         onDismissRequest = onDismiss,

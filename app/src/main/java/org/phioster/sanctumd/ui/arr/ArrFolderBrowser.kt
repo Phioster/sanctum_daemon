@@ -54,7 +54,7 @@ internal fun ArrFolderBrowser(
         listing = null; error = null
         runCatching { vm.arrBrowsePath(config, path) }
             .onSuccess { listing = it }
-            .onFailure { error = it.message ?: "cannot list this folder" }
+            .onFailure { error = errorText(it) }
     }
 
     Text(

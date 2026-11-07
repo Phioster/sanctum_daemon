@@ -79,7 +79,7 @@ internal fun TvDetailScreen(
         error = null
         runCatching { jellyfinItemDetail(config, itemId) }
             .onSuccess { detail = it }
-            .onFailure { error = it.message ?: it.javaClass.simpleName }
+            .onFailure { error = errorText(it) }
     }
 
     // A folder's play button needs a target episode before it can do anything.

@@ -39,7 +39,7 @@ suspend fun runHttpShortcut(config: ServiceConfig, sc: org.phioster.sanctumd.mod
                 if (r.isSuccessful) "HTTP ${r.code}${if (head.isNotBlank()) " · $head" else ""}" else "error: HTTP ${r.code}"
             }
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }

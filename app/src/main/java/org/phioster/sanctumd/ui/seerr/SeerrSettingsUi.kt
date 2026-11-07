@@ -108,7 +108,7 @@ internal fun SeerrSettingsDialog(vm: DashboardViewModel, config: ServiceConfig, 
     var languages by remember { mutableStateOf<List<SeerrOption>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        runCatching { vm.seerrMain(config) }.onSuccess { s = it }.onFailure { error = it.message ?: "failed" }
+        runCatching { vm.seerrMain(config) }.onSuccess { s = it }.onFailure { error = errorText(it) }
         regions = runCatching { vm.seerrRegionList(config) }.getOrDefault(emptyList())
         languages = runCatching { vm.seerrLanguageList(config) }.getOrDefault(emptyList())
     }

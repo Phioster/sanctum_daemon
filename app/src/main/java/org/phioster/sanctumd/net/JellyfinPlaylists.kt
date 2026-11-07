@@ -42,7 +42,7 @@ private suspend fun write(op: String, success: String, block: suspend () -> retr
             try {
                 okOr(block(), success)
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -102,7 +102,7 @@ suspend fun jellyfinCreatePlaylist(config: ServiceConfig, name: String, itemIds:
                 jsStr(api.createPlaylist(body), "Id") ?: "error: no id returned"
             }
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 

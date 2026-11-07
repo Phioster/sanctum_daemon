@@ -69,7 +69,7 @@ internal fun DetailChildren(
         } catch (c: kotlinx.coroutines.CancellationException) {
             throw c
         } catch (t: Throwable) {
-            error = t.message; null
+            error = errorText(t); null
         }
     }
 

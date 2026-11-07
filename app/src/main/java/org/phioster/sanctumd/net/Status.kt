@@ -49,7 +49,7 @@ suspend fun fetchStatus(config: ServiceConfig): ServiceStatus = withContext(Disp
             ServiceType.SHORTCUTS -> shortcutsStatus(config)
         }
     } catch (t: Throwable) {
-        ServiceStatus(ok = false, error = t.message ?: t.javaClass.simpleName)
+        ServiceStatus(ok = false, error = errorText(t))
     }
 }
 

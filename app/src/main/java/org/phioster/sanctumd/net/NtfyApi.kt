@@ -74,7 +74,7 @@ suspend fun ntfyPublishTest(config: ServiceConfig, topic: String): String = dest
                 .build()
             baseOkClient.newCall(req).execute().use { r -> if (r.isSuccessful) "test sent" else "error: HTTP ${r.code}" }
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }

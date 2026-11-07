@@ -82,7 +82,7 @@ internal fun TvHomeScreen(
                 val libraries = jellyfinLibraryViews(config) // the one that must work
                 TvHomeData(resume.await(), nextUp.await(), latest.await(), favorites.await(), libraries)
             }
-        }.onSuccess { data = it }.onFailure { error = it.message ?: it.javaClass.simpleName }
+        }.onSuccess { data = it }.onFailure { error = errorText(it) }
         loading = false
     }
 

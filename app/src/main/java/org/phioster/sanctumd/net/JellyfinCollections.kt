@@ -25,7 +25,7 @@ suspend fun jellyfinCreateCollection(config: ServiceConfig, name: String, itemId
             try {
                 okOr(jfApi(config, jellyfinAccessToken(config)).createCollection(name.trim(), itemId), "collection created")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -39,7 +39,7 @@ suspend fun jellyfinSetInCollection(config: ServiceConfig, collectionId: String,
                 val r = if (add) api.addToCollection(collectionId, itemId) else api.removeFromCollection(collectionId, itemId)
                 okOr(r, if (add) "added" else "removed")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }

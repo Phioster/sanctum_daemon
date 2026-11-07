@@ -91,7 +91,7 @@ internal fun JellyfinMetadataDialog(
                 genres = m.genres.joinToString(", "); tags = m.tags.joinToString(", ")
                 rating = m.officialRating; locked = m.locked
             }
-            .onFailure { error = it.message ?: "failed" }
+            .onFailure { error = errorText(it) }
     }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },

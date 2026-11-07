@@ -94,7 +94,7 @@ internal fun ArrDetailScreen(vm: DashboardViewModel, config: ServiceConfig, item
         st.pickerTitle = title; st.releases = null; st.pickerOpen = true
         scope.launch {
             st.releases = runCatching { vm.arrReleasesFor(config, movieId, episodeId, albumId, seriesId, seasonNumber) }.getOrElse {
-                st.actionMsg = "error: ${it.message}"; st.pickerOpen = false; emptyList()
+                st.actionMsg = "error: ${errorText(it)}"; st.pickerOpen = false; emptyList()
             }
         }
     }

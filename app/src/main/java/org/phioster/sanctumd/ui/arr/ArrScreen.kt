@@ -416,7 +416,7 @@ internal fun ArrScreen(
                                                     qi,
                                                     onRemove = { act { vm.arrRemove(config, qi.id) } },
                                                     onBlocklist = { act { vm.arrRemoveAndBlock(config, qi.id) } },
-                                                    onImport = { importAt = ArrImportStart(qi.outputPath, scan = true) },
+                                                    onImport = { importAt = ArrImportStart(qi.outputPath, scan = true, downloadId = qi.downloadId) },
                                                 )
                                             }
                                         }

@@ -82,7 +82,7 @@ suspend fun jellyfinSaveMetadata(config: ServiceConfig, itemId: String, m: Jelly
                 val raw = api.itemRaw(itemId, jellyfinResolveUserId(config, api))
                 okOr(api.updateItem(itemId, withMetadata(raw, m)), "saved")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -109,7 +109,7 @@ suspend fun jellyfinPickRemoteImage(config: ServiceConfig, itemId: String, type:
             try {
                 okOr(jfApi(config, jellyfinAccessToken(config)).downloadRemoteImage(itemId, type, url), "image set")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -122,7 +122,7 @@ suspend fun jellyfinUploadImage(config: ServiceConfig, itemId: String, type: Str
                 val body = java.util.Base64.getEncoder().encodeToString(bytes).toRequestBody(mimeType.toMediaType())
                 okOr(jfApi(config, jellyfinAccessToken(config)).uploadImage(itemId, type, body), "image uploaded")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }

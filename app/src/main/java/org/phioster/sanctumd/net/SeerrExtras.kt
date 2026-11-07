@@ -61,7 +61,7 @@ suspend fun seerrBlock(config: ServiceConfig, tmdbId: Int, mediaType: String, ti
                 }
                 okOr(seerr(config).addToBlocklist(body), "blocked")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -72,7 +72,7 @@ suspend fun seerrUnblock(config: ServiceConfig, tmdbId: Int, mediaType: String):
             try {
                 okOr(seerr(config).removeFromBlocklist(tmdbId, mediaType), "unblocked")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -84,7 +84,7 @@ suspend fun seerrDeleteFile(config: ServiceConfig, mediaId: Int, is4k: Boolean):
             try {
                 okOr(seerr(config).deleteMediaFile(mediaId, is4k), "file deleted")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }

@@ -426,7 +426,7 @@ private fun LyricsPane(
     LaunchedEffect(trackId) {
         runCatching { vm.jellyfinLyricsOf(config, trackId) }
             .onSuccess { lyrics = it; state = if (it == null) "no lyrics on the server for this song" else "" }
-            .onFailure { state = "error: ${it.message ?: it.javaClass.simpleName}" }
+            .onFailure { state = "error: ${errorText(it)}" }
     }
     val l = lyrics
     if (l == null) {

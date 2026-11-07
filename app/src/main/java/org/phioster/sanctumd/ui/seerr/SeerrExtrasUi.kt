@@ -178,7 +178,7 @@ internal fun SeerrLogsDialog(vm: DashboardViewModel, config: ServiceConfig, onDi
     var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(level) {
         lines = null; error = null
-        runCatching { vm.seerrLogLines(config, level) }.onSuccess { lines = it }.onFailure { error = it.message ?: "failed" }
+        runCatching { vm.seerrLogLines(config, level) }.onSuccess { lines = it }.onFailure { error = errorText(it) }
     }
     AlertDialog(
         onDismissRequest = onDismiss,

@@ -108,7 +108,7 @@ internal class DashCardData {
             } catch (c: CancellationException) {
                 throw c
             } catch (t: Throwable) {
-                error = t.message
+                error = errorText(t)
                 attempt++
                 if (attempt < 3) delay(1200)
             }

@@ -36,7 +36,7 @@ private val lenient = Json { ignoreUnknownKeys = true }
 private suspend fun write(op: String, success: String, block: suspend () -> Response<ResponseBody>): String =
     destructive(op) {
         withContext(Dispatchers.IO) {
-            try { okOr(block(), success) } catch (t: Throwable) { "error: ${t.message ?: t.javaClass.simpleName}" }
+            try { okOr(block(), success) } catch (t: Throwable) { "error: ${errorText(t)}" }
         }
     }
 
@@ -207,7 +207,7 @@ suspend fun prowlarrProxies(config: ServiceConfig): List<ArrProvider> = withCont
 internal fun testResults(body: String?): Map<Int, String?> =
     runCatching { lenient.parseToJsonElement(body.orEmpty()) }.getOrNull().objects().associate { o ->
         val failures = o["validationFailures"].objects().mapNotNull { jsStr(it, "errorMessage") }
-        (jsInt(o, "id") ?: 0) to if (jsBool(o, "isValid") == true) null else failures.joinToString("; ").ifBlank { "failed" }
+        (jsInt(o, "id") ?: 0) to if (jsBool(o, "isValid") == true) null else redactSecrets(failures.joinToString("; ")).ifBlank { "failed" }
     }
 
 private suspend fun testAll(config: ServiceConfig, what: String): Map<Int, String?> = withContext(Dispatchers.IO) {

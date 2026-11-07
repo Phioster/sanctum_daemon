@@ -244,7 +244,7 @@ suspend fun seerrApprove(config: ServiceConfig, id: Int): String = destructive("
             val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).approve(id)
             if (r.isSuccessful) "approved" else "error: HTTP ${r.code()}"
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -255,7 +255,7 @@ suspend fun seerrDecline(config: ServiceConfig, id: Int): String = destructive("
             val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).decline(id)
             if (r.isSuccessful) "declined" else "error: HTTP ${r.code()}"
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -337,7 +337,7 @@ private fun seerrOkOr(resp: Response<ResponseBody>, success: String): String {
     val msg = body?.let {
         runCatching { (json.parseToJsonElement(it) as? JsonObject)?.get("message")?.let { m -> (m as? JsonPrimitive)?.content } }.getOrNull()
     }
-    return "error: ${msg ?: "HTTP ${resp.code()}"}"
+    return "error: ${msg?.let(::redactSecrets) ?: "HTTP ${resp.code()}"}"
 }
 
 /** Add a title to the (Jellyseerr) watchlist. */
@@ -352,7 +352,7 @@ suspend fun seerrAddToWatchlist(config: ServiceConfig, tmdbId: Int, mediaType: S
                 }
                 seerrOkOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).addWatchlist(body), "added to watchlist")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -364,7 +364,7 @@ suspend fun seerrRemoveFromWatchlist(config: ServiceConfig, tmdbId: Int, mediaTy
             try {
                 seerrOkOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).deleteWatchlist(tmdbId, mediaType), "removed from watchlist")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -584,7 +584,7 @@ suspend fun seerrUpdateRequest(
                 .updateRequest(id, requestUpdateBody(mediaType, is4k, serverId, profileId, rootFolder, seasons))
             if (r.code() == 409) "error: only pending requests can be changed" else okOr(r, "updated")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -601,7 +601,7 @@ suspend fun seerrRetryRequest(config: ServiceConfig, id: Int): String =
                     else -> okOr(r, "sent again")
                 }
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -614,7 +614,7 @@ suspend fun seerrMarkAvailable(config: ServiceConfig, mediaId: Int, is4k: Boolea
                 val body = buildJsonObject { put("is4k", is4k) }
                 okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).setMediaStatus(mediaId, "available", body), "marked available")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -626,7 +626,7 @@ suspend fun seerrResetMedia(config: ServiceConfig, mediaId: Int): String =
             try {
                 okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).deleteMedia(mediaId), "reset")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -650,7 +650,7 @@ suspend fun seerrRunJob(config: ServiceConfig, jobId: String): String =
             try {
                 okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).runJob(jobId), "started")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -662,7 +662,7 @@ suspend fun seerrDeleteRequest(config: ServiceConfig, id: Int): String =
             try {
                 okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).deleteRequest(id), "deleted")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -700,7 +700,7 @@ suspend fun seerrRequest(
             val r = apiFor<SeerrApi>(config, apiKeyHeader(config)).createRequest(body)
             if (r.isSuccessful) "requested" else "error: HTTP ${r.code()}"
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -724,7 +724,7 @@ suspend fun seerrCreateIssue(
             }
             okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).createIssue(body), "reported")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -762,7 +762,7 @@ suspend fun seerrAddComment(config: ServiceConfig, id: Int, message: String): St
             val body = buildJsonObject { put("message", message) }
             okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).addComment(id, body), "commented")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -772,7 +772,7 @@ suspend fun seerrSetIssueStatus(config: ServiceConfig, id: Int, resolved: Boolea
         try {
             okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).setIssueStatus(id, if (resolved) "resolved" else "open"), if (resolved) "resolved" else "reopened")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -782,7 +782,7 @@ suspend fun seerrDeleteIssueById(config: ServiceConfig, id: Int): String = destr
         try {
             okOr(apiFor<SeerrApi>(config, apiKeyHeader(config)).deleteIssue(id), "deleted")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }

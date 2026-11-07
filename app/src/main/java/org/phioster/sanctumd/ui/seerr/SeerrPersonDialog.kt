@@ -56,7 +56,7 @@ internal fun SeerrPersonDialog(
     var error by remember(personId) { mutableStateOf<String?>(null) }
     var bioOpen by remember(personId) { mutableStateOf(false) }
     LaunchedEffect(personId) {
-        runCatching { vm.seerrPersonOf(config, personId) }.onSuccess { person = it }.onFailure { error = it.message ?: "failed" }
+        runCatching { vm.seerrPersonOf(config, personId) }.onSuccess { person = it }.onFailure { error = errorText(it) }
     }
     AlertDialog(
         onDismissRequest = onDismiss,

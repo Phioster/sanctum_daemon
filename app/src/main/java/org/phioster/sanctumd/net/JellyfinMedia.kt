@@ -185,7 +185,7 @@ suspend fun jellyfinDeleteItem(config: ServiceConfig, itemId: String): String =
                 jellyfinResolveUserId(config, api) // fails fast with a clear error if auth is broken
                 okOr(api.deleteItem(itemId), "deleted")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -256,7 +256,7 @@ suspend fun jellyfinPlayOnSession(config: ServiceConfig, sessionId: String, item
             val token = jellyfinAccessToken(config)
             okOr(jfApi(config, token).playOn(sessionId, itemId), "sent to the other device")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -298,7 +298,7 @@ suspend fun jellyfinRefreshItem(
             val resp = jfApi(config, token).refreshItem(itemId, q.metadataMode, q.imageMode, q.replaceMetadata, q.replaceImages)
             okOr(resp, if (mode == org.phioster.sanctumd.model.JellyRefreshMode.SCAN) "scan started" else "refresh started")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -314,7 +314,7 @@ suspend fun jellyfinPlayCommand(config: ServiceConfig, sessionId: String, cmd: S
             val token = jellyfinAccessToken(config)
             okOr(jfApi(config, token).playCommand(sessionId, cmd), cmd.lowercase())
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -325,7 +325,7 @@ suspend fun jellyfinSendMessage(config: ServiceConfig, sessionId: String, text: 
             val token = jellyfinAccessToken(config)
             okOr(jfApi(config, token).message(sessionId, JfMessageReq(text)), "message sent")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -403,7 +403,7 @@ suspend fun jellyfinApplyIdentify(
             val body = json.parseToJsonElement(candidate.json).jsonObject
             okOr(jfApi(config, token).applyRemoteSearch(itemId, replaceAllImages = true, body = body), "identified")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -450,7 +450,7 @@ suspend fun jellyfinDownloadSubtitle(
             val token = jellyfinAccessToken(config)
             okOr(jfApi(config, token).subtitleDownload(itemId, subtitleId), "downloaded")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }

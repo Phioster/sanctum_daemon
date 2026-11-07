@@ -110,7 +110,7 @@ internal fun ArrLookupScreen(
         scope.launch {
             runCatching { vm.arrLookupList(config, t) }
                 .onSuccess { results = it }
-                .onFailure { error = it.message; results = emptyList() }
+                .onFailure { error = errorText(it); results = emptyList() }
             searching = false
         }
     }

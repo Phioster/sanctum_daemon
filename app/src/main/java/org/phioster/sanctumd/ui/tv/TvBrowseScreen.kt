@@ -47,7 +47,7 @@ internal fun TvBrowseScreen(
         error = null
         runCatching { jellyfinItems(config, parentId) }
             .onSuccess { items = it }
-            .onFailure { error = it.message ?: it.javaClass.simpleName }
+            .onFailure { error = errorText(it) }
         loading = false
     }
 

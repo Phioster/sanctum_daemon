@@ -150,7 +150,7 @@ suspend fun runProwlarrTestAll(config: ServiceConfig): String = withContext(Disp
     try {
         okOr(apiFor<ProwlarrApi>(config, apiKeyHeader(config)).testAll(), "testing indexers")
     } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+        "error: ${errorText(t)}"
     }
 }
 
@@ -201,7 +201,7 @@ suspend fun prowlarrToggleIndexer(config: ServiceConfig, id: Int, enable: Boolea
             val body = JsonObject(raw.toMutableMap().apply { put("enable", JsonPrimitive(enable)) })
             okOr(api.updateIndexer(id, body), if (enable) "enabled" else "disabled")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -211,7 +211,7 @@ suspend fun prowlarrDeleteIndexer(config: ServiceConfig, id: Int): String = dest
         try {
             okOr(apiFor<ProwlarrApi>(config, apiKeyHeader(config)).deleteIndexer(id), "deleted")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -317,7 +317,7 @@ suspend fun prowlarrAddIndexer(config: ServiceConfig, entry: ProwlarrSchemaEntry
                 val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
                 okOrServarr(api.addIndexer(newIndexerBody(entry, name, values, resolveAppProfileId(api))), "added")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -332,7 +332,7 @@ suspend fun prowlarrSaveIndexer(config: ServiceConfig, id: Int, values: Map<Stri
                 val body = JsonObject(raw.toMutableMap().apply { put("fields", mergeIndexerFields(raw, values)) })
                 okOrServarr(api.updateIndexer(id, body), "saved")
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -348,18 +348,18 @@ private fun servarrError(resp: Response<ResponseBody>): String? {
 
 /** "ok" on 2xx, else the first Servarr errorMessage or the HTTP code. */
 private fun testResult(resp: Response<ResponseBody>): String =
-    if (resp.isSuccessful) "ok" else "error: ${servarrError(resp) ?: "HTTP ${resp.code()}"}"
+    if (resp.isSuccessful) "ok" else "error: ${servarrError(resp)?.let(::redactSecrets) ?: "HTTP ${resp.code()}"}"
 
 /** [success] on 2xx, else the Servarr validation message (so the user sees *why* a 400 happened). */
 private fun okOrServarr(resp: Response<ResponseBody>, success: String): String =
-    if (resp.isSuccessful) success else "error: ${servarrError(resp) ?: "HTTP ${resp.code()}"}"
+    if (resp.isSuccessful) success else "error: ${servarrError(resp)?.let(::redactSecrets) ?: "HTTP ${resp.code()}"}"
 
 suspend fun prowlarrTestIndexer(config: ServiceConfig, id: Int): String = withContext(Dispatchers.IO) {
     try {
         val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
         testResult(api.testIndexerBody(api.indexerRaw(id))) // saved config POSTed to /indexer/test
     } catch (t: Throwable) {
-        "error: ${t.message ?: t.javaClass.simpleName}"
+        "error: ${errorText(t)}"
     }
 }
 
@@ -371,7 +371,7 @@ suspend fun prowlarrTestNewIndexer(config: ServiceConfig, entry: ProwlarrSchemaE
             val api = apiFor<ProwlarrApi>(config, apiKeyHeader(config))
             testResult(api.testIndexerBody(newIndexerBody(entry, name, values, resolveAppProfileId(api))))
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 
@@ -440,7 +440,7 @@ suspend fun runProwlarrAppSync(config: ServiceConfig): String = destructive("syn
             }
             okOr(apiFor<ProwlarrApi>(config, apiKeyHeader(config)).command(body), "sync started")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -459,7 +459,7 @@ suspend fun prowlarrGrab(config: ServiceConfig, release: ProwlarrRelease): Strin
                 .grab(ProwlarrGrabReq(release.guid, release.indexerId))
             okOr(r, "grabbed")
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }

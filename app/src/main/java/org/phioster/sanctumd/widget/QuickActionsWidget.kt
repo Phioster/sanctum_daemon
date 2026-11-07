@@ -105,7 +105,7 @@ class RunQuickAction : ActionCallback {
         val services = runCatching { ServiceStore(context).realServices.first() }.getOrDefault(emptyList())
         val config = services.firstOrNull { it.id == sid } ?: return
         val action = WidgetActions.forType(config.type).getOrNull(idx) ?: return
-        val result = runCatching { action.run(config) }.getOrElse { "error: ${it.message ?: "failed"}" }
+        val result = runCatching { action.run(config) }.getOrElse { "error: ${errorText(it)}" }
         withContext(Dispatchers.Main) {
             Toast.makeText(context, result, Toast.LENGTH_SHORT).show()
         }

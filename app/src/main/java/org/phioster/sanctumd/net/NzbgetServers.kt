@@ -134,7 +134,7 @@ suspend fun runNzbResetVolume(config: ServiceConfig, serverId: Int, label: Strin
                 val r = raw(config).call(resetVolumeBody(serverId)).result()
                 if (r?.toString() == "true") "counter reset" else "error: NZBGet did not reset it"
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }
@@ -192,7 +192,7 @@ suspend fun runNzbAppendFile(config: ServiceConfig, name: String?, bytes: ByteAr
                 val id = raw(config).call(appendFileBody(fileName, bytes, category.trim(), paused)).result()?.toString()?.toIntOrNull() ?: 0
                 if (id > 0) "added $fileName" else "error: NZBGet rejected the file"
             } catch (t: Throwable) {
-                "error: ${t.message ?: t.javaClass.simpleName}"
+                "error: ${errorText(t)}"
             }
         }
     }

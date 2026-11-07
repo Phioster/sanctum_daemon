@@ -87,7 +87,7 @@ suspend fun arrAddCollectionMovie(
                 if (searchNow) "added and searching" else "added",
             )
         } catch (t: Throwable) {
-            "error: ${t.message ?: t.javaClass.simpleName}"
+            "error: ${errorText(t)}"
         }
     }
 }
@@ -125,6 +125,7 @@ suspend fun arrQueueForItem(config: ServiceConfig, itemId: Int): List<ArrQueueIt
                         progress = if (r.size > 0) ((r.size - r.sizeleft) / r.size).toFloat().coerceIn(0f, 1f) else 0f,
                         blocked = r.trackedDownloadState == "importBlocked",
                         outputPath = r.outputPath.orEmpty(),
+                        downloadId = r.downloadId.orEmpty(),
                     )
                 }
         }.getOrDefault(emptyList())

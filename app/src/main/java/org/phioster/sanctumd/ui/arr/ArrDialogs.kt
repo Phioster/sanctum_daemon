@@ -148,7 +148,7 @@ internal fun ArrReleasePicker(
                 ServiceType.LIDARR -> vm.arrReleasesFor(config, movieId = null, episodeId = null, albumId = item.id)
                 else -> vm.arrReleasesFor(config, movieId = item.id, episodeId = null)
             }
-        }.getOrElse { onMessage("error: ${it.message}"); onDismiss(); emptyList() }
+        }.getOrElse { onMessage("error: ${errorText(it)}"); onDismiss(); emptyList() }
     }
     AlertDialog(
         onDismissRequest = onDismiss,
