@@ -198,6 +198,7 @@ internal fun PlayerScreen(
     var scrubbing by remember { mutableStateOf(false) }
     var scrubPos by remember { mutableStateOf(0f) }
     var settingsOpen by remember { mutableStateOf(false) }
+    var chaptersOpen by remember { mutableStateOf(false) }
     var infoOpen by remember { mutableStateOf(false) }
     var speed by remember { mutableStateOf(1f) }
     var qualityLabel by remember { mutableStateOf("Auto") }
@@ -728,6 +729,19 @@ internal fun PlayerScreen(
                 onSeekBy = { engine.seekBy(it) },
                 onSeekTo = { engine.seekTo(it); scrubbing = false },
                 onScrub = { scrubbing = true; scrubPos = it },
+                chapters = source?.chapters.orEmpty().takeIf { localFileUri == null }.orEmpty(),
+                onChapters = { chaptersOpen = true; controlsVisible = true },
+            )
+        }
+
+        if (chaptersOpen && !inPip) {
+            ChaptersPanel(
+                chapters = source?.chapters.orEmpty(),
+                positionMs = state.positionMs,
+                fmt = ::fmt,
+                onPick = { c -> engine.seekTo(c.startMs); chaptersOpen = false },
+                onClose = { chaptersOpen = false },
+                modifier = Modifier.align(Alignment.CenterEnd),
             )
         }
 
@@ -809,6 +823,8 @@ internal fun BoxScope.PlayerControls(
     onSeekBy: (Long) -> Unit,
     onSeekTo: (Long) -> Unit,
     onScrub: (Float) -> Unit,
+    chapters: List<org.phioster.sanctumd.net.PlayerChapter> = emptyList(),
+    onChapters: () -> Unit = {},
 ) {
         // Top scrim + bar: back, title, settings gear.
         Row(
@@ -824,6 +840,11 @@ internal fun BoxScope.PlayerControls(
             if (showPip) {
                 IconButton(onClick = onPip) {
                     Icon(Icons.Filled.PictureInPictureAlt, contentDescription = "Picture in picture", tint = MatrixGreen)
+                }
+            }
+            if (chapters.isNotEmpty()) {
+                IconButton(onClick = onChapters) {
+                    Icon(AppIcons.Chapters, contentDescription = "Chapters", tint = MatrixGreen)
                 }
             }
             IconButton(onClick = onInfo) {
@@ -864,12 +885,19 @@ internal fun BoxScope.PlayerControls(
         ) {
             val dur = state.durationMs.coerceAtLeast(1)
             val pos = if (scrubbing) (scrubPos * dur).toLong() else state.positionMs
+            // While scrubbing, say which chapter the finger is in.
+            if (scrubbing && chapters.isNotEmpty()) {
+                chapterAt(chapters, pos)?.let { c ->
+                    Text(c.name, fontFamily = Mono, color = MatrixGreen, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
             PlayerSeekBar(
                 fraction = pos.toFloat() / dur,
                 scrubbing = scrubbing,
                 onScrub = onScrub,
                 onScrubEnd = { onSeekTo((it * dur).toLong()) },
                 modifier = Modifier.fillMaxWidth(),
+                marks = if (state.durationMs > 0) chapters.map { it.startMs.toFloat() / dur } else emptyList(),
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(fmt(pos), fontFamily = Mono, color = MatrixGreen, fontSize = 11.sp)
