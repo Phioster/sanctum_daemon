@@ -244,6 +244,21 @@ internal fun NotifyPollingSection(vm: DashboardViewModel) {
     NotifyToggleRow("Downloads imported", "Radarr / Sonarr / Lidarr finished importing", s.imports, s.enabled) { vm.saveNotifySettings(s.copy(imports = it)) }
     NotifyToggleRow("New requests", "New pending requests in Seerr", s.requests, s.enabled) { vm.saveNotifySettings(s.copy(requests = it)) }
     NotifyToggleRow("Health issues", "New Radarr / Sonarr / Lidarr warnings & errors", s.health, s.enabled) { vm.saveNotifySettings(s.copy(health = it)) }
+    NotifyToggleRow("Low disk space", "A media disk drops below ${s.lowDiskGb} GB free", s.lowDisk, s.enabled) { vm.saveNotifySettings(s.copy(lowDisk = it)) }
+    if (s.lowDisk) {
+        Row(Modifier.padding(start = 4.dp, bottom = 6.dp)) {
+            listOf(10, 15, 30, 50).forEach { gb ->
+                val sel = s.lowDiskGb == gb
+                Box(
+                    Modifier.padding(end = 8.dp).size(width = 64.dp, height = 34.dp).clip(RoundedCornerShape(8.dp))
+                        .background(if (sel) MatrixGreen else Surface)
+                        .border(1.dp, if (sel) MatrixGreen else MatrixGreen.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                        .clickable(enabled = s.enabled) { vm.saveNotifySettings(s.copy(lowDiskGb = gb)) },
+                    contentAlignment = Alignment.Center,
+                ) { Text("$gb GB", fontFamily = Mono, color = if (sel) Black else MatrixGreen, fontSize = 12.sp) }
+            }
+        }
+    }
     HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
     Text("CHECK INTERVAL", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
     Row {
