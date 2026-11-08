@@ -284,10 +284,11 @@ internal fun ServiceTile(
                 status == null || status.isLoading ->
                     Text("connecting…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 10.sp)
                 status.ok && status.stats.isNotEmpty() ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    Row(Modifier.fillMaxWidth()) {
                         // Four since Jellyfin gained its song count; every other service has three.
+                        // Equal-width columns, so the middle one sits under the logo whatever the label lengths.
                         status.stats.take(4).forEach { (k, v) ->
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(v, fontFamily = Mono, fontWeight = FontWeight.Bold, color = MatrixGreen, fontSize = 15.sp, maxLines = 1)
                                 Text(k.uppercase(), fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
@@ -308,8 +309,9 @@ internal fun ServiceTile(
                             },
                         ),
                 )
-                Spacer(Modifier.width(5.dp))
+                // Spacer only with the type text, else the lone dot sits off-centre.
                 if (!config.label.equals(config.type.label, ignoreCase = true)) {
+                    Spacer(Modifier.width(5.dp))
                     Text(config.type.label, fontFamily = Mono, color = accent, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
