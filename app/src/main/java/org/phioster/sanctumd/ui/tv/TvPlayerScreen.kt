@@ -71,6 +71,7 @@ import org.phioster.sanctumd.net.PlaybackSource
 import org.phioster.sanctumd.net.jellyfinMediaSegments
 import org.phioster.sanctumd.net.jellyfinNextEpisode
 import org.phioster.sanctumd.net.jellyfinPlaybackSource
+import org.phioster.sanctumd.net.jellyfinSeriesIdOf
 import org.phioster.sanctumd.net.jellyfinReportProgress
 import org.phioster.sanctumd.net.jellyfinReportStart
 import org.phioster.sanctumd.net.jellyfinReportStopped
@@ -90,6 +91,9 @@ import org.phioster.sanctumd.ui.theme.Surface
 private const val SEEK_STEP_MS = 10_000L
 private const val SEEK_JUMP_MS = 30_000L
 private const val CONTROLS_TIMEOUT_MS = 5_000L
+private const val NEXT_CARD_SECONDS = 10
+// Recap and Preview only here: the phone player skips every segment it is given.
+private val SEGMENT_TYPES = listOf("Intro", "Outro", "Recap", "Preview")
 
 /** The two focusable strips of the control bar. */
 private const val STRIP_SCRUB = 0
@@ -179,6 +183,8 @@ internal fun TvPlayerScreen(
     var segments by remember { mutableStateOf<List<MediaSegment>>(emptyList()) }
     var skipped by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var nextEpisode by remember { mutableStateOf<NextEpisode?>(null) }
+    var nextCard by remember { mutableStateOf<Int?>(null) } // seconds left on the "next episode" card
+    var seriesId by remember { mutableStateOf<String?>(null) }
 
     var infoOpen by remember { mutableStateOf(false) }
     var stats by remember { mutableStateOf(PlaybackStats()) }
@@ -241,7 +247,8 @@ internal fun TvPlayerScreen(
             engine.prepare(src.url, src.isHls, src.startPositionMs, src.authHeaders, src.externalSubs)
             jellyfinReportStart(config, src, src.startPositionMs)
         }.onFailure { loadError = it.message ?: it.javaClass.simpleName }
-        segments = runCatching { jellyfinMediaSegments(config, curItem) }.getOrDefault(emptyList())
+        segments = runCatching { jellyfinMediaSegments(config, curItem, SEGMENT_TYPES) }.getOrDefault(emptyList())
+        seriesId = runCatching { jellyfinSeriesIdOf(config, curItem) }.getOrNull()
         nextEpisode = runCatching { jellyfinNextEpisode(config, curItem) }.getOrNull()
     }
 
@@ -279,10 +286,19 @@ internal fun TvPlayerScreen(
         }
     }
 
-    LaunchedEffect(curItem, audioLang, subLang, subMode) {
+    // What was picked by hand for this series wins over the global defaults.
+    val seriesTracks by remember(seriesId) { store.tvSeriesTracks(seriesId) }.collectAsState(null)
+    LaunchedEffect(curItem, audioLang, subLang, subMode, seriesTracks) {
+        val pref = seriesTracks
+        val audio = pref?.first?.ifBlank { null } ?: audioLang
+        val (sub, mode) = when {
+            pref?.second == "off" -> subLang to "off"
+            !pref?.second.isNullOrBlank() -> pref!!.second to "any"
+            else -> subLang to subMode
+        }
         repeat(40) {
             if (engine.tracks(TrackKind.AUDIO).isNotEmpty() || engine.tracks(TrackKind.SUBTITLE).isNotEmpty()) {
-                engine.applyTrackPreferences(audioLang, subLang, subMode)
+                engine.applyTrackPreferences(audio, sub, mode)
                 return@LaunchedEffect
             }
             delay(500)
@@ -318,6 +334,7 @@ internal fun TvPlayerScreen(
     }
 
     fun playNext(next: NextEpisode) {
+        nextCard = null
         reportStoppedNow()
         source = null
         lastGoodPos = 0
@@ -358,16 +375,28 @@ internal fun TvPlayerScreen(
     LaunchedEffect(offer, autoSkip) {
         val o = offer ?: return@LaunchedEffect
         if (!autoSkip || menuOpen) return@LaunchedEffect
-        if (o.kind == SkipKind.NEXT_EPISODE && !autoplayNext) {
+        if (o.kind == SkipKind.NEXT_EPISODE) {
+            // Credits: a card with a countdown rather than a hard cut.
             skipped = skipped + o.index
+            if (autoplayNext) nextCard = NEXT_CARD_SECONDS
             return@LaunchedEffect
         }
         toast = when (o.kind) {
             SkipKind.INTRO -> "intro skipped"
-            SkipKind.CREDITS -> "credits skipped"
-            SkipKind.NEXT_EPISODE -> "next episode: ${nextEpisode?.name.orEmpty()}"
+            SkipKind.RECAP -> "recap skipped"
+            SkipKind.PREVIEW -> "preview skipped"
+            else -> "credits skipped"
         }
         takeSkip(o)
+    }
+
+    LaunchedEffect(nextCard != null) {
+        while (true) {
+            val left = nextCard ?: return@LaunchedEffect
+            if (left <= 0) { nextEpisode?.let { playNext(it) } ?: run { nextCard = null }; return@LaunchedEffect }
+            delay(1000)
+            nextCard = nextCard?.minus(1)
+        }
     }
 
     val buttons: List<BarButton> = buildList {
@@ -398,6 +427,13 @@ internal fun TvPlayerScreen(
             onToggleAutoSkip = { scope.launch { store.setTvAutoSkip(!autoSkip) } },
             onToggleRefresh = { scope.launch { store.setTvMatchRefresh(!matchRefresh) } },
             onToggleDirect = { scope.launch { store.setTvDirectOutput(!directOutput) } },
+            onTrackPicked = { kind, id ->
+                val sid = seriesId
+                if (sid != null) {
+                    val lang = if (id == null) "off" else engine.trackLanguage(kind, id).orEmpty()
+                    if (lang.isNotBlank()) scope.launch { store.setTvSeriesTrack(sid, kind == TrackKind.AUDIO, lang) }
+                }
+            },
         )
     }
 
@@ -417,6 +453,7 @@ internal fun TvPlayerScreen(
     }
 
     BackHandler {
+        if (nextCard != null) { nextCard = null; return@BackHandler }
         when (backAction(menuOpen, infoOpen, controlsVisible, state.isPlaying)) {
             BackAction.CLOSE_MENU -> menuOpen = false
             BackAction.CLOSE_INFO -> infoOpen = false
@@ -472,12 +509,11 @@ internal fun TvPlayerScreen(
                 // Back is the exception. Swallowed here it woke the overlay, the BackHandler then
                 // hid it again, and the two took turns: a running film could not be left at all.
                 if (!controlsVisible && ev.key != Key.Back) {
-                    // A visible skip prompt is the one thing OK may act on without the bar.
-                    if (offer != null &&
-                        (ev.key == Key.DirectionCenter || ev.key == Key.Enter || ev.key == Key.NumPadEnter)
-                    ) {
-                        takeSkip(offer)
-                        return@onPreviewKeyEvent true
+                    // A visible skip prompt or next-episode card is the one thing OK may act on without the bar.
+                    if (ev.key == Key.DirectionCenter || ev.key == Key.Enter || ev.key == Key.NumPadEnter) {
+                        val next = nextEpisode
+                        if (nextCard != null && next != null) { playNext(next); return@onPreviewKeyEvent true }
+                        if (offer != null) { takeSkip(offer); return@onPreviewKeyEvent true }
                     }
                     poke()
                     return@onPreviewKeyEvent true
@@ -552,7 +588,10 @@ internal fun TvPlayerScreen(
 
         // Shown on its own because the bar is hidden for most of a film, and the intro rarely
         // starts in the few seconds the bar stays up after playback begins.
-        if (offer != null && !controlsVisible && !menuOpen && loadError == null) {
+        val cardNext = nextEpisode
+        if (nextCard != null && cardNext != null && !controlsVisible && !menuOpen) {
+            TvNextCard(cardNext, nextCard ?: 0, config) { playNext(cardNext) }
+        } else if (offer != null && !controlsVisible && !menuOpen && loadError == null) {
             TvSkipPrompt(skipLabel(offer.kind)) { takeSkip(offer) }
         }
 
@@ -757,50 +796,6 @@ private fun TvPlayerInfo(
                     Text(value, color = MatrixGreen, fontFamily = Mono, fontSize = 14.sp)
                 }
             }
-        }
-    }
-}
-
-/** Subtitle line drawn by the app; above the control bar while that is showing. */
-@Composable
-private fun TvSubtitle(text: String, raised: Boolean) {
-    Box(
-        Modifier.fillMaxSize().padding(start = TvSidePad, end = TvSidePad, bottom = if (raised) 210.dp else 56.dp),
-        Alignment.BottomCenter,
-    ) {
-        Text(
-            text.trim(),
-            color = Color.White,
-            fontSize = 30.sp,
-            lineHeight = 38.sp,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            style = androidx.compose.ui.text.TextStyle(
-                shadow = androidx.compose.ui.graphics.Shadow(Color.Black, blurRadius = 8f),
-            ),
-            modifier = Modifier
-                .clip(RoundedCornerShape(6.dp))
-                .background(Black.copy(alpha = 0.45f))
-                .padding(horizontal = 14.dp, vertical = 6.dp),
-        )
-    }
-}
-
-/** Bottom-right pill like the big streaming apps; OK takes it, a tap on a phone too. */
-@Composable
-private fun TvSkipPrompt(label: String, onTake: () -> Unit) {
-    Box(Modifier.fillMaxSize().padding(horizontal = TvSidePad, vertical = 48.dp), Alignment.BottomEnd) {
-        Row(
-            Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .clickable { onTake() }
-                .background(Black.copy(alpha = 0.8f))
-                .border(2.dp, MatrixGreen, RoundedCornerShape(8.dp))
-                .padding(horizontal = 22.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(label, color = MatrixGreen, fontFamily = Mono, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.width(14.dp))
-            Text("OK", color = MatrixGreen.copy(alpha = 0.6f), fontFamily = Mono, fontSize = 14.sp)
         }
     }
 }

@@ -51,6 +51,7 @@ private val START_SCREEN_KEY = stringPreferencesKey("start_screen")
 // TV client only: how the television plays video. Both default to the safe path.
 private val TV_MATCH_REFRESH_KEY = booleanPreferencesKey("tv_match_refresh")
 private val TV_AUTO_SKIP_KEY = booleanPreferencesKey("tv_auto_skip")
+private val TV_SERIES_TRACKS_KEY = stringPreferencesKey("tv_series_tracks_json")
 private val TV_DIRECT_OUTPUT_KEY = booleanPreferencesKey("tv_direct_output")
 // Plain on purpose: it must survive when the encrypted sign-in can't be read. No secret in it.
 private val TV_LAST_SERVER_URL_KEY = stringPreferencesKey("tv_last_server_url")
@@ -163,6 +164,23 @@ class DashboardStore(private val context: Context) {
     /** TV: jump over intros and credits without asking. */
     val tvAutoSkip: Flow<Boolean> = context.dashboardDataStore.data.map { it[TV_AUTO_SKIP_KEY] ?: true }
     suspend fun setTvAutoSkip(v: Boolean) { context.dashboardDataStore.edit { it[TV_AUTO_SKIP_KEY] = v } }
+
+    /** TV: audio and subtitle language last picked for a series, "off" for subtitles turned off. */
+    fun tvSeriesTracks(seriesId: String?): Flow<Pair<String, String>?> = context.dashboardDataStore.data.map { p ->
+        seriesId ?: return@map null
+        seriesTrackMap(p[TV_SERIES_TRACKS_KEY])[seriesId]?.let { splitTracks(it) }
+    }
+    suspend fun setTvSeriesTrack(seriesId: String, audio: Boolean, lang: String) {
+        context.dashboardDataStore.edit { p ->
+            val m = seriesTrackMap(p[TV_SERIES_TRACKS_KEY]).toMutableMap()
+            val (a, s) = m[seriesId]?.let { splitTracks(it) } ?: ("" to "")
+            m[seriesId] = if (audio) "$lang|$s" else "$a|$lang"
+            p[TV_SERIES_TRACKS_KEY] = json.encodeToString(m)
+        }
+    }
+    private fun seriesTrackMap(raw: String?): Map<String, String> =
+        raw?.let { runCatching { json.decodeFromString<Map<String, String>>(it) }.getOrNull() } ?: emptyMap()
+    private fun splitTracks(v: String): Pair<String, String> = v.split('|', limit = 2).let { it[0] to it.getOrElse(1) { "" } }
 
     /**
      * TV: hand decoded frames straight to the display instead of copying them out of the decoder and

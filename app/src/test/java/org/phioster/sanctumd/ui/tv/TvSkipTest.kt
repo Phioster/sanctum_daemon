@@ -29,7 +29,13 @@ class TvSkipTest {
         assertNull(skipOffer(segs, 100_000, setOf(0), true))
     }
 
-    @Test fun `other segment types are ignored`() {
-        assertNull(skipOffer(listOf(MediaSegment("Preview", 0, 50_000)), 10_000, emptySet(), true))
+    @Test fun `recap and preview are offered too`() {
+        assertEquals(SkipKind.RECAP, skipOffer(listOf(MediaSegment("Recap", 0, 50_000)), 10_000, emptySet(), true)?.kind)
+        assertEquals(SkipKind.NEXT_EPISODE, skipOffer(listOf(MediaSegment("Preview", 0, 50_000)), 10_000, emptySet(), true)?.kind)
+        assertEquals(SkipKind.PREVIEW, skipOffer(listOf(MediaSegment("Preview", 0, 50_000)), 10_000, emptySet(), false)?.kind)
+    }
+
+    @Test fun `unknown segment types are ignored`() {
+        assertNull(skipOffer(listOf(MediaSegment("Commercial", 0, 50_000)), 10_000, emptySet(), true))
     }
 }
