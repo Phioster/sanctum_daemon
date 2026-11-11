@@ -193,6 +193,7 @@ internal fun TvPlayerScreen(
     var stats by remember { mutableStateOf(PlaybackStats()) }
     var displayInfo by remember { mutableStateOf(DisplayModeInfo()) }
     var videoAspect by remember { mutableStateOf(0f) }
+    var subtitle by remember { mutableStateOf("") }
 
     val audioLang by store.audioLanguage.collectAsState("de")
     val subLang by store.subtitleLanguage.collectAsState("de")
@@ -250,6 +251,16 @@ internal fun TvPlayerScreen(
         }.onFailure { loadError = it.message ?: it.javaClass.simpleName }
         segments = runCatching { jellyfinMediaSegments(config, curItem) }.getOrDefault(emptyList())
         nextEpisode = runCatching { jellyfinNextEpisode(config, curItem) }.getOrNull()
+    }
+
+    // Direct output draws no subtitles itself, so the app does. Polled faster than the rest,
+    // a line that appears half a second late reads as out of sync.
+    LaunchedEffect(engine, directOutput) {
+        if (!directOutput) return@LaunchedEffect
+        while (true) {
+            subtitle = engine.subtitleText()
+            delay(100)
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -494,6 +505,10 @@ internal fun TvPlayerScreen(
             else Modifier.fillMaxSize(),
         )
 
+        if (directOutput && subtitle.isNotBlank()) {
+            TvSubtitle(subtitle, raised = controlsVisible)
+        }
+
         if (loadError != null) {
             Box(Modifier.fillMaxSize().background(Black.copy(alpha = 0.85f)), Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -581,7 +596,7 @@ private fun tvTrackMenu(
         add(TvMenuEntry("  ${t.label}", selected = t.selected) { engine.selectTrack(TrackKind.AUDIO, t.id) })
     }
     add(TvMenuEntry("subtitles", header = true))
-    if (directOutput) add(TvMenuEntry("  (direct output draws no subtitles)", header = true))
+    if (directOutput) add(TvMenuEntry("  (text subtitles only; image subtitles like PGS stay off)", header = true))
     val subs = engine.tracks(TrackKind.SUBTITLE)
     add(TvMenuEntry("  off", selected = subs.none { it.selected }) { engine.selectTrack(TrackKind.SUBTITLE, null) })
     subs.forEach { t: TrackOption ->
@@ -589,7 +604,7 @@ private fun tvTrackMenu(
     }
     add(TvMenuEntry("picture", header = true))
     add(TvMenuEntry("  match the refresh rate to the film", selected = matchRefresh, onSelect = onToggleRefresh))
-    add(TvMenuEntry("  direct output (recommended), no subtitles", selected = directOutput, onSelect = onToggleDirect))
+    add(TvMenuEntry("  direct output (recommended)", selected = directOutput, onSelect = onToggleDirect))
 }
 
 /** Bottom overlay: title, the seekable progress strip, and the button strip below it. */
@@ -764,6 +779,30 @@ private fun TvPlayerInfo(
                 }
             }
         }
+    }
+}
+
+/** Subtitle line drawn by the app; above the control bar while that is showing. */
+@Composable
+private fun TvSubtitle(text: String, raised: Boolean) {
+    Box(
+        Modifier.fillMaxSize().padding(start = TvSidePad, end = TvSidePad, bottom = if (raised) 210.dp else 56.dp),
+        Alignment.BottomCenter,
+    ) {
+        Text(
+            text.trim(),
+            color = Color.White,
+            fontSize = 30.sp,
+            lineHeight = 38.sp,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            style = androidx.compose.ui.text.TextStyle(
+                shadow = androidx.compose.ui.graphics.Shadow(Color.Black, blurRadius = 8f),
+            ),
+            modifier = Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .background(Black.copy(alpha = 0.45f))
+                .padding(horizontal = 14.dp, vertical = 6.dp),
+        )
     }
 }
 

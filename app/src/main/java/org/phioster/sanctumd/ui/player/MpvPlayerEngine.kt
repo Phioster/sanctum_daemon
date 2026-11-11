@@ -39,6 +39,7 @@ class MpvPlayerEngine(
     @Volatile private var paused = false
     @Volatile private var buffering = false
     @Volatile private var eof = false
+    @Volatile private var subText = ""
     private var lastError: String? = null
 
     @Volatile private var pendingSubs: List<org.phioster.sanctumd.net.ExternalSubtitle> = emptyList()
@@ -56,7 +57,9 @@ class MpvPlayerEngine(
                 "eof-reached" -> eof = value
             }
         }
-        override fun eventProperty(property: String, value: String) {}
+        override fun eventProperty(property: String, value: String) {
+            if (property == "sub-text") subText = value
+        }
         override fun event(eventId: Int) {
             // sub-add only works on a loaded file. The http-header-fields set for the video apply
             // to these fetches too, so they carry the same auth. "auto" leaves selection to the
@@ -136,6 +139,8 @@ class MpvPlayerEngine(
             observeProperty("pause", MPVLib.MpvFormat.MPV_FORMAT_FLAG)
             observeProperty("paused-for-cache", MPVLib.MpvFormat.MPV_FORMAT_FLAG)
             observeProperty("eof-reached", MPVLib.MpvFormat.MPV_FORMAT_FLAG)
+            // Decoded regardless of the video output, so it works with mediacodec_embed too.
+            observeProperty("sub-text", MPVLib.MpvFormat.MPV_FORMAT_STRING)
         }
     }
 
@@ -181,6 +186,8 @@ class MpvPlayerEngine(
         ended = eof,
         error = lastError,
     )
+
+    override fun subtitleText(): String = if (released) "" else subText
 
     override fun videoAspect(): Float {
         if (released) return 0f
