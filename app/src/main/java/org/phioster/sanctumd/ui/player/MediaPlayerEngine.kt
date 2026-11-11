@@ -128,6 +128,12 @@ interface MediaPlayerEngine {
      */
     fun videoAspect(): Float
 
+    /**
+     * The subtitle line on screen right now, as plain text, or "" when there is none. Only the TV's
+     * zero-copy output needs it: there mpv cannot draw subtitles, so the app draws this instead.
+     */
+    fun subtitleText(): String = ""
+
     /** Available audio/subtitle tracks (subtitles include an implicit "off" handled by the UI). */
     fun tracks(kind: TrackKind): List<TrackOption>
     /** Select a track by its [TrackOption.id]; null disables the kind (used to turn subtitles off). */
