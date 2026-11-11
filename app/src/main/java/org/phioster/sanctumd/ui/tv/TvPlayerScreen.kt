@@ -343,8 +343,12 @@ internal fun TvPlayerScreen(
         }
     }
 
-    val activeSegment = segments.indexOfFirst {
-        state.positionMs in it.startMs until it.endMs && it.kind.equals("Intro", true)
+    val offer = skipOffer(segments, state.positionMs, skipped, nextEpisode != null)
+
+    fun takeSkip(o: SkipOffer) {
+        skipped = skipped + o.index
+        val next = nextEpisode
+        if (o.kind == SkipKind.NEXT_EPISODE && next != null) playNext(next) else engine.seekTo(o.targetMs)
     }
 
     val buttons: List<BarButton> = buildList {
@@ -355,11 +359,8 @@ internal fun TvPlayerScreen(
             ) { engine.togglePlay() },
         )
         add(BarButton("audio & subtitles", AppIcons.Subtitles) { menuNonce++; menuOpen = true })
-        if (activeSegment >= 0 && activeSegment !in skipped) {
-            add(BarButton("skip intro", AppIcons.Next) {
-                skipped = skipped + activeSegment
-                engine.seekTo(segments[activeSegment].endMs)
-            })
+        if (offer != null && offer.kind != SkipKind.NEXT_EPISODE) {
+            add(BarButton(skipLabel(offer.kind), AppIcons.Next) { takeSkip(offer) })
         }
         nextEpisode?.let { next -> add(BarButton("next episode", AppIcons.Next) { playNext(next) }) }
         add(BarButton(if (infoOpen) "hide stats" else "stats", AppIcons.Info) {
@@ -447,6 +448,13 @@ internal fun TvPlayerScreen(
                 // Back is the exception. Swallowed here it woke the overlay, the BackHandler then
                 // hid it again, and the two took turns: a running film could not be left at all.
                 if (!controlsVisible && ev.key != Key.Back) {
+                    // A visible skip prompt is the one thing OK may act on without the bar.
+                    if (offer != null &&
+                        (ev.key == Key.DirectionCenter || ev.key == Key.Enter || ev.key == Key.NumPadEnter)
+                    ) {
+                        takeSkip(offer)
+                        return@onPreviewKeyEvent true
+                    }
                     poke()
                     return@onPreviewKeyEvent true
                 }
@@ -514,6 +522,12 @@ internal fun TvPlayerScreen(
             )
         }
 
+        // Shown on its own because the bar is hidden for most of a film, and the intro rarely
+        // starts in the few seconds the bar stays up after playback begins.
+        if (offer != null && !controlsVisible && !menuOpen && loadError == null) {
+            TvSkipPrompt(skipLabel(offer.kind)) { takeSkip(offer) }
+        }
+
         if (menuOpen) {
             TvPlayerMenu(entries = menuEntries, selectedIndex = menuIndex) { i ->
                 menuIndex = i
@@ -529,6 +543,7 @@ internal fun TvPlayerScreen(
                 display = displayInfo,
                 transcoding = source?.isHls == true,
                 directOutput = directOutput,
+                segments = segments,
             )
         }
 
@@ -689,6 +704,7 @@ private fun TvPlayerInfo(
     display: DisplayModeInfo,
     transcoding: Boolean,
     directOutput: Boolean,
+    segments: List<MediaSegment>,
 ) {
     val rows = listOf(
         "picture" to buildString {
@@ -715,6 +731,10 @@ private fun TvPlayerInfo(
         "late (cadence)" to stats.delayedFrames.toString(),
         "output" to if (directOutput) "direct (zero copy)" else "standard (GPU copy)",
         "source" to if (transcoding) "transcoding (HLS)" else "direct play",
+        // Tells "the server has no markers" apart from "the prompt never showed".
+        "skip markers" to if (segments.isEmpty()) "none from server" else segments.joinToString("  ") {
+            "${it.kind.lowercase()} ${formatTime(it.startMs)}–${formatTime(it.endMs)}"
+        },
     )
     Box(Modifier.fillMaxSize().padding(TvSidePad), Alignment.TopStart) {
         Column(
@@ -739,6 +759,26 @@ private fun TvPlayerInfo(
                     Text(value, color = MatrixGreen, fontFamily = Mono, fontSize = 14.sp)
                 }
             }
+        }
+    }
+}
+
+/** Bottom-right pill like the big streaming apps; OK takes it, a tap on a phone too. */
+@Composable
+private fun TvSkipPrompt(label: String, onTake: () -> Unit) {
+    Box(Modifier.fillMaxSize().padding(horizontal = TvSidePad, vertical = 48.dp), Alignment.BottomEnd) {
+        Row(
+            Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { onTake() }
+                .background(Black.copy(alpha = 0.8f))
+                .border(2.dp, MatrixGreen, RoundedCornerShape(8.dp))
+                .padding(horizontal = 22.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(label, color = MatrixGreen, fontFamily = Mono, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.width(14.dp))
+            Text("OK", color = MatrixGreen.copy(alpha = 0.6f), fontFamily = Mono, fontSize = 14.sp)
         }
     }
 }
