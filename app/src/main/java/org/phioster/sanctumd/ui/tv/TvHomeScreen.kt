@@ -152,6 +152,14 @@ internal fun TvTopBar(title: String, onSwitchServer: (() -> Unit)? = null) {
             Spacer(Modifier.height(2.dp))
             Text(title, color = MatrixGreen, fontFamily = Mono, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         }
-        if (onSwitchServer != null) TvButton("switch server", onClick = onSwitchServer)
+        if (onSwitchServer != null) {
+            // Two presses: a stray OK (e.g. the release of the one that closed the player) must
+            // never sign the TV out.
+            var armed by remember { mutableStateOf(false) }
+            LaunchedEffect(armed) { if (armed) { kotlinx.coroutines.delay(4000); armed = false } }
+            TvButton(if (armed) "press again to sign out" else "switch server") {
+                if (armed) onSwitchServer() else armed = true
+            }
+        }
     }
 }
