@@ -51,6 +51,9 @@ private val START_SCREEN_KEY = stringPreferencesKey("start_screen")
 // TV client only: how the television plays video. Both default to the safe path.
 private val TV_MATCH_REFRESH_KEY = booleanPreferencesKey("tv_match_refresh")
 private val TV_DIRECT_OUTPUT_KEY = booleanPreferencesKey("tv_direct_output")
+// Plain on purpose: it must survive when the encrypted sign-in can't be read. No secret in it.
+private val TV_LAST_SERVER_URL_KEY = stringPreferencesKey("tv_last_server_url")
+private val TV_LAST_SERVER_NAME_KEY = stringPreferencesKey("tv_last_server_name")
 private val json = Json { ignoreUnknownKeys = true }
 
 /** Persists the user's dashboard tabs (widget layout) as JSON in DataStore. */
@@ -168,6 +171,13 @@ class DashboardStore(private val context: Context) {
      */
     val tvDirectOutput: Flow<Boolean> = context.dashboardDataStore.data.map { it[TV_DIRECT_OUTPUT_KEY] ?: true }
     suspend fun setTvDirectOutput(v: Boolean) { context.dashboardDataStore.edit { it[TV_DIRECT_OUTPUT_KEY] = v } }
+    /** The TV's last Jellyfin address and name, offered first when it has to sign in again. */
+    val tvLastServer: Flow<Pair<String, String>?> = context.dashboardDataStore.data.map { p ->
+        p[TV_LAST_SERVER_URL_KEY]?.takeIf { it.isNotBlank() }?.let { it to (p[TV_LAST_SERVER_NAME_KEY] ?: "") }
+    }
+    suspend fun setTvLastServer(url: String, name: String) {
+        context.dashboardDataStore.edit { it[TV_LAST_SERVER_URL_KEY] = url; it[TV_LAST_SERVER_NAME_KEY] = name }
+    }
     /** How early the "next episode" card shows when the server reports no outro segment. */
     val nextEpisodeLead: Flow<Int> = context.dashboardDataStore.data.map { it[NEXT_LEAD_KEY] ?: 45 }
     suspend fun setNextEpisodeLead(v: Int) { context.dashboardDataStore.edit { it[NEXT_LEAD_KEY] = v.coerceIn(10, 300) } }
