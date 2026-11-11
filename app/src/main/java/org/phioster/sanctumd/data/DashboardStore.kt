@@ -50,6 +50,7 @@ private val COLLAPSED_GROUPS_KEY = stringPreferencesKey("collapsed_groups_json")
 private val START_SCREEN_KEY = stringPreferencesKey("start_screen")
 // TV client only: how the television plays video. Both default to the safe path.
 private val TV_MATCH_REFRESH_KEY = booleanPreferencesKey("tv_match_refresh")
+private val TV_AUTO_SKIP_KEY = booleanPreferencesKey("tv_auto_skip")
 private val TV_DIRECT_OUTPUT_KEY = booleanPreferencesKey("tv_direct_output")
 // Plain on purpose: it must survive when the encrypted sign-in can't be read. No secret in it.
 private val TV_LAST_SERVER_URL_KEY = stringPreferencesKey("tv_last_server_url")
@@ -159,6 +160,9 @@ class DashboardStore(private val context: Context) {
      *  the decoder and corrupts the picture. */
     val tvMatchRefresh: Flow<Boolean> = context.dashboardDataStore.data.map { it[TV_MATCH_REFRESH_KEY] ?: true }
     suspend fun setTvMatchRefresh(v: Boolean) { context.dashboardDataStore.edit { it[TV_MATCH_REFRESH_KEY] = v } }
+    /** TV: jump over intros and credits without asking. */
+    val tvAutoSkip: Flow<Boolean> = context.dashboardDataStore.data.map { it[TV_AUTO_SKIP_KEY] ?: true }
+    suspend fun setTvAutoSkip(v: Boolean) { context.dashboardDataStore.edit { it[TV_AUTO_SKIP_KEY] = v } }
 
     /**
      * TV: hand decoded frames straight to the display instead of copying them out of the decoder and
