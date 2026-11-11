@@ -107,11 +107,17 @@ internal fun isPlainHttp(url: String) = url.trim().startsWith("http://", ignoreC
  * on a phone. Because entering a password with a remote control is miserable.
  */
 @Composable
-internal fun TvSetupScreen(onConfigured: (ServiceConfig) -> Unit) {
+internal fun TvSetupScreen(
+    lastServer: Pair<String, String>? = null,
+    signInUnreadable: Boolean = false,
+    onConfigured: (ServiceConfig) -> Unit,
+) {
     var step by remember { mutableStateOf<SetupStep>(SetupStep.Pick) }
 
     when (val s = step) {
         SetupStep.Pick -> ServerPickStep(
+            lastServer = lastServer,
+            signInUnreadable = signInUnreadable,
             onManual = { step = SetupStep.Manual },
             onPicked = { url, name -> step = SetupStep.Auth(url, name) },
         )
@@ -151,7 +157,12 @@ private fun SetupFrame(
 
 /** Step 1: the servers the network broadcast turned up. */
 @Composable
-private fun ServerPickStep(onManual: () -> Unit, onPicked: (String, String) -> Unit) {
+private fun ServerPickStep(
+    lastServer: Pair<String, String>?,
+    signInUnreadable: Boolean,
+    onManual: () -> Unit,
+    onPicked: (String, String) -> Unit,
+) {
     var servers by remember { mutableStateOf<List<DiscoveredServer>>(emptyList()) }
     var scanning by remember { mutableStateOf(true) }
     var scanNonce by remember { mutableStateOf(0) }
@@ -163,13 +174,17 @@ private fun ServerPickStep(onManual: () -> Unit, onPicked: (String, String) -> U
         scanning = false
     }
     // Move focus onto the list as soon as there is something to focus.
-    LaunchedEffect(servers.isNotEmpty(), scanning) {
-        if (!scanning) runCatching { firstFocus.requestFocus() }
+    LaunchedEffect(servers.isNotEmpty(), scanning, lastServer != null) {
+        if (!scanning || lastServer != null) runCatching { firstFocus.requestFocus() }
     }
+    // The LAN scan can't see a server behind a reverse proxy, so the last one used comes first.
+    val known = lastServer?.takeIf { (url, _) -> servers.none { it.Address.trimEnd('/') == url } }
 
     SetupFrame(
         title = "pick a server",
         subtitle = when {
+            signInUnreadable -> "the saved sign-in could not be read, sign in again"
+            known != null -> "your last server is at the top"
             scanning -> "looking for Jellyfin on this network…"
             servers.isEmpty() -> "nothing found on this network, type an address"
             else -> "${servers.size} found on this network"
@@ -179,11 +194,22 @@ private fun ServerPickStep(onManual: () -> Unit, onPicked: (String, String) -> U
             Modifier.fillMaxWidth().weight(1f, fill = false),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            if (known != null) {
+                item(key = "last-server") {
+                    TvListRow(
+                        title = known.second.ifBlank { "last server" },
+                        subtitle = known.first,
+                        focusRequester = firstFocus,
+                        trailing = "connect",
+                        onClick = { onPicked(known.first, known.second) },
+                    )
+                }
+            }
             itemsIndexed(servers, key = { _, it -> it.Id.ifBlank { it.Address } }) { index, server ->
                 TvListRow(
                     title = server.displayName,
                     subtitle = server.Address,
-                    focusRequester = firstFocus.takeIf { index == 0 && !scanning },
+                    focusRequester = firstFocus.takeIf { known == null && index == 0 && !scanning },
                     trailing = "connect",
                     onClick = { onPicked(server.Address.trimEnd('/'), server.displayName) },
                 )
@@ -193,7 +219,7 @@ private fun ServerPickStep(onManual: () -> Unit, onPicked: (String, String) -> U
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             TvButton(
                 "type an address",
-                focusRequester = firstFocus.takeIf { servers.isEmpty() && !scanning },
+                focusRequester = firstFocus.takeIf { known == null && servers.isEmpty() && !scanning },
                 onClick = onManual,
             )
             TvButton(if (scanning) "searching…" else "search again", enabled = !scanning) { scanNonce++ }

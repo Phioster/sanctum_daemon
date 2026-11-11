@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.phioster.sanctumd.data.ServiceStore
 import org.phioster.sanctumd.model.ServiceConfig
@@ -36,6 +37,14 @@ data class TvPlayRequest(val itemId: String, val title: String)
 class TvViewModel(app: Application) : AndroidViewModel(app) {
 
     private val store = ServiceStore(app)
+    private val dashboard = org.phioster.sanctumd.data.DashboardStore(app)
+
+    /** Survives a lost sign-in, so setup can offer it instead of a LAN scan that never finds it. */
+    val lastServer: StateFlow<Pair<String, String>?> =
+        dashboard.tvLastServer.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, null)
+
+    /** The stored sign-in exists but couldn't be decrypted; setup says so instead of starting blank. */
+    val signInUnreadable: StateFlow<Boolean> = store.decryptFailed
 
     /** null until DataStore has answered, distinguishes "loading" from "nothing configured", which
      *  otherwise makes the setup screen flash on every start. */
@@ -53,7 +62,13 @@ class TvViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     init {
-        viewModelScope.launch { store.services.collect { _services.value = it } }
+        viewModelScope.launch {
+            store.services.collect { list ->
+                _services.value = list
+                // Also covers sign-ins made before the address was remembered.
+                list.firstOrNull { it.type == ServiceType.JELLYFIN }?.let { rememberServer(it) }
+            }
+        }
     }
 
     val current: TvRoute get() = stack.lastOrNull() ?: TvRoute.Home
@@ -82,6 +97,11 @@ class TvViewModel(app: Application) : AndroidViewModel(app) {
             stack = listOf(TvRoute.Home)
             onDone()
         }
+    }
+
+    private suspend fun rememberServer(config: ServiceConfig) {
+        val now = dashboard.tvLastServer.first()
+        if (now?.first != config.baseUrl) dashboard.setTvLastServer(config.baseUrl, config.label)
     }
 
     /** Signs out: drops the server so the setup screen comes back. */

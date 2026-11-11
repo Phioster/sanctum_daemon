@@ -32,7 +32,11 @@ fun TvApp(vm: TvViewModel, onExit: () -> Unit) {
         when {
             services == null -> TvMessage("starting…")
 
-            config == null -> TvSetupScreen(onConfigured = { vm.saveServer(it) })
+            config == null -> {
+                val lastServer by vm.lastServer.collectAsState()
+                val unreadable by vm.signInUnreadable.collectAsState()
+                TvSetupScreen(lastServer = lastServer, signInUnreadable = unreadable, onConfigured = { vm.saveServer(it) })
+            }
 
             else -> {
                 /**
