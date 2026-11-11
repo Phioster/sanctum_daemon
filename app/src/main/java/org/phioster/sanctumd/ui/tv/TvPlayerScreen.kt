@@ -80,7 +80,6 @@ import org.phioster.sanctumd.ui.player.MpvPlayerEngine
 import org.phioster.sanctumd.ui.player.PlaybackState
 import org.phioster.sanctumd.ui.player.PlaybackStats
 import org.phioster.sanctumd.ui.player.TrackKind
-import org.phioster.sanctumd.ui.player.TrackOption
 import org.phioster.sanctumd.ui.theme.AppIcons
 import org.phioster.sanctumd.ui.theme.Black
 import org.phioster.sanctumd.ui.theme.ErrRed
@@ -119,14 +118,6 @@ private fun findActivity(context: Context): Activity? {
 
 /** A button on the control bar's lower strip. */
 private data class BarButton(val label: String, val icon: ImageVector? = null, val onClick: () -> Unit)
-
-/** One line in the track menu. Headers are shown but skipped when moving the selection. */
-private data class TvMenuEntry(
-    val label: String,
-    val header: Boolean = false,
-    val selected: Boolean = false,
-    val onSelect: () -> Unit = {},
-)
 
 /**
  * Full-screen playback for the TV.
@@ -200,6 +191,7 @@ internal fun TvPlayerScreen(
     val subMode by store.subtitleMode.collectAsState("forced")
     val autoplayNext by store.autoplayNext.collectAsState(true)
     val matchRefresh by store.tvMatchRefresh.collectAsState(true)
+    val autoSkip by store.tvAutoSkip.collectAsState(true)
     val scope = rememberCoroutineScope()
 
     val keyFocus = remember { FocusRequester() }
@@ -362,6 +354,22 @@ internal fun TvPlayerScreen(
         if (o.kind == SkipKind.NEXT_EPISODE && next != null) playNext(next) else engine.seekTo(o.targetMs)
     }
 
+    // Each segment is taken once; a viewer who seeks back into an intro gets to watch it.
+    LaunchedEffect(offer, autoSkip) {
+        val o = offer ?: return@LaunchedEffect
+        if (!autoSkip || menuOpen) return@LaunchedEffect
+        if (o.kind == SkipKind.NEXT_EPISODE && !autoplayNext) {
+            skipped = skipped + o.index
+            return@LaunchedEffect
+        }
+        toast = when (o.kind) {
+            SkipKind.INTRO -> "intro skipped"
+            SkipKind.CREDITS -> "credits skipped"
+            SkipKind.NEXT_EPISODE -> "next episode: ${nextEpisode?.name.orEmpty()}"
+        }
+        takeSkip(o)
+    }
+
     val buttons: List<BarButton> = buildList {
         add(
             BarButton(
@@ -384,9 +392,10 @@ internal fun TvPlayerScreen(
 
     // Track lists are read when the menu is opened, not on every recomposition, hence the nonce: a
     // list that reshuffled under the selection would be unusable.
-    val menuEntries: List<TvMenuEntry> = remember(menuNonce, matchRefresh, directOutput) {
+    val menuEntries: List<TvMenuEntry> = remember(menuNonce, matchRefresh, directOutput, autoSkip) {
         tvTrackMenu(
-            engine, directOutput, matchRefresh,
+            engine, directOutput, matchRefresh, autoSkip,
+            onToggleAutoSkip = { scope.launch { store.setTvAutoSkip(!autoSkip) } },
             onToggleRefresh = { scope.launch { store.setTvMatchRefresh(!matchRefresh) } },
             onToggleDirect = { scope.launch { store.setTvDirectOutput(!directOutput) } },
         )
@@ -575,36 +584,6 @@ internal fun TvPlayerScreen(
             }
         }
     }
-}
-
-/**
- * What the track menu offers: the audio and subtitle tracks the engine reports, plus the two
- * picture settings. Read when the menu opens, not on every recomposition, because a list that
- * reshuffled under the selection would be unusable.
- */
-private fun tvTrackMenu(
-    engine: MediaPlayerEngine,
-    directOutput: Boolean,
-    matchRefresh: Boolean,
-    onToggleRefresh: () -> Unit,
-    onToggleDirect: () -> Unit,
-): List<TvMenuEntry> = buildList {
-    add(TvMenuEntry("audio", header = true))
-    val audio = engine.tracks(TrackKind.AUDIO)
-    if (audio.isEmpty()) add(TvMenuEntry("  no audio track", header = true))
-    audio.forEach { t: TrackOption ->
-        add(TvMenuEntry("  ${t.label}", selected = t.selected) { engine.selectTrack(TrackKind.AUDIO, t.id) })
-    }
-    add(TvMenuEntry("subtitles", header = true))
-    if (directOutput) add(TvMenuEntry("  (text subtitles only; image subtitles like PGS stay off)", header = true))
-    val subs = engine.tracks(TrackKind.SUBTITLE)
-    add(TvMenuEntry("  off", selected = subs.none { it.selected }) { engine.selectTrack(TrackKind.SUBTITLE, null) })
-    subs.forEach { t: TrackOption ->
-        add(TvMenuEntry("  ${t.label}", selected = t.selected) { engine.selectTrack(TrackKind.SUBTITLE, t.id) })
-    }
-    add(TvMenuEntry("picture", header = true))
-    add(TvMenuEntry("  match the refresh rate to the film", selected = matchRefresh, onSelect = onToggleRefresh))
-    add(TvMenuEntry("  direct output (recommended)", selected = directOutput, onSelect = onToggleDirect))
 }
 
 /** Bottom overlay: title, the seekable progress strip, and the button strip below it. */
