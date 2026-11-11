@@ -415,7 +415,11 @@ internal fun TvPlayerScreen(
             .focusRequester(keyFocus)
             .focusable()
             .onPreviewKeyEvent { ev ->
-                if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                // OK acts on release. Acting on the press closed the player and let the release
+                // land on whatever got focus underneath: the "switch server" button, signing out.
+                val isOk = ev.key == Key.DirectionCenter || ev.key == Key.Enter || ev.key == Key.NumPadEnter
+                if (isOk && ev.type == KeyEventType.KeyDown) return@onPreviewKeyEvent true
+                if (ev.type != (if (isOk) KeyEventType.KeyUp else KeyEventType.KeyDown)) return@onPreviewKeyEvent false
 
                 // Dedicated media keys act immediately, overlay or not. That is what they are for.
                 when (ev.key) {
