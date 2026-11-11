@@ -24,20 +24,22 @@ internal fun tvTrackMenu(
     autoSkip: Boolean,
     onToggleAutoSkip: () -> Unit,
     onToggleRefresh: () -> Unit,
+    /** A track was picked by hand; null id = subtitles off. Remembered per series. */
+    onTrackPicked: (TrackKind, String?) -> Unit,
     onToggleDirect: () -> Unit,
 ): List<TvMenuEntry> = buildList {
     add(TvMenuEntry("audio", header = true))
     val audio = engine.tracks(TrackKind.AUDIO)
     if (audio.isEmpty()) add(TvMenuEntry("  no audio track", header = true))
     audio.forEach { t: TrackOption ->
-        add(TvMenuEntry("  ${t.label}", selected = t.selected) { engine.selectTrack(TrackKind.AUDIO, t.id) })
+        add(TvMenuEntry("  ${t.label}", selected = t.selected) { engine.selectTrack(TrackKind.AUDIO, t.id); onTrackPicked(TrackKind.AUDIO, t.id) })
     }
     add(TvMenuEntry("subtitles", header = true))
     if (directOutput) add(TvMenuEntry("  (text subtitles only; image subtitles like PGS stay off)", header = true))
     val subs = engine.tracks(TrackKind.SUBTITLE)
-    add(TvMenuEntry("  off", selected = subs.none { it.selected }) { engine.selectTrack(TrackKind.SUBTITLE, null) })
+    add(TvMenuEntry("  off", selected = subs.none { it.selected }) { engine.selectTrack(TrackKind.SUBTITLE, null); onTrackPicked(TrackKind.SUBTITLE, null) })
     subs.forEach { t: TrackOption ->
-        add(TvMenuEntry("  ${t.label}", selected = t.selected) { engine.selectTrack(TrackKind.SUBTITLE, t.id) })
+        add(TvMenuEntry("  ${t.label}", selected = t.selected) { engine.selectTrack(TrackKind.SUBTITLE, t.id); onTrackPicked(TrackKind.SUBTITLE, t.id) })
     }
     add(TvMenuEntry("playback", header = true))
     add(TvMenuEntry("  skip intro and credits automatically", selected = autoSkip, onSelect = onToggleAutoSkip))

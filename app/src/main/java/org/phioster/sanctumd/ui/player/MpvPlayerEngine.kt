@@ -236,6 +236,17 @@ class MpvPlayerEngine(
         return out
     }
 
+    override fun trackLanguage(kind: TrackKind, id: String): String? {
+        if (released) return null
+        val count = mpv.getPropertyInt("track-list/count") ?: 0
+        for (i in 0 until count) {
+            if (mpv.getPropertyString("track-list/$i/type") != typeName(kind)) continue
+            if (mpv.getPropertyInt("track-list/$i/id")?.toString() != id) continue
+            return mpv.getPropertyString("track-list/$i/lang")?.lowercase()
+        }
+        return null
+    }
+
     override fun selectTrack(kind: TrackKind, id: String?) {
         if (released) return
         val prop = if (kind == TrackKind.AUDIO) "aid" else "sid"

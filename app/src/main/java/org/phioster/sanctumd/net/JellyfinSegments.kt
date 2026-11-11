@@ -64,11 +64,15 @@ internal fun jfSegmentsApi(config: ServiceConfig, token: String) =
  * version, movie rather than episode). Tries the native segments API first and falls back to the
  * Intro Skipper plugin's own route, so both server generations get a skip button.
  */
-suspend fun jellyfinMediaSegments(config: ServiceConfig, itemId: String): List<MediaSegment> = withContext(Dispatchers.IO) {
+suspend fun jellyfinMediaSegments(
+    config: ServiceConfig,
+    itemId: String,
+    types: List<String> = listOf("Intro", "Outro"),
+): List<MediaSegment> = withContext(Dispatchers.IO) {
     val token = jellyfinAccessToken(config)
     val api = jfSegmentsApi(config, token)
     val native = runCatching {
-        api.segments(itemId).Items
+        api.segments(itemId, types).Items
             .filter { it.EndTicks > it.StartTicks }
             .map { MediaSegment(it.Type, it.StartTicks / TICKS_PER_MS, it.EndTicks / TICKS_PER_MS) }
     }.getOrDefault(emptyList())

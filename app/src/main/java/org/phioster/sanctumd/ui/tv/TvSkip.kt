@@ -3,7 +3,7 @@ package org.phioster.sanctumd.ui.tv
 import org.phioster.sanctumd.net.MediaSegment
 
 /** What the skip prompt does: jump past the intro, jump past the credits, or start the next episode. */
-enum class SkipKind { INTRO, CREDITS, NEXT_EPISODE }
+enum class SkipKind { INTRO, RECAP, CREDITS, PREVIEW, NEXT_EPISODE }
 
 /** The skip on offer right now. [index] identifies the segment so a used offer stays gone. */
 data class SkipOffer(val index: Int, val kind: SkipKind, val targetMs: Long)
@@ -23,6 +23,12 @@ fun skipOffer(
         if (i in skipped || positionMs !in s.startMs until s.endMs) return@forEachIndexed
         when {
             s.kind.equals("Intro", true) -> return SkipOffer(i, SkipKind.INTRO, s.endMs)
+            s.kind.equals("Recap", true) -> return SkipOffer(i, SkipKind.RECAP, s.endMs)
+            s.kind.equals("Preview", true) -> return SkipOffer(
+                i,
+                if (hasNextEpisode) SkipKind.NEXT_EPISODE else SkipKind.PREVIEW,
+                s.endMs,
+            )
             s.kind.equals("Outro", true) -> return SkipOffer(
                 i,
                 if (hasNextEpisode) SkipKind.NEXT_EPISODE else SkipKind.CREDITS,
@@ -35,6 +41,8 @@ fun skipOffer(
 
 fun skipLabel(kind: SkipKind): String = when (kind) {
     SkipKind.INTRO -> "skip intro"
+    SkipKind.RECAP -> "skip recap"
     SkipKind.CREDITS -> "skip credits"
+    SkipKind.PREVIEW -> "skip preview"
     SkipKind.NEXT_EPISODE -> "next episode"
 }

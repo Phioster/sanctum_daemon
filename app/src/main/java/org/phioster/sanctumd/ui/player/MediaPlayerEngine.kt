@@ -134,6 +134,9 @@ interface MediaPlayerEngine {
      */
     fun subtitleText(): String = ""
 
+    /** Language code of the track [id] of [kind], or null when it has none. */
+    fun trackLanguage(kind: TrackKind, id: String): String? = null
+
     /** Available audio/subtitle tracks (subtitles include an implicit "off" handled by the UI). */
     fun tracks(kind: TrackKind): List<TrackOption>
     /** Select a track by its [TrackOption.id]; null disables the kind (used to turn subtitles off). */
