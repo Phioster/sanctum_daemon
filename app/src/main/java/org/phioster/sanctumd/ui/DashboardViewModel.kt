@@ -1104,6 +1104,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun nzbEditMany(config: ServiceConfig, command: String, ids: List<Int>): String =
         org.phioster.sanctumd.net.runNzbEditMany(config, command, ids)
     suspend fun history(config: ServiceConfig, hidden: Boolean): List<NzbHistoryEntry> = nzbgetHistory(config, hidden)
+    suspend fun nzbBlocks(config: ServiceConfig): List<org.phioster.sanctumd.model.NzbBlock> = org.phioster.sanctumd.net.nzbgetBlocks(config)
+    suspend fun nzbUnblock(config: ServiceConfig, name: String, alsoId: Int? = null): String =
+        org.phioster.sanctumd.net.runNzbUnblock(config, name, alsoId)
     suspend fun nzbLog(config: ServiceConfig): List<org.phioster.sanctumd.model.NzbLogEntry> = org.phioster.sanctumd.net.nzbgetLog(config)
     suspend fun nzbItemLog(config: ServiceConfig, id: Int): List<org.phioster.sanctumd.model.NzbLogEntry> =
         org.phioster.sanctumd.net.nzbgetItemLog(config, id)

@@ -146,6 +146,7 @@ internal fun NzbgetScreen(
 
     var showAdd by remember { mutableStateOf(false) }
     var showServers by remember { mutableStateOf(false) }
+    var showBlocks by remember { mutableStateOf(false) }
     var picked by remember { mutableStateOf<PendingNzb?>(null) }
     /** The log dialog: null closed, (null, _) the whole server log, (id, name) one download's. */
     var logTarget by remember { mutableStateOf<Pair<Int?, String>?>(null) }
@@ -168,6 +169,10 @@ internal fun NzbgetScreen(
 
     if (showServers) {
         NzbServersScreen(vm, config, onBack = { showServers = false })
+        return
+    }
+    if (showBlocks) {
+        NzbBlockListScreen(vm, config, onBack = { showBlocks = false; if (tab == 1) scope.launch { loadHistory() } })
         return
     }
 
@@ -203,6 +208,7 @@ internal fun NzbgetScreen(
                             )),
                             MenuSection("Server", listOf(
                                 MenuAction("News servers", AppIcons.Server) { showServers = true },
+                                MenuAction("Block list", AppIcons.Blocklist) { showBlocks = true },
                                 if (postPaused) MenuAction("Resume post-processing", AppIcons.Play) { act { vm.nzbPostPause(config, false) } }
                                 else MenuAction("Pause post-processing", AppIcons.Pause) { act { vm.nzbPostPause(config, true) } },
                                 MenuAction("Server details", AppIcons.Server) {
@@ -316,7 +322,11 @@ internal fun NzbgetScreen(
                                 when {
                                     h == null -> item { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
                                     h.isEmpty() -> item { Text("no history", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), modifier = Modifier.padding(top = 16.dp)) }
-                                    else -> items(h) { hi -> HistoryRow(hi, onShowLog = { logTarget = hi.id to hi.name }) { cmd -> act { vm.nzbEdit(config, cmd, hi.id) } } }
+                                    else -> items(h) { hi ->
+                                        HistoryRow(hi, onShowLog = { logTarget = hi.id to hi.name }) { cmd ->
+                                            act { if (cmd == UNBLOCK) vm.nzbUnblock(config, hi.name, hi.id) else vm.nzbEdit(config, cmd, hi.id) }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -485,6 +495,9 @@ internal fun QueueRow(
     }
 }
 
+/** Not an editqueue command: the history row asks the screen to clear the whole name. */
+internal const val UNBLOCK = "Unblock"
+
 @Composable
 internal fun HistoryRow(item: NzbHistoryEntry, onShowLog: () -> Unit = {}, onAction: (String) -> Unit) {
     var menu by remember { mutableStateOf(false) }
@@ -520,8 +533,8 @@ internal fun HistoryRow(item: NzbHistoryEntry, onShowLog: () -> Unit = {}, onAct
             DropdownMenuItem(text = { Text("Return to queue", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryReturn") })
             DropdownMenuItem(text = { Text("Redownload", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryRedownload") })
             DropdownMenuItem(text = { Text("Delete (hide)", fontFamily = Mono) }, onClick = { menu = false; onAction("HistoryDelete") })
-            // Fully removes the entry from NZBGet's dupe history so the same release can be grabbed again.
-            DropdownMenuItem(text = { Text("Delete + unblock (dupe)", fontFamily = Mono, color = ErrRed) }, onClick = { menu = false; onAction("HistoryFinalDelete") })
+            // Drops this entry and every hidden one of the same name, so the same release can be grabbed again.
+            DropdownMenuItem(text = { Text("Unblock release (dupe)", fontFamily = Mono, color = ErrRed) }, onClick = { menu = false; onAction(UNBLOCK) })
         }
     }
 }
