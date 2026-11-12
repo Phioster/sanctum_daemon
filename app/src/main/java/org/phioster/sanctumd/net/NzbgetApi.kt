@@ -18,6 +18,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import okhttp3.Credentials
+import org.phioster.sanctumd.model.NzbBlock
 import org.phioster.sanctumd.model.NzbHistoryEntry
 import org.phioster.sanctumd.model.NzbQueueItem
 import org.phioster.sanctumd.model.ServiceConfig
@@ -79,6 +80,8 @@ import retrofit2.http.POST
     /** Per mille; below [CriticalHealth] the download cannot be repaired. */
     val Health: Int = 1000,
     val CriticalHealth: Int = 1000,
+    val Kind: String = "NZB",
+    val HistoryTime: Long = 0,
 )
 
 /**
@@ -275,9 +278,46 @@ suspend fun runNzbEditMany(config: ServiceConfig, command: String, ids: List<Int
 
 suspend fun nzbgetHistory(config: ServiceConfig, hidden: Boolean): List<NzbHistoryEntry> = withContext(Dispatchers.IO) {
     apiFor<NzbgetApi>(config, basicHeader(config)).history(NzbHistoryReq(params = listOf(hidden))).result.map {
-        NzbHistoryEntry(it.NZBID, it.Name, it.Status, it.FileSizeMB, nzbFailureReason(it))
+        NzbHistoryEntry(it.NZBID, it.Name, it.Status, it.FileSizeMB, nzbFailureReason(it), it.Kind, it.HistoryTime)
     }
 }
+
+/**
+ * The hidden duplicate history, one row per release name, newest first. NZBGet skips a new NZB
+ * whose content matches any of these entries, whatever their status (DupeCoordinator::NzbFound).
+ */
+internal fun nzbBlocks(history: List<NzbHistoryEntry>): List<NzbBlock> =
+    history.filter { it.kind == "DUP" }
+        .groupBy { it.name.lowercase() }
+        .values.map { group ->
+            val newest = group.maxBy { it.time }
+            NzbBlock(newest.name, group.map { it.id }, group.maxOf { it.sizeMb }, newest.status, newest.time)
+        }
+        .sortedByDescending { it.time }
+
+/** Every hidden entry named [name], plus [alsoId] when the row that asked is still in the visible history. */
+internal fun nzbUnblockIds(history: List<NzbHistoryEntry>, name: String, alsoId: Int? = null): List<Int> =
+    (history.filter { it.kind == "DUP" && it.name.equals(name, ignoreCase = true) }.map { it.id } + listOfNotNull(alsoId)).distinct()
+
+suspend fun nzbgetBlocks(config: ServiceConfig): List<NzbBlock> = nzbBlocks(nzbgetHistory(config, hidden = true))
+
+/** Removes a release from the duplicate history for good, so NZBGet accepts the same NZB again. */
+suspend fun runNzbUnblock(config: ServiceConfig, name: String, alsoId: Int? = null): String =
+    destructive("unblock $name in NZBGet") {
+        withContext(Dispatchers.IO) {
+            try {
+                val ids = nzbUnblockIds(nzbgetHistory(config, hidden = true), name, alsoId)
+                when {
+                    ids.isEmpty() -> "nothing is blocking this release"
+                    apiFor<NzbgetApi>(config, basicHeader(config)).rpcJson(editqueueBody("HistoryFinalDelete", "", ids)).result ->
+                        "unblocked (${ids.size} ${if (ids.size == 1) "entry" else "entries"})"
+                    else -> "error: NZBGet refused"
+                }
+            } catch (t: Throwable) {
+                "error: ${errorText(t)}"
+            }
+        }
+    }
 
 /** `log(IDFrom, NumberOfEntries)`: IDFrom 0 asks for the last [count] messages. */
 internal fun logBody(count: Int): JsonObject = buildJsonObject {

@@ -30,6 +30,15 @@ internal object DemoNzbget {
                 "Health" to (if (failed) 912 else 1000), "CriticalHealth" to 958, "HistoryTime" to now - i * 3_600L)
         }
 
+    /** What the duplicate check still remembers: older downloads, one of them grabbed twice. */
+    private fun hiddenHistory() = DemoWorld.libraryMovies.drop(14).take(6).flatMapIndexed { i, m ->
+        val name = "${m.title.replace(' ', '.')}.${m.year}.1080p.BluRay.x264-SPARKS"
+        val entry = obj("NZBID" to 2000 + i, "Kind" to "DUP", "Name" to name, "Status" to "SUCCESS/HIDDEN", "FileSizeMB" to 1_800L + i * 410,
+            "HistoryTime" to now - (20 + i * 9) * 86_400L)
+        if (i == 0) listOf(obj("NZBID" to 2100, "Kind" to "DUP", "Name" to name, "Status" to "DELETED/DUPE", "FileSizeMB" to 1_800L,
+            "DeleteStatus" to "DUPE", "HistoryTime" to now - 2 * 86_400L), entry) else listOf(entry)
+    }
+
     /** Two main providers, one block account as a fill server. */
     private val servers = listOf(
         Triple("Newshosting", "news.newshosting.example", 0),
@@ -83,7 +92,8 @@ internal object DemoNzbget {
             )))
             r.path == "jsonrpc/listgroups" -> json(obj("result" to groups()))
             r.path == "jsonrpc" -> when (method(r.body)) {
-                "history" -> json(obj("result" to history()))
+                // params [true] asks for the hidden duplicate history as well.
+                "history" -> json(obj("result" to if ("[true]" in r.body.replace(" ", "")) history() + hiddenHistory() else history()))
                 "version" -> json(obj("result" to "25.3"))
                 "log", "loadlog" -> json(obj("result" to listOf(
                     obj("ID" to 1, "Kind" to "INFO", "Time" to now - 60, "Text" to "Collection ${DemoWorld.downloads.firstOrNull()?.release} added to queue"),

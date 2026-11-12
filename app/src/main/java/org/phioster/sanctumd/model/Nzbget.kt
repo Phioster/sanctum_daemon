@@ -51,4 +51,18 @@ data class NzbHistoryEntry(
     val sizeMb: Long,
     /** Why it did not succeed, in a few words; blank for a success. */
     val reason: String = "",
+    /** NZB, URL, or DUP for an entry that only lives on in the hidden duplicate history. */
+    val kind: String = "NZB",
+    /** Unix seconds it entered the history; 0 unknown. */
+    val time: Long = 0,
+)
+
+/** One release name NZBGet's duplicate check refuses, with every hidden entry that carries it. */
+data class NzbBlock(
+    val name: String,
+    val ids: List<Int>,
+    val sizeMb: Long,
+    /** Status of the newest entry. */
+    val status: String,
+    val time: Long,
 )

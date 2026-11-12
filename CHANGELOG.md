@@ -4,6 +4,9 @@ All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 3.0.
 
 ## Unreleased
+- NZBGet has a block list in its menu: every release the duplicate check still remembers, one
+  row per name, with a search field and "unblock". A history entry offers "Unblock release",
+  which clears that name in one step so the same NZB can be grabbed again.
 - Sanctumd no longer shows up in the share menu for every unknown file type. An .nzb still
   arrives through "open with", the file picker in NZBGet, or sharing from apps that know the
   NZB type.
