@@ -4,6 +4,10 @@ All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 3.0.
 
 ## Unreleased
+- Playback statistics no longer trust broken rows of the Playback Reporting plugin: a negative
+  duration or a single play of more than six hours counts as zero time. One such row had turned
+  the total into a negative number, in the stats screen and in the watch-time leaderboard.
+- The playback tiles sit two per row, so the numbers have room; hours show one decimal.
 - NZBGet has a block list in its menu: every release the duplicate check still remembers, one
   row per name, with a search field and "unblock". A history entry offers "Unblock release",
   which clears that name in one step so the same NZB can be grabbed again.

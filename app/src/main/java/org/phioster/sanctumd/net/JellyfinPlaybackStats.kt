@@ -91,6 +91,16 @@ internal fun transcodeDetail(method: String?): String =
 
 private const val ACTIVITY = "PlaybackActivity"
 
+/** Longest single play that still counts as watching; beyond it a session was left paused. */
+internal const val MAX_PLAY_SECONDS = 6 * 3600
+
+/**
+ * A play's duration with the plugin's garbage rows counted as zero. Seen on the live server on
+ * 2026-11-12: one row at Int.MIN_VALUE (a client overflow) turned the total into -59652 h, and a
+ * film left paused overnight stood in the list with 14 h.
+ */
+internal const val SANE_DURATION = "CASE WHEN PlayDuration BETWEEN 0 AND $MAX_PLAY_SECONDS THEN PlayDuration ELSE 0 END"
+
 /** Seconds as reported, turned into hours for display. */
 private fun hours(secs: String?): Double = (secs?.toDoubleOrNull() ?: 0.0) / 3600.0
 
@@ -109,7 +119,7 @@ suspend fun jellyfinPlaybackStats(config: ServiceConfig): JellyPlaybackStats =
             api.playbackQuery(JfPlaybackQueryReq(sql, ReplaceUserId = false)).results
 
         val summary = q(
-            "SELECT count(*), sum(PlayDuration), min(DateCreated) FROM $ACTIVITY",
+            "SELECT count(*), sum($SANE_DURATION), min(DateCreated) FROM $ACTIVITY",
         ).firstOrNull().orEmpty()
 
         // Select ItemType alongside it, so the "does this count?" decision happens in Kotlin
@@ -126,8 +136,8 @@ suspend fun jellyfinPlaybackStats(config: ServiceConfig): JellyPlaybackStats =
         // Grouped by ItemId, not by name: two files can share a title, and the id is also what
         // makes the row tappable.
         val top = q(
-            "SELECT ItemName, ItemId, count(*), sum(PlayDuration) FROM $ACTIVITY " +
-                "GROUP BY ItemId ORDER BY sum(PlayDuration) DESC LIMIT 8",
+            "SELECT ItemName, ItemId, count(*), sum($SANE_DURATION) FROM $ACTIVITY " +
+                "GROUP BY ItemId ORDER BY sum($SANE_DURATION) DESC LIMIT 8",
         ).map {
             JellyPlayEntry(
                 label = it.getOrNull(0).orEmpty(),
@@ -138,8 +148,8 @@ suspend fun jellyfinPlaybackStats(config: ServiceConfig): JellyPlaybackStats =
         }
 
         val devices = q(
-            "SELECT DeviceName, count(*), sum(PlayDuration) FROM $ACTIVITY " +
-                "GROUP BY DeviceName ORDER BY sum(PlayDuration) DESC LIMIT 6",
+            "SELECT DeviceName, count(*), sum($SANE_DURATION) FROM $ACTIVITY " +
+                "GROUP BY DeviceName ORDER BY sum($SANE_DURATION) DESC LIMIT 6",
         ).map {
             JellyPlayEntry(
                 label = it.getOrNull(0).orEmpty(),

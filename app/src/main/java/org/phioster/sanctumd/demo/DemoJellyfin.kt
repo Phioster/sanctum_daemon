@@ -328,10 +328,10 @@ internal object DemoJellyfin {
     private fun playbackQuery(sql: String): DemoAnswer {
         val s = sql.lowercase()
         val rows: List<List<String>> = when {
-            s.startsWith("select userid, sum(playduration)") -> DemoWorld.users.drop(1).sortedByDescending { it.watchSeconds }.take(3).map { listOf(it.name, it.watchSeconds.toString()) }
-            s.startsWith("select count(*), sum(playduration), min(datecreated)") -> listOf(listOf("2847", "9384210", "2025-03-14 19:02:11"))
+            s.startsWith("select userid, sum(") -> DemoWorld.users.drop(1).sortedByDescending { it.watchSeconds }.take(3).map { listOf(it.name, it.watchSeconds.toString()) }
+            s.startsWith("select count(*), sum(") && "min(datecreated)" in s -> listOf(listOf("2847", "9384210", "2025-03-14 19:02:11"))
             s.startsWith("select playbackmethod") -> listOf(listOf("DirectPlay", "2210", "Movie"), listOf("DirectStream", "394", "Episode"), listOf("Transcode (v:direct a:aac)", "171", "Episode"), listOf("Transcode (v:h264 a:aac)", "72", "Movie"))
-            s.startsWith("select itemname, itemid, count(*), sum(playduration)") -> DemoWorld.libraryMovies.take(8).mapIndexed { i, t -> listOf(t.title, movieId(t.tmdbId), (14 - i).toString(), ((14 - i) * 7_200).toString()) }
+            s.startsWith("select itemname, itemid, count(*), sum(") -> DemoWorld.libraryMovies.take(8).mapIndexed { i, t -> listOf(t.title, movieId(t.tmdbId), (14 - i).toString(), ((14 - i) * 7_200).toString()) }
             s.startsWith("select devicename") -> listOf("Living Room TV" to 912, "iPhone 16" to 604, "Bedroom Fire TV" to 488, "Chrome on Mac" to 377, "Pixel 9" to 241, "iPad Air" to 98).map { (d, n) -> listOf(d, n.toString(), (n * 2_400).toString()) }
             s.contains("transcode") -> DemoWorld.libraryMovies.drop(10).take(4).map { listOf(it.title, movieId(it.tmdbId), "Transcode (v:h264 a:aac)", "5", "Movie") }
             else -> emptyList()

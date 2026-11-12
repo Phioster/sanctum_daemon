@@ -145,8 +145,12 @@ internal fun StatsScreen(vm: DashboardViewModel, onBack: () -> Unit) {
                                 Spacer(Modifier.height(6.dp))
                                 SectionHeader("PLAYBACK")
                                 Spacer(Modifier.height(10.dp))
-                                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    tiles.forEach { t -> StatTileView(t, Modifier.weight(1f)) }
+                                // Two per row like the trend tiles: four in a row left no room for the number.
+                                tiles.chunked(2).forEach { pair ->
+                                    Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        pair.forEach { t -> StatTileView(t, Modifier.weight(1f)) }
+                                        if (pair.size == 1) Spacer(Modifier.weight(1f))
+                                    }
                                 }
                                 if (pb.since.isNotBlank()) {
                                     Text(
