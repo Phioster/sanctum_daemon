@@ -99,6 +99,7 @@ internal fun DashCardView(
     var showConfig by remember { mutableStateOf(false) }
     val data = rememberDashCardData(vm, card.id)
     var detail by remember { mutableStateOf<MediaDetail?>(null) }
+    var showWatchers by remember { mutableStateOf(false) }
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -213,6 +214,7 @@ internal fun DashCardView(
                         scope.launch { detail = runCatching { vm.seerrMediaDetailById(c, di.tmdbId, di.mediaType).toMediaDetail() }.getOrNull() }
                     }
                 },
+                onOpenWatchers = { showWatchers = true },
             )
         }
         if (!boxed) {
@@ -223,6 +225,9 @@ internal fun DashCardView(
     }
 
     detail?.let { d -> if (config != null) MediaDetailDialog(d, config, onOpen = onOpenLink) { detail = null } }
+    if (showWatchers && config != null) {
+        org.phioster.sanctumd.ui.jellyfin.JellyWatchersDialog(vm, config, accentColor) { showWatchers = false }
+    }
 
     if (showConfig) {
         var cfgTitle by remember { mutableStateOf(card.title) }

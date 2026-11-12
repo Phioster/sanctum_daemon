@@ -328,6 +328,13 @@ internal object DemoJellyfin {
     private fun playbackQuery(sql: String): DemoAnswer {
         val s = sql.lowercase()
         val rows: List<List<String>> = when {
+            // The full watch-time list and one person's titles, behind the podium.
+            s.startsWith("select userid, userid as rawid") -> DemoWorld.users.drop(1).sortedByDescending { it.watchSeconds }.mapIndexed { i, u ->
+                listOf(u.name, u.id, (u.watchSeconds / 4_100).toString(), u.watchSeconds.toString(), "2026-0${9 - i % 3}-1${i % 9} 20:15:00")
+            }
+            s.startsWith("select itemname, itemid, itemtype") -> DemoWorld.libraryMovies.take(12).mapIndexed { i, t ->
+                listOf(t.title, movieId(t.tmdbId), "Movie", (1 + i % 3).toString(), ((12 - i) * 2_900).toString(), "2026-0${9 - i % 3}-1${i % 9} 21:40:00")
+            }
             s.startsWith("select userid, sum(") -> DemoWorld.users.drop(1).sortedByDescending { it.watchSeconds }.take(3).map { listOf(it.name, it.watchSeconds.toString()) }
             s.startsWith("select count(*), sum(") && "min(datecreated)" in s -> listOf(listOf("2847", "9384210", "2025-03-14 19:02:11"))
             s.startsWith("select playbackmethod") -> listOf(listOf("DirectPlay", "2210", "Movie"), listOf("DirectStream", "394", "Episode"), listOf("Transcode (v:direct a:aac)", "171", "Episode"), listOf("Transcode (v:h264 a:aac)", "72", "Movie"))

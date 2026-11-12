@@ -581,6 +581,10 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     /** Watch-time leaderboard (needs the Jellyfin Playback Reporting plugin). */
     suspend fun jellyfinTopWatchers(config: ServiceConfig): List<org.phioster.sanctumd.model.JellyWatchStat> =
         org.phioster.sanctumd.net.jellyfinTopWatchers(config)
+    suspend fun jellyfinWatchers(config: ServiceConfig): List<org.phioster.sanctumd.model.JellyWatcher> =
+        org.phioster.sanctumd.net.jellyfinWatchers(config)
+    suspend fun jellyfinWatcherTitles(config: ServiceConfig, userId: String): List<org.phioster.sanctumd.model.JellyWatchedTitle> =
+        org.phioster.sanctumd.net.jellyfinWatcherTitles(config, userId)
 
     /** Triggers a Jellyfin library scan; returns a result line for the UI. */
     suspend fun jellyfinScan(config: ServiceConfig): String = runJellyfinScan(config)

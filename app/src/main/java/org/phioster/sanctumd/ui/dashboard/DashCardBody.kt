@@ -1,6 +1,7 @@
 package org.phioster.sanctumd.ui.dashboard
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -63,6 +64,8 @@ internal fun DashCardDataBody(
     onOpenArrItem: (Int) -> Unit,
     onOpenItem: (JellyMediaItem) -> Unit,
     onOpenDiscover: (SeerrDiscoverItem) -> Unit,
+    /** The podium only has room for three; a tap opens everybody. */
+    onOpenWatchers: () -> Unit = {},
 ) {
     val loading = @Composable { Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp) }
     val empty = @Composable { msg: String -> Text(msg, fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.5f), fontSize = 12.sp) }
@@ -73,7 +76,7 @@ internal fun DashCardDataBody(
                 data.error != null -> empty("no playback data, install the Jellyfin “Playback Reporting” plugin")
                 tw == null -> loading()
                 tw.isEmpty() -> empty("no playback data yet")
-                else -> JellyPodium(tw, accent, card.theme == "solid")
+                else -> Box(Modifier.fillMaxWidth().clickable { onOpenWatchers() }) { JellyPodium(tw, accent, card.theme == "solid") }
             }
         }
         data.error != null -> Text(org.phioster.sanctumd.ui.services.friendlyStatusError(data.error), fontFamily = Mono, color = ErrRed, fontSize = 11.sp)
