@@ -4,6 +4,8 @@ All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 3.0.
 
 ## Unreleased
+- The watch leaderboard card opens on a tap: everybody's watch time, longest first, and per
+  person the titles they watched with plays, time and the last day.
 - Playback statistics no longer trust broken rows of the Playback Reporting plugin: a negative
   duration or a single play of more than six hours counts as zero time. One such row had turned
   the total into a negative number, in the stats screen and in the watch-time leaderboard.

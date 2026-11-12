@@ -196,6 +196,27 @@ data class JellyWatchStat(
     val seconds: Long,
 )
 
+/** One person in the full watch-time list. [userId] is what the per-person query filters on. */
+data class JellyWatcher(
+    val name: String,
+    val userId: String,
+    val plays: Int,
+    val seconds: Long,
+    /** "2026-11-11", blank when unknown. */
+    val lastPlayed: String = "",
+)
+
+/** One title a person watched, summed over all their plays of it. */
+data class JellyWatchedTitle(
+    val name: String,
+    val itemId: String,
+    /** Movie, Episode, Audio … as the plugin recorded it. */
+    val type: String,
+    val plays: Int,
+    val seconds: Long,
+    val lastPlayed: String = "",
+)
+
 /** A browsable media item: a library, folder (series/album/season), or a playable leaf. */
 data class JellyMediaItem(
     val id: String,
