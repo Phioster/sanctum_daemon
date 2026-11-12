@@ -14,6 +14,9 @@ import org.phioster.sanctumd.model.StatTile
  * above it. Going through [StatTile] and [StatChart] makes it consistent by construction, if
  * the house style changes, this changes with it.
  */
+/** One decimal while it is short enough to matter, whole hours beyond that. Device locale, like the bars. */
+internal fun hoursLabel(hours: Double): String = if (hours < 100) "%.1f".format(hours) else "%.0f".format(hours)
+
 internal fun playbackTiles(
     stats: JellyPlaybackStats,
     accentArgb: Long,
@@ -21,7 +24,7 @@ internal fun playbackTiles(
 ): List<StatTile> {
     if (stats.plays == 0) return emptyList()
     val tiles = mutableListOf(
-        StatTile("Hours", "%.0f".format(stats.hours), accentArgb),
+        StatTile("Hours", hoursLabel(stats.hours), accentArgb),
         StatTile("Plays", stats.plays.toString(), accentArgb),
         // The only number here worth being unhappy about. Coloured only when there is something
         // to be unhappy about, so a clean library doesn't wear a warning.

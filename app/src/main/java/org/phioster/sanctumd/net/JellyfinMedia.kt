@@ -338,7 +338,7 @@ suspend fun jellyfinSendMessage(config: ServiceConfig, sessionId: String, text: 
  *  throws if it isn't installed (endpoint 404). The caller shows a hint. */
 suspend fun jellyfinTopWatchers(config: ServiceConfig, limit: Int = 3): List<JellyWatchStat> = withContext(Dispatchers.IO) {
     val token = jellyfinAccessToken(config)
-    val q = "SELECT UserId, SUM(PlayDuration) FROM PlaybackActivity GROUP BY UserId ORDER BY SUM(PlayDuration) DESC LIMIT $limit"
+    val q = "SELECT UserId, sum($SANE_DURATION) FROM PlaybackActivity GROUP BY UserId ORDER BY sum($SANE_DURATION) DESC LIMIT $limit"
     val resp = jfApi(config, token).playbackQuery(JfPlaybackQueryReq(q, ReplaceUserId = true))
     resp.results.mapNotNull { row ->
         val name = row.getOrNull(0)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null

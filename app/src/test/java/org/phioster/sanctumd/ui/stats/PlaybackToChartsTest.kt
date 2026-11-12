@@ -28,8 +28,22 @@ class PlaybackToChartsTest {
 
     @Test fun `the headline numbers become tiles`() {
         val t = playbackTiles(stats, GREEN, AMBER)
-        assertEquals(listOf("42", "109", "12", "3"), t.map { it.value })
+        assertEquals(listOf("41.5", "109", "12", "3"), t.map { it.value.replace(',', '.') })
         assertEquals(listOf("Hours", "Plays", "Transcoded", "Remuxed"), t.map { it.label })
+    }
+
+    /** The tile is narrow: a decimal only while the number is short. */
+    @Test fun `hours drop the decimal from a hundred on`() {
+        assertEquals("39.6", hoursLabel(39.56).replace(',', '.'))
+        assertEquals("0.0", hoursLabel(0.0).replace(',', '.'))
+        assertEquals("1234", hoursLabel(1234.4))
+    }
+
+    /** One row at Int.MIN_VALUE once turned the total into -59652 hours. */
+    @Test fun `garbage durations count as zero in every sum`() {
+        val sane = org.phioster.sanctumd.net.SANE_DURATION
+        assertTrue(sane, sane.contains("BETWEEN 0 AND 21600"))
+        assertTrue(sane, sane.endsWith("ELSE 0 END"))
     }
 
     /** A remux costs the server nothing, so it never wears the warning colour, and never a zero. */
