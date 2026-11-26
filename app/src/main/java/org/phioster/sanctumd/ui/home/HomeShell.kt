@@ -744,6 +744,15 @@ internal fun WidgetTabContent(
                     Text("edit tab", fontFamily = Mono, color = MatrixGreen, fontSize = 13.sp, modifier = Modifier.clickable { onEditTab() })
                     Text("delete", fontFamily = Mono, color = ErrRed, fontSize = 13.sp, modifier = Modifier.clickable { onDeleteTab() })
                 }
+                val tabsNow by vm.tabs.collectAsState()
+                val fixed = remember(tabsNow) { vm.customColourCount() }
+                if (fixed > 0) {
+                    Text(
+                        "reset $fixed fixed colour${if (fixed == 1) "" else "s"} to the theme",
+                        fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.8f), fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 10.dp).clickable { vm.resetColoursToTheme() },
+                    )
+                }
                 Spacer(Modifier.height(4.dp))
                 HorizontalDivider(color = MatrixGreen.copy(alpha = 0.15f))
             }

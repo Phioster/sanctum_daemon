@@ -1,5 +1,9 @@
 package org.phioster.sanctumd.ui.common
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
@@ -76,11 +80,20 @@ internal fun AccentPickerRow(selected: Long, defaultColor: Color, onPick: (Long)
         accentPalette.forEach { c ->
             val col = if (c == 0L) defaultColor else Color(c)
             val sel = selected == c
+            // Ink that reads on the swatch: a green ring on a green swatch was invisible.
+            val ink = if (col.luminance() > 0.4f) Color.Black else Color.White
             Box(
                 Modifier.padding(end = 10.dp).size(34.dp).clip(RoundedCornerShape(50))
-                    .background(col).border(if (sel) 3.dp else 0.dp, MatrixGreen, RoundedCornerShape(50))
+                    .background(col).border(if (sel) 3.dp else 0.dp, ink, RoundedCornerShape(50))
                     .clickable { onPick(c) },
-            )
+                contentAlignment = Alignment.Center,
+            ) {
+                when {
+                    sel -> Icon(Icons.Filled.Check, contentDescription = "selected", tint = ink, modifier = Modifier.size(18.dp))
+                    // The first swatch follows the theme instead of fixing a colour.
+                    c == 0L -> Text("A", fontFamily = Mono, color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
         }
     }
 }

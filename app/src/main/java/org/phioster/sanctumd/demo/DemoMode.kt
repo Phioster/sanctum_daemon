@@ -1,5 +1,6 @@
 package org.phioster.sanctumd.demo
 
+import org.phioster.sanctumd.model.HttpShortcut
 import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -52,6 +53,14 @@ object DemoMode {
             svc("demo-prowlarr", ServiceType.PROWLARR, "Prowlarr", "prowlarr"),
             svc("demo-nzbget", ServiceType.NZBGET, "NZBGet", "nzbget") { copy(username = "demo", password = "demo") },
             svc("demo-ntfy", ServiceType.NTFY, "ntfy", "ntfy") { copy(topics = listOf("homelab")) },
+            svc("demo-shortcuts", ServiceType.SHORTCUTS, "Shortcuts", "hooks") {
+                copy(shortcuts = listOf(
+                    HttpShortcut("Empty trash", url = "https://$HOST/hooks/empty-trash"),
+                    HttpShortcut("Restart Jellyfin", url = "https://$HOST/hooks/restart-jellyfin"),
+                    HttpShortcut("Backup configs", "POST", "https://$HOST/hooks/backup"),
+                    HttpShortcut("Wake the NAS", url = "https://$HOST/hooks/wake-nas"),
+                ))
+            },
         )
     }
 

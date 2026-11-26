@@ -358,7 +358,7 @@ internal fun MediaRowConfigDialog(
         title = { Text("$title settings", fontFamily = Mono, color = MatrixGreen) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                label("ACCENT (1st = service default)")
+                label("ACCENT (A = follows the theme)")
                 Spacer(Modifier.height(6.dp))
                 AccentPickerRow(accent, serviceColor) { accent = it }
                 if (posterOptions) {

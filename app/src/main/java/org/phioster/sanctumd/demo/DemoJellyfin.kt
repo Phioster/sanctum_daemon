@@ -346,6 +346,11 @@ internal object DemoJellyfin {
         return json(obj("colums" to emptyList<String>(), "results" to rows))
     }
 
+    private val syncGroups = listOf(
+        obj("GroupId" to "sync-filmabend", "GroupName" to "Filmabend", "State" to "Playing", "Participants" to listOf("Mara", "Jonas", "Lea")),
+        obj("GroupId" to "sync-anime", "GroupName" to "Anime night", "State" to "Paused", "Participants" to listOf("Tobi", "Emma")),
+    )
+
     fun handle(r: DemoRequest): DemoAnswer {
         val p = r.path
         val seg = p.split('/')
@@ -362,6 +367,10 @@ internal object DemoJellyfin {
             p == "Items/Counts" -> json(obj("MovieCount" to DemoWorld.libraryMovies.size, "SeriesCount" to DemoWorld.libraryShows.size,
                 "EpisodeCount" to DemoWorld.allEpisodes.count { it.hasFile }, "SongCount" to DemoWorld.libraryAlbums.sumOf { it.tracks.size } * 9))
             p == "Sessions" -> json(arr(sessions()))
+            // SyncPlay: two groups to look at; joining and commands are accepted and do nothing.
+            p == "SyncPlay/List" -> json(arr(syncGroups))
+            seg.size == 2 && seg[0] == "SyncPlay" && r.isRead -> syncGroups.firstOrNull { it["GroupId"].toString().trim('"') == seg[1] }?.let { json(it) } ?: DemoAnswer.NotFound
+            seg.firstOrNull() == "SyncPlay" -> ok()
             p == "Users" -> json(arr(usersJson))
             p.startsWith("Users/") -> usersJson.firstOrNull { it["Id"].toString().trim('"') == seg[1] }?.let { json(it) } ?: DemoAnswer.NotFound
             p == "UserViews" -> items(views)

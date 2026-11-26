@@ -39,6 +39,17 @@ class DemoModeTest {
         }
     }
 
+    @Test fun `the offline downloads have films, a series and one still loading`() {
+        val dl = DemoWorld.offlineDownloads("demo-jellyfin", svc(ServiceType.JELLYFIN).normalizedBaseUrl)
+        assertTrue(dl.count { it.done } >= 5)
+        assertTrue(dl.any { it.seriesId.isNotBlank() })
+        assertEquals(1, dl.count { !it.done })
+    }
+
+    @Test fun `the demo has server buttons`() {
+        assertTrue(svc(ServiceType.SHORTCUTS).shortcuts.size >= 3)
+    }
+
     @Test fun `the calendar of the next weeks is busy`() = runBlocking {
         val now = java.time.Instant.now()
         val end = now.plus(java.time.Duration.ofDays(30))

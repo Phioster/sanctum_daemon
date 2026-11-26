@@ -596,7 +596,8 @@ internal fun JellyfinScreen(
 
     if (downloadsManagerOpen) {
         DownloadsScreen(
-            entries = downloads.values.filter { it.serverId == config.id }.sortedByDescending { it.addedAt },
+            entries = if (org.phioster.sanctumd.demo.DemoMode.isOn) org.phioster.sanctumd.demo.DemoWorld.offlineDownloads(config.id, config.normalizedBaseUrl)
+                else downloads.values.filter { it.serverId == config.id }.sortedByDescending { it.addedAt },
             config = config,
             accent = accent,
             wifiOnly = wifiOnly,
