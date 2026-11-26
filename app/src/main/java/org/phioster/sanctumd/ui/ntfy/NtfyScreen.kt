@@ -36,6 +36,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import org.phioster.sanctumd.net.maskTopic
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -84,7 +86,18 @@ internal fun NtfyScreen(
     val accent = Color(config.type.accent)
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
+    // The live-push topic from Settings, shown read-only: a poll on open, never a second
+    // subscription, so its messages can't notify twice.
+    val ns by vm.notifySettings.collectAsState()
+    val liveConfig = remember(ns.ntfyServer, ns.ntfyToken) {
+        if (ns.ntfyServer.isBlank()) null
+        else ServiceConfig(id = "live-push", type = org.phioster.sanctumd.model.ServiceType.NTFY, label = "live", baseUrl = ns.ntfyServer, apiKey = ns.ntfyToken)
+    }
+    val liveTopic = ns.ntfyTopic.trim().takeIf { liveConfig != null && it.isNotBlank() && it !in config.topics }
     var topic by remember { mutableStateOf(config.topics.firstOrNull() ?: "") }
+    var onLive by remember { mutableStateOf(false) }
+    val src = if (onLive && liveConfig != null && liveTopic != null) liveConfig else config
+    val srcTopic = if (src === liveConfig) liveTopic.orEmpty() else topic
     var messages by remember { mutableStateOf<List<org.phioster.sanctumd.model.NtfyMessage>?>(null) }
     var listError by remember { mutableStateOf<String?>(null) }
     var barMenu by remember { mutableStateOf(false) }
@@ -95,14 +108,14 @@ internal fun NtfyScreen(
         listError = null
         if (clear) messages = null
         try {
-            messages = vm.ntfyMessages(config, topic)
+            messages = vm.ntfyMessages(src, srcTopic)
         } catch (c: kotlinx.coroutines.CancellationException) {
             throw c
         } catch (t: Throwable) {
             listError = t.message
         }
     }
-    LaunchedEffect(topic) { if (topic.isNotBlank()) load() }
+    LaunchedEffect(topic, onLive, liveTopic) { if (srcTopic.isNotBlank()) load() }
     var refreshing by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -121,11 +134,11 @@ internal fun NtfyScreen(
                     IconButton(onClick = { scope.launch { load() } }) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MatrixGreen) }
                     IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "Menu", tint = MatrixGreen) }
                     DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
-                        if (topic.isNotBlank()) {
+                        if (srcTopic.isNotBlank()) {
                             DropdownMenuItem(text = { Text("Send test message", fontFamily = Mono) }, onClick = {
                                 barMenu = false
                                 scope.launch {
-                                    val r = org.phioster.sanctumd.net.ntfyPublishTest(config, topic)
+                                    val r = org.phioster.sanctumd.net.ntfyPublishTest(src, srcTopic)
                                     android.widget.Toast.makeText(context, r, android.widget.Toast.LENGTH_SHORT).show()
                                     if (!r.startsWith("error")) { kotlinx.coroutines.delay(1500); load(clear = false) }
                                 }
@@ -140,24 +153,27 @@ internal fun NtfyScreen(
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
-            if (config.topics.size > 1) {
+            if (config.topics.size + (if (liveTopic != null) 1 else 0) > 1) {
                 Row(Modifier.horizontalScroll(rememberScrollState())) {
                     config.topics.forEach { t ->
-                        FilterChip(selected = topic == t, onClick = { topic = t }, label = { Text(t, fontFamily = Mono) })
+                        FilterChip(selected = !onLive && topic == t, onClick = { onLive = false; topic = t }, label = { Text(maskTopic(t), fontFamily = Mono) })
                         Spacer(Modifier.width(8.dp))
+                    }
+                    if (liveTopic != null) {
+                        FilterChip(selected = onLive, onClick = { onLive = true }, label = { Text("live · $liveTopic", fontFamily = Mono) })
                     }
                 }
             }
             val msgs = messages
             when {
-                topic.isBlank() -> Text("no topics configured, edit the service", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
+                srcTopic.isBlank() -> Text("no topics configured, edit the service", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
                 listError != null -> Text("error: $listError", fontFamily = Mono, color = WarnAmber, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
                 msgs == null -> Text("loading…", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
-                msgs.isEmpty() -> Text("no cached messages (server keeps ~12 h)", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
+                msgs.isEmpty() -> Text("no messages in the last 48 h (ntfy.sh keeps only 12 h)", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
                 else -> RefreshBox(refreshing, { scope.launch { refreshing = true; load(clear = false); refreshing = false } }, Modifier.fillMaxSize()) {
                     LazyColumn(Modifier.fillMaxSize()) {
                         items(msgs) { m ->
-                            NtfyMessageRow(m, config, accent)
+                            NtfyMessageRow(m, src, accent)
                             HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
                         }
                         item { Spacer(Modifier.height(24.dp)) }

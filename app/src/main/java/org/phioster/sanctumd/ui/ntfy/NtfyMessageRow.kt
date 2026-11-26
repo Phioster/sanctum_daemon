@@ -1,5 +1,8 @@
 package org.phioster.sanctumd.ui.ntfy
 
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -57,12 +60,22 @@ internal fun markdownAnnotated(s: String): AnnotatedString = buildAnnotatedStrin
     append(s.substring(at))
 }
 
-/** One message in the topic list: emoji title, text, labels and the picture it carries. */
+/** One message in the topic list: emoji title, text, labels and the picture it carries.
+ *  Long-press copies title and text, e.g. a URL a script sent. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun NtfyMessageRow(m: NtfyMessage, config: ServiceConfig, accent: Color) {
     val time = if (m.time > 0) java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(m.time * 1000)) else ""
     val context = LocalContext.current
-    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+    val clipboard = LocalClipboardManager.current
+    Column(
+        Modifier.fillMaxWidth()
+            .combinedClickable(onClick = {}, onLongClick = {
+                clipboard.setText(AnnotatedString(listOf(m.title, m.text).filter { it.isNotBlank() }.joinToString("\n")))
+                android.widget.Toast.makeText(context, "copied", android.widget.Toast.LENGTH_SHORT).show()
+            })
+            .padding(vertical = 8.dp),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             // Emoji in the system font: the mono font has none of them.
             val emoji = ntfyTagEmoji(m.tags)
