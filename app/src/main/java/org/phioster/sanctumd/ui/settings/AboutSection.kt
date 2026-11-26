@@ -78,6 +78,8 @@ internal fun AboutBody(serviceTypes: List<String>) {
 
     AboutHeading("project")
     SettingsCategoryRow("source", "github.com/Phioster/sanctum_daemon") { openInBrowser(context, REPO) }
+    // Stars are how people judge an unknown repo (and some lists require them).
+    SettingsCategoryRow("★ star on GitHub", "helps others find Sanctumd") { openInBrowser(context, REPO) }
     SettingsCategoryRow("changelog", "what changed, by milestone") {
         openInBrowser(context, "$REPO/blob/master/CHANGELOG.md")
     }

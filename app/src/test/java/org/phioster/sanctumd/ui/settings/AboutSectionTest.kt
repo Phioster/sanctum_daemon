@@ -49,7 +49,7 @@ class AboutSectionTest {
     @Test
     fun `the project links are there to be tapped`() {
         show(emptyList())
-        for (row in listOf("source", "changelog", "report a problem", "licence")) {
+        for (row in listOf("source", "★ star on GitHub", "changelog", "report a problem", "licence")) {
             see(row)
         }
     }
