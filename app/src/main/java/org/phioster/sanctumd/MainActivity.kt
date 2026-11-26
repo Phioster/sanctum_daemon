@@ -335,7 +335,8 @@ internal fun SanctumdApp(vm: DashboardViewModel = viewModel()) {
                 if (cfg != null) {
                     val link = shownLink.value
                     val back = closeDetail
-                    val edit = { editing = cfg } // keep detail so back returns to the service
+                    // Fresh copy: shortcuts may have been added on the screen since it opened.
+                    val edit = { editing = vm.services.value.firstOrNull { it.id == cfg.id } ?: cfg } // keep detail so back returns to the service
                     val del = { vm.removeService(cfg.id); detail = null; detailFromSearch = false; searchDeepLink = null }
                     when (cfg.type) {
                         ServiceType.NZBGET -> NzbgetScreen(vm = vm, config = cfg, onBack = back, onEdit = edit, onDelete = del)

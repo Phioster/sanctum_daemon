@@ -117,7 +117,9 @@ internal object DemoWorld {
             }
             // A running show: the announced episode and its following weeks fill the calendar.
             show.next?.let { nx ->
-                val air = parse(nx.airDate)
+                // The catalog's dates are fixed; roll a passed one forward by whole weeks so the
+                // demo calendar never runs dry (it did on 2026-11-26).
+                val air = parse(nx.airDate)?.let { d -> var x = d; while (x.isBefore(today)) x = x.plusWeeks(1); x }
                 if (air != null && nx.season != null && nx.episode != null) {
                     list.removeAll { it.season == nx.season && it.number >= nx.episode }
                     (0 until 6).forEach { k ->

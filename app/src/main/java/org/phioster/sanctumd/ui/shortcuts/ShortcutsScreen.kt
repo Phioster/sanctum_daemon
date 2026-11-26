@@ -10,8 +10,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.material3.FilterChip
+import org.phioster.sanctumd.model.HttpShortcut
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
@@ -68,7 +72,7 @@ import androidx.compose.foundation.layout.size
 import org.phioster.sanctumd.ui.theme.AppIcons
 
 /** HTTP-shortcuts service screen: fire one-tap requests (tap again to confirm). */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 internal fun ShortcutsScreen(
     vm: DashboardViewModel,
@@ -84,6 +88,13 @@ internal fun ShortcutsScreen(
     var confirmDelete by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<String?>(null) } // shortcut name awaiting the confirm tap
     var running by remember { mutableStateOf<String?>(null) }
+    // Local copy: the detail config is a snapshot, so edits made here must show without reopening.
+    var list by remember(config) { mutableStateOf(config.shortcuts) }
+    var editIndex by remember { mutableStateOf<Int?>(null) } // -1 = new shortcut
+    fun save(updated: List<HttpShortcut>) {
+        list = updated
+        vm.upsertService(config.copy(shortcuts = updated))
+    }
 
     Scaffold(
         containerColor = Black,
@@ -100,6 +111,7 @@ internal fun ShortcutsScreen(
                 actions = {
                     IconButton(onClick = { barMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "Menu", tint = MatrixGreen) }
                     DropdownMenu(expanded = barMenu, onDismissRequest = { barMenu = false }) {
+                        DropdownMenuItem(text = { Text("Add shortcut", fontFamily = Mono) }, onClick = { barMenu = false; editIndex = -1 })
                         DropdownMenuItem(text = { Text("Edit service", fontFamily = Mono) }, onClick = { barMenu = false; onEdit() })
                         DropdownMenuItem(text = { Text("Delete service", fontFamily = Mono) }, onClick = { barMenu = false; confirmDelete = true })
                     }
@@ -109,13 +121,13 @@ internal fun ShortcutsScreen(
         },
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
-            if (config.shortcuts.isEmpty()) {
-                item { Text("no shortcuts yet. Edit the service to add some", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp)) }
+            if (list.isEmpty()) {
+                item { Text("no shortcuts yet", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp)) }
             }
-            items(config.shortcuts, key = { it.name + it.url }) { sc ->
+            itemsIndexed(list, key = { i, it -> "$i:" + it.name + it.url }) { i, sc ->
                 Column(
                     Modifier.fillMaxWidth()
-                        .clickable(enabled = running == null) {
+                        .combinedClickable(enabled = running == null, onLongClick = { pending = null; editIndex = i }) {
                             if (pending == sc.name) {
                                 pending = null
                                 running = sc.name
@@ -142,8 +154,30 @@ internal fun ShortcutsScreen(
                 }
                 HorizontalDivider(color = MatrixGreen.copy(alpha = 0.08f))
             }
+            item {
+                Text(
+                    "+ add shortcut",
+                    fontFamily = Mono, color = accent, fontSize = 14.sp,
+                    modifier = Modifier.fillMaxWidth().clickable { editIndex = -1 }.padding(vertical = 14.dp),
+                )
+                if (list.isNotEmpty()) {
+                    Text("long-press a shortcut to edit or remove it", fontFamily = Mono, color = MatrixGreen.copy(alpha = 0.4f), fontSize = 10.sp)
+                }
+            }
             item { Spacer(Modifier.height(24.dp)) }
         }
+    }
+
+    editIndex?.let { idx ->
+        ShortcutEditDialog(
+            initial = list.getOrNull(idx),
+            onDismiss = { editIndex = null },
+            onSave = { sc ->
+                save(if (idx < 0) list + sc else list.toMutableList().also { it[idx] = sc })
+                editIndex = null
+            },
+            onRemove = if (idx >= 0) ({ save(list.toMutableList().also { it.removeAt(idx) }); editIndex = null }) else null,
+        )
     }
 
     if (confirmDelete) {
@@ -155,4 +189,55 @@ internal fun ShortcutsScreen(
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
         )
     }
+}
+
+/** Add or edit one shortcut without touching the others. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ShortcutEditDialog(
+    initial: HttpShortcut?,
+    onDismiss: () -> Unit,
+    onSave: (HttpShortcut) -> Unit,
+    onRemove: (() -> Unit)?,
+) {
+    var name by remember { mutableStateOf(initial?.name.orEmpty()) }
+    var url by remember { mutableStateOf(initial?.url.orEmpty()) }
+    var method by remember { mutableStateOf(initial?.method ?: "GET") }
+    var body by remember { mutableStateOf(initial?.body.orEmpty()) }
+    val valid = name.isNotBlank() && url.isNotBlank()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surface,
+        title = { Text(if (initial == null) "New shortcut" else "Edit shortcut", fontFamily = Mono, color = MatrixGreen) },
+        text = {
+            Column {
+                Row {
+                    listOf("GET", "POST").forEach { m ->
+                        FilterChip(
+                            selected = method.equals(m, true),
+                            onClick = { method = m },
+                            label = { Text(m, fontFamily = Mono, fontSize = 11.sp) },
+                        )
+                        Spacer(Modifier.width(6.dp))
+                    }
+                }
+                Field("Name", name) { name = it }
+                Field("URL (https://…)", url) { url = it }
+                if (method.equals("POST", true)) Field("Body (optional, JSON or text)", body) { body = it }
+                if (onRemove != null) {
+                    Text(
+                        "remove this shortcut",
+                        fontFamily = Mono, color = ErrRed, fontSize = 12.sp,
+                        modifier = Modifier.clickable { onRemove() }.padding(top = 14.dp, bottom = 4.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = valid, onClick = { onSave(HttpShortcut(name.trim(), method, url.trim(), if (method == "POST") body else "")) }) {
+                Text("Save", fontFamily = Mono, color = if (valid) MatrixGreen else MatrixGreen.copy(alpha = 0.3f))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", fontFamily = Mono, color = MatrixGreen) } },
+    )
 }
