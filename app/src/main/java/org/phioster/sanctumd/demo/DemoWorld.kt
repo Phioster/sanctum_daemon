@@ -184,6 +184,40 @@ internal object DemoWorld {
     fun seriesId(tmdb: Int) = "s$tmdb"
     fun seasonId(tmdb: Int, n: Int) = "s$tmdb-$n"
     fun episodeId(tmdb: Int, s: Int, e: Int) = "e$tmdb-$s-$e"
+
+    /**
+     * What the downloads screen shows in demo: films and a few episodes ready offline, one still
+     * loading. Nothing is on disk, so playing one fails like a deleted file would.
+     */
+    fun offlineDownloads(serverId: String, baseUrl: String): List<org.phioster.sanctumd.model.DownloadEntry> {
+        val gb = 1_073_741_824L
+        fun poster(id: String) = "${baseUrl}Items/$id/Images/Primary?maxHeight=400"
+        val now = System.currentTimeMillis()
+        val films = libraryMovies.sortedByDescending { it.date }.take(3).mapIndexed { i, t ->
+            org.phioster.sanctumd.model.DownloadEntry(
+                itemId = movieId(t.tmdbId), serverId = serverId, name = t.title, subtitle = "${t.year}",
+                posterFile = poster(movieId(t.tmdbId)), sizeBytes = (14 + i * 3) * gb / 10, downloadedBytes = (14 + i * 3) * gb / 10,
+                runTimeTicks = t.runtime * 600_000_000L, state = org.phioster.sanctumd.model.DownloadEntry.STATE_DONE, addedAt = now - i * 3_600_000L,
+            )
+        }
+        val show = libraryShows.firstOrNull()
+        val eps = show?.let { s -> episodes[s.tmdbId].orEmpty().filter { it.hasFile }.takeLast(4) }.orEmpty().mapIndexed { i, e ->
+            org.phioster.sanctumd.model.DownloadEntry(
+                itemId = e.id, serverId = serverId, name = e.name, subtitle = "S%02dE%02d · %s".format(e.season, e.number, e.show.title),
+                posterFile = poster(e.id), sizeBytes = 450_000_000L, downloadedBytes = 450_000_000L,
+                state = org.phioster.sanctumd.model.DownloadEntry.STATE_DONE, addedAt = now - (4 + i) * 3_600_000L,
+                seriesId = seriesId(e.show.tmdbId),
+            )
+        }
+        val loading = libraryMovies.sortedByDescending { it.date }.drop(3).firstOrNull()?.let { t ->
+            org.phioster.sanctumd.model.DownloadEntry(
+                itemId = movieId(t.tmdbId), serverId = serverId, name = t.title, subtitle = "${t.year}",
+                posterFile = poster(movieId(t.tmdbId)), sizeBytes = 2 * gb, downloadedBytes = 2 * gb * 62 / 100,
+                state = org.phioster.sanctumd.model.DownloadEntry.STATE_RUNNING, addedAt = now,
+            )
+        }
+        return films + eps + listOfNotNull(loading)
+    }
     fun albumId(id: String) = "a$id"
     fun trackId(album: String, n: Int, disc: Int) = "t$album-$disc-$n"
     fun personId(tmdb: Int) = "p$tmdb"

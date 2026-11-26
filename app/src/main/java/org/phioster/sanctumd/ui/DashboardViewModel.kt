@@ -466,6 +466,14 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         persistTabs(_tabs.value.withCardUpdated(tabId, cardId, title, count, accent, icon, posterSize, background, theme, density))
     }
 
+    /** Cards and tabs with a fixed colour; they ignore a theme change, which can leave odd mixes. */
+    fun customColourCount(): Int = _tabs.value.sumOf { t -> t.cards.count { it.accent != 0L } + (if (t.accent != 0L) 1 else 0) }
+
+    /** Every card and tab back to "follows the theme". */
+    fun resetColoursToTheme() {
+        persistTabs(_tabs.value.map { t -> t.copy(accent = 0, cards = t.cards.map { it.copy(accent = 0) }) })
+    }
+
     fun moveCard(tabId: String, cardId: String, direction: Int) {
         persistTabs(_tabs.value.movedCard(tabId, cardId, direction))
     }

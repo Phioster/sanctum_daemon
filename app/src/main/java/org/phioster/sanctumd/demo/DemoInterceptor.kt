@@ -61,6 +61,14 @@ internal object DemoInterceptor : Interceptor {
                 "nzbget" -> DemoNzbget.handle(dr)
                 "prowlarr" -> DemoProwlarr.handle(dr)
                 "ntfy" -> DemoNtfy.handle(dr)
+                // Shortcut webhooks: a reply like a homelab script would give.
+                "hooks" -> DemoAnswer.Text(when (dr.path) {
+                    "empty-trash" -> "Trash emptied: 4.2 GB freed, 312 GB free"
+                    "restart-jellyfin" -> "Jellyfin restarted"
+                    "backup" -> "Backup started, result comes as a push"
+                    "wake-nas" -> "Magic packet sent"
+                    else -> "ok"
+                })
                 else -> DemoAnswer.NotFound
             }
         }.getOrElse { DemoAnswer.Text("demo: ${it.javaClass.simpleName}: ${it.message}", 500) }

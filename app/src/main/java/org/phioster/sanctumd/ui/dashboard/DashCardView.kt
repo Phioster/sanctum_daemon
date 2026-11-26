@@ -289,7 +289,7 @@ internal fun DashCardView(
                         }
                     }
                     Spacer(Modifier.height(16.dp))
-                    label("ACCENT (1st = service default)")
+                    label("ACCENT (A = follows the theme)")
                     Spacer(Modifier.height(6.dp))
                     AccentPickerRow(cfgAccent, serviceColor) { cfgAccent = it }
                     Spacer(Modifier.height(16.dp))
