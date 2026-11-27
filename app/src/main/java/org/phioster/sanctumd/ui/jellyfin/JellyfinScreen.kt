@@ -135,8 +135,9 @@ internal fun JellyfinScreen(
     var nowPlayingOpen by remember { mutableStateOf(false) }
     // Attach to any running music session so the now-playing bar appears immediately.
     LaunchedEffect(Unit) { MusicController.bind(context) }
-    // Foregrounding the app resumes any Wi-Fi-parked downloads (a background FGS start is blocked).
-    val hasQueued = downloads.values.any { it.state == DownloadEntry.STATE_QUEUED }
+    // Foregrounding the app resumes Wi-Fi-parked downloads and ones cut off when the process died
+    // (they stay RUNNING); a background FGS start is blocked.
+    val hasQueued = downloads.values.any { it.state == DownloadEntry.STATE_QUEUED || it.state == DownloadEntry.STATE_RUNNING }
     LaunchedEffect(hasQueued) { if (hasQueued) DownloadService.resume(context) }
     // Deep link from search: open the item-detail dialog on top of the media tab.
     LaunchedEffect(Unit) {
