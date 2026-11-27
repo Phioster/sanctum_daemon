@@ -4,6 +4,10 @@ All notable changes to **Sanctumd**, grouped by milestone. Newest first.
 Versioning is `major.minor.patch`; the app is in daily use, now at 3.0.
 
 ## Unreleased
+- Offline downloads no longer stop halfway. A dropped connection is retried and continues from
+  the partial file; the phone stays awake for the transfer with the screen off; a download cut
+  off when Android ended the app picks up again on the next start instead of hanging at its
+  last percent; a cut-off stream is no longer marked complete.
 - The watch leaderboard card opens on a tap: everybody's watch time, longest first, and per
   person the titles they watched with plays, time and the last day.
 - Playback statistics no longer trust broken rows of the Playback Reporting plugin: a negative

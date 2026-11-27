@@ -16,6 +16,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -67,7 +68,8 @@ class DownloadService : Service() {
     private var wifiCallback: android.net.ConnectivityManager.NetworkCallback? = null
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(0, TimeUnit.SECONDS) // stream large files without a read timeout
+        // Per read, not per file: a silently dead connection fails and is retried instead of hanging.
+        .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
     override fun onBind(intent: Intent?) = null
@@ -135,6 +137,15 @@ class DownloadService : Service() {
     /** Processes queued entries one by one, then stops the service when the queue is empty. Honours
      *  the Wi-Fi-only setting: when on a metered network it parks the queue and waits for Wi-Fi. */
     private suspend fun pump() = mutex.withLock {
+        // Nothing transfers while we hold the lock, so RUNNING here means a killed earlier run.
+        orphanedRunning(store.read().values).forEach { id ->
+            store.update(id) { it.copy(state = DownloadEntry.STATE_QUEUED) }
+        }
+        acquireLocks()
+        try { pumpLocked() } finally { releaseLocks() }
+    }
+
+    private suspend fun pumpLocked() {
         while (true) {
             val next = store.read().values
                 .filter { it.state == DownloadEntry.STATE_QUEUED }
@@ -145,11 +156,36 @@ class DownloadService : Service() {
                     .forEach { q -> store.update(q.itemId) { it.copy(error = "waiting for Wi-Fi") } }
                 awaitWifi()
                 stopNow()
-                return@withLock
+                return
             }
             runCatching { downloadOne(next) }
         }
         stopNow()
+    }
+
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
+    private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
+
+    /** A foreground service alone does not keep the CPU or Wi-Fi awake with the screen off. */
+    private fun acquireLocks() = runCatching {
+        if (wakeLock == null) {
+            val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            wakeLock = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "sanctumd:download")
+                .apply { setReferenceCounted(false); acquire(6 * 60 * 60 * 1000L) }
+        }
+        if (wifiLock == null) {
+            val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
+            @Suppress("DEPRECATION")
+            wifiLock = wm.createWifiLock(android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF, "sanctumd:download")
+                .apply { setReferenceCounted(false); acquire() }
+        }
+    }.let {}
+
+    private fun releaseLocks() {
+        runCatching { wakeLock?.takeIf { it.isHeld }?.release() }
+        runCatching { wifiLock?.takeIf { it.isHeld }?.release() }
+        wakeLock = null
+        wifiLock = null
     }
 
     private suspend fun wifiOnlyBlocked(): Boolean {
@@ -208,55 +244,7 @@ class DownloadService : Service() {
             if (poster.isNotBlank()) store.update(id) { it.copy(posterFile = poster) }
         }
         try {
-            val plan = if (entry.mediaType == "Audio") jellyfinAudioDownloadPlan(config, id) else jellyfinDownloadPlan(config, id, entry.maxBitrate)
-            val file = File(dir, downloadFileName(id, plan.container))
-            // Belt and braces: the name builder already strips separators, so this can only fire
-            // if someone loosens it again.
-            require(file.canonicalPath.startsWith(dir.canonicalPath + File.separator)) {
-                "download target escaped the downloads directory"
-            }
-            val reqB = Request.Builder().url(plan.url)
-            plan.headers.forEach { (k, v) -> if (v.isNotBlank()) reqB.header(k, v) }
-            // Continue a paused download where it stopped. Only the original file can do that; a
-            // transcode answers 200 to a range request and simply starts over, which is handled.
-            val have = if (file.exists()) file.length() else 0L
-            if (have > 0) reqB.header("Range", "bytes=$have-")
-            client.newCall(reqB.build()).execute().use { resp ->
-                if (!resp.isSuccessful) throw IOException("HTTP ${resp.code}")
-                val body = resp.body ?: throw IOException("empty response")
-                val resumed = have > 0 && resp.code == 206
-                val total = if (plan.sizeBytes > 0) plan.sizeBytes else body.contentLength().let { if (it > 0 && resumed) it + have else it }
-                store.update(id) { it.copy(sizeBytes = if (total > 0) total else it.sizeBytes) }
-                body.byteStream().use { input ->
-                    FileOutputStream(file, resumed).use { output ->
-                        val buf = ByteArray(64 * 1024)
-                        var got = if (resumed) have else 0L
-                        var lastUi = 0L
-                        var lastNotif = 0L
-                        while (true) {
-                            if (id in cancelled) throw DownloadCancelled
-                            if (id in pausing) { store.update(id) { it.copy(downloadedBytes = got) }; throw DownloadPaused }
-                            val n = input.read(buf)
-                            if (n < 0) break
-                            output.write(buf, 0, n)
-                            got += n
-                            val now = System.currentTimeMillis()
-                            // In-app progress: update often for a smooth bar. Notification: throttled
-                            // separately (~1s) so we don't hammer the system notifier.
-                            if (now - lastUi > 250) {
-                                lastUi = now
-                                store.update(id) { it.copy(downloadedBytes = got) }
-                            }
-                            if (now - lastNotif > 1000) {
-                                lastNotif = now
-                                val pct = if (total > 0) (got * 100 / total).toInt() else 0
-                                val label = if (total > 0) "$pct%  ·  $display" else "↓  $display"
-                                notify(buildNotification(label, pct, 100, total <= 0))
-                            }
-                        }
-                    }
-                }
-            }
+            val file = transferWithRetry(config, entry, dir, display) ?: return // parked for Wi-Fi
             val cached = store.read()[id]?.posterFile.orEmpty()
             val poster = if (cached.startsWith("/")) cached else cachePoster(config, entry, dir)
             store.update(id) {
@@ -275,6 +263,100 @@ class DownloadService : Service() {
             store.update(id) { it.copy(state = DownloadEntry.STATE_FAILED, error = errorText(t)) }
             notifyDone(id, display, "Download failed")
         }
+    }
+
+    /** [transfer] again after a dropped connection, continuing from the partial file each time.
+     *  Gives up after [MAX_STALLED_ATTEMPTS] tries in a row that got no new bytes. Null = parked for Wi-Fi. */
+    private suspend fun transferWithRetry(config: org.phioster.sanctumd.model.ServiceConfig, entry: DownloadEntry, dir: File, display: String): File? {
+        val id = entry.itemId
+        var stalled = 0
+        while (true) {
+            val wrote = LongArray(1)
+            try {
+                return transfer(config, entry, dir, display, wrote)
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                if (!isRetryable(t)) throw t
+                stalled = if (wrote[0] > 0) 1 else stalled + 1
+                if (stalled > MAX_STALLED_ATTEMPTS) throw t
+                if (wifiOnlyBlocked()) {
+                    store.update(id) { it.copy(state = DownloadEntry.STATE_QUEUED) }
+                    return null
+                }
+                store.update(id) { it.copy(error = "connection lost, retrying…") }
+                notify(buildNotification("reconnecting…  ·  $display", 0, 0, false))
+                val until = System.currentTimeMillis() + retryDelayMs(stalled)
+                while (System.currentTimeMillis() < until) {
+                    if (id in cancelled) throw DownloadCancelled
+                    if (id in pausing) throw DownloadPaused
+                    delay(500)
+                }
+                store.update(id) { it.copy(error = "") }
+            }
+        }
+    }
+
+    /** One HTTP attempt; resumes via Range when a partial file exists. [wrote] counts new bytes. */
+    private suspend fun transfer(config: org.phioster.sanctumd.model.ServiceConfig, entry: DownloadEntry, dir: File, display: String, wrote: LongArray): File {
+        val id = entry.itemId
+        val plan = if (entry.mediaType == "Audio") jellyfinAudioDownloadPlan(config, id) else jellyfinDownloadPlan(config, id, entry.maxBitrate)
+        val file = File(dir, downloadFileName(id, plan.container))
+        // Belt and braces: the name builder already strips separators, so this can only fire
+        // if someone loosens it again.
+        require(file.canonicalPath.startsWith(dir.canonicalPath + File.separator)) {
+            "download target escaped the downloads directory"
+        }
+        val reqB = Request.Builder().url(plan.url)
+        plan.headers.forEach { (k, v) -> if (v.isNotBlank()) reqB.header(k, v) }
+        // Continue a paused download where it stopped. Only the original file can do that; a
+        // transcode answers 200 to a range request and simply starts over, which is handled.
+        val have = if (file.exists()) file.length() else 0L
+        if (have > 0) reqB.header("Range", "bytes=$have-")
+        client.newCall(reqB.build()).execute().use { resp ->
+            // A partial file that is already whole (killed right before DONE was written).
+            val exact = entry.maxBitrate <= 0 // a transcode's size is only an estimate
+            if (resp.code == 416 && exact && have > 0 && plan.sizeBytes in 1..have) return file
+            if (resp.code == 416) { file.delete(); throw IOException("range not satisfiable, restarting") }
+            if (!resp.isSuccessful) throw HttpStatusException(resp.code)
+            val body = resp.body ?: throw IOException("empty response")
+            val resumed = have > 0 && resp.code == 206
+            val total = if (plan.sizeBytes > 0) plan.sizeBytes else body.contentLength().let { if (it > 0 && resumed) it + have else it }
+            store.update(id) { it.copy(sizeBytes = if (total > 0) total else it.sizeBytes) }
+            body.byteStream().use { input ->
+                FileOutputStream(file, resumed).use { output ->
+                    val buf = ByteArray(64 * 1024)
+                    var got = if (resumed) have else 0L
+                    var lastUi = 0L
+                    var lastNotif = 0L
+                    while (true) {
+                        if (id in cancelled) throw DownloadCancelled
+                        if (id in pausing) { store.update(id) { it.copy(downloadedBytes = got) }; throw DownloadPaused }
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        output.write(buf, 0, n)
+                        got += n
+                        wrote[0] += n
+                        val now = System.currentTimeMillis()
+                        // In-app progress: update often for a smooth bar. Notification: throttled
+                        // separately (~1s) so we don't hammer the system notifier.
+                        if (now - lastUi > 250) {
+                            lastUi = now
+                            store.update(id) { it.copy(downloadedBytes = got) }
+                        }
+                        if (now - lastNotif > 1000) {
+                            lastNotif = now
+                            val pct = if (total > 0) (got * 100 / total).toInt() else 0
+                            val label = if (total > 0) "$pct%  ·  $display" else "↓  $display"
+                            notify(buildNotification(label, pct, 100, total <= 0))
+                        }
+                    }
+                    // Without a length check a cut-off chunked stream would be marked done.
+                    if (exact && total > 0 && got < total) throw IOException("stream ended at $got of $total bytes")
+                }
+            }
+        }
+        return file
     }
 
     /** Downloads the poster next to the media so the offline list can show art. Returns its path or "". */
@@ -364,7 +446,12 @@ class DownloadService : Service() {
             .build()
     }
 
+    // Android 15 caps dataSync services at 6h a day. Stop cleanly; the next start picks the
+    // download up again from its partial file (see orphanedRunning).
+    override fun onTimeout(startId: Int, fgsType: Int) = stopNow()
+
     override fun onDestroy() {
+        releaseLocks()
         unregisterWifiWait()
         scope.cancel()
         super.onDestroy()
